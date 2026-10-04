@@ -51,7 +51,7 @@ async function handleWebsiteByoPublish(request2, context) {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error();
     action = String(input.action);
     const keys = action === "production" ? ["action", "projectId", "operationId", "previewOperationId"] : action === "status" ? ["action", "projectId", "operationId", "environment"] : ["action", "projectId", "operationId"];
-    if (!["preview", "production", "status"].includes(action) || Object.keys(input).some((key) => !keys.includes(key)) || typeof input.projectId !== "string" || !uuid.test(input.projectId) || typeof input.operationId !== "string" || !uuid.test(input.operationId) || action === "production" && (typeof input.previewOperationId !== "string" || !uuid.test(input.previewOperationId) || input.previewOperationId === input.operationId) || action === "status" && !["preview", "production"].includes(String(input.environment))) throw new Error();
+    if (!["preview", "production", "status"].includes(action) || Object.keys(input).some((key2) => !keys.includes(key2)) || typeof input.projectId !== "string" || !uuid.test(input.projectId) || typeof input.operationId !== "string" || !uuid.test(input.operationId) || action === "production" && (typeof input.previewOperationId !== "string" || !uuid.test(input.previewOperationId) || input.previewOperationId === input.operationId) || action === "status" && !["preview", "production"].includes(String(input.environment))) throw new Error();
     projectId = input.projectId;
     operationId = input.operationId;
   } catch {
@@ -97,7 +97,7 @@ function createWebsiteByoPublishEdgeHandler(input) {
     if (request2.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     const response = await handleWebsiteByoPublish(request2, { platform: input.platform, ...input.runners });
     const headers = new Headers(response.headers);
-    cors.forEach((value, key) => headers.set(key, value));
+    cors.forEach((value, key2) => headers.set(key2, value));
     return new Response(response.body, { status: response.status, headers });
   };
 }
@@ -119,7 +119,7 @@ function assertInfrastructureConnection(value) {
 // src/modules/website-builder/core/website-project-release-digest.ts
 function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key2) => `${JSON.stringify(key2)}:${canonical(value[key2])}`).join(",")}}`;
   return JSON.stringify(value);
 }
 async function websiteProjectReleaseDigest(snapshot) {
@@ -136,15 +136,15 @@ var sha = /^[0-9a-f]{40}$/i;
 var digest = /^[0-9a-f]{64}$/i;
 var branchName = /^[a-zA-Z0-9_./-]{1,200}$/;
 var fullName = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
-function verifyGitHubTarget(connection, observed) {
-  if (connection.provider !== "github" || !["connected", "ready"].includes(connection.status) || !connection.verifiedAt || !connection.permissions.includes("contents:write") || connection.accountId !== observed.installationAccountId || connection.accountId !== observed.repositoryOwnerId || connection.targetId !== observed.repositoryId || !observed.selectedByInstallation || !observed.writable || observed.archived || !fullName.test(observed.repositoryFullName) || !branchName.test(observed.branch) || observed.branch.startsWith("-") || observed.branch.startsWith(".") || observed.branch.endsWith("/") || observed.branch.endsWith(".") || observed.branch.includes("..") || observed.branch.includes("//") || observed.branch.split("/").some((part) => part.startsWith(".") || part.endsWith(".lock")) || observed.headSha !== null && !sha.test(observed.headSha)) {
+function verifyGitHubTarget(connection2, observed) {
+  if (connection2.provider !== "github" || !["connected", "ready"].includes(connection2.status) || !connection2.verifiedAt || !connection2.permissions.includes("contents:write") || connection2.accountId !== observed.installationAccountId || connection2.accountId !== observed.repositoryOwnerId || connection2.targetId !== observed.repositoryId || !observed.selectedByInstallation || !observed.writable || observed.archived || !fullName.test(observed.repositoryFullName) || !branchName.test(observed.branch) || observed.branch.startsWith("-") || observed.branch.startsWith(".") || observed.branch.endsWith("/") || observed.branch.endsWith(".") || observed.branch.includes("..") || observed.branch.includes("//") || observed.branch.split("/").some((part) => part.startsWith(".") || part.endsWith(".lock")) || observed.headSha !== null && !sha.test(observed.headSha)) {
     throw new Error("GitHub repository access is not verified.");
   }
 }
 function planGitHubExport(input) {
   verifyGitHubTarget(input.connection, input.observed);
-  const { cursor, connection, observed, sourceDigest } = input;
-  if (cursor.projectId !== connection.projectId || cursor.connectionVersion !== connection.version || cursor.repositoryId !== observed.repositoryId || cursor.branch !== observed.branch || cursor.lastHeadSha !== null && !sha.test(cursor.lastHeadSha) || cursor.lastSourceDigest !== null && !digest.test(cursor.lastSourceDigest) || !digest.test(sourceDigest)) {
+  const { cursor, connection: connection2, observed, sourceDigest } = input;
+  if (cursor.projectId !== connection2.projectId || cursor.connectionVersion !== connection2.version || cursor.repositoryId !== observed.repositoryId || cursor.branch !== observed.branch || cursor.lastHeadSha !== null && !sha.test(cursor.lastHeadSha) || cursor.lastSourceDigest !== null && !digest.test(cursor.lastSourceDigest) || !digest.test(sourceDigest)) {
     throw new Error("GitHub export target changed.");
   }
   if (cursor.lastHeadSha !== observed.headSha) throw new Error("GitHub branch changed since the last verified export.");
@@ -192,8 +192,8 @@ async function request(fetcher, token4, path, method = "GET", body) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("GitHub export request could not be verified.");
   return { status: response.status, value };
 }
-function objectSha(value, field = "sha") {
-  const result = value?.[field];
+function objectSha(value, field2 = "sha") {
+  const result = value?.[field2];
   if (typeof result !== "string" || !sha2.test(result)) throw new Error("GitHub export response could not be verified.");
   return result;
 }
@@ -344,28 +344,28 @@ async function hash(value) {
 async function captureWebsiteGitHubExportSource(input) {
   if (typeof window !== "undefined") throw new Error("GitHub export requires a trusted server.");
   const { projectId, ownerId, connectionId, reader } = input;
-  const [saved, connection] = await Promise.all([
+  const [saved, connection2] = await Promise.all([
     reader.readSavedProject(projectId, ownerId),
     reader.readConnection(connectionId, projectId, ownerId)
   ]);
-  if (!saved || saved.projectId !== projectId || saved.ownerId !== ownerId || !connection || connection.id !== connectionId || connection.ownerId !== ownerId || connection.projectId !== projectId || connection.provider !== "github" || !["connected", "ready"].includes(connection.status)) {
+  if (!saved || saved.projectId !== projectId || saved.ownerId !== ownerId || !connection2 || connection2.id !== connectionId || connection2.ownerId !== ownerId || connection2.projectId !== projectId || connection2.provider !== "github" || !["connected", "ready"].includes(connection2.status)) {
     throw new Error("GitHub export source changed.");
   }
-  assertInfrastructureConnection(connection);
+  assertInfrastructureConnection(connection2);
   const snapshotDigest = await websiteProjectReleaseDigest(saved.snapshot);
   const files = await input.compile(structuredClone(saved.snapshot));
   validateGitHubSourceManifest(files);
   const captured = files.map((file) => ({ path: file.path, content: file.content })).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   const manifestDigest = await hash(JSON.stringify(captured));
   const sourceDigest = await hash(`${snapshotDigest}:${manifestDigest}`);
-  const capturedConnection = structuredClone(connection);
+  const capturedConnection = structuredClone(connection2);
   const identity4 = {
-    version: connection.version,
-    accountId: connection.accountId,
-    targetId: connection.targetId,
-    environment: connection.environment,
-    permissions: JSON.stringify([...connection.permissions].sort()),
-    verifiedAt: connection.verifiedAt
+    version: connection2.version,
+    accountId: connection2.accountId,
+    targetId: connection2.targetId,
+    environment: connection2.environment,
+    permissions: JSON.stringify([...connection2.permissions].sort()),
+    verifiedAt: connection2.verifiedAt
   };
   async function isCurrent() {
     try {
@@ -405,7 +405,7 @@ function validateApplicationDefinition(value, pageIds) {
       issue(path, "invalid-object", "Expected an application configuration object.");
       return false;
     }
-    if (Object.keys(item).some((key) => !keys.includes(key))) issue(path, "unknown-property", "Unsupported configuration property; credentials and runtime data cannot be stored here.");
+    if (Object.keys(item).some((key2) => !keys.includes(key2))) issue(path, "unknown-property", "Unsupported configuration property; credentials and runtime data cannot be stored here.");
     return true;
   }
   function list(input, limit, path) {
@@ -439,7 +439,7 @@ function validateApplicationDefinition(value, pageIds) {
   });
   const auth = value.auth;
   if (shape(auth, ["enabled", "signUpEnabled", "emailVerificationRequired"], "application.auth")) {
-    for (const key of ["enabled", "signUpEnabled", "emailVerificationRequired"]) if (typeof auth[key] !== "boolean") issue(`application.auth.${key}`, "invalid-boolean", "Expected a boolean setting.");
+    for (const key2 of ["enabled", "signUpEnabled", "emailVerificationRequired"]) if (typeof auth[key2] !== "boolean") issue(`application.auth.${key2}`, "invalid-boolean", "Expected a boolean setting.");
     if (auth.signUpEnabled && !auth.enabled) issue("application.auth", "auth-disabled", "Enable authentication before allowing registration.");
   }
   const authEnabled = object(auth) && auth.enabled === true;
@@ -462,23 +462,23 @@ function validateApplicationDefinition(value, pageIds) {
     if (!object(table)) return;
     const path = `application.tables[${tableIndex}]`;
     const keys = new Set(APPLICATION_SYSTEM_FIELDS);
-    list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field, fieldIndex2) => {
+    list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field2, fieldIndex2) => {
       const fieldPath = `${path}.fields[${fieldIndex2}]`;
-      if (!shape(field, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId"], fieldPath)) return;
-      identity4(field.id, `${fieldPath}.id`);
-      if (!identifier(field.key) || keys.has(field.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
-      else keys.add(field.key);
-      if (!name(field.name)) issue(`${fieldPath}.name`, "invalid-name", "A field requires a display name.");
-      if (!["text", "number", "boolean", "date", "datetime", "uuid", "json", "enum", "reference"].includes(String(field.type))) issue(`${fieldPath}.type`, "invalid-type", "Unsupported field type.");
-      if (typeof field.required !== "boolean" || ["unique", "indexed"].some((key) => field[key] !== void 0 && typeof field[key] !== "boolean")) issue(fieldPath, "invalid-boolean", "Field constraint flags must be booleans.");
-      if (field.type === "reference" && !tableIds.has(String(field.referenceTableId))) issue(fieldPath, "missing-table", "A relationship requires an existing target table.");
-      if (field.type !== "reference" && field.referenceTableId !== void 0) issue(fieldPath, "unexpected-reference", "Only reference fields can target a table.");
-      if (field.type === "enum") {
-        if (!Array.isArray(field.options) || field.options.length < 1 || field.options.length > 100 || field.options.some((item) => typeof item !== "string" || !item || item.length > 200) || new Set(field.options).size !== field.options.length) issue(fieldPath, "invalid-options", "An enum requires 1\u2013100 unique nonempty options.");
-      } else if (field.options !== void 0) issue(fieldPath, "unexpected-options", "Only enum fields can define options.");
-      const def = field.defaultValue;
+      if (!shape(field2, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId"], fieldPath)) return;
+      identity4(field2.id, `${fieldPath}.id`);
+      if (!identifier(field2.key) || keys.has(field2.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
+      else keys.add(field2.key);
+      if (!name(field2.name)) issue(`${fieldPath}.name`, "invalid-name", "A field requires a display name.");
+      if (!["text", "number", "boolean", "date", "datetime", "uuid", "json", "enum", "reference"].includes(String(field2.type))) issue(`${fieldPath}.type`, "invalid-type", "Unsupported field type.");
+      if (typeof field2.required !== "boolean" || ["unique", "indexed"].some((key2) => field2[key2] !== void 0 && typeof field2[key2] !== "boolean")) issue(fieldPath, "invalid-boolean", "Field constraint flags must be booleans.");
+      if (field2.type === "reference" && !tableIds.has(String(field2.referenceTableId))) issue(fieldPath, "missing-table", "A relationship requires an existing target table.");
+      if (field2.type !== "reference" && field2.referenceTableId !== void 0) issue(fieldPath, "unexpected-reference", "Only reference fields can target a table.");
+      if (field2.type === "enum") {
+        if (!Array.isArray(field2.options) || field2.options.length < 1 || field2.options.length > 100 || field2.options.some((item) => typeof item !== "string" || !item || item.length > 200) || new Set(field2.options).size !== field2.options.length) issue(fieldPath, "invalid-options", "An enum requires 1\u2013100 unique nonempty options.");
+      } else if (field2.options !== void 0) issue(fieldPath, "unexpected-options", "Only enum fields can define options.");
+      const def = field2.defaultValue;
       if (def !== void 0) {
-        const validDefault = def === null ? !field.required : field.type === "number" ? typeof def === "number" && Number.isFinite(def) : field.type === "boolean" ? typeof def === "boolean" : field.type === "text" ? typeof def === "string" && def.length <= 4e3 : field.type === "enum" ? Array.isArray(field.options) && field.options.includes(def) : false;
+        const validDefault = def === null ? !field2.required : field2.type === "number" ? typeof def === "number" && Number.isFinite(def) : field2.type === "boolean" ? typeof def === "boolean" : field2.type === "text" ? typeof def === "string" && def.length <= 4e3 : field2.type === "enum" ? Array.isArray(field2.options) && field2.options.includes(def) : false;
         if (!validDefault) issue(`${fieldPath}.defaultValue`, "invalid-default", "The default must match the field type. Computed, relationship and structured defaults are not accepted.");
       }
     });
@@ -489,9 +489,9 @@ function validateApplicationDefinition(value, pageIds) {
       if (!["read", "create", "update", "delete"].includes(String(permission2.operation))) issue(permissionPath, "invalid-operation", "Unsupported database operation.");
       access(permission2, permissionPath, true);
       if (permission2.access === "public" && permission2.operation !== "read") issue(permissionPath, "public-write", "Anonymous database writes require a validated server action.");
-      const key = `${permission2.operation}:${permission2.access}:${permission2.roleId ?? ""}`;
-      if (permissionKeys.has(key)) issue(permissionPath, "duplicate-permission", "Duplicate permission rule.");
-      permissionKeys.add(key);
+      const key2 = `${permission2.operation}:${permission2.access}:${permission2.roleId ?? ""}`;
+      if (permissionKeys.has(key2)) issue(permissionPath, "duplicate-permission", "Duplicate permission rule.");
+      permissionKeys.add(key2);
     });
     if (Array.isArray(table.permissions) && table.permissions.some((p) => object(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
   });
@@ -521,9 +521,9 @@ function projectRef(url) {
   }
   return match[1];
 }
-function publicKey(key, ref6) {
-  if (/^sb_publishable_[A-Za-z0-9_-]+$/.test(key)) return true;
-  const parts = key.split(".");
+function publicKey(key2, ref6) {
+  if (/^sb_publishable_[A-Za-z0-9_-]+$/.test(key2)) return true;
+  const parts = key2.split(".");
   if (parts.length !== 3) return false;
   try {
     const body = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
@@ -542,15 +542,15 @@ function validateOwnedApplicationPublicBackend(config, expectedProjectRef) {
 function isEditorSecretReference(value) {
   return typeof value === "string" && /^secret:\/\/[a-zA-Z0-9][a-zA-Z0-9/_:.-]{0,450}$/.test(value) && value !== "secret://redacted";
 }
-function isEditorProjectSecretReferenceFor(value, connectionId, field, environment) {
+function isEditorProjectSecretReferenceFor(value, connectionId, field2, environment) {
   if (!isEditorSecretReference(value)) return false;
   const match = /^secret:\/\/website\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/([a-zA-Z0-9][a-zA-Z0-9_-]{0,119})\/([a-zA-Z][a-zA-Z0-9_-]{0,63})\/(preview|staging|production)$/i.exec(value);
-  return Boolean(match && match[2] === connectionId && match[3] === field && match[4] === environment);
+  return Boolean(match && match[2] === connectionId && match[3] === field2 && match[4] === environment);
 }
 function hasEmbeddedIntegrationCredentials(value) {
   try {
     const url = new URL(value);
-    return Boolean(url.username || url.password) || [...url.searchParams.keys()].some((key) => /^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key));
+    return Boolean(url.username || url.password) || [...url.searchParams.keys()].some((key2) => /^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key2));
   } catch {
     return false;
   }
@@ -564,8 +564,8 @@ function isPublicIntegrationEndpoint(value) {
     if (!host.includes(".") || host.includes(":") || /^[\d.]+$/.test(host)) return false;
     if (/(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(host)) return false;
     if (!/^[a-z0-9.-]+$/.test(host) || host.split(".").some((part) => !part || part.startsWith("-") || part.endsWith("-"))) return false;
-    for (const key of url.searchParams.keys()) {
-      if (/^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key)) return false;
+    for (const key2 of url.searchParams.keys()) {
+      if (/^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key2)) return false;
     }
     return true;
   } catch {
@@ -586,8 +586,8 @@ var EDITOR_INTEGRATION_PROVIDERS = [
 function createEditorIntegrationsConfig() {
   return { version: 1, connections: [] };
 }
-function getEditorIntegrationProvider(providerId) {
-  return EDITOR_INTEGRATION_PROVIDERS.find((provider10) => provider10.id === providerId);
+function getEditorIntegrationProvider(providerId2) {
+  return EDITOR_INTEGRATION_PROVIDERS.find((provider11) => provider11.id === providerId2);
 }
 function cleanString(value, max = 2e3) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -602,20 +602,20 @@ function normalizeEditorIntegrationsConfig(value) {
     if (!candidate || typeof candidate !== "object") continue;
     const source = candidate;
     const id4 = cleanString(source.id, 120);
-    const providerId = cleanString(source.providerId, 120);
-    if (!id4 || seen.has(id4) || !getEditorIntegrationProvider(providerId)) continue;
+    const providerId2 = cleanString(source.providerId, 120);
+    if (!id4 || seen.has(id4) || !getEditorIntegrationProvider(providerId2)) continue;
     seen.add(id4);
-    const provider10 = getEditorIntegrationProvider(providerId);
-    const publicFields = new Set(provider10.fields.filter((field) => !field.secret).map((field) => field.key));
-    const secretFields = new Set(provider10.fields.filter((field) => field.secret).map((field) => field.key));
-    const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([key, item]) => publicFields.has(key) && (typeof item === "string" || typeof item === "boolean")).map(([key, item]) => [key, typeof item === "string" ? item.slice(0, 5e3) : item]));
-    for (const field of provider10.fields) {
-      if (field.type === "url" && typeof config[field.key] === "string" && hasEmbeddedIntegrationCredentials(String(config[field.key]))) delete config[field.key];
+    const provider11 = getEditorIntegrationProvider(providerId2);
+    const publicFields = new Set(provider11.fields.filter((field2) => !field2.secret).map((field2) => field2.key));
+    const secretFields = new Set(provider11.fields.filter((field2) => field2.secret).map((field2) => field2.key));
+    const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([key2, item]) => publicFields.has(key2) && (typeof item === "string" || typeof item === "boolean")).map(([key2, item]) => [key2, typeof item === "string" ? item.slice(0, 5e3) : item]));
+    for (const field2 of provider11.fields) {
+      if (field2.type === "url" && typeof config[field2.key] === "string" && hasEmbeddedIntegrationCredentials(String(config[field2.key]))) delete config[field2.key];
     }
-    if (providerId === "stripe" && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
-    const secrets2 = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key, item]) => secretFields.has(key) && !!item && typeof item === "object" && isEditorSecretReference(item.ref)).map(([key, item]) => [key, { ref: item.ref, updatedAt: cleanString(item.updatedAt, 80) || void 0 }]));
+    if (providerId2 === "stripe" && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
+    const secrets2 = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key2, item]) => secretFields.has(key2) && !!item && typeof item === "object" && isEditorSecretReference(item.ref)).map(([key2, item]) => [key2, { ref: item.ref, updatedAt: cleanString(item.updatedAt, 80) || void 0 }]));
     const environments = Array.from(new Set((Array.isArray(source.environments) ? source.environments : ["production"]).filter((item) => item === "preview" || item === "staging" || item === "production")));
-    normalized.push({ id: id4, providerId, name: cleanString(source.name, 160) || provider10.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
+    normalized.push({ id: id4, providerId: providerId2, name: cleanString(source.name, 160) || provider11.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
   }
   return { version: 1, connections: normalized };
 }
@@ -623,50 +623,50 @@ function validateEditorIntegrations(config) {
   const issues = [];
   const ids2 = /* @__PURE__ */ new Set();
   const stripeEnvironments = /* @__PURE__ */ new Set();
-  for (const connection of config.connections) {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection.id)) issues.push({ connectionId: connection.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
-    if (ids2.has(connection.id)) issues.push({ connectionId: connection.id, code: "duplicate-id", message: `Duplicate integration id: ${connection.id}` });
-    ids2.add(connection.id);
-    const provider10 = getEditorIntegrationProvider(connection.providerId);
-    if (!provider10) {
-      issues.push({ connectionId: connection.id, code: "unknown-provider", message: `Unknown integration provider: ${connection.providerId}` });
+  for (const connection2 of config.connections) {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection2.id)) issues.push({ connectionId: connection2.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
+    if (ids2.has(connection2.id)) issues.push({ connectionId: connection2.id, code: "duplicate-id", message: `Duplicate integration id: ${connection2.id}` });
+    ids2.add(connection2.id);
+    const provider11 = getEditorIntegrationProvider(connection2.providerId);
+    if (!provider11) {
+      issues.push({ connectionId: connection2.id, code: "unknown-provider", message: `Unknown integration provider: ${connection2.providerId}` });
       continue;
     }
-    for (const key of Object.keys(connection.config)) {
-      if (!provider10.fields.some((field) => field.key === key && !field.secret)) issues.push({ connectionId: connection.id, field: key, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
+    for (const key2 of Object.keys(connection2.config)) {
+      if (!provider11.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection2.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
     }
-    for (const [key, secret] of Object.entries(connection.secrets)) {
-      if (!provider10.fields.some((field) => field.key === key && field.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection.id, field: key, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
-      else if (secret.ref.startsWith("secret://website/") && (connection.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection.id, key, connection.environments[0]))) {
-        issues.push({ connectionId: connection.id, field: key, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
+    for (const [key2, secret] of Object.entries(connection2.secrets)) {
+      if (!provider11.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection2.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
+      else if (secret.ref.startsWith("secret://website/") && (connection2.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection2.id, key2, connection2.environments[0]))) {
+        issues.push({ connectionId: connection2.id, field: key2, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
       }
     }
-    if (connection.providerId === "stripe") {
-      const publishable = typeof connection.config.publishableKey === "string" ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection.config.publishableKey) : null;
-      if (connection.config.publishableKey && !publishable) issues.push({ connectionId: connection.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
-      if (connection.environments.length !== 1) issues.push({ connectionId: connection.id, code: "invalid-config", message: "Stripe credentials must target exactly one environment." });
-      if (publishable && connection.environments.length === 1) {
-        const expectedMode = connection.environments[0] === "production" ? "live" : "test";
-        if (publishable[1] !== expectedMode) issues.push({ connectionId: connection.id, field: "publishableKey", code: "invalid-config", message: `Stripe ${connection.environments[0]} requires a ${expectedMode}-mode publishable key.` });
-        if (connection.enabled) {
-          const environment = connection.environments[0];
-          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection.id, code: "invalid-config", message: `Only one enabled Stripe account can target ${environment}.` });
+    if (connection2.providerId === "stripe") {
+      const publishable2 = typeof connection2.config.publishableKey === "string" ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection2.config.publishableKey) : null;
+      if (connection2.config.publishableKey && !publishable2) issues.push({ connectionId: connection2.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
+      if (connection2.environments.length !== 1) issues.push({ connectionId: connection2.id, code: "invalid-config", message: "Stripe credentials must target exactly one environment." });
+      if (publishable2 && connection2.environments.length === 1) {
+        const expectedMode = connection2.environments[0] === "production" ? "live" : "test";
+        if (publishable2[1] !== expectedMode) issues.push({ connectionId: connection2.id, field: "publishableKey", code: "invalid-config", message: `Stripe ${connection2.environments[0]} requires a ${expectedMode}-mode publishable key.` });
+        if (connection2.enabled) {
+          const environment = connection2.environments[0];
+          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection2.id, code: "invalid-config", message: `Only one enabled Stripe account can target ${environment}.` });
           stripeEnvironments.add(environment);
         }
       }
     }
-    for (const field of provider10.fields) {
-      if (!field.required) continue;
-      if (field.secret) {
-        if (!connection.secrets[field.key]?.ref) issues.push({ connectionId: connection.id, field: field.key, code: "missing-secret", message: `${field.label} is required.` });
-      } else if (connection.config[field.key] === void 0 || connection.config[field.key] === "") issues.push({ connectionId: connection.id, field: field.key, code: "missing-field", message: `${field.label} is required.` });
+    for (const field2 of provider11.fields) {
+      if (!field2.required) continue;
+      if (field2.secret) {
+        if (!connection2.secrets[field2.key]?.ref) issues.push({ connectionId: connection2.id, field: field2.key, code: "missing-secret", message: `${field2.label} is required.` });
+      } else if (connection2.config[field2.key] === void 0 || connection2.config[field2.key] === "") issues.push({ connectionId: connection2.id, field: field2.key, code: "missing-field", message: `${field2.label} is required.` });
     }
-    for (const field of provider10.fields.filter((item) => item.type === "url")) {
-      const value = connection.config[field.key];
-      if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection.id, field: field.key, code: "invalid-url", message: `${field.label} must use a public HTTPS URL without embedded credentials.` });
+    for (const field2 of provider11.fields.filter((item) => item.type === "url")) {
+      const value = connection2.config[field2.key];
+      if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection2.id, field: field2.key, code: "invalid-url", message: `${field2.label} must use a public HTTPS URL without embedded credentials.` });
     }
-    if (provider10.supportedEvents) {
-      for (const event of connection.events ?? []) if (!provider10.supportedEvents.includes(event)) issues.push({ connectionId: connection.id, code: "unsupported-event", message: `${provider10.name} does not support ${event}.` });
+    if (provider11.supportedEvents) {
+      for (const event of connection2.events ?? []) if (!provider11.supportedEvents.includes(event)) issues.push({ connectionId: connection2.id, code: "unsupported-event", message: `${provider11.name} does not support ${event}.` });
     }
   }
   return issues;
@@ -683,16 +683,16 @@ function deserializeEditorIntegrations(value) {
 var EDITOR_INTEGRATIONS_PROJECT_KEY = "integrationsMax";
 function readEditorIntegrationsFromProject(projectData) {
   if (!projectData || typeof projectData !== "object" || Array.isArray(projectData)) return deserializeEditorIntegrations(void 0);
-  const project8 = projectData;
-  const maxState = project8.maxState && typeof project8.maxState === "object" && !Array.isArray(project8.maxState) ? project8.maxState : {};
-  return deserializeEditorIntegrations(maxState.integrations ?? project8[EDITOR_INTEGRATIONS_PROJECT_KEY] ?? project8.integrations ?? project8.integrationsConfig);
+  const project9 = projectData;
+  const maxState = project9.maxState && typeof project9.maxState === "object" && !Array.isArray(project9.maxState) ? project9.maxState : {};
+  return deserializeEditorIntegrations(maxState.integrations ?? project9[EDITOR_INTEGRATIONS_PROJECT_KEY] ?? project9.integrations ?? project9.integrationsConfig);
 }
 function editorIntegrationPublishBlockers(config) {
-  const production = config.connections.filter((connection) => connection.enabled && connection.environments.includes("production"));
-  const productionIds = new Set(production.map((connection) => connection.id));
+  const production = config.connections.filter((connection2) => connection2.enabled && connection2.environments.includes("production"));
+  const productionIds = new Set(production.map((connection2) => connection2.id));
   return [
     ...validateEditorIntegrations(config).filter((issue) => typeof issue.connectionId === "string" && productionIds.has(issue.connectionId)).map((issue) => issue.message),
-    ...production.filter((connection) => connection.providerId !== "stripe" || (connection.events?.length ?? 0) > 0).map((connection) => `${connection.name}: integration execution is not deployed for published sites.`)
+    ...production.filter((connection2) => connection2.providerId !== "stripe" || (connection2.events?.length ?? 0) > 0).map((connection2) => `${connection2.name}: integration execution is not deployed for published sites.`)
   ];
 }
 
@@ -743,14 +743,14 @@ function analyzeByoSourceCapabilities(snapshot, environment) {
   const cms = !!(snapshot.cms && typeof snapshot.cms === "object" && Array.isArray(snapshot.cms.collections) && snapshot.cms.collections.length);
   if (cms) blockers.push("CMS collections need an asset and data export adapter.");
   const integrationConfig = readEditorIntegrationsFromProject(snapshot);
-  const active = integrationConfig.connections.filter((connection) => connection.enabled && connection.status !== "disabled" && connection.environments.includes(environment));
-  const integrationProviders = [...new Set(active.map((connection) => connection.providerId))].sort();
+  const active = integrationConfig.connections.filter((connection2) => connection2.enabled && connection2.status !== "disabled" && connection2.environments.includes(environment));
+  const integrationProviders = [...new Set(active.map((connection2) => connection2.providerId))].sort();
   const issues = validateEditorIntegrations({ version: 1, connections: active });
   if (issues.length) blockers.push("Active integrations contain invalid configuration or credential references.");
-  if (active.some((connection) => connection.providerId !== "stripe"))
+  if (active.some((connection2) => connection2.providerId !== "stripe"))
     blockers.push("External integrations other than Stripe checkout still need a customer-owned runtime adapter.");
-  const stripe = active.filter((connection) => connection.providerId === "stripe");
-  if (stripe.some((connection) => (connection.events?.length ?? 0) > 0))
+  const stripe = active.filter((connection2) => connection2.providerId === "stripe");
+  if (stripe.some((connection2) => (connection2.events?.length ?? 0) > 0))
     blockers.push("Stripe event automation is not deployed yet; checkout buttons are supported without integration events.");
   if (stripeCheckouts.length && stripe.length !== 1)
     blockers.push("Stripe checkout requires exactly one enabled Stripe connection for this environment.");
@@ -8596,40 +8596,40 @@ function normalizeFormFieldName(value, fallback = "field") {
   const normalized = value.toLowerCase().trim().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "");
   return normalized || fallback;
 }
-function formFieldToHtml(field) {
-  const name2 = escapeHtml(normalizeFormFieldName(field.name, "field"));
-  const label = escapeHtml(field.label || field.name || "Field");
-  const placeholder = escapeHtml(field.placeholder || "");
-  const required2 = field.required ? " required" : "";
-  const validation = field.validation || {};
-  const conditions = escapeHtml(JSON.stringify(field.conditions || []));
-  const wrapper = ` data-tayar-form-field data-field-name="${name2}" data-conditions="${conditions}" class="form-field${field.width === "half" ? " form-field-half" : ""}"`;
-  const help = field.helpText ? `<small class="form-help">${escapeHtml(field.helpText)}</small>` : "";
+function formFieldToHtml(field2) {
+  const name2 = escapeHtml(normalizeFormFieldName(field2.name, "field"));
+  const label = escapeHtml(field2.label || field2.name || "Field");
+  const placeholder = escapeHtml(field2.placeholder || "");
+  const required2 = field2.required ? " required" : "";
+  const validation = field2.validation || {};
+  const conditions = escapeHtml(JSON.stringify(field2.conditions || []));
+  const wrapper = ` data-tayar-form-field data-field-name="${name2}" data-conditions="${conditions}" class="form-field${field2.width === "half" ? " form-field-half" : ""}"`;
+  const help = field2.helpText ? `<small class="form-help">${escapeHtml(field2.helpText)}</small>` : "";
   const minLength = Number.isFinite(validation.minLength) ? ` minlength="${Number(validation.minLength)}"` : "";
-  const maxLength = Number.isFinite(validation.maxLength) ? ` maxlength="${Number(validation.maxLength)}"` : ` maxlength="${field.type === "textarea" ? 4e3 : 300}"`;
+  const maxLength = Number.isFinite(validation.maxLength) ? ` maxlength="${Number(validation.maxLength)}"` : ` maxlength="${field2.type === "textarea" ? 4e3 : 300}"`;
   const min = Number.isFinite(validation.min) ? ` min="${Number(validation.min)}"` : "";
   const max = Number.isFinite(validation.max) ? ` max="${Number(validation.max)}"` : "";
   const pattern = validation.pattern ? ` pattern="${escapeHtml(validation.pattern)}"` : "";
-  if (field.type === "checkbox") {
-    return `<label data-tayar-form-field data-field-name="${name2}" data-conditions="${conditions}" class="form-checkbox${field.width === "half" ? " form-field-half" : ""}"><input name="${name2}" type="checkbox"${required2}><span>${label}</span>${help}</label>`;
+  if (field2.type === "checkbox") {
+    return `<label data-tayar-form-field data-field-name="${name2}" data-conditions="${conditions}" class="form-checkbox${field2.width === "half" ? " form-field-half" : ""}"><input name="${name2}" type="checkbox"${required2}><span>${label}</span>${help}</label>`;
   }
-  if (field.type === "textarea") {
-    return `<label${wrapper}><span>${label}${field.required ? " *" : ""}</span><textarea name="${name2}" placeholder="${placeholder}"${minLength}${maxLength}${pattern}${required2}></textarea>${help}</label>`;
+  if (field2.type === "textarea") {
+    return `<label${wrapper}><span>${label}${field2.required ? " *" : ""}</span><textarea name="${name2}" placeholder="${placeholder}"${minLength}${maxLength}${pattern}${required2}></textarea>${help}</label>`;
   }
-  if (field.type === "select" || field.type === "radio") {
-    const options = (field.options || []).filter(Boolean).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
-    if (field.type === "radio") {
-      return `<fieldset${wrapper}><legend>${label}${field.required ? " *" : ""}</legend>${(field.options || []).filter(Boolean).map((option, index) => `<label class="form-radio"><input name="${name2}" type="radio" value="${escapeHtml(option)}"${required2 && index === 0 ? " required" : ""}><span>${escapeHtml(option)}</span></label>`).join("")}${help}</fieldset>`;
+  if (field2.type === "select" || field2.type === "radio") {
+    const options = (field2.options || []).filter(Boolean).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`).join("");
+    if (field2.type === "radio") {
+      return `<fieldset${wrapper}><legend>${label}${field2.required ? " *" : ""}</legend>${(field2.options || []).filter(Boolean).map((option, index) => `<label class="form-radio"><input name="${name2}" type="radio" value="${escapeHtml(option)}"${required2 && index === 0 ? " required" : ""}><span>${escapeHtml(option)}</span></label>`).join("")}${help}</fieldset>`;
     }
-    return `<label${wrapper}><span>${label}${field.required ? " *" : ""}</span><select name="${name2}"${required2}><option value="">${placeholder || "Choose an option"}</option>${options}</select>${help}</label>`;
+    return `<label${wrapper}><span>${label}${field2.required ? " *" : ""}</span><select name="${name2}"${required2}><option value="">${placeholder || "Choose an option"}</option>${options}</select>${help}</label>`;
   }
-  if (field.type === "file") {
+  if (field2.type === "file") {
     const accept = (validation.accept || []).filter(Boolean).join(",");
-    return `<label${wrapper}><span>${label}${field.required ? " *" : ""}</span><input name="${name2}" type="file"${accept ? ` accept="${escapeHtml(accept)}"` : ""} data-max-file-mb="${Number(validation.maxFileSizeMb) || 5}"${required2}>${help}</label>`;
+    return `<label${wrapper}><span>${label}${field2.required ? " *" : ""}</span><input name="${name2}" type="file"${accept ? ` accept="${escapeHtml(accept)}"` : ""} data-max-file-mb="${Number(validation.maxFileSizeMb) || 5}"${required2}>${help}</label>`;
   }
-  const inputType = ["email", "tel", "url", "number", "date"].includes(field.type) ? field.type : "text";
-  const autocomplete = field.type === "email" ? ' autocomplete="email"' : field.type === "tel" ? ' autocomplete="tel"' : "";
-  return `<label${wrapper}><span>${label}${field.required ? " *" : ""}</span><input name="${name2}" type="${inputType}" placeholder="${placeholder}"${minLength}${maxLength}${min}${max}${pattern}${autocomplete}${required2}>${help}</label>`;
+  const inputType = ["email", "tel", "url", "number", "date"].includes(field2.type) ? field2.type : "text";
+  const autocomplete = field2.type === "email" ? ' autocomplete="email"' : field2.type === "tel" ? ' autocomplete="tel"' : "";
+  return `<label${wrapper}><span>${label}${field2.required ? " *" : ""}</span><input name="${name2}" type="${inputType}" placeholder="${placeholder}"${minLength}${maxLength}${min}${max}${pattern}${autocomplete}${required2}>${help}</label>`;
 }
 function normalizeSiteUrl(value) {
   const trimmed = value.trim();
@@ -9589,8 +9589,8 @@ function normalizeLocalizedValues(source, fieldsByKey) {
   for (const language of WEBSITE_CMS_LANGUAGES) {
     const rawValues = record(localizedSource[language]);
     const values = {};
-    fieldsByKey.forEach((field, key) => {
-      if (key in rawValues) values[key] = normalizeValue(rawValues[key], field.type);
+    fieldsByKey.forEach((field2, key2) => {
+      if (key2 in rawValues) values[key2] = normalizeValue(rawValues[key2], field2.type);
     });
     if (Object.keys(values).length) localizedValues[language] = values;
   }
@@ -9609,14 +9609,14 @@ function normalizeWebsiteCms(input) {
     const keys = /* @__PURE__ */ new Set();
     const fields = rawFields.slice(0, WEBSITE_CMS_LIMITS.fields).map((candidateField, fieldIndex2) => {
       const sourceField = record(candidateField);
-      let key = fieldKey(sourceField.key, `field_${fieldIndex2 + 1}`);
-      while (keys.has(key)) key = `${key}_${fieldIndex2 + 1}`;
-      keys.add(key);
+      let key2 = fieldKey(sourceField.key, `field_${fieldIndex2 + 1}`);
+      while (keys.has(key2)) key2 = `${key2}_${fieldIndex2 + 1}`;
+      keys.add(key2);
       const type = FIELD_TYPES.has(sourceField.type) ? sourceField.type : "text";
       return {
         id: safeId(sourceField.id, `${id4}-field-${fieldIndex2 + 1}`),
         name: cleanText(sourceField.name, `Field ${fieldIndex2 + 1}`, 80),
-        key,
+        key: key2,
         type,
         required: sourceField.required === true,
         referenceCollectionId: type === "reference" ? safeId(sourceField.referenceCollectionId, "") || void 0 : void 0
@@ -9626,15 +9626,15 @@ function normalizeWebsiteCms(input) {
       { id: `${id4}-title`, name: "Title", key: "title", type: "text", required: true },
       { id: `${id4}-slug`, name: "Slug", key: "slug", type: "text", required: true }
     ];
-    const fieldsByKey = new Map(effectiveFields.map((field) => [field.key, field]));
+    const fieldsByKey = new Map(effectiveFields.map((field2) => [field2.key, field2]));
     const rawEntries = Array.isArray(item.entries) ? item.entries : [];
     const entryIds = /* @__PURE__ */ new Set();
     const entries = rawEntries.slice(0, WEBSITE_CMS_LIMITS.entries).map((candidateEntry, entryIndex) => {
       const sourceEntry = record(candidateEntry);
       const sourceValues = record(sourceEntry.values);
       const values = {};
-      fieldsByKey.forEach((field, key) => {
-        if (key in sourceValues) values[key] = normalizeValue(sourceValues[key], field.type);
+      fieldsByKey.forEach((field2, key2) => {
+        if (key2 in sourceValues) values[key2] = normalizeValue(sourceValues[key2], field2.type);
       });
       let entryId = safeId(sourceEntry.id, `${id4}-entry-${entryIndex + 1}`);
       while (entryIds.has(entryId)) entryId = `${entryId}-${entryIndex + 1}`;
@@ -9727,9 +9727,9 @@ function resolveWebsiteCmsValue(cms, binding, contextEntryId, language, defaultL
   const entry = collection?.entries.find((item) => item.id === (binding.entryId || contextEntryId));
   if (!entry) return void 0;
   const value = resolveWebsiteCmsEntryValue(entry, binding.fieldKey, language, defaultLanguage);
-  const field = collection?.fields.find((item) => item.key === binding.fieldKey);
-  if (field?.type !== "reference" || !binding.referenceFieldKey || typeof value !== "string") return value;
-  const targetCollection = cms.collections.find((item) => item.id === field.referenceCollectionId);
+  const field2 = collection?.fields.find((item) => item.key === binding.fieldKey);
+  if (field2?.type !== "reference" || !binding.referenceFieldKey || typeof value !== "string") return value;
+  const targetCollection = cms.collections.find((item) => item.id === field2.referenceCollectionId);
   const targetEntry = targetCollection?.entries.find((item) => item.id === value);
   return targetEntry ? resolveWebsiteCmsEntryValue(targetEntry, binding.referenceFieldKey, language, defaultLanguage) : void 0;
 }
@@ -9843,9 +9843,9 @@ function createWebsiteBuilderOutput({
     const localizeLinks = (value) => {
       if (Array.isArray(value)) return value.map(localizeLinks);
       if (!value || typeof value !== "object") return value;
-      return Object.fromEntries(Object.entries(value).map(([key, item]) => [
-        key,
-        typeof item === "string" && ["href", "buttonUrl", "formRedirectUrl", "ctaHref", "announcementHref", "popupButtonHref", "floatingCtaHref"].includes(key) ? resolveLink(item) : localizeLinks(item)
+      return Object.fromEntries(Object.entries(value).map(([key2, item]) => [
+        key2,
+        typeof item === "string" && ["href", "buttonUrl", "formRedirectUrl", "ctaHref", "announcementHref", "popupButtonHref", "floatingCtaHref"].includes(key2) ? resolveLink(item) : localizeLinks(item)
       ]));
     };
     return buildFullHtml(localizeLinks(page?.sections || pageSections), {
@@ -9964,7 +9964,7 @@ var invalid = () => new Error("The form does not match the application fields.")
 var uuid3 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var record2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function exact(value, keys) {
-  if (!record2(value) || Object.keys(value).some((key) => !keys.includes(key))) throw invalid();
+  if (!record2(value) || Object.keys(value).some((key2) => !keys.includes(key2))) throw invalid();
 }
 function date(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) throw invalid();
@@ -9984,23 +9984,23 @@ function boundedJson(text2) {
   inspect(result, 0);
   return result;
 }
-function convert(form, field, raw) {
-  if (field.type === "boolean") {
+function convert(form, field2, raw) {
+  if (field2.type === "boolean") {
     if (raw !== void 0 && raw !== "on" && raw !== "true" && raw !== "false") throw invalid();
     const checked = raw === "on" || raw === "true";
     if (form.required && !checked) throw invalid();
     return checked;
   }
   if (raw === void 0 || raw.trim() === "") {
-    if (field.required || form.required) throw invalid();
+    if (field2.required || form.required) throw invalid();
     return null;
   }
-  if (raw.length > (field.type === "json" ? 32768 : 4e3)) throw invalid();
+  if (raw.length > (field2.type === "json" ? 32768 : 4e3)) throw invalid();
   const validation = form.validation;
   if (validation?.minLength !== void 0 && raw.length < validation.minLength || validation?.maxLength !== void 0 && raw.length > validation.maxLength) throw invalid();
   if (form.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) throw invalid();
   if (form.type === "url" && !["http:", "https:"].includes(new URL(raw).protocol)) throw invalid();
-  switch (field.type) {
+  switch (field2.type) {
     case "text":
       return raw;
     case "number": {
@@ -10024,11 +10024,11 @@ function convert(form, field, raw) {
       if (!uuid3.test(raw)) throw invalid();
       return raw.toLowerCase();
     case "enum":
-      if (!field.options?.includes(raw)) throw invalid();
+      if (!field2.options?.includes(raw)) throw invalid();
       return raw;
     case "json": {
       const value = boundedJson(raw);
-      if (value === null && field.required) throw invalid();
+      if (value === null && field2.required) throw invalid();
       return value;
     }
   }
@@ -10046,25 +10046,25 @@ function compileApplicationCreateForm(definition, source, input) {
     exact(mapping, ["formFieldId", "tableFieldId"]);
     if (typeof mapping.formFieldId !== "string" || typeof mapping.tableFieldId !== "string" || formIds.has(mapping.formFieldId) || tableIds.has(mapping.tableFieldId)) throw invalid();
     const form = section.formFields.find((item) => item.id === mapping.formFieldId);
-    const field = table.fields.find((item) => item.id === mapping.tableFieldId);
-    if (!form || !field || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || names2.has(form.name) || form.name.startsWith("_tayar_") || form.conditions?.length || form.type === "file") throw invalid();
+    const field2 = table.fields.find((item) => item.id === mapping.tableFieldId);
+    if (!form || !field2 || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || names2.has(form.name) || form.name.startsWith("_tayar_") || form.conditions?.length || form.type === "file") throw invalid();
     if (form.validation) {
       exact(form.validation, ["minLength", "maxLength", "min", "max", "pattern"]);
       if (form.validation.pattern) throw invalid();
-      for (const key of ["minLength", "maxLength", "min", "max"]) {
-        const value = form.validation[key];
-        if (value !== void 0 && (typeof value !== "number" || !Number.isFinite(value) || key.endsWith("Length") && (!Number.isInteger(value) || value < 0 || value > 32768))) throw invalid();
+      for (const key2 of ["minLength", "maxLength", "min", "max"]) {
+        const value = form.validation[key2];
+        if (value !== void 0 && (typeof value !== "number" || !Number.isFinite(value) || key2.endsWith("Length") && (!Number.isInteger(value) || value < 0 || value > 32768))) throw invalid();
       }
       if ((form.validation.minLength ?? 0) > (form.validation.maxLength ?? 32768) || (form.validation.min ?? -Infinity) > (form.validation.max ?? Infinity)) throw invalid();
     }
-    const compatible = field.type === "boolean" ? form.type === "checkbox" : field.type === "number" ? form.type === "number" : field.type === "date" ? form.type === "date" : field.type === "enum" ? ["select", "radio"].includes(form.type) && !!form.options?.length && form.options.every((value) => field.options?.includes(value)) : ["text", "email", "tel", "url", "textarea"].includes(form.type);
+    const compatible = field2.type === "boolean" ? form.type === "checkbox" : field2.type === "number" ? form.type === "number" : field2.type === "date" ? form.type === "date" : field2.type === "enum" ? ["select", "radio"].includes(form.type) && !!form.options?.length && form.options.every((value) => field2.options?.includes(value)) : ["text", "email", "tel", "url", "textarea"].includes(form.type);
     if (!compatible) throw invalid();
     formIds.add(form.id);
-    tableIds.add(field.id);
+    tableIds.add(field2.id);
     names2.add(form.name);
-    return { form, field };
+    return { form, field: field2 };
   });
-  if (new Set(section.formFields.map((field) => field.id)).size !== section.formFields.length || table.fields.some((field) => field.required && field.defaultValue === void 0 && !tableIds.has(field.id))) throw invalid();
+  if (new Set(section.formFields.map((field2) => field2.id)).size !== section.formFields.length || table.fields.some((field2) => field2.required && field2.defaultValue === void 0 && !tableIds.has(field2.id))) throw invalid();
   return {
     tableId: table.id,
     values(entries) {
@@ -10081,7 +10081,7 @@ function compileApplicationCreateForm(definition, source, input) {
         values.set(name2, value);
       }
       try {
-        return Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))]));
+        return Object.fromEntries(fields.map(({ form, field: field2 }) => [field2.key, convert(form, field2, values.get(form.name))]));
       } catch {
         throw invalid();
       }
@@ -10231,25 +10231,37 @@ ${websiteOwnedApplicationRuntimeTemplate}`;
 }
 
 // server/website-owned-source-capture.ts
+var stripePublishable = /^pk_(test|live)_[A-Za-z0-9]+$/;
+function stripeRuntimeSource(snapshot, projectId, environment, capabilities) {
+  if (!capabilities.integrationProviders.includes("stripe") && !capabilities.stripeCheckouts.length) return null;
+  const active = readEditorIntegrationsFromProject(snapshot).connections.filter((item) => item.enabled && item.status !== "disabled" && item.providerId === "stripe" && item.environments.includes(environment));
+  if (active.length !== 1) throw new Error("Customer Stripe runtime source is unavailable.");
+  const selected = active[0], secret = selected.secrets.secretKey;
+  const publishableKey = typeof selected.config.publishableKey === "string" ? selected.config.publishableKey : "";
+  const match = stripePublishable.exec(publishableKey), mode = environment === "production" ? "live" : "test";
+  if (selected.environments.length !== 1 || selected.environments[0] !== environment || !match || match[1] !== mode || !secret || !isEditorProjectSecretReferenceFor(secret.ref, selected.id, "secretKey", environment) || !secret.ref.startsWith(`secret://website/${projectId}/`) || typeof secret.updatedAt !== "string" || !Number.isFinite(Date.parse(secret.updatedAt)))
+    throw new Error("Customer Stripe runtime source is unavailable.");
+  return { sourceConnectionId: selected.id, sourceUpdatedAt: secret.updatedAt, publishableKey };
+}
 async function captureWebsiteOwnedApplicationSource(input) {
   if (typeof window !== "undefined" || !["preview", "production"].includes(input.environment)) {
     throw new Error("Customer runtime scope is unavailable.");
   }
   const captured = {};
   const state = {};
-  const identity4 = (connection) => JSON.stringify({
-    id: connection.id,
-    ownerId: connection.ownerId,
-    projectId: connection.projectId,
-    provider: connection.provider,
-    environment: connection.environment,
-    accountId: connection.accountId,
-    targetId: connection.targetId,
-    permissions: [...connection.permissions].sort(),
-    status: connection.status,
-    version: connection.version,
-    operationId: connection.operationId,
-    verifiedAt: connection.verifiedAt
+  const identity4 = (connection2) => JSON.stringify({
+    id: connection2.id,
+    ownerId: connection2.ownerId,
+    projectId: connection2.projectId,
+    provider: connection2.provider,
+    environment: connection2.environment,
+    accountId: connection2.accountId,
+    targetId: connection2.targetId,
+    permissions: [...connection2.permissions].sort(),
+    status: connection2.status,
+    version: connection2.version,
+    operationId: connection2.operationId,
+    verifiedAt: connection2.verifiedAt
   });
   async function current() {
     const binding = await input.reader.readOwnedRuntimeBinding(input.projectId, input.ownerId, input.environment);
@@ -10280,6 +10292,7 @@ async function captureWebsiteOwnedApplicationSource(input) {
     reader: input.reader,
     async compile(snapshot) {
       state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
+      state.stripeRuntime = stripeRuntimeSource(snapshot, input.projectId, input.environment, state.capabilities);
       captured.value = await current();
       return compileWebsiteOwnedApplicationSource(snapshot, {
         projectId: input.projectId,
@@ -10295,11 +10308,11 @@ async function captureWebsiteOwnedApplicationSource(input) {
   if (!captured.value) throw new Error("Customer runtime scope is unavailable.");
   const initial = captured.value;
   const boundIdentity = JSON.stringify(initial.binding);
-  const supabaseIdentity = identity4(initial.supabase), vercelIdentity = identity4(initial.vercel);
+  const supabaseIdentity = identity4(initial.supabase), vercelIdentity2 = identity4(initial.vercel);
   async function isCurrent() {
     try {
       const latest = await current();
-      return JSON.stringify(latest.binding) === boundIdentity && identity4(latest.supabase) === supabaseIdentity && identity4(latest.vercel) === vercelIdentity && await source.isCurrent();
+      return JSON.stringify(latest.binding) === boundIdentity && identity4(latest.supabase) === supabaseIdentity && identity4(latest.vercel) === vercelIdentity2 && await source.isCurrent();
     } catch {
       return false;
     }
@@ -10311,6 +10324,7 @@ async function captureWebsiteOwnedApplicationSource(input) {
     supabase: structuredClone(initial.supabase),
     vercel: structuredClone(initial.vercel),
     capabilities: structuredClone(state.capabilities),
+    stripeRuntime: state.stripeRuntime ? structuredClone(state.stripeRuntime) : null,
     isCurrent
   };
 }
@@ -10361,7 +10375,7 @@ async function discoverOwnedVercelDeployment(input) {
   }
 }
 async function inspectOwnedVercelDeployment(input) {
-  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id2.test(input.userId) || !id2.test(input.accountId) || !id2.test(input.platformAccountId) || input.accountId === input.platformAccountId || !project.test(input.projectId) || !deployment.test(input.deploymentId) || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.sourceBranch !== void 0 && (!branch.test(input.sourceBranch) || input.sourceBranch.includes("..")) || !sha3.test(input.sourceCommitSha) || !["preview", "production"].includes(input.target) || !Array.isArray(input.requiredEnvironment) || input.requiredEnvironment.length > 64 || input.requiredEnvironment.some((key) => !envName.test(key)) || new Set(input.requiredEnvironment).size !== input.requiredEnvironment.length || input.requiredEnvironmentIds !== void 0 && (Object.keys(input.requiredEnvironmentIds).sort().join(",") !== [...input.requiredEnvironment].sort().join(",") || Object.values(input.requiredEnvironmentIds).some((value) => !id2.test(value)) || new Set(Object.values(input.requiredEnvironmentIds)).size !== input.requiredEnvironment.length)) {
+  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id2.test(input.userId) || !id2.test(input.accountId) || !id2.test(input.platformAccountId) || input.accountId === input.platformAccountId || !project.test(input.projectId) || !deployment.test(input.deploymentId) || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.sourceBranch !== void 0 && (!branch.test(input.sourceBranch) || input.sourceBranch.includes("..")) || !sha3.test(input.sourceCommitSha) || !["preview", "production"].includes(input.target) || !Array.isArray(input.requiredEnvironment) || input.requiredEnvironment.length > 64 || input.requiredEnvironment.some((key2) => !envName.test(key2)) || new Set(input.requiredEnvironment).size !== input.requiredEnvironment.length || input.requiredEnvironmentIds !== void 0 && (Object.keys(input.requiredEnvironmentIds).sort().join(",") !== [...input.requiredEnvironment].sort().join(",") || Object.values(input.requiredEnvironmentIds).some((value) => !id2.test(value)) || new Set(Object.values(input.requiredEnvironmentIds)).size !== input.requiredEnvironment.length)) {
     throw new Error("Vercel deployment status is unavailable.");
   }
   const fetcher = input.fetcher ?? fetch, teamScope = input.accountId !== input.userId;
@@ -10411,8 +10425,8 @@ async function inspectOwnedVercelDeployment(input) {
     const profile = await read("/v2/user");
     if (!profile.user || typeof profile.user !== "object" || profile.user.id !== input.userId) throw new Error();
     if (teamScope) {
-      const account = await read(`/v2/teams/${input.accountId}`), membership = account.membership;
-      if (account.id !== input.accountId || !membership || typeof membership !== "object" || membership.uid !== input.userId || membership.role !== "OWNER" || membership.confirmed !== true) throw new Error();
+      const account2 = await read(`/v2/teams/${input.accountId}`), membership = account2.membership;
+      if (account2.id !== input.accountId || !membership || typeof membership !== "object" || membership.uid !== input.userId || membership.role !== "OWNER" || membership.confirmed !== true) throw new Error();
     }
     if (!projectMatches(await read(projectPath))) throw new Error();
     const environment = await read(environmentPath);
@@ -10426,7 +10440,7 @@ async function inspectOwnedVercelDeployment(input) {
       const expectedBranch = input.target === "preview" ? input.sourceBranch : input.productionBranch;
       if (variable.target.includes(target2) && (variable.gitBranch == null || variable.gitBranch === expectedBranch) && (input.requiredEnvironmentIds === void 0 || variable.id === input.requiredEnvironmentIds[variable.key])) available.add(variable.key);
     }
-    const missingEnvironment = input.requiredEnvironment.filter((key) => !available.has(key)).sort();
+    const missingEnvironment = input.requiredEnvironment.filter((key2) => !available.has(key2)).sort();
     const first = deploymentState(await read(deploymentPath));
     if (!first || !await input.isCurrent()) throw new Error();
     const second = deploymentState(await read(deploymentPath));
@@ -10490,7 +10504,7 @@ function argumentsFor(scope, current, next) {
   const edges = scope.environment === "preview" ? previewEdges : productionEdges;
   if (!edges.has(`${current.stage}:${next.stage}`) || next.operationId !== current.operationId || next.projectId !== current.projectId || next.ownerId !== current.ownerId || next.environment !== current.environment) throw new Error();
   const checked = checkpoint({ ...next, version: current.version + 1 }, scope);
-  const key = `${scope.operationId}:${current.version}:${next.stage}`;
+  const key2 = `${scope.operationId}:${current.version}:${next.stage}`;
   return { args: {
     p_operation_id: scope.operationId,
     p_project_id: scope.projectId,
@@ -10508,7 +10522,7 @@ function argumentsFor(scope, current, next) {
     p_preview_operation_id: checked.previewOperationId,
     p_promotion_version: checked.promotionVersion,
     p_production_aliases: checked.productionAliases,
-    p_transition_key: key
+    p_transition_key: key2
   } };
 }
 async function initializeWebsiteByoPublishOperation(scope) {
@@ -10622,7 +10636,11 @@ async function runByoPublishWorker(input) {
       if (!digest4.test(proof.sourceDigest) || required2.length > 64 || required2.some((v) => !env2.test(v)) || new Set(required2).size !== required2.length) throw new Error();
       await move({ ...state, stage: "validated", sourceDigest: proof.sourceDigest, requiredEnvironment: required2 });
     }
-    if (state.stage === "validated") await move({ ...state, stage: "exporting" });
+    if (state.stage === "validated") {
+      await input.prepareRuntime();
+      if (!await input.isCurrent()) throw new Error();
+      await move({ ...state, stage: "exporting" });
+    }
     if (state.stage === "exporting") {
       const exported = await input.exportGitHub(input.operationId);
       if (exported.status === "recovery-required") return { status: "pending", checkpoint: state };
@@ -10867,7 +10885,7 @@ async function beginWebsiteVercelPromotion(input) {
     throw new Error("Vercel promotion unavailable.");
   }
   const environmentIds = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.previewConnectionId, input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid8.test(value)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 0 || !project3.test(input.vercelProjectId) || !deployment5.test(input.deploymentId) || !sha8.test(input.sourceCommitSha) || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(environmentIds).length !== 2 || Object.keys(environmentIds).some((key) => !environmentName.test(key)) || Object.keys(environmentIds).join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(environmentIds).some((value) => !provider.test(value)) || new Set(Object.values(environmentIds)).size !== 2 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
+  if (typeof window !== "undefined" || ![input.previewConnectionId, input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid8.test(value)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 0 || !project3.test(input.vercelProjectId) || !deployment5.test(input.deploymentId) || !sha8.test(input.sourceCommitSha) || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(environmentIds).length !== 2 || Object.keys(environmentIds).some((key2) => !environmentName.test(key2)) || Object.keys(environmentIds).join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(environmentIds).some((value) => !provider.test(value)) || new Set(Object.values(environmentIds)).size !== 2 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_promotion", {
     p_preview_connection_id: input.previewConnectionId,
     p_production_connection_id: input.productionConnectionId,
@@ -11071,7 +11089,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
     if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid10.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project5.test(input.vercelProjectId)) throw new Error();
     assertInfrastructureConnection(input.supabase);
     assertInfrastructureConnection(input.vercel);
-    const b = input.binding, s = input.supabase, v = input.vercel, branch9 = `tayar/${input.projectId}/preview`;
+    const b = input.binding, s = input.supabase, v = input.vercel, branch10 = `tayar/${input.projectId}/preview`;
     if (b.projectId !== input.projectId || b.ownerId !== input.ownerId || b.environment !== "preview" || b.supabaseConnectionId !== s.id || b.supabaseConnectionVersion !== s.version || s.provider !== "supabase" || s.targetId !== b.backend.projectRef || b.vercelConnectionId !== v.id || b.vercelConnectionVersion !== v.version || v.provider !== "vercel" || v.targetId !== input.vercelProjectId || s.projectId !== input.projectId || s.ownerId !== input.ownerId || s.environment !== "preview" || v.projectId !== input.projectId || v.ownerId !== input.ownerId || v.environment !== "preview" || !Number.isSafeInteger(b.bindingVersion) || b.bindingVersion < 1 || !await input.isCurrent()) throw new Error();
     validateOwnedApplicationPublicBackend(b.backend, s.targetId);
     const values = { SUPABASE_ANON_KEY: b.backend.publishableKey, SUPABASE_URL: b.backend.url };
@@ -11085,7 +11103,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
       p_vercel_connection_id: v.id,
       p_vercel_connection_version: v.version,
       p_vercel_project_id: input.vercelProjectId,
-      p_git_branch: branch9,
+      p_git_branch: branch10,
       p_value_digests: digests,
       p_operation_id: input.operationId
     });
@@ -11106,7 +11124,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
           cache: "no-store",
           signal: AbortSignal.timeout(8e3),
           headers,
-          body: JSON.stringify(names.map((name2) => ({ key: name2, value: values[name2], type: "plain", target: ["preview"], gitBranch: branch9, comment: begin.marker })))
+          body: JSON.stringify(names.map((name2) => ({ key: name2, value: values[name2], type: "plain", target: ["preview"], gitBranch: branch10, comment: begin.marker })))
         });
       } catch {
       }
@@ -11125,7 +11143,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
     const current = (item, name2) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return false;
       const row = item, targets = Array.isArray(row.target) ? row.target : [];
-      return row.key === name2 && row.type === "plain" && row.comment === begin.marker && targets.length === 1 && targets[0] === "preview" && row.gitBranch === branch9 && typeof row.id === "string" && provider3.test(row.id);
+      return row.key === name2 && row.type === "plain" && row.comment === begin.marker && targets.length === 1 && targets[0] === "preview" && row.gitBranch === branch10 && typeof row.id === "string" && provider3.test(row.id);
     };
     for (const name2 of names) {
       const matches = before.filter((item) => current(item, name2));
@@ -11141,7 +11159,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
       if (matches.length > 1) throw new Error();
       if (matches.length === 1) {
         const row = matches[0], targets = Array.isArray(row.target) ? row.target : [];
-        if (row.key !== name2 || row.type !== "plain" || targets.length !== 1 || targets[0] !== "preview" || row.gitBranch !== branch9 || typeof row.comment !== "string" || !/^Tayar runtime [0-9a-f-]{36}$/i.test(row.comment)) throw new Error();
+        if (row.key !== name2 || row.type !== "plain" || targets.length !== 1 || targets[0] !== "preview" || row.gitBranch !== branch10 || typeof row.comment !== "string" || !/^Tayar runtime [0-9a-f-]{36}$/i.test(row.comment)) throw new Error();
         if (!await input.isCurrent()) throw new Error();
         try {
           await (input.fetcher ?? fetch)(
@@ -11303,6 +11321,361 @@ async function prepareOwnedVercelProductionRuntimeEnvironment(input) {
   }
 }
 
+// server/website-owned-vercel-environment.ts
+var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var provider4 = /^[A-Za-z0-9_-]{3,128}$/;
+var project6 = /^prj_[A-Za-z0-9]{8,128}$/;
+var key = /^[A-Z][A-Z0-9_]{1,99}$/;
+var branch5 = /^[A-Za-z0-9_./-]{1,200}$/;
+var connection = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
+var field = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+function validBranch(value) {
+  return value === "" || branch5.test(value) && !value.includes("..") && !value.startsWith("/") && !value.endsWith("/");
+}
+function parseObject(raw) {
+  const value = JSON.parse(raw);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  return value;
+}
+function verifiedHandoff(value, expectedVersion) {
+  if (value === null) return null;
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row = value;
+  if (Object.keys(row).sort().join(",") !== "environmentId,handoffVersion" || row.handoffVersion !== expectedVersion || typeof row.environmentId !== "string" || !provider4.test(row.environmentId)) throw new Error();
+  return { handoffVersion: expectedVersion, environmentId: row.environmentId };
+}
+async function handoffOwnedSecretToVercel(input) {
+  if (typeof window !== "undefined" || ![input.handoffId, input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((v) => uuid11.test(v)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !connection.test(input.sourceConnectionId) || !field.test(input.sourceField) || !key.test(input.environmentKey) || !["preview", "staging", "production"].includes(input.sourceEnvironment) || !["preview", "production"].includes(input.target) || !validBranch(input.gitBranch) || input.target === "production" && input.gitBranch !== "" || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error("Vercel secret handoff unavailable.");
+  const completedArgs = {
+    p_id: input.handoffId,
+    p_connection_id: input.connectionId,
+    p_project_id: input.projectId,
+    p_owner_id: input.ownerId,
+    p_connection_version: input.connectionVersion,
+    p_expected_handoff_version: input.expectedHandoffVersion,
+    p_source_connection_id: input.sourceConnectionId,
+    p_source_field: input.sourceField,
+    p_source_environment: input.sourceEnvironment,
+    p_environment_key: input.environmentKey,
+    p_target: input.target,
+    p_git_branch: input.gitBranch,
+    p_operation_id: input.operationId
+  };
+  const completed = await input.client.rpc("website_reconcile_completed_vercel_secret_handoff", completedArgs);
+  if (completed.error || !input.isCurrent()) throw new Error("Vercel secret handoff unavailable.");
+  const verified = verifiedHandoff(completed.data, input.expectedHandoffVersion + 2);
+  if (verified) return { ...verified, status: "verified" };
+  const base = {
+    p_id: input.handoffId,
+    p_connection_id: input.connectionId,
+    p_project_id: input.projectId,
+    p_owner_id: input.ownerId,
+    p_connection_version: input.connectionVersion,
+    p_expected_handoff_version: input.expectedHandoffVersion,
+    p_source_connection_id: input.sourceConnectionId,
+    p_source_field: input.sourceField,
+    p_source_environment: input.sourceEnvironment,
+    p_source_updated_at: input.sourceUpdatedAt,
+    p_environment_key: input.environmentKey,
+    p_target: input.target,
+    p_git_branch: input.gitBranch,
+    p_operation_id: input.operationId
+  };
+  const begun = await input.client.rpc("website_begin_vercel_secret_handoff", base);
+  const data = begun.data;
+  if (begun.error || !data || !Number.isSafeInteger(data.handoffVersion) || data.handoffVersion < 1 || typeof data.accessToken !== "string" || data.accessToken.length < 20 || data.accessToken.length > 4096 || /[\r\n]/.test(data.accessToken) || typeof data.secretValue !== "string" || !data.secretValue || new TextEncoder().encode(data.secretValue).length > 16384 || !provider4.test(data.userId) || !provider4.test(data.accountId) || !project6.test(data.vercelProjectId) || !input.isCurrent())
+    throw new Error("Vercel secret handoff unavailable.");
+  if (input.verifySecret) {
+    try {
+      await input.verifySecret(data.secretValue, { handoffVersion: data.handoffVersion });
+    } catch {
+      throw new Error("Vercel secret handoff unavailable.");
+    }
+    if (!input.isCurrent()) throw new Error("Vercel secret handoff unavailable.");
+  }
+  const fetcher = input.fetcher ?? fetch;
+  const team3 = data.accountId !== data.userId ? `&teamId=${encodeURIComponent(data.accountId)}` : "";
+  const marker = `Tayar handoff ${input.operationId}`;
+  const target2 = [input.target];
+  const headers = { Authorization: `Bearer ${data.accessToken}`, "Content-Type": "application/json", Accept: "application/json" };
+  const path = `/v10/projects/${data.vercelProjectId}/env`;
+  try {
+    if (!input.isCurrent()) throw new Error();
+    try {
+      await fetcher(`https://api.vercel.com${path}?upsert=true${team3}`, {
+        method: "POST",
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(8e3),
+        headers,
+        body: JSON.stringify({
+          key: input.environmentKey,
+          value: data.secretValue,
+          type: "sensitive",
+          target: target2,
+          ...input.gitBranch ? { gitBranch: input.gitBranch } : {},
+          comment: marker
+        })
+      });
+    } catch {
+    }
+    if (!input.isCurrent()) throw new Error();
+    const response = await fetcher(`https://api.vercel.com${path}?decrypt=false${team3}`, { method: "GET", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8e3), headers });
+    if (response.status !== 200 || Number(response.headers.get("content-length") ?? 0) > 262144) throw new Error();
+    const raw = await response.text();
+    if (raw.length > 262144) throw new Error();
+    const payload = parseObject(raw);
+    if (!Array.isArray(payload.envs) || payload.envs.length > 1e3) throw new Error();
+    const matches = payload.envs.filter((value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+      const row = value;
+      const targets = Array.isArray(row.target) ? row.target : [];
+      return row.key === input.environmentKey && row.type === "sensitive" && row.comment === marker && targets.length === 1 && targets[0] === input.target && String(row.gitBranch ?? "") === input.gitBranch && typeof row.id === "string" && provider4.test(row.id);
+    });
+    if (matches.length !== 1 || !input.isCurrent()) throw new Error();
+    const environmentId = matches[0].id;
+    const commitArgs = {
+      p_id: input.handoffId,
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_expected_handoff_version: data.handoffVersion,
+      p_operation_id: input.operationId,
+      p_vercel_environment_id: environmentId,
+      p_commit_id: input.commitId
+    };
+    const expected = data.handoffVersion + 1;
+    const reconcile = async () => {
+      const result = await input.client.rpc("website_reconcile_vercel_secret_handoff", commitArgs);
+      return !result.error && result.data === expected && input.isCurrent();
+    };
+    if (!await reconcile()) {
+      try {
+        const result = await input.client.rpc("website_commit_vercel_secret_handoff", commitArgs);
+        if (result.error || result.data !== expected || !input.isCurrent()) throw new Error();
+      } catch {
+        if (!await reconcile()) throw new Error();
+      }
+    }
+    return { handoffVersion: expected, environmentId, status: "verified" };
+  } catch {
+    throw new Error("Vercel secret handoff unavailable.");
+  }
+}
+
+// server/website-owned-stripe.ts
+var account = /^acct_[A-Za-z0-9]{8,64}$/;
+var publishable = /^pk_(test|live)_[A-Za-z0-9]+$/;
+var privateKey = /^(sk|rk)_(test|live)_[A-Za-z0-9]+$/;
+var runtimeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var vercelProject = /^prj_[A-Za-z0-9]{8,128}$/;
+var vercelIdentity = /^[A-Za-z0-9_-]{3,128}$/;
+function object3(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  return value;
+}
+async function inspectOwnedStripeRuntimeForPublish(input) {
+  try {
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => runtimeUuid.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.sourceUpdatedAt))) throw new Error();
+    const { data, error } = await input.client.rpc("website_stripe_runtime_state_for_worker", {
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_vercel_connection_id: input.vercelConnectionId,
+      p_vercel_connection_version: input.vercelConnectionVersion,
+      p_source_connection_id: input.sourceConnectionId,
+      p_source_updated_at: input.sourceUpdatedAt,
+      p_environment: input.environment
+    });
+    if (error || !data || typeof data !== "object" || Array.isArray(data)) throw new Error();
+    const row = data;
+    const keys = [
+      "environmentId",
+      "handoffId",
+      "handoffOperationId",
+      "handoffStatus",
+      "handoffVersion",
+      "ready",
+      "sourceAvailable",
+      "stripeConnectionId",
+      "stripeConnectionVersion"
+    ];
+    if (Object.keys(row).sort().join(",") !== keys.sort().join(",")) throw new Error();
+    const stripeId = row.stripeConnectionId, handoffId = row.handoffId, handoffStatus = row.handoffStatus, handoffOperationId = row.handoffOperationId, environmentId = row.environmentId;
+    if (!Number.isSafeInteger(row.stripeConnectionVersion) || row.stripeConnectionVersion < 0 || !Number.isSafeInteger(row.handoffVersion) || row.handoffVersion < 0 || typeof row.sourceAvailable !== "boolean" || typeof row.ready !== "boolean" || stripeId === null !== (row.stripeConnectionVersion === 0) || stripeId !== null && (typeof stripeId !== "string" || !runtimeUuid.test(stripeId)) || handoffId === null !== (row.handoffVersion === 0) || handoffId === null && (handoffStatus !== null || handoffOperationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !runtimeUuid.test(handoffId) || !["preparing", "verified", "removed"].includes(String(handoffStatus)) || typeof handoffOperationId !== "string" || !runtimeUuid.test(handoffOperationId)) || environmentId !== null && (typeof environmentId !== "string" || !vercelIdentity.test(environmentId)) || handoffStatus === "verified" && environmentId === null || row.ready === true && (stripeId === null || handoffStatus !== "verified" || environmentId === null || row.sourceAvailable !== false))
+      throw new Error();
+    return structuredClone(row);
+  } catch {
+    throw new Error("Stripe runtime state unavailable.");
+  }
+}
+async function verifyOwnedStripeRuntimeDestination(input) {
+  try {
+    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !vercelIdentity.test(input.userId) || !vercelIdentity.test(input.accountId) || !vercelProject.test(input.vercelProjectId) || !vercelIdentity.test(input.environmentId) || !runtimeUuid.test(input.projectId) || !runtimeUuid.test(input.handoffOperationId) || !await input.isCurrent()) throw new Error();
+    const team3 = input.accountId !== input.userId ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
+    const response = await (input.fetcher ?? fetch)(`https://api.vercel.com/v10/projects/${input.vercelProjectId}/env?decrypt=false${team3}`, {
+      method: "GET",
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8e3),
+      headers: { Authorization: `Bearer ${input.accessToken}`, Accept: "application/json" }
+    });
+    if (response.status !== 200 || Number(response.headers.get("content-length") ?? 0) > 262144 || !await input.isCurrent()) throw new Error();
+    const raw = await response.text();
+    if (raw.length > 262144) throw new Error();
+    const payload = object3(JSON.parse(raw));
+    if (!Array.isArray(payload.envs) || payload.envs.length > 1e3) throw new Error();
+    const branch10 = input.environment === "preview" ? `tayar/${input.projectId}/preview` : "";
+    const matches = payload.envs.filter((value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+      const row = value, targets = Array.isArray(row.target) ? row.target : [];
+      return row.id === input.environmentId && row.key === "STRIPE_SECRET_KEY" && row.type === "sensitive" && targets.length === 1 && targets[0] === input.environment && String(row.gitBranch ?? "") === branch10 && row.comment === `Tayar handoff ${input.handoffOperationId}`;
+    });
+    if (matches.length !== 1 || !await input.isCurrent()) throw new Error();
+  } catch {
+    throw new Error("Stripe runtime destination unavailable.");
+  }
+}
+async function verifyOwnedStripeAccount(input) {
+  try {
+    if (typeof window !== "undefined" || !["preview", "production"].includes(input.environment) || !await input.isCurrent()) throw new Error();
+    const publicMatch = publishable.exec(input.publishableKey);
+    const privateMatch = privateKey.exec(input.secretKey);
+    const expectedMode = input.environment === "production" ? "live" : "test";
+    if (!publicMatch || !privateMatch || publicMatch[1] !== expectedMode || privateMatch[2] !== expectedMode || input.secretKey.length > 4096 || /[\r\n]/.test(input.secretKey)) throw new Error();
+    const response = await (input.fetcher ?? fetch)("https://api.stripe.com/v1/account", {
+      method: "GET",
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8e3),
+      headers: { Authorization: `Bearer ${input.secretKey}`, Accept: "application/json" }
+    });
+    if (response.status !== 200 || Number(response.headers.get("content-length") ?? 0) > 131072 || !await input.isCurrent()) throw new Error();
+    const text2 = await response.text();
+    if (text2.length > 131072 || !await input.isCurrent()) throw new Error();
+    const value = object3(JSON.parse(text2));
+    if (value.object !== "account" || typeof value.id !== "string" || !account.test(value.id) || typeof value.charges_enabled !== "boolean" || input.environment === "production" && value.charges_enabled !== true) throw new Error();
+    return {
+      accountId: value.id,
+      keyType: privateMatch[1] === "rk" ? "restricted" : "secret",
+      mode: expectedMode,
+      chargesEnabled: value.charges_enabled
+    };
+  } catch {
+    throw new Error("Stripe account verification unavailable.");
+  }
+}
+var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var providerId = /^[A-Za-z0-9_-]{3,128}$/;
+var integrationId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
+function stripeRuntimeReceipt(value, expectedConnectionVersion, expectedHandoffVersion) {
+  if (value === null) return null;
+  const row = object3(value);
+  if (Object.keys(row).sort().join(",") !== "accountId,connectionVersion,environmentId,handoffVersion,keyType" || row.connectionVersion !== expectedConnectionVersion || row.handoffVersion !== expectedHandoffVersion || typeof row.accountId !== "string" || !account.test(row.accountId) || row.keyType !== "restricted" && row.keyType !== "secret" || typeof row.environmentId !== "string" || !providerId.test(row.environmentId)) throw new Error();
+  return {
+    connectionVersion: expectedConnectionVersion,
+    handoffVersion: expectedHandoffVersion,
+    accountId: row.accountId,
+    keyType: row.keyType,
+    environmentId: row.environmentId,
+    status: "ready"
+  };
+}
+async function handoffOwnedStripeRuntime(input) {
+  try {
+    if (typeof window !== "undefined" || ![
+      input.stripeConnectionId,
+      input.vercelConnectionId,
+      input.handoffId,
+      input.projectId,
+      input.ownerId,
+      input.operationId,
+      input.handoffCommitId,
+      input.stripeCommitId
+    ].every((value) => uuid12.test(value)) || !integrationId.test(input.sourceConnectionId) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !Number.isSafeInteger(input.expectedStripeConnectionVersion) || input.expectedStripeConnectionVersion < 0 || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error();
+    const publicMatch = publishable.exec(input.publishableKey);
+    const expectedMode = input.environment === "production" ? "live" : "test";
+    if (!publicMatch || publicMatch[1] !== expectedMode) throw new Error();
+    const reconcileArgs = {
+      p_connection_id: input.stripeConnectionId,
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_expected_connection_version: input.expectedStripeConnectionVersion,
+      p_handoff_id: input.handoffId,
+      p_expected_handoff_version: input.expectedHandoffVersion,
+      p_commit_id: input.stripeCommitId
+    };
+    const reconcile = async () => {
+      const result = await input.client.rpc("website_reconcile_stripe_runtime_binding", reconcileArgs);
+      if (result.error || !input.isCurrent()) throw new Error();
+      return stripeRuntimeReceipt(result.data, input.expectedStripeConnectionVersion + 1, input.expectedHandoffVersion + 2);
+    };
+    const completed = await reconcile();
+    if (completed) return completed;
+    await handoffOwnedSecretToVercel({
+      client: input.client,
+      handoffId: input.handoffId,
+      connectionId: input.vercelConnectionId,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      connectionVersion: input.vercelConnectionVersion,
+      expectedHandoffVersion: input.expectedHandoffVersion,
+      sourceConnectionId: input.sourceConnectionId,
+      sourceField: "secretKey",
+      sourceEnvironment: input.environment,
+      sourceUpdatedAt: input.sourceUpdatedAt,
+      environmentKey: "STRIPE_SECRET_KEY",
+      target: input.environment,
+      gitBranch: input.environment === "preview" ? `tayar/${input.projectId}/preview` : "",
+      operationId: input.operationId,
+      commitId: input.handoffCommitId,
+      isCurrent: input.isCurrent,
+      fetcher: input.fetcher,
+      verifySecret: async (secretKey2, { handoffVersion }) => {
+        const proof = await verifyOwnedStripeAccount({
+          secretKey: secretKey2,
+          publishableKey: input.publishableKey,
+          environment: input.environment,
+          isCurrent: input.isCurrent,
+          fetcher: input.fetcher
+        });
+        const recorded = await input.client.rpc("website_record_stripe_secret_proof", {
+          p_handoff_id: input.handoffId,
+          p_project_id: input.projectId,
+          p_owner_id: input.ownerId,
+          p_handoff_version: handoffVersion,
+          p_account_id: proof.accountId,
+          p_key_type: proof.keyType,
+          p_operation_id: input.operationId
+        });
+        if (recorded.error || recorded.data !== true || !input.isCurrent()) throw new Error();
+      }
+    });
+    if (!input.isCurrent()) throw new Error();
+    let receipt = await reconcile();
+    if (receipt) return receipt;
+    try {
+      const activated = await input.client.rpc("website_activate_stripe_runtime", {
+        p_connection_id: input.stripeConnectionId,
+        p_project_id: input.projectId,
+        p_owner_id: input.ownerId,
+        p_expected_connection_version: input.expectedStripeConnectionVersion,
+        p_handoff_id: input.handoffId,
+        p_expected_handoff_version: input.expectedHandoffVersion,
+        p_commit_id: input.stripeCommitId
+      });
+      if (activated.error || activated.data !== input.expectedStripeConnectionVersion + 1 || !input.isCurrent()) throw new Error();
+    } catch {
+      receipt = await reconcile();
+      if (!receipt) throw new Error();
+      return receipt;
+    }
+    receipt = await reconcile();
+    if (!receipt) throw new Error();
+    return receipt;
+  } catch {
+    throw new Error("Stripe runtime handoff unavailable.");
+  }
+}
+
 // src/modules/website-builder/services/trustedServerRuntime.ts
 function isUntrustedBrowserRuntime() {
   const deno = globalThis.Deno;
@@ -11331,7 +11704,7 @@ function parseGrant(value, receivedAt) {
 function parseStoredGrant(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   const row = value;
-  if (Object.keys(row).some((key) => !["accessToken", "receivedAt", "expiresIn", "refreshToken", "refreshTokenExpiresIn"].includes(key)) || !token(row.accessToken) || typeof row.receivedAt !== "string" || !Number.isFinite(Date.parse(row.receivedAt)) || !(row.expiresIn === null || Number.isSafeInteger(row.expiresIn) && row.expiresIn > 0 && row.expiresIn <= 86400) || !(row.refreshToken === null || token(row.refreshToken)) || !(row.refreshTokenExpiresIn === null || Number.isSafeInteger(row.refreshTokenExpiresIn) && row.refreshTokenExpiresIn > 0 && row.refreshTokenExpiresIn <= 31536e3) || (row.expiresIn !== null || row.refreshToken !== null || row.refreshTokenExpiresIn !== null) && (row.expiresIn === null || row.refreshToken === null || row.refreshTokenExpiresIn === null) || row.expiresIn !== null && row.refreshTokenExpiresIn !== null && row.refreshTokenExpiresIn <= row.expiresIn) throw new Error();
+  if (Object.keys(row).some((key2) => !["accessToken", "receivedAt", "expiresIn", "refreshToken", "refreshTokenExpiresIn"].includes(key2)) || !token(row.accessToken) || typeof row.receivedAt !== "string" || !Number.isFinite(Date.parse(row.receivedAt)) || !(row.expiresIn === null || Number.isSafeInteger(row.expiresIn) && row.expiresIn > 0 && row.expiresIn <= 86400) || !(row.refreshToken === null || token(row.refreshToken)) || !(row.refreshTokenExpiresIn === null || Number.isSafeInteger(row.refreshTokenExpiresIn) && row.refreshTokenExpiresIn > 0 && row.refreshTokenExpiresIn <= 31536e3) || (row.expiresIn !== null || row.refreshToken !== null || row.refreshTokenExpiresIn !== null) && (row.expiresIn === null || row.refreshToken === null || row.refreshTokenExpiresIn === null) || row.expiresIn !== null && row.refreshTokenExpiresIn !== null && row.refreshTokenExpiresIn <= row.expiresIn) throw new Error();
   return {
     accessToken: row.accessToken,
     receivedAt: row.receivedAt,
@@ -11389,9 +11762,9 @@ async function refreshGitHubAppUserGrant(input) {
 // src/modules/website-builder/services/websiteGithubInstallationService.ts
 var numeric2 = /^[1-9][0-9]{0,19}$/;
 var repoName = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
-var branch5 = /^[a-zA-Z0-9_./-]{1,200}$/;
+var branch6 = /^[a-zA-Z0-9_./-]{1,200}$/;
 var api2 = "https://api.github.com";
-function object3(value) {
+function object4(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("GitHub account could not be verified.");
   return value;
 }
@@ -11406,7 +11779,7 @@ async function githubGet(fetcher, token4, path) {
   const body = await response.text();
   if (body.length > 3e6) throw new Error("GitHub account could not be verified.");
   try {
-    return object3(JSON.parse(body));
+    return object4(JSON.parse(body));
   } catch {
     throw new Error("GitHub account could not be verified.");
   }
@@ -11423,25 +11796,25 @@ async function verifyGitHubInstallationRepository(input) {
     for (let page = 1; page <= 10 && !installation; page++) {
       const result = await githubGet(fetcher, userToken, `/user/installations?per_page=100&page=${page}`);
       if (!Array.isArray(result.installations) || result.installations.length > 100) throw new Error();
-      installation = result.installations.map(object3).find((item) => String(item.id) === installationId);
+      installation = result.installations.map(object4).find((item) => String(item.id) === installationId);
       if (result.installations.length < 100) break;
     }
-    if (!installation || installation.suspended_at || object3(installation.permissions).contents !== "write") throw new Error();
-    const account = object3(installation.account);
-    const accountId = String(account.id);
-    if (!numeric2.test(accountId) || typeof account.login !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(account.login)) throw new Error();
+    if (!installation || installation.suspended_at || object4(installation.permissions).contents !== "write") throw new Error();
+    const account2 = object4(installation.account);
+    const accountId = String(account2.id);
+    if (!numeric2.test(accountId) || typeof account2.login !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(account2.login)) throw new Error();
     let repository;
     for (let page = 1; page <= 10 && !repository; page++) {
       const result = await githubGet(fetcher, userToken, `/user/installations/${installationId}/repositories?per_page=100&page=${page}`);
       if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new Error();
-      repository = result.repositories.map(object3).find((item) => String(item.id) === repositoryId);
+      repository = result.repositories.map(object4).find((item) => String(item.id) === repositoryId);
       if (result.repositories.length < 100) break;
     }
-    if (!repository || repository.archived || repository.disabled || object3(repository.owner).id !== account.id || typeof repository.full_name !== "string" || !repoName.test(repository.full_name) || typeof repository.default_branch !== "string" || !branch5.test(repository.default_branch) || object3(repository.permissions).push !== true) throw new Error();
+    if (!repository || repository.archived || repository.disabled || object4(repository.owner).id !== account2.id || typeof repository.full_name !== "string" || !repoName.test(repository.full_name) || typeof repository.default_branch !== "string" || !branch6.test(repository.default_branch) || object4(repository.permissions).push !== true) throw new Error();
     return {
       installationId,
       accountId,
-      accountLogin: account.login,
+      accountLogin: account2.login,
       repositoryId,
       repositoryFullName: repository.full_name,
       defaultBranch: repository.default_branch
@@ -11452,10 +11825,10 @@ async function verifyGitHubInstallationRepository(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubOAuthCustodyService.ts
-var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var numeric3 = /^[1-9][0-9]{0,19}$/;
 var repoName2 = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
-var branch6 = /^[a-zA-Z0-9_./-]{1,200}$/;
+var branch7 = /^[a-zA-Z0-9_./-]{1,200}$/;
 var tokenMaxBytes = 65536;
 function token2(value) {
   return typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= tokenMaxBytes && !/[\r\n\s]/.test(value);
@@ -11467,23 +11840,23 @@ function optionalTime(value) {
 }
 function assertConnection(value) {
   if (typeof window !== "undefined") throw new Error("GitHub OAuth custody scope changed.");
-  const connection = assertInfrastructureConnection(value);
-  if (connection.provider !== "github" || !connection.targetId || !numeric3.test(connection.accountId) || !numeric3.test(connection.targetId) || !["connected", "setup-incomplete", "deployment-failed", "ready"].includes(connection.status)) {
+  const connection2 = assertInfrastructureConnection(value);
+  if (connection2.provider !== "github" || !connection2.targetId || !numeric3.test(connection2.accountId) || !numeric3.test(connection2.targetId) || !["connected", "setup-incomplete", "deployment-failed", "ready"].includes(connection2.status)) {
     throw new Error("GitHub OAuth custody scope changed.");
   }
-  return connection;
+  return connection2;
 }
 async function readWebsiteGitHubOAuthCustody(input) {
-  const connection = assertConnection(input.connection);
+  const connection2 = assertConnection(input.connection);
   if (!await input.isCurrentOwner()) throw new Error("GitHub OAuth custody scope changed.");
   const { data, error } = await input.client.rpc("website_read_github_oauth_custody", {
-    p_connection_id: connection.id,
-    p_project_id: connection.projectId,
-    p_owner_id: connection.ownerId,
-    p_expected_connection_version: connection.version
+    p_connection_id: connection2.id,
+    p_project_id: connection2.projectId,
+    p_owner_id: connection2.ownerId,
+    p_expected_connection_version: connection2.version
   });
   try {
-    if (error || !data || !await input.isCurrentOwner() || !Number.isSafeInteger(data.version) || data.version < 1 || data.accountId !== connection.accountId || data.repositoryId !== connection.targetId || data.environment !== connection.environment || !numeric3.test(data.installationId) || !repoName2.test(data.repositoryFullName) || !branch6.test(data.defaultBranch) || data.defaultBranch.includes("..") || data.defaultBranch.startsWith("/") || data.defaultBranch.endsWith("/") || !token2(data.grant?.accessToken) || !(data.grant?.refreshToken === null || token2(data.grant?.refreshToken))) throw new Error();
+    if (error || !data || !await input.isCurrentOwner() || !Number.isSafeInteger(data.version) || data.version < 1 || data.accountId !== connection2.accountId || data.repositoryId !== connection2.targetId || data.environment !== connection2.environment || !numeric3.test(data.installationId) || !repoName2.test(data.repositoryFullName) || !branch7.test(data.defaultBranch) || data.defaultBranch.includes("..") || data.defaultBranch.startsWith("/") || data.defaultBranch.endsWith("/") || !token2(data.grant?.accessToken) || !(data.grant?.refreshToken === null || token2(data.grant?.refreshToken))) throw new Error();
     const accessExpiresAt = optionalTime(data.accessExpiresAt);
     const refreshExpiresAt = optionalTime(data.refreshExpiresAt);
     if (accessExpiresAt === null !== (data.grant.refreshToken === null) || refreshExpiresAt === null !== (data.grant.refreshToken === null) || typeof data.custodyExpiresAt !== "string" || !Number.isFinite(Date.parse(data.custodyExpiresAt)) || Date.parse(data.custodyExpiresAt) <= Date.now() || refreshExpiresAt !== null && Date.parse(refreshExpiresAt) <= Date.parse(accessExpiresAt)) throw new Error();
@@ -11504,9 +11877,9 @@ async function readWebsiteGitHubOAuthCustody(input) {
   }
 }
 async function resolveWebsiteGitHubRepositoryGrant(input) {
-  const connection = assertConnection(input.connection);
+  const connection2 = assertConnection(input.connection);
   if (!await input.isCurrentOwner()) throw new Error("GitHub repository access is unavailable.");
-  const custody = await readWebsiteGitHubOAuthCustody({ client: input.client, connection, isCurrentOwner: input.isCurrentOwner });
+  const custody = await readWebsiteGitHubOAuthCustody({ client: input.client, connection: connection2, isCurrentOwner: input.isCurrentOwner });
   const now = (input.now ?? Date.now)();
   if (!Number.isFinite(now) || !await input.isCurrentOwner()) throw new Error("GitHub repository access is unavailable.");
   if (custody.accessExpiresAt === null || Date.parse(custody.accessExpiresAt) > now + 12e4) {
@@ -11535,14 +11908,14 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
       repositoryId: custody.repositoryId,
       fetcher: input.fetcher
     });
-    if (!await input.isCurrentOwner() || observed.accountId !== connection.accountId || observed.repositoryId !== connection.targetId || observed.repositoryFullName !== custody.repositoryFullName || observed.defaultBranch !== custody.defaultBranch) throw new Error();
+    if (!await input.isCurrentOwner() || observed.accountId !== connection2.accountId || observed.repositoryId !== connection2.targetId || observed.repositoryFullName !== custody.repositoryFullName || observed.defaultBranch !== custody.defaultBranch) throw new Error();
     const operationId = crypto.randomUUID();
-    if (!uuid11.test(operationId)) throw new Error();
+    if (!uuid13.test(operationId)) throw new Error();
     const base = {
-      p_connection_id: connection.id,
-      p_project_id: connection.projectId,
-      p_owner_id: connection.ownerId,
-      p_expected_connection_version: connection.version,
+      p_connection_id: connection2.id,
+      p_project_id: connection2.projectId,
+      p_owner_id: connection2.ownerId,
+      p_expected_connection_version: connection2.version,
       p_expected_version: custody.version,
       p_operation_id: operationId
     };
@@ -11572,12 +11945,12 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportCursorService.ts
-var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var sha10 = /^[0-9a-f]{40}$/i;
 var digest6 = /^[0-9a-f]{64}$/i;
 var numeric4 = /^[1-9][0-9]{0,19}$/;
 function assertScope2(input) {
-  if (typeof window !== "undefined" || !uuid12.test(input.connectionId) || !uuid12.test(input.projectId) || !uuid12.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid14.test(input.connectionId) || !uuid14.test(input.projectId) || !uuid14.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
 }
 async function readWebsiteGitHubExportCursor(input) {
   assertScope2(input);
@@ -11628,7 +12001,7 @@ async function initializeWebsiteGitHubExportCursor(input) {
 }
 async function commitWebsiteGitHubExportCursor(input) {
   assertScope2(input);
-  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha10.test(input.cursor.lastHeadSha) || !sha10.test(input.newHeadSha) || !digest6.test(input.sourceDigest) || !uuid12.test(input.operationId)) {
+  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha10.test(input.cursor.lastHeadSha) || !sha10.test(input.newHeadSha) || !digest6.test(input.sourceDigest) || !uuid14.test(input.operationId)) {
     throw new Error("GitHub export cursor changed.");
   }
   const args = {
@@ -11669,20 +12042,20 @@ async function commitWebsiteGitHubExportCursor(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportWorker.ts
-var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function exportWebsiteProjectToOwnedGitHub(input) {
-  if (typeof window !== "undefined" || !uuid13.test(input.projectId) || !uuid13.test(input.ownerId) || !uuid13.test(input.connectionId) || !uuid13.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid15.test(input.projectId) || !uuid15.test(input.ownerId) || !uuid15.test(input.connectionId) || !uuid15.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
   const source = await captureWebsiteGitHubExportSource(input);
   if (input.expectedSourceDigest !== void 0 && source.sourceDigest !== input.expectedSourceDigest) {
     throw new Error("GitHub export source changed.");
   }
-  const connection = source.connection;
-  if (connection.environment !== input.environment || !connection.targetId || !await source.isCurrent()) {
+  const connection2 = source.connection;
+  if (connection2.environment !== input.environment || !connection2.targetId || !await source.isCurrent()) {
     throw new Error("GitHub export scope changed.");
   }
   const token4 = await resolveWebsiteGitHubRepositoryGrant({
     client: input.client,
-    connection,
+    connection: connection2,
     clientId: input.githubClientId,
     clientSecret: input.githubClientSecret,
     isCurrentOwner: source.isCurrent,
@@ -11699,14 +12072,14 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
   let currentOwner = true;
   const cursorCandidate = {
     projectId: input.projectId,
-    connectionVersion: connection.version,
-    repositoryId: connection.targetId,
+    connectionVersion: connection2.version,
+    repositoryId: connection2.targetId,
     branch: `tayar/${input.projectId}/${input.environment}`,
     lastHeadSha: null,
     lastSourceDigest: null
   };
   const observedHead = await observeWebsiteGitHubExportBranch({
-    connection,
+    connection: connection2,
     repositoryFullName: token4.repositoryFullName,
     token: token4.accessToken,
     cursor: cursorCandidate,
@@ -11718,18 +12091,18 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
     if (observedHead !== null) throw new Error("GitHub branch exists without a verified export cursor.");
     cursor = await initializeWebsiteGitHubExportCursor({
       ...scope,
-      connectionVersion: connection.version,
-      repositoryId: connection.targetId,
+      connectionVersion: connection2.version,
+      repositoryId: connection2.targetId,
       environment: input.environment,
       branchIsAbsent: true
     });
   }
-  if (cursor.environment !== input.environment || cursor.connectionVersion !== connection.version || cursor.repositoryId !== connection.targetId || cursor.branch !== cursorCandidate.branch || !await source.isCurrent()) {
+  if (cursor.environment !== input.environment || cursor.connectionVersion !== connection2.version || cursor.repositoryId !== connection2.targetId || cursor.branch !== cursorCandidate.branch || !await source.isCurrent()) {
     throw new Error("GitHub export target changed.");
   }
   if (cursor.lastHeadSha !== observedHead) {
     if (!observedHead || !await verifyWebsiteGitHubExportRecovery({
-      connection,
+      connection: connection2,
       cursor,
       repositoryFullName: token4.repositoryFullName,
       token: token4.accessToken,
@@ -11758,7 +12131,7 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
     }
   }
   const result = await writeWebsiteGitHubExport({
-    connection,
+    connection: connection2,
     cursor,
     repositoryFullName: token4.repositoryFullName,
     token: token4.accessToken,
@@ -11786,7 +12159,7 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
 }
 
 // src/modules/website-builder/services/websiteVercelDeploymentAttemptService.ts
-var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var providerProject = /^prj_[A-Za-z0-9]{8,128}$/;
 var providerDeployment = /^dpl_[A-Za-z0-9]{8,128}$/;
 var sha11 = /^[0-9a-f]{40}$/;
@@ -11797,7 +12170,7 @@ var providerEnvironment = /^[A-Za-z0-9_-]{3,128}$/;
 var statuses2 = /* @__PURE__ */ new Set(["connecting", "setup-incomplete", "deployment-failed", "ready"]);
 function validateReport(report) {
   const missing = [...report.missingEnvironment].sort();
-  const hasValidMissing = missing.length <= 64 && missing.every((key) => env3.test(key)) && new Set(missing).size === missing.length;
+  const hasValidMissing = missing.length <= 64 && missing.every((key2) => env3.test(key2)) && new Set(missing).size === missing.length;
   const hasValidLiveUrl = report.status === "ready" ? missing.length === 0 && typeof report.liveUrl === "string" && liveUrl.test(report.liveUrl) : report.liveUrl === null;
   if (!statuses2.has(report.status) || !providerDeployment.test(report.deploymentId) || !observedState.test(report.observedState) || !hasValidMissing || !hasValidLiveUrl || report.status === "setup-incomplete" && missing.length === 0) {
     throw new Error("Vercel deployment observation unavailable.");
@@ -11807,7 +12180,7 @@ function validateReport(report) {
 async function beginWebsiteVercelDeploymentAttempt(input) {
   const required2 = [...input.requiredEnvironment].sort();
   const ids2 = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid14.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha11.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key) => !env3.test(key)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid16.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha11.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key2) => !env3.test(key2)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_deployment_attempt", {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -11828,7 +12201,7 @@ async function beginWebsiteVercelDeploymentAttempt(input) {
 }
 async function commitWebsiteVercelDeploymentObservation(input) {
   const missingEnvironment = validateReport(input.report);
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid14.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid16.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
   const args = {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -11875,13 +12248,20 @@ async function commitWebsiteVercelDeploymentObservation(input) {
 }
 
 // server/website-byo-publish-adapters.ts
-var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var provider4 = /^[A-Za-z0-9_-]{3,128}$/;
+var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var provider5 = /^[A-Za-z0-9_-]{3,128}$/;
 var gitName2 = /^[A-Za-z0-9_.-]{1,100}$/;
-var project6 = /^prj_[A-Za-z0-9]{8,128}$/;
+var project7 = /^prj_[A-Za-z0-9]{8,128}$/;
 var numeric5 = /^\d+$/;
-var branch7 = /^[A-Za-z0-9_./-]{1,200}$/;
+var branch8 = /^[A-Za-z0-9_./-]{1,200}$/;
 var env4 = /^[A-Z][A-Z0-9_]{1,99}$/;
+async function deterministicUuid(value) {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(value))));
+  bytes[6] = bytes[6] & 15 | 80;
+  bytes[8] = bytes[8] & 63 | 128;
+  const hex = [...bytes.slice(0, 16)].map((v) => v.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 async function deterministicCommitId(operationId, attemptVersion, report) {
   const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify({ operationId, attemptVersion, report }))));
   bytes[6] = bytes[6] & 15 | 80;
@@ -11892,11 +12272,11 @@ async function deterministicCommitId(operationId, attemptVersion, report) {
 function parseCustody(value, environment) {
   if (!value || typeof value !== "object") throw new Error();
   const v = value;
-  if (typeof v.accessToken !== "string" || !v.accessToken || v.accessToken.length > 4096 || /[\r\n]/.test(v.accessToken) || typeof v.userId !== "string" || !provider4.test(v.userId) || typeof v.accountId !== "string" || !provider4.test(v.accountId) || typeof v.vercelProjectId !== "string" || !project6.test(v.vercelProjectId) || typeof v.repositoryId !== "string" || !numeric5.test(v.repositoryId) || typeof v.repositoryOwner !== "string" || !gitName2.test(v.repositoryOwner) || typeof v.repositoryName !== "string" || !gitName2.test(v.repositoryName) || typeof v.productionBranch !== "string" || !branch7.test(v.productionBranch) || v.productionBranch.includes("..") || v.environment !== environment) throw new Error();
+  if (typeof v.accessToken !== "string" || !v.accessToken || v.accessToken.length > 4096 || /[\r\n]/.test(v.accessToken) || typeof v.userId !== "string" || !provider5.test(v.userId) || typeof v.accountId !== "string" || !provider5.test(v.accountId) || typeof v.vercelProjectId !== "string" || !project7.test(v.vercelProjectId) || typeof v.repositoryId !== "string" || !numeric5.test(v.repositoryId) || typeof v.repositoryOwner !== "string" || !gitName2.test(v.repositoryOwner) || typeof v.repositoryName !== "string" || !gitName2.test(v.repositoryName) || typeof v.productionBranch !== "string" || !branch8.test(v.productionBranch) || v.productionBranch.includes("..") || v.environment !== environment) throw new Error();
   return v;
 }
 async function runWebsiteOwnedByoPublish(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid15.test(v)) || input.environment !== "preview" || !provider4.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid17.test(v)) || input.environment !== "preview" || !provider5.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
   const scope = {
     client: input.client,
     operationId: input.operationId,
@@ -11944,12 +12324,17 @@ async function runWebsiteOwnedByoPublish(input) {
     if (custody.vercelProjectId !== capturedSource.vercel.targetId || custody.repositoryId !== capturedSource.connection.targetId) throw new Error();
     return custody;
   };
-  const environment = async () => {
+  const requirements = async () => {
     if (required2) return required2;
-    const capturedSource = await source(), vercel2 = await grant();
+    const capturedSource = await source();
     required2 = [...await input.requiredEnvironment(capturedSource.capabilities)].sort();
     if (required2.length > 64 || required2.some((v) => !env4.test(v)) || new Set(required2).size !== required2.length) throw new Error();
-    const sourceBranch = `tayar/${input.projectId}/preview`;
+    return required2;
+  };
+  const environment = async () => {
+    const names2 = await requirements();
+    if (runtimeReceipt) return names2;
+    const capturedSource = await source(), vercel2 = await grant(), sourceBranch = `tayar/${input.projectId}/preview`;
     runtimeReceipt = await prepareOwnedVercelRuntimeEnvironment({
       client: input.client,
       projectId: input.projectId,
@@ -11975,10 +12360,107 @@ async function runWebsiteOwnedByoPublish(input) {
       p_vercel_connection_version: capturedSource.vercel.version,
       p_vercel_project_id: vercel2.vercelProjectId,
       p_git_branch: sourceBranch,
-      p_required_environment: required2
+      p_required_environment: names2
     });
     if (proof.error || proof.data !== true || !await owner()) throw new Error();
-    return required2;
+    return names2;
+  };
+  const stripeRuntime = async () => {
+    const capturedSource = await source(), stripe = capturedSource.stripeRuntime;
+    if (!stripe) return;
+    const vercel2 = await grant();
+    const state = await inspectOwnedStripeRuntimeForPublish({
+      client: input.client,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      vercelConnectionId: input.vercelConnectionId,
+      vercelConnectionVersion: capturedSource.vercel.version,
+      sourceConnectionId: stripe.sourceConnectionId,
+      sourceUpdatedAt: stripe.sourceUpdatedAt,
+      environment: "preview"
+    });
+    const exactCurrent = async () => await capturedSource.isCurrent() && await owner();
+    if (state.ready) {
+      if (!state.environmentId || !state.handoffOperationId) throw new Error();
+      await verifyOwnedStripeRuntimeDestination({
+        accessToken: vercel2.accessToken,
+        userId: vercel2.userId,
+        accountId: vercel2.accountId,
+        vercelProjectId: vercel2.vercelProjectId,
+        environmentId: state.environmentId,
+        projectId: input.projectId,
+        environment: "preview",
+        handoffOperationId: state.handoffOperationId,
+        isCurrent: exactCurrent,
+        fetcher: input.fetcher
+      });
+      return;
+    }
+    const sameOperation = state.handoffOperationId === input.operationId;
+    if (state.handoffStatus === "removed" || state.handoffStatus === "preparing" && !sameOperation || !state.sourceAvailable && !(state.handoffStatus === "verified" && sameOperation)) throw new Error();
+    const stripeConnectionId = state.stripeConnectionId ?? await deterministicUuid({
+      kind: "stripe-runtime-connection",
+      projectId: input.projectId,
+      environment: "preview"
+    });
+    const handoffId = state.handoffId ?? await deterministicUuid({
+      kind: "stripe-secret-handoff",
+      projectId: input.projectId,
+      environment: "preview",
+      vercelConnectionId: input.vercelConnectionId,
+      sourceConnectionId: stripe.sourceConnectionId
+    });
+    let expectedHandoffVersion = state.handoffVersion;
+    if (sameOperation && state.handoffStatus === "preparing") expectedHandoffVersion = state.handoffVersion - 1;
+    if (sameOperation && state.handoffStatus === "verified") expectedHandoffVersion = state.handoffVersion - 2;
+    if (expectedHandoffVersion < 0 || !await exactCurrent()) throw new Error();
+    const receipt = await handoffOwnedStripeRuntime({
+      client: input.client,
+      stripeConnectionId,
+      vercelConnectionId: input.vercelConnectionId,
+      handoffId,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      vercelConnectionVersion: capturedSource.vercel.version,
+      expectedHandoffVersion,
+      expectedStripeConnectionVersion: state.stripeConnectionVersion,
+      sourceConnectionId: stripe.sourceConnectionId,
+      sourceUpdatedAt: stripe.sourceUpdatedAt,
+      publishableKey: stripe.publishableKey,
+      environment: "preview",
+      operationId: input.operationId,
+      handoffCommitId: await deterministicUuid({
+        kind: "stripe-handoff-commit",
+        operationId: input.operationId,
+        handoffId,
+        sourceUpdatedAt: stripe.sourceUpdatedAt
+      }),
+      stripeCommitId: await deterministicUuid({
+        kind: "stripe-runtime-commit",
+        operationId: input.operationId,
+        stripeConnectionId,
+        handoffId
+      }),
+      isCurrent: () => current,
+      fetcher: input.fetcher
+    });
+    if (receipt.status !== "ready" || !await exactCurrent()) throw new Error();
+    await verifyOwnedStripeRuntimeDestination({
+      accessToken: vercel2.accessToken,
+      userId: vercel2.userId,
+      accountId: vercel2.accountId,
+      vercelProjectId: vercel2.vercelProjectId,
+      environmentId: receipt.environmentId,
+      projectId: input.projectId,
+      environment: "preview",
+      handoffOperationId: input.operationId,
+      isCurrent: exactCurrent,
+      fetcher: input.fetcher
+    });
+  };
+  const runtime = async () => {
+    await environment();
+    await stripeRuntime();
   };
   try {
     return await runByoPublishWorker({
@@ -11990,8 +12472,9 @@ async function runWebsiteOwnedByoPublish(input) {
       isCurrent: owner,
       validate: async () => {
         const capturedSource = await source();
-        return { sourceDigest: capturedSource.sourceDigest, requiredEnvironment: await environment() };
+        return { sourceDigest: capturedSource.sourceDigest, requiredEnvironment: await requirements() };
       },
+      prepareRuntime: runtime,
       exportGitHub: async () => {
         const capturedSource = await source();
         return exportWebsiteProjectToOwnedGitHub({
@@ -12014,7 +12497,7 @@ async function runWebsiteOwnedByoPublish(input) {
       },
       beginDeployment: async (headSha, names2) => {
         const capturedSource = await source(), vercel2 = await grant();
-        await environment();
+        await runtime();
         if (!runtimeReceipt) throw new Error();
         const prior = await input.client.rpc("website_vercel_deployment_attempt_for_worker", {
           p_connection_id: input.vercelConnectionId,
@@ -12057,7 +12540,7 @@ async function runWebsiteOwnedByoPublish(input) {
       },
       inspectDeployment: async (deploymentId, headSha, names2) => {
         const vercel2 = await grant();
-        await environment();
+        await runtime();
         if (!runtimeReceipt) throw new Error();
         return inspectOwnedVercelDeployment({
           accessToken: vercel2.accessToken,
@@ -12107,7 +12590,7 @@ async function runWebsiteOwnedByoProductionPublish(input) {
     input.ownerId,
     input.previewVercelConnectionId,
     input.productionVercelConnectionId
-  ].every((v) => uuid15.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
+  ].every((v) => uuid17.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
   let current = true;
   const owner = async () => {
     if (!current) return false;
@@ -12205,17 +12688,17 @@ async function runWebsiteOwnedByoProductionPublish(input) {
 }
 
 // server/website-byo-publish-targets.ts
-var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function parseTarget(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   const row = value;
-  if (Object.keys(row).some((key) => !["connectionId", "version"].includes(key)) || typeof row.connectionId !== "string" || !uuid16.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1) throw new Error();
+  if (Object.keys(row).some((key2) => !["connectionId", "version"].includes(key2)) || typeof row.connectionId !== "string" || !uuid18.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1) throw new Error();
   return { connectionId: row.connectionId, version: row.version };
 }
 function parse(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   const row = value;
-  if (Object.keys(row).some((key) => !["githubPreview", "vercelPreview", "vercelProduction"].includes(key))) throw new Error();
+  if (Object.keys(row).some((key2) => !["githubPreview", "vercelPreview", "vercelProduction"].includes(key2))) throw new Error();
   const result = {
     githubPreview: parseTarget(row.githubPreview),
     vercelPreview: parseTarget(row.vercelPreview),
@@ -12228,7 +12711,7 @@ function parse(value) {
 }
 var identity2 = (value) => JSON.stringify(value);
 async function captureWebsiteByoPublishTargets(input) {
-  if (typeof window !== "undefined" || !uuid16.test(input.projectId) || !uuid16.test(input.ownerId))
+  if (typeof window !== "undefined" || !uuid18.test(input.projectId) || !uuid18.test(input.ownerId))
     throw new Error("BYO publish targets unavailable.");
   const read = async () => {
     const { data, error } = await input.client.rpc("website_byo_publish_targets", {
@@ -12271,7 +12754,7 @@ async function assertFormRequestCapability(backend, reader) {
 }
 function canonical2(value) {
   if (Array.isArray(value)) return `[${value.map(canonical2).join(",")}]`;
-  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical2(value[key])}`).join(",")}}`;
+  if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key2) => `${JSON.stringify(key2)}:${canonical2(value[key2])}`).join(",")}}`;
   return JSON.stringify(value) ?? "undefined";
 }
 async function assertOwnedApplicationBackendRevision(definition, backend, expectedProjectRef, reader) {
@@ -12299,7 +12782,7 @@ async function applicationDefinitionDigest(definition) {
 var sqlName = (value) => `"${value}"`;
 var literal = (value) => `'${value.replace(/'/g, "''")}'`;
 var tableName = (table) => `app_${table.key}`;
-var fieldType = (field) => ({
+var fieldType = (field2) => ({
   text: "text",
   number: "numeric",
   boolean: "boolean",
@@ -12309,7 +12792,7 @@ var fieldType = (field) => ({
   json: "jsonb",
   enum: "text",
   reference: "uuid"
-})[field.type];
+})[field2.type];
 var operationSql = { read: "SELECT", create: "INSERT", update: "UPDATE", delete: "DELETE" };
 var permanentUser = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
 function condition(rule) {
@@ -12324,25 +12807,25 @@ function condition(rule) {
       return `(${permanentUser} and (select private.app_has_role(${literal(rule.roleId)})))`;
   }
 }
-function column(field) {
-  const parts = [sqlName(field.key), fieldType(field)];
-  if (field.required) parts.push("not null");
-  if (field.defaultValue !== void 0 && field.defaultValue !== null) {
-    parts.push(`default ${typeof field.defaultValue === "string" ? literal(field.defaultValue) : String(field.defaultValue)}`);
+function column(field2) {
+  const parts = [sqlName(field2.key), fieldType(field2)];
+  if (field2.required) parts.push("not null");
+  if (field2.defaultValue !== void 0 && field2.defaultValue !== null) {
+    parts.push(`default ${typeof field2.defaultValue === "string" ? literal(field2.defaultValue) : String(field2.defaultValue)}`);
   }
-  if (field.type === "enum") parts.push(`check (${sqlName(field.key)} in (${field.options.map(literal).join(", ")}))`);
+  if (field2.type === "enum") parts.push(`check (${sqlName(field2.key)} in (${field2.options.map(literal).join(", ")}))`);
   return parts.join(" ");
 }
-function fieldIndex(tableIndex, index, table, field) {
+function fieldIndex(tableIndex, index, table, field2) {
   const name2 = `public.${sqlName(tableName(table))}`;
-  if (field.unique) return [`create unique index ${sqlName(`app_i_${tableIndex}_${index}_unique`)} on ${name2} (${sqlName(field.key)});`];
-  if (field.indexed || field.type === "reference") return [`create index ${sqlName(`app_i_${tableIndex}_${index}`)} on ${name2} (${sqlName(field.key)});`];
+  if (field2.unique) return [`create unique index ${sqlName(`app_i_${tableIndex}_${index}_unique`)} on ${name2} (${sqlName(field2.key)});`];
+  if (field2.indexed || field2.type === "reference") return [`create index ${sqlName(`app_i_${tableIndex}_${index}`)} on ${name2} (${sqlName(field2.key)});`];
   return [];
 }
-function referenceConstraint(app, tableIndex, fieldIndex2, field) {
+function referenceConstraint(app, tableIndex, fieldIndex2, field2) {
   const table = app.tables[tableIndex];
-  const target2 = app.tables.find((item) => item.id === field.referenceTableId);
-  return `alter table public.${sqlName(tableName(table))} add constraint ${sqlName(`app_fk_${tableIndex}_${fieldIndex2}`)} foreign key (${sqlName(field.key)}) references public.${sqlName(tableName(target2))}(id) on delete restrict;`;
+  const target2 = app.tables.find((item) => item.id === field2.referenceTableId);
+  return `alter table public.${sqlName(tableName(table))} add constraint ${sqlName(`app_fk_${tableIndex}_${fieldIndex2}`)} foreign key (${sqlName(field2.key)}) references public.${sqlName(tableName(target2))}(id) on delete restrict;`;
 }
 function policies(table, tableIndex) {
   const name2 = `public.${sqlName(tableName(table))}`;
@@ -12525,7 +13008,7 @@ function compileAdditiveApplicationMigration(previous, next) {
   }
   if (before.tables.length > after.tables.length || before.tables.some((table, index) => {
     const updated = after.tables[index];
-    return !updated || table.id !== updated.id || table.key !== updated.key || table.name !== updated.name || table.fields.length > updated.fields.length || table.fields.some((field, fieldIndex2) => JSON.stringify(field) !== JSON.stringify(updated.fields[fieldIndex2]));
+    return !updated || table.id !== updated.id || table.key !== updated.key || table.name !== updated.name || table.fields.length > updated.fields.length || table.fields.some((field2, fieldIndex2) => JSON.stringify(field2) !== JSON.stringify(updated.fields[fieldIndex2]));
   })) throw new Error("Removing, reordering or changing existing tables and fields requires a separately reviewed data migration.");
   if (JSON.stringify(before) === JSON.stringify(after)) return [];
   const statements = [
@@ -12564,18 +13047,18 @@ end $revision$;`
 end $form_ledger$;`);
     }
     for (let fieldIndexValue = old?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
-      const field = table.fields[fieldIndexValue];
+      const field2 = table.fields[fieldIndexValue];
       if (old) {
-        if (field.required && field.defaultValue === void 0) throw new Error(`Required field ${table.key}.${field.key} needs a default or a reviewed backfill.`);
-        statements.push(`alter table ${name2} add column ${column(field)};`);
+        if (field2.required && field2.defaultValue === void 0) throw new Error(`Required field ${table.key}.${field2.key} needs a default or a reviewed backfill.`);
+        statements.push(`alter table ${name2} add column ${column(field2)};`);
       }
-      statements.push(...fieldIndex(index, fieldIndexValue, table, field));
+      statements.push(...fieldIndex(index, fieldIndexValue, table, field2));
     }
   }
   for (const [index, table] of after.tables.entries()) {
     for (let fieldIndexValue = before.tables[index]?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
-      const field = table.fields[fieldIndexValue];
-      if (field.type === "reference") statements.push(referenceConstraint(after, index, fieldIndexValue, field));
+      const field2 = table.fields[fieldIndexValue];
+      if (field2.type === "reference") statements.push(referenceConstraint(after, index, fieldIndexValue, field2));
     }
   }
   for (const [index, table] of after.tables.entries()) {
@@ -12684,10 +13167,10 @@ async function verifyRoleInfrastructure(query) {
   if (functionRows.length !== expectedFunctions.length) return false;
   const seen = /* @__PURE__ */ new Set();
   for (const row of functionRows) {
-    const key = `${row?.schema_name}.${row?.function_name}`;
-    const expected = expectedFunctions.find((item) => `${item.schema}.${item.name}` === key);
-    if (!expected || seen.has(key) || row.arguments !== expected.arguments || String(row.result).toLowerCase() !== expected.result || row.language !== expected.language || row.kind !== "f" || row.security_definer !== expected.securityDefiner || row.volatility !== (expected.stable ? "s" : "v") || row.source !== expected.source || row.owner_name !== "postgres" || !Array.isArray(row.configuration) || row.configuration.length !== 1 || row.configuration[0] !== "search_path=" || row.anon_execute !== false || row.authenticated_execute !== (expected.name !== "app_bootstrap_role_admin") || expected.name === "app_bootstrap_role_admin" && row.service_execute !== true) return false;
-    seen.add(key);
+    const key2 = `${row?.schema_name}.${row?.function_name}`;
+    const expected = expectedFunctions.find((item) => `${item.schema}.${item.name}` === key2);
+    if (!expected || seen.has(key2) || row.arguments !== expected.arguments || String(row.result).toLowerCase() !== expected.result || row.language !== expected.language || row.kind !== "f" || row.security_definer !== expected.securityDefiner || row.volatility !== (expected.stable ? "s" : "v") || row.source !== expected.source || row.owner_name !== "postgres" || !Array.isArray(row.configuration) || row.configuration.length !== 1 || row.configuration[0] !== "search_path=" || row.anon_execute !== false || row.authenticated_execute !== (expected.name !== "app_bootstrap_role_admin") || expected.name === "app_bootstrap_role_admin" && row.service_execute !== true) return false;
+    seen.add(key2);
   }
   return seen.size === expectedFunctions.length;
 }
@@ -12735,16 +13218,16 @@ async function verifyOwnedSupabaseCatalogSecurity(definition, query) {
 }
 
 // server/website-owned-supabase-custody.ts
-var provider5 = /^[A-Za-z0-9_-]{1,200}$/;
+var provider6 = /^[A-Za-z0-9_-]{1,200}$/;
 var slug = /^[a-z0-9][a-z0-9-]{0,199}$/;
 var ref = /^[a-z]{20}$/;
 var providerTokenMaxBytes2 = 65536;
 var token3 = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes2 && !/[\r\n]/.test(value);
-var object4 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-var exact2 = (row, keys) => Object.keys(row).every((key) => keys.includes(key));
+var object5 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var exact2 = (row, keys) => Object.keys(row).every((key2) => keys.includes(key2));
 var currentDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseOwnedSupabaseCustody(value, environment, target2) {
-  const row = object4(value), grant = object4(row?.grant);
+  const row = object5(value), grant = object5(row?.grant);
   if (!row || !grant || !exact2(row, [
     "version",
     "accountId",
@@ -12755,7 +13238,7 @@ function parseOwnedSupabaseCustody(value, environment, target2) {
     "accessExpiresAt",
     "custodyExpiresAt",
     "grant"
-  ]) || !exact2(grant, ["accessToken", "refreshToken"]) || !Number.isSafeInteger(row.version) || row.version < 1 || target2.custodyVersion !== void 0 && row.version !== target2.custodyVersion || typeof row.accountId !== "string" || !provider5.test(row.accountId) || typeof row.organizationId !== "string" || !provider5.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug.test(row.organizationSlug) || row.projectRef !== target2.projectRef || !ref.test(String(row.projectRef)) || row.environment !== environment || !currentDate(row.accessExpiresAt) || !currentDate(row.custodyExpiresAt) || !token3(grant.accessToken) || !token3(grant.refreshToken)) throw new Error();
+  ]) || !exact2(grant, ["accessToken", "refreshToken"]) || !Number.isSafeInteger(row.version) || row.version < 1 || target2.custodyVersion !== void 0 && row.version !== target2.custodyVersion || typeof row.accountId !== "string" || !provider6.test(row.accountId) || typeof row.organizationId !== "string" || !provider6.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug.test(row.organizationSlug) || row.projectRef !== target2.projectRef || !ref.test(String(row.projectRef)) || row.environment !== environment || !currentDate(row.accessExpiresAt) || !currentDate(row.custodyExpiresAt) || !token3(grant.accessToken) || !token3(grant.refreshToken)) throw new Error();
   return {
     version: row.version,
     accountId: row.accountId,
@@ -12780,13 +13263,13 @@ async function readOwnedSupabasePublicBackend(input) {
   const value = JSON.parse(text2);
   if (!Array.isArray(value) || value.length > 32) throw new Error();
   const keys = value.map((item) => {
-    const row = object4(item);
+    const row = object5(item);
     if (!row || typeof row.type !== "string" || typeof row.api_key !== "string" || row.name != null && typeof row.name !== "string") throw new Error();
     return row;
   });
-  const publishable = keys.filter((key) => key.type === "publishable" && /^sb_publishable_[A-Za-z0-9_-]+$/.test(String(key.api_key)));
-  const legacy = keys.filter((key) => key.type === "legacy" && key.name === "anon");
-  const selected = publishable.length === 1 ? publishable[0] : publishable.length === 0 && legacy.length === 1 ? legacy[0] : null;
+  const publishable2 = keys.filter((key2) => key2.type === "publishable" && /^sb_publishable_[A-Za-z0-9_-]+$/.test(String(key2.api_key)));
+  const legacy = keys.filter((key2) => key2.type === "legacy" && key2.name === "anon");
+  const selected = publishable2.length === 1 ? publishable2[0] : publishable2.length === 0 && legacy.length === 1 ? legacy[0] : null;
   if (!selected) throw new Error();
   const backend = {
     url: `https://${input.custody.projectRef}.supabase.co`,
@@ -12817,8 +13300,8 @@ async function verifyOwnedSupabaseProject(input) {
   try {
     const profile = await get("profile");
     if (Array.isArray(profile) || profile.gotrue_id !== input.accountUserId) return false;
-    const project8 = await get(`projects/${input.projectRef}`);
-    if (Array.isArray(project8) || project8.ref !== input.projectRef || project8.organization_id !== input.organizationId || project8.organization_slug !== input.organizationSlug || project8.status !== "ACTIVE_HEALTHY") return false;
+    const project9 = await get(`projects/${input.projectRef}`);
+    if (Array.isArray(project9) || project9.ref !== input.projectRef || project9.organization_id !== input.organizationId || project9.organization_slug !== input.organizationSlug || project9.status !== "ACTIVE_HEALTHY") return false;
     const members = await get(`organizations/${input.organizationSlug}/members`);
     if (!Array.isArray(members) || members.filter((member) => member && member.user_id === input.accountUserId && member.role_name === "Owner").length !== 1) return false;
     const latest = await get(`projects/${input.projectRef}`);
@@ -12869,7 +13352,7 @@ async function assertAuthSettings(definition, backend) {
     throw new Error("Dedicated application authentication settings are invalid.");
   }
   const external = providers2;
-  if (external.email !== app.auth.enabled || external.anonymous_users !== false || settings.disable_signup !== !app.auth.signUpEnabled || app.auth.enabled && settings.mailer_autoconfirm !== !app.auth.emailVerificationRequired || Object.entries(external).some(([provider10, enabled]) => typeof enabled !== "boolean" || provider10 !== "email" && enabled) || ["saml_enabled", "passkeys_enabled"].some((key) => settings[key] !== void 0 && settings[key] !== false)) {
+  if (external.email !== app.auth.enabled || external.anonymous_users !== false || settings.disable_signup !== !app.auth.signUpEnabled || app.auth.enabled && settings.mailer_autoconfirm !== !app.auth.emailVerificationRequired || Object.entries(external).some(([provider11, enabled]) => typeof enabled !== "boolean" || provider11 !== "email" && enabled) || ["saml_enabled", "passkeys_enabled"].some((key2) => settings[key2] !== void 0 && settings[key2] !== false)) {
     throw new Error("Dedicated application authentication settings do not match the project.");
   }
 }
@@ -12897,7 +13380,7 @@ async function verifyOwnedSupabaseApplicationRuntime(input) {
 
 // server/website-owned-supabase-migration.ts
 var ref2 = /^[a-z]{20}$/;
-var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var digest7 = /^[0-9a-f]{64}$/;
 var sha12 = async (value) => Array.from(
   new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))),
@@ -12944,7 +13427,7 @@ async function commitId3(operationId, attemptVersion, plan) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 async function migrateOwnedSupabaseApplication(input) {
-  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid17.test(input.operationId) || !await input.isCurrent())
+  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid19.test(input.operationId) || !await input.isCurrent())
     throw new Error("Customer Supabase migration unavailable.");
   const plan = await planOwnedSupabaseAdditiveMigration(input.previous, input.next);
   const verify = async () => await input.isCurrent() && await input.verifyDeployed(structuredClone(plan.next)) && await input.isCurrent();
@@ -12996,16 +13479,16 @@ function assertOwnedSupabaseMigrationMetadata(value) {
 }
 
 // server/website-owned-supabase-migration-store.ts
-var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref3 = /^[a-z]{20}$/;
-var object5 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object6 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function committed(value) {
-  const row = object5(value);
-  if (!row || Object.keys(row).some((key) => !["attemptVersion", "connectionVersion"].includes(key)) || !Number.isSafeInteger(row.attemptVersion) || row.attemptVersion < 1 || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1) throw new Error();
+  const row = object6(value);
+  if (!row || Object.keys(row).some((key2) => !["attemptVersion", "connectionVersion"].includes(key2)) || !Number.isSafeInteger(row.attemptVersion) || row.attemptVersion < 1 || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1) throw new Error();
   return { attemptVersion: row.attemptVersion, connectionVersion: row.connectionVersion };
 }
 function createOwnedSupabaseMigrationStore(input) {
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid18.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid20.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
     throw new Error("Customer Supabase migration store unavailable.");
   const scope = { p_connection_id: input.connectionId, p_project_id: input.projectId, p_owner_id: input.ownerId };
   const metadata = (plan) => {
@@ -13044,8 +13527,8 @@ function createOwnedSupabaseMigrationStore(input) {
           p_expected_attempt_version: attemptVersion,
           p_operation_id: input.operationId
         });
-        const row = object5(data);
-        if (error || !row || Object.keys(row).some((key) => !["attemptVersion", "issueMutation", "accessToken"].includes(key)) || !Number.isSafeInteger(row.attemptVersion) || row.attemptVersion < attemptVersion || typeof row.issueMutation !== "boolean" || typeof row.accessToken !== "string" || row.accessToken.length < 20 || row.accessToken.length > 4096 || /[\r\n]/.test(row.accessToken) || !await input.isCurrent()) throw new Error();
+        const row = object6(data);
+        if (error || !row || Object.keys(row).some((key2) => !["attemptVersion", "issueMutation", "accessToken"].includes(key2)) || !Number.isSafeInteger(row.attemptVersion) || row.attemptVersion < attemptVersion || typeof row.issueMutation !== "boolean" || typeof row.accessToken !== "string" || row.accessToken.length < 20 || row.accessToken.length > 4096 || /[\r\n]/.test(row.accessToken) || !await input.isCurrent()) throw new Error();
         return { attemptVersion: row.attemptVersion, issueMutation: row.issueMutation, accessToken: row.accessToken };
       } catch {
         throw new Error("Customer Supabase migration store unavailable.");
@@ -13054,7 +13537,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async commit(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid18.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid20.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_commit_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -13071,7 +13554,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async reconcile(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid18.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid20.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_reconcile_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -13089,16 +13572,16 @@ function createOwnedSupabaseMigrationStore(input) {
 }
 
 // server/website-owned-supabase-migration-worker.ts
-var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref4 = /^[a-z]{20}$/;
-var provider6 = /^[A-Za-z0-9_-]{1,200}$/;
+var provider7 = /^[A-Za-z0-9_-]{1,200}$/;
 var slug2 = /^[a-z0-9][a-z0-9-]{0,199}$/;
 var digest8 = /^[0-9a-f]{64}$/;
-var object6 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-var exact3 = (row, keys) => Object.keys(row).every((key) => keys.includes(key));
+var object7 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var exact3 = (row, keys) => Object.keys(row).every((key2) => keys.includes(key2));
 function parseAttempt(value) {
   if (value === null) return null;
-  const row = object6(value);
+  const row = object7(value);
   if (!row || !exact3(row, [
     "version",
     "status",
@@ -13110,7 +13593,7 @@ function parseAttempt(value) {
     "nextDigest",
     "queryDigest",
     "statementCount"
-  ]) || !Number.isSafeInteger(row.version) || row.version < 1 || !["prepared", "claimed", "ready"].includes(String(row.status)) || typeof row.operationId !== "string" || !uuid19.test(row.operationId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || ![row.previousDigest, row.nextDigest, row.queryDigest].every((value2) => typeof value2 === "string" && digest8.test(value2)) || row.previousDigest === row.nextDigest || !Number.isSafeInteger(row.statementCount) || row.statementCount < 1 || row.statementCount > 512) throw new Error();
+  ]) || !Number.isSafeInteger(row.version) || row.version < 1 || !["prepared", "claimed", "ready"].includes(String(row.status)) || typeof row.operationId !== "string" || !uuid21.test(row.operationId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || ![row.previousDigest, row.nextDigest, row.queryDigest].every((value2) => typeof value2 === "string" && digest8.test(value2)) || row.previousDigest === row.nextDigest || !Number.isSafeInteger(row.statementCount) || row.statementCount < 1 || row.statementCount > 512) throw new Error();
   return {
     version: row.version,
     status: row.status,
@@ -13125,7 +13608,7 @@ function parseAttempt(value) {
   };
 }
 function parseTarget2(value) {
-  const row = object6(value);
+  const row = object7(value);
   if (!row || !exact3(row, [
     "connectionId",
     "connectionVersion",
@@ -13136,7 +13619,7 @@ function parseTarget2(value) {
     "organizationSlug",
     "definition",
     "attempt"
-  ]) || typeof row.connectionId !== "string" || !uuid19.test(row.connectionId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || !Number.isSafeInteger(row.custodyVersion) || row.custodyVersion < 1 || typeof row.projectRef !== "string" || !ref4.test(row.projectRef) || typeof row.accountId !== "string" || !provider6.test(row.accountId) || typeof row.organizationId !== "string" || !provider6.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug2.test(row.organizationSlug)) throw new Error();
+  ]) || typeof row.connectionId !== "string" || !uuid21.test(row.connectionId) || !Number.isSafeInteger(row.connectionVersion) || row.connectionVersion < 1 || !Number.isSafeInteger(row.custodyVersion) || row.custodyVersion < 1 || typeof row.projectRef !== "string" || !ref4.test(row.projectRef) || typeof row.accountId !== "string" || !provider7.test(row.accountId) || typeof row.organizationId !== "string" || !provider7.test(row.organizationId) || typeof row.organizationSlug !== "string" || !slug2.test(row.organizationSlug)) throw new Error();
   return {
     connectionId: row.connectionId,
     connectionVersion: row.connectionVersion,
@@ -13150,7 +13633,7 @@ function parseTarget2(value) {
   };
 }
 async function migrateWebsiteOwnedSupabaseFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid19.test(value)) || !["preview", "production"].includes(input.environment) || !provider6.test(input.platformSupabaseOrganizationId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid21.test(value)) || !["preview", "production"].includes(input.environment) || !provider7.test(input.platformSupabaseOrganizationId))
     throw new Error("Customer Supabase migration worker unavailable.");
   const fetcher = input.fetcher ?? fetch;
   const readTarget = async () => {
@@ -13193,7 +13676,7 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
       if (!Array.isArray(value) || value.length !== 1) {
         throw new Error();
       }
-      const row = object6(value[0]);
+      const row = object7(value[0]);
       if (!row || !exact3(row, ["definition"])) throw new Error();
       return readApplicationDefinition(row.definition);
     };
@@ -13209,7 +13692,7 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
         if (!Array.isArray(value) || value.length !== 1) {
           throw new Error();
         }
-        const row = object6(value[0]);
+        const row = object7(value[0]);
         if (!row || !exact3(row, ["form_request_version"])) throw new Error();
         return row.form_request_version;
       },
@@ -13280,18 +13763,18 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
 }
 
 // server/website-owned-runtime-binding.ts
-var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref5 = /^[a-z]{20}$/;
 var vercel = /^prj_[A-Za-z0-9]{8,128}$/;
-var object7 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object8 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function target(value, kind) {
-  const row = object7(value), identity4 = kind === "supabase" ? row?.projectRef : row?.projectId;
-  if (!row || Object.keys(row).some((key) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key)) || typeof row.connectionId !== "string" || !uuid20.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1 || typeof identity4 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity4)) throw new Error();
+  const row = object8(value), identity4 = kind === "supabase" ? row?.projectRef : row?.projectId;
+  if (!row || Object.keys(row).some((key2) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key2)) || typeof row.connectionId !== "string" || !uuid22.test(row.connectionId) || !Number.isSafeInteger(row.version) || row.version < 1 || typeof identity4 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity4)) throw new Error();
   return { connectionId: row.connectionId, version: row.version, [kind === "supabase" ? "projectRef" : "projectId"]: identity4 };
 }
 function parse2(value) {
-  const row = object7(value);
-  if (!row || Object.keys(row).some((key) => !["supabase", "vercel"].includes(key))) throw new Error();
+  const row = object8(value);
+  if (!row || Object.keys(row).some((key2) => !["supabase", "vercel"].includes(key2))) throw new Error();
   const supabase = target(row.supabase, "supabase");
   const vercelTarget = target(row.vercel, "vercel");
   if (supabase.connectionId === vercelTarget.connectionId) throw new Error();
@@ -13299,7 +13782,7 @@ function parse2(value) {
 }
 var identity3 = (value) => JSON.stringify(value);
 async function setupWebsiteOwnedRuntimeBinding(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid20.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid22.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
   const readTargets = async () => {
     const { data, error } = await input.client.rpc("website_byo_runtime_setup_targets", {
       p_project_id: input.projectId,
@@ -13311,7 +13794,7 @@ async function setupWebsiteOwnedRuntimeBinding(input) {
   };
   try {
     const targets = await readTargets(), captured = identity3(targets), saved = await input.reader.readSavedProject(input.projectId, input.ownerId);
-    if (!saved || saved.projectId !== input.projectId || saved.ownerId !== input.ownerId || !object7(saved.snapshot.application)) throw new Error();
+    if (!saved || saved.projectId !== input.projectId || saved.ownerId !== input.ownerId || !object8(saved.snapshot.application)) throw new Error();
     const snapshotDigest = await websiteProjectReleaseDigest(saved.snapshot), application = structuredClone(saved.snapshot.application);
     const definition = readApplicationDefinition(application);
     const isCurrent = async () => {
@@ -13325,8 +13808,8 @@ async function setupWebsiteOwnedRuntimeBinding(input) {
     if (!await isCurrent()) throw new Error();
     const supabase = await input.verifySupabase({ definition: structuredClone(definition), targets: structuredClone(targets), isCurrent });
     if (!supabase || supabase.verified !== true || !await isCurrent()) throw new Error();
-    const backendRow = object7(supabase.backend);
-    if (!backendRow || Object.keys(backendRow).some((key) => !["url", "projectRef", "publishableKey"].includes(key)) || typeof backendRow.url !== "string" || typeof backendRow.projectRef !== "string" || typeof backendRow.publishableKey !== "string") throw new Error();
+    const backendRow = object8(supabase.backend);
+    if (!backendRow || Object.keys(backendRow).some((key2) => !["url", "projectRef", "publishableKey"].includes(key2)) || typeof backendRow.url !== "string" || typeof backendRow.projectRef !== "string" || typeof backendRow.publishableKey !== "string") throw new Error();
     const backend = { url: backendRow.url, projectRef: backendRow.projectRef, publishableKey: backendRow.publishableKey };
     validateOwnedApplicationPublicBackend(backend, targets.supabase.projectRef);
     const observed = await input.verifyVercel({ targets: structuredClone(targets), isCurrent });
@@ -13383,18 +13866,18 @@ async function verifyOwnedVercelProject(input) {
     return data;
   }
   const projectPath = `/v9/projects/${input.projectId}${team3 ? `?teamId=${input.accountId}` : ""}`;
-  function matches(project8) {
-    const link = project8.link;
-    return project8.id === input.projectId && project8.accountId === input.accountId && project8.paused !== true && link !== null && typeof link === "object" && link.type === "github" && String(link.repoId) === input.repositoryId && link.org === input.repositoryOwner && link.repo === input.repositoryName && link.productionBranch === input.productionBranch;
+  function matches(project9) {
+    const link = project9.link;
+    return project9.id === input.projectId && project9.accountId === input.accountId && project9.paused !== true && link !== null && typeof link === "object" && link.type === "github" && String(link.repoId) === input.repositoryId && link.org === input.repositoryOwner && link.repo === input.repositoryName && link.productionBranch === input.productionBranch;
   }
   try {
     if (!await input.isCurrent()) return false;
     const profile = await read("/v2/user");
     if (!profile.user || typeof profile.user !== "object" || profile.user.id !== input.userId) return false;
     if (team3) {
-      const account = await read(`/v2/teams/${input.accountId}`);
-      const membership = account.membership;
-      if (account.id !== input.accountId || !membership || typeof membership !== "object" || membership.uid !== input.userId || membership.role !== "OWNER" || membership.confirmed !== true) return false;
+      const account2 = await read(`/v2/teams/${input.accountId}`);
+      const membership = account2.membership;
+      if (account2.id !== input.accountId || !membership || typeof membership !== "object" || membership.uid !== input.userId || membership.role !== "OWNER" || membership.confirmed !== true) return false;
     }
     if (!matches(await read(projectPath))) return false;
     return await input.isCurrent() && matches(await read(projectPath)) && await input.isCurrent();
@@ -13404,16 +13887,16 @@ async function verifyOwnedVercelProject(input) {
 }
 
 // server/website-owned-runtime-setup-adapters.ts
-var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var provider7 = /^[A-Za-z0-9_-]{1,200}$/;
-var project7 = /^prj_[A-Za-z0-9]{8,128}$/;
+var uuid23 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var provider8 = /^[A-Za-z0-9_-]{1,200}$/;
+var project8 = /^prj_[A-Za-z0-9]{8,128}$/;
 var gitName3 = /^[A-Za-z0-9_.-]{1,100}$/;
-var branch8 = /^[A-Za-z0-9_./-]{1,200}$/;
-var object8 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-var exact4 = (row, keys) => Object.keys(row).every((key) => keys.includes(key));
+var branch9 = /^[A-Za-z0-9_./-]{1,200}$/;
+var object9 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var exact4 = (row, keys) => Object.keys(row).every((key2) => keys.includes(key2));
 var currentDate2 = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseVercelCustody(value, environment, target2) {
-  const row = object8(value);
+  const row = object9(value);
   if (!row || !exact4(row, [
     "userId",
     "accountId",
@@ -13426,18 +13909,18 @@ function parseVercelCustody(value, environment, target2) {
     "environment",
     "custodyExpiresAt",
     "accessToken"
-  ]) || typeof row.userId !== "string" || !provider7.test(row.userId) || typeof row.accountId !== "string" || !provider7.test(row.accountId) || typeof row.configurationId !== "string" || !/^icfg_[A-Za-z0-9]{8,128}$/.test(row.configurationId) || row.vercelProjectId !== target2.projectId || !project7.test(String(row.vercelProjectId)) || typeof row.repositoryId !== "string" || !/^\d{1,30}$/.test(row.repositoryId) || typeof row.repositoryOwner !== "string" || !gitName3.test(row.repositoryOwner) || typeof row.repositoryName !== "string" || !gitName3.test(row.repositoryName) || typeof row.productionBranch !== "string" || !branch8.test(row.productionBranch) || row.productionBranch.includes("..") || row.environment !== environment || !currentDate2(row.custodyExpiresAt) || typeof row.accessToken !== "string" || row.accessToken.length < 20 || row.accessToken.length > 4096 || /[\r\n]/.test(row.accessToken)) throw new Error();
+  ]) || typeof row.userId !== "string" || !provider8.test(row.userId) || typeof row.accountId !== "string" || !provider8.test(row.accountId) || typeof row.configurationId !== "string" || !/^icfg_[A-Za-z0-9]{8,128}$/.test(row.configurationId) || row.vercelProjectId !== target2.projectId || !project8.test(String(row.vercelProjectId)) || typeof row.repositoryId !== "string" || !/^\d{1,30}$/.test(row.repositoryId) || typeof row.repositoryOwner !== "string" || !gitName3.test(row.repositoryOwner) || typeof row.repositoryName !== "string" || !gitName3.test(row.repositoryName) || typeof row.productionBranch !== "string" || !branch9.test(row.productionBranch) || row.productionBranch.includes("..") || row.environment !== environment || !currentDate2(row.custodyExpiresAt) || typeof row.accessToken !== "string" || row.accessToken.length < 20 || row.accessToken.length > 4096 || /[\r\n]/.test(row.accessToken)) throw new Error();
   return row;
 }
 function runtimeReader(custody, isCurrent, fetcher) {
   const query = createOwnedSupabaseReadOnlyQuery({ ...custody, fetcher });
-  const scalar = async (sql, key) => {
+  const scalar = async (sql, key2) => {
     if (!await isCurrent()) throw new Error();
     const value = await query(sql);
     if (!Array.isArray(value) || value.length !== 1) throw new Error();
-    const row = object8(value[0]);
-    if (!row || !exact4(row, [key]) || !await isCurrent()) throw new Error();
-    return row[key];
+    const row = object9(value[0]);
+    if (!row || !exact4(row, [key2]) || !await isCurrent()) throw new Error();
+    return row[key2];
   };
   return {
     url: `https://${custody.projectRef}.supabase.co`,
@@ -13447,7 +13930,7 @@ function runtimeReader(custody, isCurrent, fetcher) {
   };
 }
 async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid21.test(value)) || !provider7.test(input.platformSupabaseOrganizationId) || !provider7.test(input.platformVercelAccountId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid23.test(value)) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId))
     throw new Error("BYO runtime setup adapters unavailable.");
   const fetcher = input.fetcher ?? fetch;
   try {
@@ -13507,19 +13990,19 @@ async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
 }
 
 // server/website-owned-backend-preparation-worker.ts
-var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var provider8 = /^[A-Za-z0-9_-]{1,200}$/;
-var object9 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var uuid24 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var provider9 = /^[A-Za-z0-9_-]{1,200}$/;
+var object10 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function parseState(value) {
-  const row = object9(value);
-  if (!row || Object.keys(row).some((key) => !["bindingVersion", "expectedBindingVersion", "operationCommitted"].includes(key)) || !Number.isSafeInteger(row.bindingVersion) || row.bindingVersion < 0 || !Number.isSafeInteger(row.expectedBindingVersion) || row.expectedBindingVersion < 0 || typeof row.operationCommitted !== "boolean") throw new Error();
+  const row = object10(value);
+  if (!row || Object.keys(row).some((key2) => !["bindingVersion", "expectedBindingVersion", "operationCommitted"].includes(key2)) || !Number.isSafeInteger(row.bindingVersion) || row.bindingVersion < 0 || !Number.isSafeInteger(row.expectedBindingVersion) || row.expectedBindingVersion < 0 || typeof row.operationCommitted !== "boolean") throw new Error();
   const bindingVersion = row.bindingVersion, expectedBindingVersion = row.expectedBindingVersion;
   if (row.operationCommitted ? bindingVersion !== expectedBindingVersion + 1 : bindingVersion !== expectedBindingVersion) throw new Error();
   return { bindingVersion, expectedBindingVersion, operationCommitted: row.operationCommitted };
 }
 function createWebsiteOwnedBackendPreparationWorker(dependencies) {
   return async function prepareWebsiteOwnedBackend2(input) {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid22.test(value)) || !["preview", "production"].includes(input.environment) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid24.test(value)) || !["preview", "production"].includes(input.environment) || !provider9.test(input.platformSupabaseOrganizationId) || !provider9.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
     try {
       const migration = await dependencies.migrate({
         client: input.client,
@@ -13698,8 +14181,8 @@ function createWebsiteByoPublishRuntimePolicy(reader) {
 }
 
 // server/website-owned-source-reader.ts
-var uuid23 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var object10 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var uuid25 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var object11 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 async function rpc(client, name2, args) {
   const { data, error } = await client.rpc(name2, args);
   if (error) return null;
@@ -13708,15 +14191,15 @@ async function rpc(client, name2, args) {
 function createWebsiteOwnedSourceReader(client) {
   return {
     async readSavedProject(projectId, ownerId) {
-      if (!uuid23.test(projectId) || !uuid23.test(ownerId)) return null;
-      const row = object10(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
-      const snapshot = object10(row?.snapshot);
+      if (!uuid25.test(projectId) || !uuid25.test(ownerId)) return null;
+      const row = object11(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
+      const snapshot = object11(row?.snapshot);
       if (!row || row.projectId !== projectId || row.ownerId !== ownerId || !snapshot) return null;
       return { projectId, ownerId, snapshot: structuredClone(snapshot) };
     },
     async readConnection(connectionId, projectId, ownerId) {
-      if (![connectionId, projectId, ownerId].every((value) => uuid23.test(value))) return null;
-      const row = object10(await rpc(client, "website_byo_connection_for_worker", {
+      if (![connectionId, projectId, ownerId].every((value) => uuid25.test(value))) return null;
+      const row = object11(await rpc(client, "website_byo_connection_for_worker", {
         p_connection_id: connectionId,
         p_project_id: projectId,
         p_owner_id: ownerId
@@ -13732,13 +14215,13 @@ function createWebsiteOwnedSourceReader(client) {
       }
     },
     async readOwnedRuntimeBinding(projectId, ownerId, environment) {
-      if (!uuid23.test(projectId) || !uuid23.test(ownerId) || !["preview", "production"].includes(environment)) return null;
-      const row = object10(await rpc(client, "website_byo_runtime_binding_for_worker", {
+      if (!uuid25.test(projectId) || !uuid25.test(ownerId) || !["preview", "production"].includes(environment)) return null;
+      const row = object11(await rpc(client, "website_byo_runtime_binding_for_worker", {
         p_project_id: projectId,
         p_owner_id: ownerId,
         p_environment: environment
-      })), backend = object10(row?.backend);
-      if (!row || !backend || row.projectId !== projectId || row.ownerId !== ownerId || row.environment !== environment || !Number.isSafeInteger(row.bindingVersion) || row.bindingVersion < 1 || typeof row.supabaseConnectionId !== "string" || !uuid23.test(row.supabaseConnectionId) || !Number.isSafeInteger(row.supabaseConnectionVersion) || row.supabaseConnectionVersion < 1 || typeof row.vercelConnectionId !== "string" || !uuid23.test(row.vercelConnectionId) || !Number.isSafeInteger(row.vercelConnectionVersion) || row.vercelConnectionVersion < 1 || row.supabaseConnectionId === row.vercelConnectionId || typeof row.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
+      })), backend = object11(row?.backend);
+      if (!row || !backend || row.projectId !== projectId || row.ownerId !== ownerId || row.environment !== environment || !Number.isSafeInteger(row.bindingVersion) || row.bindingVersion < 1 || typeof row.supabaseConnectionId !== "string" || !uuid25.test(row.supabaseConnectionId) || !Number.isSafeInteger(row.supabaseConnectionVersion) || row.supabaseConnectionVersion < 1 || typeof row.vercelConnectionId !== "string" || !uuid25.test(row.vercelConnectionId) || !Number.isSafeInteger(row.vercelConnectionVersion) || row.vercelConnectionVersion < 1 || row.supabaseConnectionId === row.vercelConnectionId || typeof row.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
       try {
         const origin = new URL(row.applicationOrigin);
         if (origin.protocol !== "https:" || origin.origin !== row.applicationOrigin || origin.username || origin.password || origin.port || origin.hostname.endsWith(".supabase.co")) return null;
@@ -13772,7 +14255,7 @@ function createWebsiteByoPublishHost(input) {
 }
 
 // server/website-byo-publish-deployment-entry.ts
-var provider9 = /^[A-Za-z0-9_-]{1,200}$/;
+var provider10 = /^[A-Za-z0-9_-]{1,200}$/;
 var githubClient = /^[A-Za-z0-9_]{5,100}$/;
 var publicSecret = /^(?:NEXT_PUBLIC_|VITE_|PUBLIC_).*?(?:SECRET|SERVICE_ROLE|PRIVATE_KEY)/i;
 var keyNames = {
@@ -13784,8 +14267,8 @@ var keyNames = {
   githubClient: "WEBSITE_GITHUB_APP_CLIENT_ID",
   githubSecret: "WEBSITE_GITHUB_APP_CLIENT_SECRET"
 };
-function required(environment, key, max) {
-  const value = environment[key];
+function required(environment, key2, max) {
+  const value = environment[key2];
   if (typeof value !== "string" || !value || value.length > max || value.trim() !== value || value.includes(String.fromCharCode(0))) throw new Error();
   return value;
 }
@@ -13820,7 +14303,7 @@ function providerSecret(value) {
 function createWebsiteByoPublishDeploymentEntry(input) {
   try {
     if (input.fetcher !== void 0 && typeof input.fetcher !== "function") throw new Error();
-    for (const [key, value] of Object.entries(input.environment)) if (value && publicSecret.test(key)) throw new Error();
+    for (const [key2, value] of Object.entries(input.environment)) if (value && publicSecret.test(key2)) throw new Error();
     const platformUrl = exactHttps(required(input.environment, keyNames.url, 2048), true);
     const platformOrigin = returnOrigin(required(input.environment, keyNames.returnUrl, 2048));
     if (platformOrigin === platformUrl) throw new Error();
@@ -13828,7 +14311,7 @@ function createWebsiteByoPublishDeploymentEntry(input) {
     const platformVercelAccountId = required(input.environment, keyNames.vercelAccount, 200);
     const githubClientId = required(input.environment, keyNames.githubClient, 100);
     const githubClientSecret = providerSecret(required(input.environment, keyNames.githubSecret, 4096));
-    if (!provider9.test(platformSupabaseOrganizationId) || !provider9.test(platformVercelAccountId) || !githubClient.test(githubClientId)) throw new Error();
+    if (!provider10.test(platformSupabaseOrganizationId) || !provider10.test(platformVercelAccountId) || !githubClient.test(githubClientId)) throw new Error();
     const serviceKey = secretKey(required(input.environment, keyNames.secret, 4096));
     const platform = createClient2(platformUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
