@@ -23,14 +23,17 @@ export function createWebsiteProjectSecretWriter(
       if (!connection.test(connectionId) || !fieldKey.test(field) || !value.trim() || new TextEncoder().encode(value).length > 16_384) {
         throw new Error('Invalid project secret.');
       }
-      const { data, error } = await client.rpc('website_set_project_secret', {
+      const { data, error } = await client.rpc('website_set_project_secret_v2', {
         p_project_id: projectId, p_connection_id: connectionId, p_field: field,
         p_environment: environment, p_value: value,
       });
-      if (error || !isEditorSecretReference(data)) throw new Error('Project secret could not be stored.');
+      const receipt=data&&typeof data==='object'&&!Array.isArray(data)?data as Record<string,unknown>:null;
+      if (error || !receipt || typeof receipt.ref!=='string' || !isEditorSecretReference(receipt.ref)
+        ||typeof receipt.updatedAt!=='string'||!Number.isFinite(Date.parse(receipt.updatedAt)))
+        throw new Error('Project secret could not be stored.');
       const expected = `secret://website/${projectId}/${connectionId}/${field}/${environment}`;
-      if (data !== expected) throw new Error('Project secret reference does not match this project.');
-      return { ref: data };
+      if (receipt.ref !== expected) throw new Error('Project secret reference does not match this project.');
+      return { ref: receipt.ref,updatedAt:receipt.updatedAt };
     },
   };
 }
