@@ -62,7 +62,9 @@
     "smoke:website-builder:publishing-redirects": "node scripts/website-builder-publishing-redirects-regression.mjs",
     "smoke:website-builder:publishing-v2-reachability": "node scripts/website-builder-publishing-v2-reachability-regression.mjs",
     "build:website-byo-publish": "node scripts/build-website-byo-publish-function.mjs",
-    "build:website-owned-application-runtime-template": "node scripts/build-website-owned-application-runtime-template.mjs"
+    "build:website-owned-application-runtime-template": "node scripts/build-website-owned-application-runtime-template.mjs",
+    "smoke:media-studio": "node scripts/media-studio-max-smoke.mjs",
+    "smoke:media-studio:browser": "node scripts/media-studio-max-browser-regression.mjs"
   },
   "dependencies": {
     "@pdfme/pdf-lib": "^6.1.12",
@@ -70,7 +72,9 @@
     "lucide-react": "^0.344.0",
     "pdfjs-dist": "^5.4.149",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1127.0",
