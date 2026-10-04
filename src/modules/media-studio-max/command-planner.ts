@@ -163,7 +163,7 @@ export function createMediaJobPlan(operation: MediaOperationId, sources: MediaSo
       const chain: string[] = [];
       sources.forEach((source, index) => {
         filters.push(`[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${fps},setpts=PTS-STARTPTS[v${index}]`);
-        if (source.hasAudio === false) {
+        if (source.hasAudio !== true) {
           const clipDuration = clamp(source.duration, 0.1, 86400, 1);
           filters.push(`anullsrc=channel_layout=stereo:sample_rate=48000,atrim=duration=${clipDuration},asetpts=PTS-STARTPTS[a${index}]`);
         } else {
@@ -199,8 +199,8 @@ export function createMediaJobPlan(operation: MediaOperationId, sources: MediaSo
     }
 
     case 'add-audio': {
-      if (sources[0]?.hasAudio === false) {
-        return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: ['-i', inputs[0], '-i', inputs[1], '-map', '0:v:0', '-map', '1:a:0', ...encodeVideoArgs(video.format, crf, true), '-shortest', video.name], notes };
+      if (sources[0]?.hasAudio !== true) {
+        return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: ['-i', inputs[0], '-i', inputs[1], '-map', '0:v:0', '-map', '1:a:0', ...encodeVideoArgs(video.format, crf, true), '-shortest', video.name], notes: [...notes, 'input-audio-unconfirmed-use-new-track'] };
       }
       return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: ['-i', inputs[0], '-i', inputs[1], '-filter_complex', '[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=2[a]', '-map', '0:v:0', '-map', '[a]', ...encodeVideoArgs(video.format, crf, true), '-shortest', video.name], notes };
     }
@@ -209,13 +209,13 @@ export function createMediaJobPlan(operation: MediaOperationId, sources: MediaSo
       return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: ['-i', inputs[0], '-i', inputs[1], '-map', '0:v:0', '-map', '1:a:0', ...encodeVideoArgs(video.format, crf, true), '-shortest', video.name], notes };
 
     case 'change-volume':
-      return sources[0]?.hasAudio === false
-        ? { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-an', ...encodedVideoOnly, video.name], notes: [...notes, 'input-has-no-audio'] }
+      return sources[0]?.hasAudio !== true
+        ? { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-an', ...encodedVideoOnly, video.name], notes: [...notes, 'input-audio-unconfirmed'] }
         : { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-filter:a', `volume=${volume}`, ...encodedVideo, video.name], notes };
 
     case 'fade-audio': {
-      if (sources[0]?.hasAudio === false) {
-        return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-an', ...encodedVideoOnly, video.name], notes: [...notes, 'input-has-no-audio'] };
+      if (sources[0]?.hasAudio !== true) {
+        return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-an', ...encodedVideoOnly, video.name], notes: [...notes, 'input-audio-unconfirmed'] };
       }
       const fadeIn = clamp(settings.fadeInSeconds, 0, 60, 1);
       const fadeOut = clamp(settings.fadeOutSeconds, 0, 60, 1);
@@ -226,8 +226,8 @@ export function createMediaJobPlan(operation: MediaOperationId, sources: MediaSo
 
     case 'change-speed': {
       const videoFilter = `setpts=${(1 / speed).toFixed(5)}*PTS`;
-      if (sources[0]?.hasAudio === false) {
-        return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-vf', videoFilter, '-an', ...encodedVideoOnly, video.name], notes };
+      if (sources[0]?.hasAudio !== true) {
+        return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-vf', videoFilter, '-an', ...encodedVideoOnly, video.name], notes: [...notes, 'input-audio-unconfirmed'] };
       }
       const atempo: string[] = [];
       let remaining = speed;
@@ -238,8 +238,8 @@ export function createMediaJobPlan(operation: MediaOperationId, sources: MediaSo
     }
 
     case 'reverse-video':
-      return sources[0]?.hasAudio === false
-        ? { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-vf', 'reverse', '-an', ...encodedVideoOnly, video.name], notes }
+      return sources[0]?.hasAudio !== true
+        ? { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-vf', 'reverse', '-an', ...encodedVideoOnly, video.name], notes: [...notes, 'input-audio-unconfirmed'] }
         : { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args: [...oneVideo, '-vf', 'reverse', '-af', 'areverse', ...encodedVideo, video.name], notes };
 
     case 'rotate-video': {
@@ -298,9 +298,10 @@ export function createMediaJobPlan(operation: MediaOperationId, sources: MediaSo
     case 'freeze-frame': {
       const freeze = clamp(settings.durationSeconds, 0.1, 60, 3);
       const args = [...oneVideo, '-vf', `tpad=stop_mode=clone:stop_duration=${freeze}`];
-      if (hasAudio) args.push('-af', `apad=pad_dur=${freeze}`);
+      const confirmedAudio = sources[0]?.hasAudio === true;
+      if (confirmedAudio) args.push('-af', `apad=pad_dur=${freeze}`);
       else args.push('-an');
-      args.push(...(hasAudio ? encodedVideo : encodedVideoOnly), video.name);
+      args.push(...(confirmedAudio ? encodedVideo : encodedVideoOnly), video.name);
       return { operation, inputNames: inputs, outputName: video.name, outputMimeType: video.mime, args, notes };
     }
 
