@@ -1,4 +1,5 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
+import ffmpegClassWorkerURL from './ffmpeg-class-worker.ts?worker&url';
 import { createMediaInputNames, createMediaJobPlan } from './command-planner';
 import type { MediaOperationId, MediaOperationSettings, MediaResult, MediaSourceFile } from './types';
 
@@ -82,7 +83,7 @@ async function bootFFmpeg(ffmpeg: FFmpeg, urls: { coreURL: string; wasmURL: stri
   let timeout: number | undefined;
   try {
     await Promise.race([
-      ffmpeg.load(urls),
+      ffmpeg.load({ ...urls, classWorkerURL: ffmpegClassWorkerURL }),
       new Promise<never>((_, reject) => {
         timeout = window.setTimeout(() => {
           try { ffmpeg.terminate(); } catch { /* worker may already be stopped */ }
