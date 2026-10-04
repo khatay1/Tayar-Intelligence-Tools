@@ -107,7 +107,7 @@ export async function inspectWebsiteInfrastructureActivation(input = {}) {
   if (!deploymentGuardReadable) accidentallyDeployed.unshift('scripts/admin-hardening-deploy.ps1');
   checks.push(result('production-deploy-isolation', accidentallyDeployed.length === 0, accidentallyDeployed));
 
-  const requiredKeys = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
+  const requiredKeys = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
     ...Object.values(providers).flatMap(provider => provider.secrets),
     ...Object.values(providers).flatMap(provider => [provider.callback, provider.returnUrl, provider.publicUrl])];
   const missingKeys = [...new Set(requiredKeys)].filter(key => !nonEmpty(environment[key]));
@@ -122,6 +122,14 @@ export async function inspectWebsiteInfrastructureActivation(input = {}) {
   const platformOrigin = platform && platform.origin === environment.SUPABASE_URL && platform.pathname === '/'
     && /^[a-z0-9]{20}[.]supabase[.]co$/.test(platform.hostname) ? platform.origin : null;
   checks.push(result('platform-origin', Boolean(platformOrigin), platformOrigin ? [] : ['SUPABASE_URL']));
+  const browserSupabase = safeUrl(environment.VITE_SUPABASE_URL);
+  const browserSupabaseOrigin = browserSupabase && browserSupabase.origin === environment.VITE_SUPABASE_URL
+    && browserSupabase.pathname === '/' && /^[a-z0-9]{20}[.]supabase[.]co$/.test(browserSupabase.hostname)
+    ? browserSupabase.origin : null;
+  const browserSupabaseFailures = [];
+  if (!browserSupabaseOrigin || browserSupabaseOrigin !== platformOrigin) browserSupabaseFailures.push('VITE_SUPABASE_URL');
+  if (!nonEmpty(environment.VITE_SUPABASE_ANON_KEY)) browserSupabaseFailures.push('VITE_SUPABASE_ANON_KEY');
+  checks.push(result('browser-supabase-origin', browserSupabaseFailures.length === 0, browserSupabaseFailures));
   const callbackFailures = [], endpointFailures = [], returnFailures = [], returnOrigins = new Set();
   for (const [name, provider] of Object.entries(providers)) {
     const callback = safeUrl(environment[provider.callback]);
