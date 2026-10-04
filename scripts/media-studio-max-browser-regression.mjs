@@ -259,7 +259,18 @@ async function regression() {
         return true;
       })()`);
       assert(clicked, `Could not start ${label}.`);
-      await waitFor(`${label} output`, `document.querySelectorAll('[data-testid="media-result"]').length > 0 || Boolean(document.querySelector('[data-testid="media-error"]'))`, timeout);
+      try {
+        await waitFor(`${label} output`, `document.querySelectorAll('[data-testid="media-result"]').length > 0 || Boolean(document.querySelector('[data-testid="media-error"]'))`, timeout);
+      } catch (error) {
+        const diagnostic = await evaluate(`(() => ({
+          processText: document.querySelector('[data-testid="media-process"]')?.textContent || '',
+          processDisabled: Boolean(document.querySelector('[data-testid="media-process"]')?.disabled),
+          errorText: document.querySelector('[data-testid="media-error"]')?.textContent || '',
+          resultCount: document.querySelectorAll('[data-testid="media-result"]').length,
+          tail: document.body.innerText.slice(-2400),
+        }))()`);
+        throw new Error(`${label} timed out. Diagnostic: ${JSON.stringify(diagnostic)}. Cause: ${error instanceof Error ? error.message : String(error)}`);
+      }
       const resultCount = await evaluate(`document.querySelectorAll('[data-testid="media-result"]').length`);
       if (!resultCount) throw new Error(`${label} produced no result. Page tail: ${(await bodyText()).slice(-1800)}`);
       return resultCount;
