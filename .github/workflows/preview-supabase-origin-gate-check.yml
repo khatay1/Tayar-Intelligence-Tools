@@ -1,0 +1,19 @@
+name: Temporary Preview Supabase Origin Gate
+on:
+  push:
+    branches: [fix/preview-supabase-origin-gate-20261004]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: node scripts/website-infrastructure-activation-preflight-regression.mjs
