@@ -4,6 +4,9 @@ import { handoffOwnedSecretToVercel } from './website-owned-vercel-environment';
 const account = /^acct_[A-Za-z0-9]{8,64}$/;
 const publishable = /^pk_(test|live)_[A-Za-z0-9]+$/;
 const privateKey = /^(sk|rk)_(test|live)_[A-Za-z0-9]+$/;
+const runtimeUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const vercelProject=/^prj_[A-Za-z0-9]{8,128}$/;
+const vercelIdentity=/^[A-Za-z0-9_-]{3,128}$/;
 
 export interface OwnedStripeAccountProof {
   accountId: string;
@@ -15,6 +18,81 @@ export interface OwnedStripeAccountProof {
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
   return value as Record<string, unknown>;
+}
+
+export interface OwnedStripePublishState{
+  stripeConnectionId:string|null;stripeConnectionVersion:number;handoffId:string|null;handoffVersion:number;
+  handoffStatus:'preparing'|'verified'|'removed'|null;handoffOperationId:string|null;environmentId:string|null;
+  sourceAvailable:boolean;ready:boolean;
+}
+
+/** Reads metadata-only durable Stripe/Vercel state for one exact saved secret
+ * reference. It never returns the Stripe key or the Vercel OAuth grant. */
+export async function inspectOwnedStripeRuntimeForPublish(input:{
+  client:Pick<SupabaseClient,'rpc'>;projectId:string;ownerId:string;vercelConnectionId:string;
+  vercelConnectionVersion:number;sourceConnectionId:string;sourceUpdatedAt:string;
+  environment:'preview'|'production';
+}):Promise<OwnedStripePublishState>{
+  try{
+    if(typeof window!=='undefined'||![input.projectId,input.ownerId,input.vercelConnectionId].every(v=>runtimeUuid.test(v))
+      ||!Number.isSafeInteger(input.vercelConnectionVersion)||input.vercelConnectionVersion<1
+      ||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(input.sourceConnectionId)
+      ||!Number.isFinite(Date.parse(input.sourceUpdatedAt)))throw new Error();
+    const{data,error}=await input.client.rpc('website_stripe_runtime_state_for_worker',{
+      p_project_id:input.projectId,p_owner_id:input.ownerId,p_vercel_connection_id:input.vercelConnectionId,
+      p_vercel_connection_version:input.vercelConnectionVersion,p_source_connection_id:input.sourceConnectionId,
+      p_source_updated_at:input.sourceUpdatedAt,p_environment:input.environment});
+    if(error||!data||typeof data!=='object'||Array.isArray(data))throw new Error();
+    const row=data as Record<string,unknown>;
+    const keys=['environmentId','handoffId','handoffOperationId','handoffStatus','handoffVersion','ready',
+      'sourceAvailable','stripeConnectionId','stripeConnectionVersion'];
+    if(Object.keys(row).sort().join(',')!==keys.sort().join(','))throw new Error();
+    const stripeId=row.stripeConnectionId,handoffId=row.handoffId,handoffStatus=row.handoffStatus,
+      handoffOperationId=row.handoffOperationId,environmentId=row.environmentId;
+    if(!Number.isSafeInteger(row.stripeConnectionVersion)||(row.stripeConnectionVersion as number)<0
+      ||!Number.isSafeInteger(row.handoffVersion)||(row.handoffVersion as number)<0
+      ||typeof row.sourceAvailable!=='boolean'||typeof row.ready!=='boolean'
+      ||(stripeId===null)!==(row.stripeConnectionVersion===0)
+      ||(stripeId!==null&&(typeof stripeId!=='string'||!runtimeUuid.test(stripeId)))
+      ||(handoffId===null)!==(row.handoffVersion===0)
+      ||(handoffId===null&&(handoffStatus!==null||handoffOperationId!==null||environmentId!==null))
+      ||(handoffId!==null&&(typeof handoffId!=='string'||!runtimeUuid.test(handoffId)
+        ||!['preparing','verified','removed'].includes(String(handoffStatus))
+        ||typeof handoffOperationId!=='string'||!runtimeUuid.test(handoffOperationId)))
+      ||(environmentId!==null&&(typeof environmentId!=='string'||!vercelIdentity.test(environmentId)))
+      ||(handoffStatus==='verified'&&environmentId===null)
+      ||(row.ready===true&&(stripeId===null||handoffStatus!=='verified'||environmentId===null||row.sourceAvailable!==false)))
+      throw new Error();
+    return structuredClone(row) as unknown as OwnedStripePublishState;
+  }catch{throw new Error('Stripe runtime state unavailable.');}
+}
+
+/** Proves the verified sensitive destination still exists without decrypting it. */
+export async function verifyOwnedStripeRuntimeDestination(input:{
+  accessToken:string;userId:string;accountId:string;vercelProjectId:string;environmentId:string;
+  projectId:string;environment:'preview'|'production';handoffOperationId:string;
+  isCurrent():boolean|Promise<boolean>;fetcher?:typeof fetch;
+}):Promise<void>{
+  try{
+    if(typeof window!=='undefined'||!input.accessToken||input.accessToken.length>4096||/[\r\n]/.test(input.accessToken)
+      ||!vercelIdentity.test(input.userId)||!vercelIdentity.test(input.accountId)||!vercelProject.test(input.vercelProjectId)
+      ||!vercelIdentity.test(input.environmentId)||!runtimeUuid.test(input.projectId)||!runtimeUuid.test(input.handoffOperationId)
+      ||!await input.isCurrent())throw new Error();
+    const team=input.accountId!==input.userId?`&teamId=${encodeURIComponent(input.accountId)}`:'';
+    const response=await(input.fetcher??fetch)(`https://api.vercel.com/v10/projects/${input.vercelProjectId}/env?decrypt=false${team}`,{
+      method:'GET',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000),
+      headers:{Authorization:`Bearer ${input.accessToken}`,Accept:'application/json'}});
+    if(response.status!==200||Number(response.headers.get('content-length')??0)>262144||!await input.isCurrent())throw new Error();
+    const raw=await response.text();if(raw.length>262144)throw new Error();const payload=object(JSON.parse(raw));
+    if(!Array.isArray(payload.envs)||payload.envs.length>1000)throw new Error();
+    const branch=input.environment==='preview'?`tayar/${input.projectId}/preview`:'';
+    const matches=payload.envs.filter(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return false;
+      const row=value as Record<string,unknown>,targets=Array.isArray(row.target)?row.target:[];
+      return row.id===input.environmentId&&row.key==='STRIPE_SECRET_KEY'&&row.type==='sensitive'
+        &&targets.length===1&&targets[0]===input.environment&&String(row.gitBranch??'')===branch
+        &&row.comment===`Tayar handoff ${input.handoffOperationId}`;});
+    if(matches.length!==1||!await input.isCurrent())throw new Error();
+  }catch{throw new Error('Stripe runtime destination unavailable.');}
 }
 
 /** Server-only proof for a user-owned Stripe credential. The key is used only
