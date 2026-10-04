@@ -68,6 +68,7 @@ try {
   assert.equal(verified, 1, 'Denied requests cannot call upstream Auth without credentials');
 
   const stripeSnapshot=structuredClone(snapshot);
+  stripeSnapshot.pages[0].sections[0]=structuredClone(stripeSnapshot.pages[0].sections[0]);
   const checkout=stripeSnapshot.pages[0].sections[0].elements.find(element=>element.type==='button');
   assert.ok(checkout);checkout.action='stripe-checkout';checkout.stripePreviewPriceId='price_preview12345678';
   checkout.stripeProductionPriceId='price_production12345678';
