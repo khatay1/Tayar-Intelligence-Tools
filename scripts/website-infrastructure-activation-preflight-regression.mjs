@@ -22,7 +22,7 @@ const ready = await inspectWebsiteInfrastructureActivation({ environment });
 assert.equal(ready.ready, true);
 assert.equal(ready.checks.find(check => check.id === 'publish-jwt-config').ok, true);
 assert.equal(ready.checks.find(check => check.id === 'application-origin').ok, true);
-assert.equal(infrastructureMigrationFiles.length, 31);
+assert.equal(infrastructureMigrationFiles.length, 32);
 assert.ok(ready.checks.every(check => check.ok));
 const serialized = JSON.stringify(ready);
 for (const secret of [environment.SUPABASE_SERVICE_ROLE_KEY, environment.WEBSITE_GITHUB_APP_CLIENT_SECRET,
