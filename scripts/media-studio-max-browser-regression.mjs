@@ -435,8 +435,6 @@ async function regression() {
 
     await clickOperation('Merge Videos');
     await upload(['silentA', 'silentB']);
-    await setNumber('Width', 160);
-    await setNumber('Height', 90);
     await process('silent merge-videos');
     const mergedVideo = await resultBlob('article video');
     assert(mergedVideo?.size > 1000, 'Silent merge output is empty.');
