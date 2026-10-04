@@ -79,7 +79,7 @@ assert(engine.includes('cdn.jsdelivr.net') && engine.includes('unpkg.com'), 'FFm
 assert(engine.includes('MEDIA_ENGINE_LOAD_TIMEOUT') && engine.includes('MEDIA_ENGINE_DOWNLOAD_FAILED'), 'engine failure codes are missing');
 
 assert(planner.includes('anullsrc=channel_layout=stereo'), 'silent-video merge fallback is missing');
-assert(planner.includes("notes: [...notes, 'input-has-no-audio']"), 'silent audio-operation fallback is missing');
+assert(planner.includes("input-audio-unconfirmed"), 'safe audio-operation fallback is missing');
 assert(planner.includes("'-c:s', 'mov_text'"), 'soft subtitle MP4 codec wiring is missing');
 assert(planner.includes('`subtitles=${inputs[1]}`'), 'burned subtitle filter is missing');
 assert(planner.includes('colorchannelmixer=aa=${opacity}'), 'watermark opacity pipeline is missing');
