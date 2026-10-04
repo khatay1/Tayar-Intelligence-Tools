@@ -23,6 +23,7 @@ import './batch-image-tools';
 import './image-cropper';
 import './background-remover';
 import './image-to-pdf';
+import './media-studio-max';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
