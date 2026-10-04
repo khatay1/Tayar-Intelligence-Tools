@@ -54,7 +54,9 @@
     "smoke:website-builder:publish-composition": "node scripts/website-byo-publish-targets-regression.mjs && node scripts/website-byo-publish-runners-regression.mjs && node scripts/website-byo-publish-edge-regression.mjs && node scripts/build-website-byo-publish-edge.mjs --check",
     "smoke:website-builder:owned-source-reader": "node scripts/website-owned-source-reader-regression.mjs && node scripts/website-byo-publish-host-regression.mjs && node scripts/website-owned-runtime-binding-regression.mjs && node scripts/website-owned-runtime-setup-adapters-regression.mjs && node scripts/website-owned-supabase-migration-regression.mjs && node scripts/website-owned-supabase-migration-store-regression.mjs",
     "smoke:website-builder:publish-adapters": "node scripts/website-byo-publish-adapters-regression.mjs",
-    "smoke:website-builder:vercel-promotion": "node scripts/website-vercel-promotion-regression.mjs"
+    "smoke:website-builder:vercel-promotion": "node scripts/website-vercel-promotion-regression.mjs",
+    "smoke:media-studio": "node scripts/media-studio-max-smoke.mjs",
+    "smoke:media-studio:browser": "node scripts/media-studio-max-browser-regression.mjs"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -82,5 +84,7 @@
     "typescript-eslint": "^8.68.0",
     "vite": "^6.4.3"
   },
-  "overrides": { "ws": "8.21.3" }
+  "overrides": {
+    "ws": "8.21.3"
+  }
 }
