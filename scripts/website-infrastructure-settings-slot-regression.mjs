@@ -31,7 +31,7 @@ try {
   const unsaved = html({ loadSequence: 1 });
   assert.match(unsaved, /data-testid="byo-infrastructure-panel"/);
   assert.match(unsaved, /Connection setup is not available yet/);
-  assert.equal((unsaved.match(/<button type="button" disabled/g) ?? []).length, 3);
+  assert.equal((unsaved.match(/<button type="button" disabled/g) ?? []).length, 4);
   const anonymous = html({ ownerId, projectId, ownerIsAnonymous: true, loadSequence: 2 });
   assert.doesNotMatch(anonymous, /infrastructure-connection-container/);
   const server = html({ ownerId, projectId, loadSequence: 2 });
