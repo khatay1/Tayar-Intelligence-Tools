@@ -10,6 +10,7 @@ on:
       - 'test-fixtures/media-studio-max-regression.html'
       - 'scripts/media-studio-max-browser-regression.mjs'
       - 'scripts/media-studio-max-smoke.mjs'
+      - 'vite.config.ts'
       - '.github/workflows/media-studio-browser-verify-temp.yml'
 
 permissions:
