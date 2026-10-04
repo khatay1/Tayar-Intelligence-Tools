@@ -14,7 +14,7 @@ export interface GitHubBrowserTransport {
   getSession(): Promise<{ ownerId: string; accessToken: string } | null>;
   fetcher?: typeof fetch;
 }
-export interface GitHubHandoff { id: string; projectId: string; ownerId: string; loadSequence: number }
+export interface GitHubHandoff { id: string; projectId: string; ownerId: string; environment: 'preview' | 'production'; loadSequence: number }
 
 function assertScope(scope: GitHubBrowserScope) {
   if (!uuid.test(scope.ownerId) || !uuid.test(scope.projectId) || !Number.isSafeInteger(scope.loadSequence)
@@ -59,7 +59,7 @@ export async function beginWebsiteGitHubConnection(input: {
     throw new Error('GitHub authorization URL is invalid.');
   }
   input.storage.setItem(pendingKey, JSON.stringify({ ownerId: input.scope.ownerId,
-    projectId: input.scope.projectId }));
+    projectId: input.scope.projectId, environment: input.environment }));
   return url.toString();
 }
 
@@ -81,8 +81,10 @@ export function consumeWebsiteGitHubHandoffFragment(input: {
     const scope = JSON.parse(pending ?? 'null');
     assertScope(input.scope);
     if (params.size !== 1 || !id || !uuid.test(id) || !scope
-      || scope.ownerId !== input.scope.ownerId || scope.projectId !== input.scope.projectId) throw new Error();
-    return { id, ownerId: scope.ownerId, projectId: scope.projectId, loadSequence: input.scope.loadSequence };
+      || scope.ownerId !== input.scope.ownerId || scope.projectId !== input.scope.projectId
+      || !['preview', 'production'].includes(scope.environment)) throw new Error();
+    return { id, ownerId: scope.ownerId, projectId: scope.projectId, environment: scope.environment,
+      loadSequence: input.scope.loadSequence };
   } catch { return null; }
 }
 

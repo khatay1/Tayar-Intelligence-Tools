@@ -60,8 +60,9 @@ try {
   let cleaned = '';
   const history = { state: null, replaceState: (_state, _title, url) => { cleaned = url; } };
   const handoff = coordinator.consumeWebsiteProviderHandoff({ scope, location, history, storage });
+  assert.equal(handoff?.handoff.environment, 'production');
   assert.equal(cleaned, '/builder?tab=infra');
-  assert.deepEqual(handoff, { provider: 'supabase', handoff: { id: handoffId, ownerId, projectId, loadSequence: 5 } });
+  assert.deepEqual(handoff, { provider: 'supabase', handoff: { id: handoffId, ownerId, projectId, environment: 'production', loadSequence: 5 } });
   const transport = catalog.transportFor('supabase');
   const choices = await supabase.listWebsiteSupabaseChoices({ scope, transport, handoff: handoff.handoff });
   assert.deepEqual(choices, { accountUserId: 'user_1', projects: [{ projectRef: 'abcdefghijklmnopqrst',

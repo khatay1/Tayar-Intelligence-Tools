@@ -48,8 +48,9 @@ try {
     assert.equal(url, '/builder?project=1'); cleaned = true; } };
   const nextScope = { ...scope, loadSequence: 8 };
   const handoff = consume({ scope: nextScope, location, history, storage });
+  assert.equal(handoff?.environment, 'production');
   assert.equal(cleaned, true);
-  assert.deepEqual(handoff, { id: handoffId, ownerId, projectId, loadSequence: 8 });
+  assert.deepEqual(handoff, { id: handoffId, ownerId, projectId, environment: 'production', loadSequence: 8 });
   assert.equal(state.size, 0);
   const choices = await list({ scope: nextScope, transport, handoff });
   assert.equal(choices.accountId, response.accountId);

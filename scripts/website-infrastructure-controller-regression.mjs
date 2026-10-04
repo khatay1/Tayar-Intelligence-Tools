@@ -43,7 +43,7 @@ try {
   assert.equal(new URL(navigated).origin, 'https://api.supabase.com');
   location.hash = `#tayar_supabase_handoff=${connectionId}`;
   assert.deepEqual(controller.consumeHandoff(), { provider: 'supabase', handoff: {
-    id: connectionId, ownerId, projectId, loadSequence: 7 } });
+    id: connectionId, ownerId, projectId, environment: 'production', loadSequence: 7 } });
   controller.clearHandoff(); assert.equal(controller.getState().handoff, null);
   current = false;
   await assert.rejects(controller.refresh(), /scope changed/);

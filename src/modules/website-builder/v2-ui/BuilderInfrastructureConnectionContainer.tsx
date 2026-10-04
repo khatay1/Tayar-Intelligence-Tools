@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocalizer } from '@/lib/ui-localization-cms';
-import type { PublicInfrastructureConnection } from '../core/application-infrastructure-connections';
+import type { InfrastructureEnvironment, PublicInfrastructureConnection } from '../core/application-infrastructure-connections';
 import type { WebsiteConnectionScope } from '../services/websiteConnectionCoordinator';
 import type { WebsiteInfrastructureController } from '../services/websiteInfrastructureController';
 import { BuilderGithubConnectionChooser } from './BuilderGithubConnectionChooser';
@@ -35,28 +35,28 @@ export function BuilderInfrastructureConnectionContainer({ controller, scope, pr
   }, [controller, projectSaved, scope]);
 
   const handoff = state.handoff;
-  const connection = (provider: PublicInfrastructureConnection['provider']) => state.connections
-    .find(item => item.provider === provider && item.environment === 'production');
+  const connection = (provider: PublicInfrastructureConnection['provider'], environment: InfrastructureEnvironment) => state.connections
+    .find(item => item.provider === provider && item.environment === environment);
   const closeChooser = () => { controller.clearHandoff(); sync(); };
   const transport = handoff ? controller.transportFor(handoff.provider) : null;
 
   return <div data-testid="infrastructure-connection-container">
     <BuilderInfrastructurePanel connections={[...state.connections]} projectSaved={projectSaved}
       requiresStripe={requiresStripe} availableProviders={controller.availableProviders}
-      onConnect={async provider => {
+      onConnect={async (provider, environment) => {
         if (provider === 'stripe') throw new Error('Connection setup is unavailable.');
-        await controller.begin(provider, 'production');
+        await controller.begin(provider, environment);
       }} onRefresh={projectSaved ? refresh : undefined} />
     {state.loading && <p role="status">{l('Loading infrastructure status...')}</p>}
     {state.error && <p role="alert">{l('Infrastructure status is unavailable.')}</p>}
     {handoff?.provider === 'github' && transport && <BuilderGithubConnectionChooser key={handoff.handoff.id}
-      scope={scope} transport={transport} handoff={handoff.handoff} connection={connection('github')}
+      scope={scope} transport={transport} handoff={handoff.handoff} connection={connection('github', handoff.handoff.environment)}
       onConnected={refresh} onClose={closeChooser} />}
     {handoff?.provider === 'supabase' && transport && <BuilderSupabaseConnectionChooser key={handoff.handoff.id}
-      scope={scope} transport={transport} handoff={handoff.handoff} connection={connection('supabase')}
+      scope={scope} transport={transport} handoff={handoff.handoff} connection={connection('supabase', handoff.handoff.environment)}
       onConnected={refresh} onClose={closeChooser} />}
     {handoff?.provider === 'vercel' && transport && <BuilderVercelConnectionChooser key={handoff.handoff.id}
-      scope={scope} transport={transport} handoff={handoff.handoff} connection={connection('vercel')}
+      scope={scope} transport={transport} handoff={handoff.handoff} connection={connection('vercel', handoff.handoff.environment)}
       onConnected={refresh} onClose={closeChooser} />}
   </div>;
 }

@@ -16,7 +16,7 @@ export interface VercelBrowserTransport {
   getSession(): Promise<{ ownerId: string; accessToken: string } | null>;
   fetcher?: typeof fetch;
 }
-export interface VercelHandoff { id: string; ownerId: string; projectId: string; loadSequence: number }
+export interface VercelHandoff { id: string; ownerId: string; projectId: string; environment: 'preview' | 'production'; loadSequence: number }
 
 function assertScope(scope: VercelBrowserScope) {
   if (!uuid.test(scope.ownerId) || !uuid.test(scope.projectId) || !Number.isSafeInteger(scope.loadSequence)
@@ -58,7 +58,8 @@ export async function beginWebsiteVercelConnection(input: {
   if (url.origin !== 'https://vercel.com' || !/^\/integrations\/[a-z0-9][a-z0-9-]{1,99}\/new$/.test(url.pathname)
     || url.username || url.password || url.hash || !/^[0-9a-f]{64}$/.test(url.searchParams.get('state') ?? '')
     || url.searchParams.size !== 1 || !input.scope.isCurrent()) throw new Error('Vercel authorization URL is invalid.');
-  input.storage.setItem(pendingKey, JSON.stringify({ ownerId: input.scope.ownerId, projectId: input.scope.projectId }));
+  input.storage.setItem(pendingKey, JSON.stringify({ ownerId: input.scope.ownerId, projectId: input.scope.projectId,
+    environment: input.environment }));
   return url.toString();
 }
 
@@ -75,8 +76,10 @@ export function consumeWebsiteVercelHandoffFragment(input: {
     const params = new URLSearchParams(fragment.slice(1)), id = params.get('tayar_vercel_handoff');
     const scope = JSON.parse(pending ?? 'null'); assertScope(input.scope);
     if (params.size !== 1 || !id || !uuid.test(id) || !scope
-      || scope.ownerId !== input.scope.ownerId || scope.projectId !== input.scope.projectId) throw new Error();
-    return { id, ownerId: scope.ownerId, projectId: scope.projectId, loadSequence: input.scope.loadSequence };
+      || scope.ownerId !== input.scope.ownerId || scope.projectId !== input.scope.projectId
+      || !['preview', 'production'].includes(scope.environment)) throw new Error();
+    return { id, ownerId: scope.ownerId, projectId: scope.projectId, environment: scope.environment,
+      loadSequence: input.scope.loadSequence };
   } catch { return null; }
 }
 

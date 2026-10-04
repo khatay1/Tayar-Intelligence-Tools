@@ -45,8 +45,9 @@ try {
   const history = { state: null, replaceState: (_state, _title, url) => { assert.equal(url, '/builder'); cleaned = true; } };
   const nextScope = { ...scope, loadSequence: 1 };
   const handoff = consume({ scope: nextScope, location, history, storage });
+  assert.equal(handoff?.environment, 'production');
   assert.equal(cleaned, true);
-  assert.deepEqual(handoff, { id: handoffId, ownerId, projectId, loadSequence: 1 });
+  assert.deepEqual(handoff, { id: handoffId, ownerId, projectId, environment: 'production', loadSequence: 1 });
   assert.equal(state.size, 0);
   const choices = await list({ scope: nextScope, transport, handoff, installationId: '42', page: 1 });
   assert.deepEqual(choices.installations, [{ id: '42', accountId: '17', accountLogin: 'owner' }]);

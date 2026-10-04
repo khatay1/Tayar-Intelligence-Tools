@@ -37,7 +37,7 @@ try {
   assert.match(base, /data-testid="byo-infrastructure-panel"/);
   assert.doesNotMatch(base, /repository-chooser|project-chooser/);
   for (const provider of ['github', 'supabase', 'vercel']) {
-    const html = render({ provider, handoff: { id: handoffId, ownerId, projectId, loadSequence: 9 } });
+    const html = render({ provider, handoff: { id: handoffId, ownerId, projectId, environment: 'preview', loadSequence: 9 } });
     const expected = provider === 'github' ? 'github-repository-chooser' : `${provider}-project-chooser`;
     assert.match(html, new RegExp(`data-testid="${expected}"`));
   }
@@ -46,6 +46,8 @@ try {
   assert.match(source, /controller[.]refresh\(\)/);
   assert.match(source, /controller[.]dispose\(\)/);
   assert.match(source, /provider === 'stripe'/);
+  assert.match(source, /controller[.]begin\(provider, environment\)/);
+  assert.match(source, /handoff[.]handoff[.]environment/);
   const editor = await readFile('src/modules/website-builder/WebsiteBuilderTool.tsx', 'utf8');
   assert.doesNotMatch(editor, /BuilderInfrastructureConnectionContainer/);
   console.log('PASS Infrastructure container: status panel, three chooser transitions, refresh lifecycle and unmounted editor boundary');

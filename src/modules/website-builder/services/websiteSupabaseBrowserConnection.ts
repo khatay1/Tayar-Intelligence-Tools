@@ -9,7 +9,7 @@ const pendingKey = 'tayar:supabase-connection-pending';
 export interface SupabaseBrowserScope {
   ownerId: string; projectId: string; loadSequence: number; isCurrent(): boolean;
 }
-export interface SupabaseHandoff { id: string; ownerId: string; projectId: string; loadSequence: number }
+export interface SupabaseHandoff { id: string; ownerId: string; projectId: string; environment: 'preview' | 'production'; loadSequence: number }
 export interface SupabaseProjectChoice { projectRef: string; projectName: string;
   organizationId: string; organizationSlug: string; organizationName: string }
 
@@ -54,7 +54,8 @@ export async function beginWebsiteSupabaseConnection(input: { scope: SupabaseBro
     || url.searchParams.get('response_type') !== 'code' || url.searchParams.get('code_challenge_method') !== 'S256'
     || !url.searchParams.get('code_challenge') || !/^[0-9a-f]{64}$/.test(url.searchParams.get('state') ?? '')
     || !input.scope.isCurrent()) throw new Error('Supabase authorization URL is invalid.');
-  input.storage.setItem(pendingKey, JSON.stringify({ ownerId: input.scope.ownerId, projectId: input.scope.projectId }));
+  input.storage.setItem(pendingKey, JSON.stringify({ ownerId: input.scope.ownerId, projectId: input.scope.projectId,
+    environment: input.environment }));
   return url.toString();
 }
 
@@ -69,8 +70,10 @@ export function consumeWebsiteSupabaseHandoffFragment(input: { scope: SupabaseBr
     const params = new URLSearchParams(fragment.slice(1)), id = params.get('tayar_supabase_handoff');
     const scope = JSON.parse(pending ?? 'null'); assertScope(input.scope);
     if (params.size !== 1 || !id || !uuid.test(id) || !scope
-      || scope.ownerId !== input.scope.ownerId || scope.projectId !== input.scope.projectId) throw new Error();
-    return { id, ownerId: scope.ownerId, projectId: scope.projectId, loadSequence: input.scope.loadSequence };
+      || scope.ownerId !== input.scope.ownerId || scope.projectId !== input.scope.projectId
+      || !['preview', 'production'].includes(scope.environment)) throw new Error();
+    return { id, ownerId: scope.ownerId, projectId: scope.projectId, environment: scope.environment,
+      loadSequence: input.scope.loadSequence };
   } catch { return null; }
 }
 

@@ -22,23 +22,40 @@ try {
   const empty = render();
   assert.match(empty, /Connect your accounts after saving the project/);
   assert.match(empty, /Connection setup is not available yet/);
-  assert.match(empty, /Connect account[^<]*<\/button>/);
-  assert.match(empty, /button type="button" disabled/);
+  assert.match(empty, /Connect account/);
+  assert.match(empty, /Connect preview/);
+  assert.match(empty, /Connect production/);
+
   const base = { id: '33333333-3333-4333-8333-333333333333', ownerId: '11111111-1111-4111-8111-111111111111',
-    projectId: '22222222-2222-4222-8222-222222222222', environment: 'production', accountId: 'user-team', targetId: 'user/site',
+    projectId: '22222222-2222-4222-8222-222222222222', accountId: 'user-team', targetId: 'target-1',
     permissions: ['contents:write'], version: 1, verifiedAt: '2026-09-28T20:00:00Z', updatedAt: '2026-09-28T20:00:00Z' };
-  const connected = render({ connections: [{ ...base, provider: 'github', status: 'connected' }],
-    availableProviders: ['github'], onConnect: async () => {} });
-  assert.doesNotMatch(connected, /Infrastructure ready for publishing/);
-  assert.match(connected, /Manage connection/);
-  const ready = render({ connections: ['github', 'supabase', 'vercel'].map(provider => ({ ...base, provider, status: 'ready' })),
-    availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} });
+  const slots = [
+    { ...base, id: '33333333-3333-4333-8333-333333333331', provider: 'github', environment: 'preview', status: 'connected' },
+    { ...base, id: '33333333-3333-4333-8333-333333333332', provider: 'supabase', environment: 'preview', status: 'outdated-schema' },
+    { ...base, id: '33333333-3333-4333-8333-333333333334', provider: 'vercel', environment: 'preview', status: 'deployment-failed' },
+    { ...base, id: '33333333-3333-4333-8333-333333333335', provider: 'vercel', environment: 'production', status: 'connected' },
+  ];
+  const ready = render({ connections: slots, availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} });
   assert.match(ready, /Infrastructure ready for publishing/);
-  assert.match(ready, /Not required/);
-  assert.doesNotMatch(render({ connections: ['github', 'supabase', 'vercel'].map(provider => ({ ...base, provider, status: 'ready' })), requiresStripe: true }), /Infrastructure ready for publishing/);
+  assert.match(ready, /Manage connection/);
+  assert.match(ready, /Manage preview/);
+  assert.match(ready, /Manage production/);
+
+  const missingProduction = render({ connections: slots.slice(0, 3),
+    availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} });
+  assert.doesNotMatch(missingProduction, /Infrastructure ready for publishing/);
+  assert.match(missingProduction, /Connect production/);
+
+  const wrongEnvironment = render({ connections: [{ ...slots[0], environment: 'production' }],
+    availableProviders: ['github'], onConnect: async () => {} });
+  assert.doesNotMatch(wrongEnvironment, /Infrastructure ready for publishing/);
+  assert.match(wrongEnvironment, /Connect account/);
+
+  assert.doesNotMatch(render({ connections: slots, requiresStripe: true,
+    availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} }), /Infrastructure ready for publishing/);
   assert.match(render({ projectSaved: false, onConnect: async () => {} }), /button type="button" disabled/);
   const unavailable = render({ onConnect: async () => {} });
   assert.match(unavailable, /Connection setup is not available yet/);
-  assert.equal((unavailable.match(/<button type="button" disabled/g) ?? []).length, 3);
-  console.log('PASS infrastructure panel: no false readiness, optional Stripe and endpoint-gated connect actions');
+  assert.equal((unavailable.match(/<button type="button" disabled/g) ?? []).length, 4);
+  console.log('PASS infrastructure panel: publish-contract environments, accepted preflight states, dual Vercel targets and endpoint-gated actions');
 } finally { await rm(dir, { recursive: true, force: true }); }
