@@ -126,8 +126,11 @@ try {
     'website_delete_github_oauth_custody',
     'create index website_github_oauth_custody_project_idx',
   ]) assert.ok(sql.includes(proof), proof);
+  assert.ok(!/\\bas \\$(?:\\r?\\n)/.test(sql), 'SQL function bodies must use paired dollar quotes');
   assert.ok(!/grant execute on function public\.website_(?:bind|read|refresh|delete)_github[^\n]* to authenticated/i.test(sql));
   const cleanup = await readFile('supabase/migrations/20261003231600_website_byo_github_custody_cleanup_schedule.sql', 'utf8');
   assert.ok(cleanup.includes('website_cleanup_expired_github_oauth_custody()'));
+  assert.ok(cleanup.includes("'*/15 * * * *'"));
+  assert.ok(cleanup.includes("to_regnamespace('cron') is null"));
   console.log('PASS GitHub OAuth custody: scoped read, direct reuse, verified refresh rotation, Vault/RLS SQL and expiry cleanup');
 } finally { await rm(dir, { recursive: true, force: true }); }
