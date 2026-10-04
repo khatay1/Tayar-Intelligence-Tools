@@ -27,13 +27,16 @@ try {
   const failed = createWebsiteProjectSecretWriter({ async rpc() { return { data: null, error: { message: 'private-value must stay hidden' } }; } }, projectId, 'production');
   await assert.rejects(() => failed.setSecret('stripe', 'secretKey', 'private-value'), error => !error.message.includes('private-value'));
   const connection = { id: 'stripe', providerId: 'stripe', name: 'Stripe', enabled: true, status: 'disconnected',
-    environments: ['production'], config: { publishableKey: 'pk_test_fixture' }, secrets: {}, events: [],
+    environments: ['production'], config: { publishableKey: 'pk_live_fixture123456789' }, secrets: {}, events: [],
     createdAt: '2026-09-28T00:00:00.000Z', updatedAt: '2026-09-28T00:00:00.000Z' };
   let config = { version: 1, connections: [connection] };
   const save = (overrides = {}) => saveWebsiteIntegrationSecret({
-    client, projectId, connectionId: 'stripe', field: 'secretKey', value: 'private-value',
+    client, projectId, connectionId: 'stripe', field: 'secretKey', value: 'rk_live_fixture_private_key_123456789',
     getConfig: () => config, isCurrentProject: () => true, apply(next) { config = next; }, ...overrides,
   });
+  const beforeWrongMode = calls.length;
+  await assert.rejects(save({ value: 'sk_test_wrong_mode_123456789' }), /Stripe credential mode/);
+  assert.equal(calls.length, beforeWrongMode, 'Wrong Stripe mode fails before Vault');
   await save();
   assert.equal(config.connections[0].secrets.secretKey.ref, ref);
   assert.ok(!JSON.stringify(config).includes('private-value'), 'Snapshots only receive an opaque reference');

@@ -49,6 +49,19 @@ try {
   assert.ok(issues.some(issue => issue.code === 'unsupported-event'));
   const invalidId = structuredClone(config); invalidId.connections[0].id = 'hook\r\nAuthorization: bad';
   assert.ok(integrations.validateEditorIntegrations(invalidId).some(issue => issue.code === 'invalid-config'), 'Invalid connection IDs block publishing');
+  const stripeRef = `secret://website/${projectId}/stripe-prod/secretKey/production`;
+  const validStripe = integrations.normalizeEditorIntegrationsConfig({ connections: [{
+    id: 'stripe-prod', providerId: 'stripe', name: 'Stripe', enabled: true, status: 'configured',
+    environments: ['production'], config: { publishableKey: 'pk_live_fixture123456789' },
+    secrets: { secretKey: { ref: stripeRef } }, events: ['commerce.checkout', 'commerce.paid'],
+  }] });
+  assert.deepEqual(integrations.validateEditorIntegrations(validStripe), []);
+  const wrongStripeMode = structuredClone(validStripe);
+  wrongStripeMode.connections[0].config.publishableKey = 'pk_test_fixture123456789';
+  assert.ok(integrations.validateEditorIntegrations(wrongStripeMode).some(issue => /live-mode/.test(issue.message)));
+  const ambiguousStripe = structuredClone(validStripe);
+  ambiguousStripe.connections[0].environments = ['preview', 'production'];
+  assert.ok(integrations.validateEditorIntegrations(ambiguousStripe).some(issue => /exactly one environment/.test(issue.message)));
 
   const event = runtime.createEditorIntegrationEvent({ id: 'evt-1', projectId, event: 'commerce.paid', environment: 'production', occurredAt: '2026-09-22T10:00:00.000Z', payload: { orderId: 'order-1' } });
   let requests = 0;

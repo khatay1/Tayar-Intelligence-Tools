@@ -8,6 +8,8 @@ import type { EditorIntegrationsConfig } from '../core/editor-integrations';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const connection = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/;
 const fieldKey = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/;
+const stripePublishableKey = /^pk_(test|live)_[a-zA-Z0-9]+$/;
+const stripePrivateKey = /^(?:sk|rk)_(test|live)_[a-zA-Z0-9]+$/;
 
 /** Opaque project references stay in snapshots; secret values go directly to Vault through an owner-checked RPC. */
 export function createWebsiteProjectSecretWriter(
@@ -49,7 +51,17 @@ export async function saveWebsiteIntegrationSecret(input: {
   const before = input.getConfig();
   const connection = before.connections.find(item => item.id === input.connectionId);
   if (!connection || connection.environments.length !== 1) throw new Error('Choose one integration environment before storing a secret.');
-  const writer = createWebsiteProjectSecretWriter(input.client, input.projectId, connection.environments[0]);
+  const environment = connection.environments[0];
+  if (connection.providerId === 'stripe' && input.field === 'secretKey') {
+    const publishable = typeof connection.config.publishableKey === 'string'
+      ? stripePublishableKey.exec(connection.config.publishableKey) : null;
+    const secret = stripePrivateKey.exec(input.value);
+    const expectedMode = environment === 'production' ? 'live' : 'test';
+    if (!publishable || !secret || publishable[1] !== expectedMode || secret[1] !== expectedMode) {
+      throw new Error('Stripe credential mode does not match the selected environment.');
+    }
+  }
+  const writer = createWebsiteProjectSecretWriter(input.client, input.projectId, environment);
   const next = await setEditorIntegrationSecret(before, input.connectionId, input.field, input.value, writer);
   if (!input.isCurrentProject() || input.getConfig() !== before) throw new Error('The project changed while storing its secret.');
   input.apply(next);

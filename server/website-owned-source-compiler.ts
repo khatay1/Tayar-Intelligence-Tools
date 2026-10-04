@@ -6,7 +6,7 @@ import { websiteOwnedApplicationRuntimeTemplate } from './generated/website-owne
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const safeRoute = /^(?:[\p{L}\p{N}._-]+\/)*[\p{L}\p{N}._-]+\.html$/u;
-const secrets = /(?:secret:\/\/|sb_secret_|\bservice_role\b|\bsk_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i;
+const secrets = /(?:secret:\/\/|sb_secret_|\bservice_role\b|\b(?:sk|rk)_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i;
 
 /** Source-only package. The caller must obtain the snapshot and customer binding
  * from trusted owner-scoped persistence; this function never reads browser input.
@@ -54,7 +54,7 @@ const __TAYAR_PATHS__ = new Map(${JSON.stringify(routes.map(route => [route.page
 ${websiteOwnedApplicationRuntimeTemplate}`;
   // Bundled Supabase SDK includes the literal role name "service_role" for its
   // own compatibility logic; reject key material rather than that code string.
-  if (/(?:secret:\/\/|sb_secret_|\bsk_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i.test(runtime)
+  if (/(?:secret:\/\/|sb_secret_|\b(?:sk|rk)_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i.test(runtime)
     || runtime.includes(input.platformOrigin) || runtime.includes(input.platformUrl)) {
     throw new Error('Customer application runtime contains platform or secret material.');
   }

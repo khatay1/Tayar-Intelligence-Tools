@@ -70,6 +70,9 @@ try {
     { ...snapshot, cms: { collections: [{ id: 'news' }] } },
     { ...snapshot, pages: [{ ...snapshot.pages[0], sections: [{ ...section, type: 'contact' }] }] },
   ]) await assert.rejects(compile(mutation, config));
+  const restrictedLeak = structuredClone(snapshot);
+  restrictedLeak.pages[0].sections[0].title = 'rk_live_restricted_customer_key_123456';
+  await assert.rejects(compile(restrictedLeak, config), /unsupported source/);
   await assert.rejects(compile(snapshot, { ...config, expectedProjectRef: 'aaaaaaaaaaaaaaaaaaaa' }));
   console.log('PASS owned source: deterministic private function package, exact routes, Auth gate, no public HTML or platform material');
 } finally { globalThis.fetch = oldFetch; await rm(dir, { recursive: true, force: true }); }

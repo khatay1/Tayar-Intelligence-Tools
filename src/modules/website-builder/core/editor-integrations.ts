@@ -124,7 +124,16 @@ export function validateEditorIntegrations(config: EditorIntegrationsConfig): Ed
         issues.push({ connectionId: connection.id, field: key, code: 'invalid-secret-ref', message: 'The private credential belongs to another integration environment. Store it again for the selected environment.' });
       }
     }
-    if (connection.providerId === 'stripe' && connection.config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(connection.config.publishableKey))) issues.push({ connectionId: connection.id, field: 'publishableKey', code: 'invalid-config', message: 'Stripe requires a publishable key; private keys belong in secure server storage.' });
+    if (connection.providerId === 'stripe') {
+      const publishable = typeof connection.config.publishableKey === 'string'
+        ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection.config.publishableKey) : null;
+      if (connection.config.publishableKey && !publishable) issues.push({ connectionId: connection.id, field: 'publishableKey', code: 'invalid-config', message: 'Stripe requires a publishable key; private keys belong in secure server storage.' });
+      if (connection.environments.length !== 1) issues.push({ connectionId: connection.id, code: 'invalid-config', message: 'Stripe credentials must target exactly one environment.' });
+      if (publishable && connection.environments.length === 1) {
+        const expectedMode = connection.environments[0] === 'production' ? 'live' : 'test';
+        if (publishable[1] !== expectedMode) issues.push({ connectionId: connection.id, field: 'publishableKey', code: 'invalid-config', message: `Stripe ${connection.environments[0]} requires a ${expectedMode}-mode publishable key.` });
+      }
+    }
     for (const field of provider.fields) {
       if (!field.required) continue;
       if (field.secret) {
