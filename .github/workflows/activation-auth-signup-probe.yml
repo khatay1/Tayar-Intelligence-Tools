@@ -1,0 +1,142 @@
+name: Activation Auth Signup Probe
+on:
+  push:
+    branches: [test/activation-auth-signup-probe-20261004]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Exercise official Auth and Data APIs
+        shell: bash
+        env:
+          SUPABASE_URL: https://uepltkguloltmebepvbo.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_XPyyhranUSrm3ArH7sntqg_nAXqto_J
+        run: |
+          node <<'NODE'
+          const crypto = require('node:crypto');
+          const email = `tayar-preview-e2e-${process.env.GITHUB_RUN_ID}@example.test`;
+          const password = crypto.randomBytes(32).toString('base64url') + '!Aa9';
+          const headers = {
+            apikey: process.env.SUPABASE_PUBLISHABLE_KEY,
+            'content-type': 'application/json',
+          };
+          const signup = await fetch(process.env.SUPABASE_URL + '/auth/v1/signup', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ email, password }),
+          });
+          let auth = {};
+          try { auth = await signup.json(); } catch {}
+          if (!signup.ok) {
+            console.log('SIGNUP_HTTP=' + signup.status);
+            console.log('SIGNUP_SESSION=false');
+            process.exit(2);
+          }
+          const token = typeof auth.access_token === 'string' ? auth.access_token : null;
+          const userId = auth.user && typeof auth.user.id === 'string' ? auth.user.id : null;
+          console.log('SIGNUP_HTTP=' + signup.status);
+          console.log('SIGNUP_USER=' + Boolean(userId));
+          console.log('SIGNUP_SESSION=' + Boolean(token));
+          if (!token || !userId) process.exit(3);
+
+          const snapshot = {
+            homePageId: 'home',
+            siteName: 'Tayar Fullstack MAX Preview Fixture',
+            application: {
+              version: 1,
+              tables: [],
+              roles: [],
+              auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true },
+              pageAccess: [{ pageId: 'dashboard', access: 'authenticated' }],
+            },
+            pages: [
+              {
+                id: 'home', name: 'Home', slug: 'home', language: 'en',
+                sections: [{
+                  id: 'hero-e2e-home', type: 'hero',
+                  title: 'Preview E2E Fixture',
+                  description: 'Customer-owned preview runtime fixture.',
+                  buttonText: 'Open Dashboard', buttonUrl: '/dashboard.html',
+                  background: '#111827', accent: '#7c3aed', layout: 'stack', layoutGap: 20, layoutAlign: 'center',
+                  elements: [
+                    { id: 'heading-e2e-home', type: 'heading', content: 'Preview E2E Fixture',
+                      style: { color: '#ffffff', fontSize: 48, fontWeight: 700, textAlign: 'center' } },
+                    { id: 'text-e2e-home', type: 'text', content: 'Customer-owned preview runtime fixture.',
+                      style: { color: '#cbd5e1', fontSize: 18, fontWeight: 400, textAlign: 'center' } },
+                    { id: 'button-e2e-home', type: 'button', content: 'Open Dashboard', href: '/dashboard.html',
+                      style: { color: '#ffffff', backgroundColor: '#7c3aed', fontSize: 16, fontWeight: 600,
+                        textAlign: 'center', borderRadius: 12, padding: 14 } },
+                  ],
+                }],
+              },
+              {
+                id: 'dashboard', name: 'Dashboard', slug: 'dashboard', language: 'en',
+                sections: [{
+                  id: 'hero-e2e-dashboard', type: 'hero',
+                  title: 'Private Dashboard', description: 'Authenticated preview route.',
+                  buttonText: 'Back Home', buttonUrl: '/index.html',
+                  background: '#0f172a', accent: '#8b5cf6', layout: 'stack', layoutGap: 20, layoutAlign: 'center',
+                  elements: [
+                    { id: 'heading-e2e-dashboard', type: 'heading', content: 'Private Dashboard',
+                      style: { color: '#ffffff', fontSize: 42, fontWeight: 700, textAlign: 'center' } },
+                    { id: 'text-e2e-dashboard', type: 'text', content: 'Authenticated preview route.',
+                      style: { color: '#cbd5e1', fontSize: 18, fontWeight: 400, textAlign: 'center' } },
+                    { id: 'button-e2e-dashboard', type: 'button', content: 'Back Home', href: '/index.html',
+                      style: { color: '#ffffff', backgroundColor: '#8b5cf6', fontSize: 16, fontWeight: 600,
+                        textAlign: 'center', borderRadius: 12, padding: 14 } },
+                  ],
+                }],
+              },
+            ],
+          };
+          const projectResponse = await fetch(
+            process.env.SUPABASE_URL + '/rest/v1/projects?select=id,user_id,title,updated_at',
+            {
+              method: 'POST',
+              headers: {
+                ...headers,
+                authorization: 'Bearer ' + token,
+                prefer: 'return=representation',
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                title: 'Tayar Preview E2E Fixture',
+                type: 'website-builder',
+                content: snapshot,
+                status: 'draft',
+              }),
+            },
+          );
+          let rows = [];
+          try { rows = await projectResponse.json(); } catch {}
+          console.log('PROJECT_HTTP=' + projectResponse.status);
+          const project = Array.isArray(rows) ? rows[0] : null;
+          console.log('PROJECT_CREATED=' + Boolean(project && project.id));
+          if (!projectResponse.ok || !project?.id) process.exit(4);
+
+          for (const provider of ['github', 'supabase', 'vercel']) {
+            const response = await fetch(
+              process.env.SUPABASE_URL + '/functions/v1/website-' + provider + '-connection?action=begin',
+              {
+                method: 'POST',
+                headers: {
+                  ...headers,
+                  authorization: 'Bearer ' + token,
+                  origin: 'https://tayar-intelligence-tools-git-main-tayar-tools.vercel.app',
+                },
+                body: JSON.stringify({ projectId: project.id, environment: 'preview' }),
+              },
+            );
+            let body = {};
+            try { body = await response.json(); } catch {}
+            const validUrl = typeof body.authorizationUrl === 'string' && /^https:\/\//.test(body.authorizationUrl);
+            console.log(provider.toUpperCase() + '_BEGIN_HTTP=' + response.status);
+            console.log(provider.toUpperCase() + '_BEGIN_URL=' + validUrl);
+          }
+
+          console.log('E2E_USER_ID=' + userId);
+          console.log('E2E_PROJECT_ID=' + project.id);
+          NODE
