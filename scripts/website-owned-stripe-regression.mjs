@@ -9,7 +9,8 @@ const dir=await mkdtemp(join(tmpdir(),'tayar-owned-stripe-'));
 try{
   const out=join(dir,'stripe.cjs');
   await build({entryPoints:['server/website-owned-stripe.ts'],bundle:true,platform:'node',format:'cjs',outfile:out});
-  const {verifyOwnedStripeAccount:verify,handoffOwnedStripeRuntime:handoff}=(await import(pathToFileURL(out))).default;
+  const {verifyOwnedStripeAccount:verify,handoffOwnedStripeRuntime:handoff,
+    inspectOwnedStripeRuntimeForPublish:inspectState,verifyOwnedStripeRuntimeDestination:verifyDestination}=(await import(pathToFileURL(out))).default;
   const restricted=['rk','live','fixtureaccountkey123456789'].join('_');
   const publishable=['pk','live','fixturepublickey123456789'].join('_');
   let calls=0;
@@ -50,6 +51,26 @@ try{
   assert.deepEqual(await verify({secretKey:testSecret,publishableKey:testPublic,environment:'preview',isCurrent:()=>true,
     fetcher:async()=>new Response(JSON.stringify({id:'acct_sandbox12345678',object:'account',charges_enabled:false}),{status:200})}),
     {accountId:'acct_sandbox12345678',keyType:'secret',mode:'test',chargesEnabled:false});
+  const state=await inspectState({client:{async rpc(name,args){assert.equal(name,'website_stripe_runtime_state_for_worker');
+    assert.equal(args.p_source_connection_id,'stripe-prod');return{data:{stripeConnectionId:'11111111-1111-4111-8111-111111111111',
+      stripeConnectionVersion:1,handoffId:'33333333-3333-4333-8333-333333333333',handoffVersion:2,handoffStatus:'verified',
+      handoffOperationId:'66666666-6666-4666-8666-666666666666',environmentId:'env_fixture123',sourceAvailable:false,ready:true},error:null};}},
+    projectId:'44444444-4444-4444-8444-444444444444',ownerId:'55555555-5555-4555-8555-555555555555',
+    vercelConnectionId:'22222222-2222-4222-8222-222222222222',vercelConnectionVersion:7,
+    sourceConnectionId:'stripe-prod',sourceUpdatedAt:'2026-10-04T10:00:00.000Z',environment:'production'});
+  assert.equal(state.ready,true);assert.equal(state.environmentId,'env_fixture123');
+  let destinationReads=0;await verifyDestination({accessToken:'vercel_fixture_token_123456789',userId:'user_fixture123',
+    accountId:'team_fixture123',vercelProjectId:'prj_fixture123',environmentId:'env_fixture123',
+    projectId:'44444444-4444-4444-8444-444444444444',environment:'production',
+    handoffOperationId:'66666666-6666-4666-8666-666666666666',isCurrent:()=>true,
+    fetcher:async(_url,init)=>{destinationReads++;assert.equal(init.method,'GET');return Response.json({envs:[{
+      id:'env_fixture123',key:'STRIPE_SECRET_KEY',type:'sensitive',target:['production'],comment:'Tayar handoff 66666666-6666-4666-8666-666666666666'}]});}});
+  assert.equal(destinationReads,1);
+  await assert.rejects(verifyDestination({accessToken:'vercel_fixture_token_123456789',userId:'user_fixture123',
+    accountId:'team_fixture123',vercelProjectId:'prj_fixture123',environmentId:'env_fixture123',
+    projectId:'44444444-4444-4444-8444-444444444444',environment:'production',
+    handoffOperationId:'66666666-6666-4666-8666-666666666666',isCurrent:()=>true,
+    fetcher:async()=>Response.json({envs:[]})}),/destination unavailable/);
   const ids={stripeConnectionId:'11111111-1111-4111-8111-111111111111',
     vercelConnectionId:'22222222-2222-4222-8222-222222222222',handoffId:'33333333-3333-4333-8333-333333333333',
     projectId:'44444444-4444-4444-8444-444444444444',ownerId:'55555555-5555-4555-8555-555555555555',
