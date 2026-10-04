@@ -8,6 +8,8 @@ import { runByoProductionPublishWorker } from './website-byo-production-publish-
 import { runWebsiteOwnedVercelPromotion } from './website-owned-vercel-promotion-worker';
 import { prepareOwnedVercelProductionRuntimeEnvironment,
   prepareOwnedVercelRuntimeEnvironment } from './website-owned-vercel-runtime-environment';
+import { handoffOwnedStripeRuntime,inspectOwnedStripeRuntimeForPublish,
+  verifyOwnedStripeRuntimeDestination } from './website-owned-stripe';
 import { exportWebsiteProjectToOwnedGitHub } from '../src/modules/website-builder/services/websiteGithubExportWorker';
 import { beginWebsiteVercelDeploymentAttempt,
   commitWebsiteVercelDeploymentObservation } from '../src/modules/website-builder/services/websiteVercelDeploymentAttemptService';
@@ -20,6 +22,12 @@ const branch=/^[A-Za-z0-9_./-]{1,200}$/;const env=/^[A-Z][A-Z0-9_]{1,99}$/;
 interface Custody{accessToken:string;userId:string;accountId:string;vercelProjectId:string;repositoryId:string;
   repositoryOwner:string;repositoryName:string;productionBranch:string;environment:Environment;}
 
+async function deterministicUuid(value:unknown){
+  const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value))));
+  bytes[6]=(bytes[6]&15)|80;bytes[8]=(bytes[8]&63)|128;
+  const hex=[...bytes.slice(0,16)].map(v=>v.toString(16).padStart(2,'0')).join('');
+  return`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
 async function deterministicCommitId(operationId:string,attemptVersion:number,report:OwnedVercelDeploymentReport){
   const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify({operationId,attemptVersion,report}))));
   bytes[6]=(bytes[6]&15)|80;bytes[8]=(bytes[8]&63)|128;const hex=[...bytes.slice(0,16)].map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -67,10 +75,12 @@ export async function runWebsiteOwnedByoPublish(input:{
       p_project_id:input.projectId,p_owner_id:input.ownerId,p_expected_connection_version:capturedSource.vercel.version});
     if(result.error||!await owner())throw new Error();custody=parseCustody(result.data,input.environment);
     if(custody.vercelProjectId!==capturedSource.vercel.targetId||custody.repositoryId!==capturedSource.connection.targetId)throw new Error();return custody;};
-  const environment=async()=>{if(required)return required;const capturedSource=await source(),vercel=await grant();
+  const requirements=async()=>{if(required)return required;const capturedSource=await source();
     required=[...await input.requiredEnvironment(capturedSource.capabilities)].sort();
     if(required.length>64||required.some(v=>!env.test(v))||new Set(required).size!==required.length)throw new Error();
-    const sourceBranch=`tayar/${input.projectId}/preview`;
+    return required;};
+  const environment=async()=>{const names=await requirements();if(runtimeReceipt)return names;
+    const capturedSource=await source(),vercel=await grant(),sourceBranch=`tayar/${input.projectId}/preview`;
     runtimeReceipt=await prepareOwnedVercelRuntimeEnvironment({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
       operationId:input.operationId,binding:capturedSource.binding,supabase:capturedSource.supabase,vercel:capturedSource.vercel,
       accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,vercelProjectId:vercel.vercelProjectId,
@@ -79,18 +89,54 @@ export async function runWebsiteOwnedByoPublish(input:{
       p_owner_id:input.ownerId,p_binding_version:capturedSource.binding.bindingVersion,
       p_supabase_connection_id:capturedSource.supabase.id,p_supabase_connection_version:capturedSource.supabase.version,
       p_vercel_connection_id:capturedSource.vercel.id,p_vercel_connection_version:capturedSource.vercel.version,
-      p_vercel_project_id:vercel.vercelProjectId,p_git_branch:sourceBranch,p_required_environment:required});
-    if(proof.error||proof.data!==true||!await owner())throw new Error();return required;};
+      p_vercel_project_id:vercel.vercelProjectId,p_git_branch:sourceBranch,p_required_environment:names});
+    if(proof.error||proof.data!==true||!await owner())throw new Error();return names;};
+  const stripeRuntime=async()=>{const capturedSource=await source(),stripe=capturedSource.stripeRuntime;
+    if(!stripe)return;const vercel=await grant();
+    const state=await inspectOwnedStripeRuntimeForPublish({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
+      vercelConnectionId:input.vercelConnectionId,vercelConnectionVersion:capturedSource.vercel.version,
+      sourceConnectionId:stripe.sourceConnectionId,sourceUpdatedAt:stripe.sourceUpdatedAt,environment:'preview'});
+    const exactCurrent=async()=>await capturedSource.isCurrent()&&await owner();
+    if(state.ready){if(!state.environmentId||!state.handoffOperationId)throw new Error();
+      await verifyOwnedStripeRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,
+        vercelProjectId:vercel.vercelProjectId,environmentId:state.environmentId,projectId:input.projectId,
+        environment:'preview',handoffOperationId:state.handoffOperationId,isCurrent:exactCurrent,fetcher:input.fetcher});return;}
+    const sameOperation=state.handoffOperationId===input.operationId;
+    if(state.handoffStatus==='removed'||state.handoffStatus==='preparing'&&!sameOperation
+      ||(!state.sourceAvailable&&!(state.handoffStatus==='verified'&&sameOperation)))throw new Error();
+    const stripeConnectionId=state.stripeConnectionId??await deterministicUuid({kind:'stripe-runtime-connection',
+      projectId:input.projectId,environment:'preview'});
+    const handoffId=state.handoffId??await deterministicUuid({kind:'stripe-secret-handoff',projectId:input.projectId,
+      environment:'preview',vercelConnectionId:input.vercelConnectionId,sourceConnectionId:stripe.sourceConnectionId});
+    let expectedHandoffVersion=state.handoffVersion;
+    if(sameOperation&&state.handoffStatus==='preparing')expectedHandoffVersion=state.handoffVersion-1;
+    if(sameOperation&&state.handoffStatus==='verified')expectedHandoffVersion=state.handoffVersion-2;
+    if(expectedHandoffVersion<0||!await exactCurrent())throw new Error();
+    const receipt=await handoffOwnedStripeRuntime({client:input.client,stripeConnectionId,
+      vercelConnectionId:input.vercelConnectionId,handoffId,projectId:input.projectId,ownerId:input.ownerId,
+      vercelConnectionVersion:capturedSource.vercel.version,expectedHandoffVersion,
+      expectedStripeConnectionVersion:state.stripeConnectionVersion,sourceConnectionId:stripe.sourceConnectionId,
+      sourceUpdatedAt:stripe.sourceUpdatedAt,publishableKey:stripe.publishableKey,environment:'preview',
+      operationId:input.operationId,handoffCommitId:await deterministicUuid({kind:'stripe-handoff-commit',
+        operationId:input.operationId,handoffId,sourceUpdatedAt:stripe.sourceUpdatedAt}),
+      stripeCommitId:await deterministicUuid({kind:'stripe-runtime-commit',operationId:input.operationId,
+        stripeConnectionId,handoffId}),isCurrent:()=>current,fetcher:input.fetcher});
+    if(receipt.status!=='ready'||!await exactCurrent())throw new Error();
+    await verifyOwnedStripeRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,
+      vercelProjectId:vercel.vercelProjectId,environmentId:receipt.environmentId,projectId:input.projectId,
+      environment:'preview',handoffOperationId:input.operationId,isCurrent:exactCurrent,fetcher:input.fetcher});};
+  const runtime=async()=>{await environment();await stripeRuntime();};
   try{return await runByoPublishWorker({operationId:input.operationId,projectId:input.projectId,ownerId:input.ownerId,
     environment:input.environment,store,isCurrent:owner,
-    validate:async()=>{const capturedSource=await source();return{sourceDigest:capturedSource.sourceDigest,requiredEnvironment:await environment()};},
+    validate:async()=>{const capturedSource=await source();return{sourceDigest:capturedSource.sourceDigest,requiredEnvironment:await requirements()};},
+    prepareRuntime:runtime,
     exportGitHub:async()=>{const capturedSource=await source();return exportWebsiteProjectToOwnedGitHub({projectId:input.projectId,
       ownerId:input.ownerId,connectionId:input.githubConnectionId,environment:input.environment,operationId:input.operationId,
       reader:input.reader,compile:async()=>{if(!await capturedSource.isCurrent())throw new Error();return capturedSource.files;},
       expectedSourceDigest:capturedSource.sourceDigest,client:input.client,githubClientId:input.githubClientId,
       githubClientSecret:input.githubClientSecret,fetcher:input.fetcher});},
     beginDeployment:async(headSha,names)=>{const capturedSource=await source(),vercel=await grant();
-      await environment();if(!runtimeReceipt)throw new Error();
+      await runtime();if(!runtimeReceipt)throw new Error();
       const prior=await input.client.rpc('website_vercel_deployment_attempt_for_worker',{p_connection_id:input.vercelConnectionId,
         p_project_id:input.projectId,p_owner_id:input.ownerId});if(prior.error)throw new Error();
       const value=prior.data as Record<string,unknown>|null,version=value===null?0:value.version;
@@ -103,7 +149,7 @@ export async function runWebsiteOwnedByoPublish(input:{
     discoverDeployment:async headSha=>{const vercel=await grant();return discoverOwnedVercelDeployment({accessToken:vercel.accessToken,
       accountId:vercel.accountId,projectId:vercel.vercelProjectId,sourceCommitSha:headSha,sourceBranch:`tayar/${input.projectId}/${input.environment}`,
       target:input.environment,isCurrent:owner,fetcher:input.fetcher});},
-    inspectDeployment:async(deploymentId,headSha,names)=>{const vercel=await grant();await environment();if(!runtimeReceipt)throw new Error();
+    inspectDeployment:async(deploymentId,headSha,names)=>{const vercel=await grant();await runtime();if(!runtimeReceipt)throw new Error();
       return inspectOwnedVercelDeployment({
       accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,platformAccountId:input.platformVercelAccountId,
       projectId:vercel.vercelProjectId,deploymentId,repositoryId:vercel.repositoryId,repositoryOwner:vercel.repositoryOwner,
