@@ -18,7 +18,7 @@ export default defineConfig({
     ],
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react', '@ffmpeg/ffmpeg', '@ffmpeg/util'],
   },
   build: {
     chunkSizeWarningLimit: 700,
