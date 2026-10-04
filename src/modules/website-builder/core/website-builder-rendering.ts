@@ -784,7 +784,12 @@ export function elementToHtml(element: WebsiteElement, homeSlug: string, device:
   const value = escapeHtml(element.content || '');
   if (element.type === 'heading') return `<h2 class="tayar-element" style="${css}">${value}</h2>`;
   if (element.type === 'text') return `<p class="lead tayar-element" style="${css}">${value}</p>`;
-  if (element.type === 'button') return `<a class="btn tayar-element" href="${escapeHtml(resolveBuilderHref(element.href || '#', homeSlug))}" style="${css}">${value}</a>`;
+  if (element.type === 'button') {
+    if (element.action === 'stripe-checkout') {
+      return `<button class="btn tayar-element" type="button" data-tayar-stripe-checkout="${escapeHtml(element.id)}" style="${css}">${value}</button>`;
+    }
+    return `<a class="btn tayar-element" href="${escapeHtml(resolveBuilderHref(element.href || '#', homeSlug))}" style="${css}">${value}</a>`;
+  }
   if (element.type === 'list') {
     const items = (element.content || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
     return `<ul class="builder-list tayar-element" style="${css}">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
@@ -1041,6 +1046,8 @@ export function buildFullHtml(
       }
     : undefined;
   const body = sections.map((section) => sectionToHtml(section, homeSlug, leadCapture, options.language)).join('\n');
+  const stripeCheckoutEnabled = sections.some(section => (section.elements || [])
+    .some(element => element.type === 'button' && element.action === 'stripe-checkout'));
   const faqItems = sections.flatMap((section) => (section.elements || []).filter((element) => element.type === 'accordion').flatMap((element) => parseRichRows(element.content))).slice(0, 50);
   const faqSchema = faqItems.length ? `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: faqItems.map((item) => ({ '@type': 'Question', name: item.title, acceptedAnswer: { '@type': 'Answer', text: item.body } })) }).replace(/</g, '\\u003c')}</script>` : '';
   const direction = options.language === 'ar' ? 'rtl' : 'ltr';
@@ -1208,6 +1215,45 @@ export function buildFullHtml(
   const analyticsEnabled = Boolean(
     options.analyticsEnabled && options.analyticsProjectId && options.supabaseUrl && options.supabaseAnonKey
   );
+  const stripeCheckoutScript = stripeCheckoutEnabled ? `<script>
+(() => {
+  document.querySelectorAll('[data-tayar-stripe-checkout]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      if (button.dataset.tayarStripeBusy === 'true') return;
+      const checkoutId = button.getAttribute('data-tayar-stripe-checkout') || '';
+      if (!checkoutId) return;
+      const original = button.textContent || '';
+      button.dataset.tayarStripeBusy = 'true';
+      button.setAttribute('aria-busy', 'true');
+      button.disabled = true;
+      button.textContent = ${runtimeJs('Opening checkout…')};
+      try {
+        const response = await fetch('/api/stripe-checkout', {
+          method: 'POST',
+          credentials: 'same-origin',
+          redirect: 'error',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ checkoutId }),
+        });
+        if (!response.ok) throw new Error();
+        const payload = await response.json();
+        const target = new URL(String(payload?.url || ''));
+        if (target.protocol !== 'https:' || target.hostname !== 'checkout.stripe.com') throw new Error();
+        window.location.assign(target.href);
+        return;
+      } catch {
+        button.textContent = ${runtimeJs('Checkout unavailable')};
+        window.setTimeout(() => { button.textContent = original; }, 1800);
+      } finally {
+        button.dataset.tayarStripeBusy = 'false';
+        button.removeAttribute('aria-busy');
+        button.disabled = false;
+      }
+    });
+  });
+})();
+</script>` : '';
+
   const analyticsScript = analyticsEnabled ? `<script>
 (() => {
   const endpoint = ${JSON.stringify((options.supabaseUrl || '') + '/rest/v1/rpc/track_website_page_view')};
@@ -1715,6 +1761,7 @@ ${cookieBanner}
 ${backToTop}
 ${navigationScript}
 ${leadScript}
+${stripeCheckoutScript}
 ${analyticsScript}
 ${interactiveWidgetsScript}
 ${motionScript}`}

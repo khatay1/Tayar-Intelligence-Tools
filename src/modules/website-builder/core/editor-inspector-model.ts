@@ -292,12 +292,27 @@ function buildElementFields(
   }
 
   if (type === 'button') {
-    fields.push(
-      field('href', 'Link', element.href ?? '', 'text', 'content', {
-        section: 'Link',
-        placeholder: '#contact or https://...',
-      }),
-    );
+    const action = element.action === 'stripe-checkout' ? 'stripe-checkout' : 'link';
+    fields.push(field('action', 'Action', action, 'select', 'content', {
+      section: 'Action', options: ['link', 'stripe-checkout'],
+    }));
+    if (action === 'stripe-checkout') {
+      fields.push(
+        field('stripePreviewPriceId', 'Stripe preview Price ID', element.stripePreviewPriceId ?? '', 'text', 'content', {
+          section: 'Stripe checkout', placeholder: 'price_...',
+        }),
+        field('stripeProductionPriceId', 'Stripe production Price ID', element.stripeProductionPriceId ?? '', 'text', 'content', {
+          section: 'Stripe checkout', placeholder: 'price_...',
+        }),
+      );
+    } else {
+      fields.push(
+        field('href', 'Link', element.href ?? '', 'text', 'content', {
+          section: 'Link',
+          placeholder: '#contact or https://...',
+        }),
+      );
+    }
   }
 
   if (TEXT_LIKE_TYPES.has(type)) {

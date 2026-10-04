@@ -9,8 +9,7 @@ const safeRoute = /^(?:[\p{L}\p{N}._-]+\/)*[\p{L}\p{N}._-]+\.html$/u;
 const secrets = /(?:secret:\/\/|sb_secret_|\bservice_role\b|\b(?:sk|rk)_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i;
 
 /** Source-only package. The caller must obtain the snapshot and customer binding
- * from trusted owner-scoped persistence; this function never reads browser input.
- * The GitHub worker stays unmounted pending customer Supabase/Vercel verification. */
+ * from trusted owner-scoped persistence; this function never reads browser input. */
 export async function compileWebsiteOwnedApplicationSource(snapshot: Record<string, unknown>, input: {
   projectId: string; applicationOrigin: string; expectedProjectRef: string; backend: ApplicationPublicBackend;
   environment: 'preview' | 'production'; platformOrigin: string; platformUrl: string;
@@ -51,15 +50,15 @@ export async function compileWebsiteOwnedApplicationSource(snapshot: Record<stri
   const runtime = `const __TAYAR_MANIFEST__ = ${JSON.stringify(manifest)};
 const __TAYAR_PAGES__ = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.html]))});
 const __TAYAR_PATHS__ = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.path]))});
+const __TAYAR_STRIPE_CHECKOUTS__ = ${JSON.stringify(capabilities.stripeCheckouts)};
 ${websiteOwnedApplicationRuntimeTemplate}`;
-  // Bundled Supabase SDK includes the literal role name "service_role" for its
-  // own compatibility logic; reject key material rather than that code string.
   if (/(?:secret:\/\/|sb_secret_|\b(?:sk|rk)_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i.test(runtime)
     || runtime.includes(input.platformOrigin) || runtime.includes(input.platformUrl)) {
     throw new Error('Customer application runtime contains platform or secret material.');
   }
   const rewrites = [
     { source: '/api/application-session', destination: '/api/application?tayarRoute=session' },
+    ...(capabilities.stripeCheckouts.length ? [{ source: '/api/stripe-checkout', destination: '/api/application?tayarRoute=stripe-checkout' }] : []),
     ...routes.map(route => ({ source: route.path, destination: `/api/application?tayarRoute=${encodeURIComponent(route.pageId)}` })),
     { source: '/', destination: `/api/application?tayarRoute=${encodeURIComponent(rendered.find(file => file.name === 'index.html')!.pageId)}` },
   ];

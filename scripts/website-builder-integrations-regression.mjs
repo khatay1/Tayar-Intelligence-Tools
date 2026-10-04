@@ -56,6 +56,11 @@ try {
     secrets: { secretKey: { ref: stripeRef } }, events: ['commerce.checkout', 'commerce.paid'],
   }] });
   assert.deepEqual(integrations.validateEditorIntegrations(validStripe), []);
+  assert.ok(projectHost.editorIntegrationPublishBlockers(validStripe).some(message => /not deployed/.test(message)),
+    'Stripe event automation stays blocked until a verified event adapter exists');
+  const checkoutOnlyStripe=structuredClone(validStripe);checkoutOnlyStripe.connections[0].events=[];
+  assert.deepEqual(projectHost.editorIntegrationPublishBlockers(checkoutOnlyStripe),[],
+    'Validated production Stripe checkout credentials no longer create a false publish blocker');
   const wrongStripeMode = structuredClone(validStripe);
   wrongStripeMode.connections[0].config.publishableKey = 'pk_test_fixture123456789';
   assert.ok(integrations.validateEditorIntegrations(wrongStripeMode).some(issue => /live-mode/.test(issue.message)));

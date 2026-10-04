@@ -43,7 +43,8 @@ export function editorIntegrationPublishBlockers(config: EditorIntegrationsConfi
   return [...validateEditorIntegrations(config)
     .filter(issue => typeof issue.connectionId === 'string' && productionIds.has(issue.connectionId))
     .map(issue => issue.message),
-  ...production.map(connection => `${connection.name}: integration execution is not deployed for published sites.`)];
+  ...production.filter(connection => connection.providerId !== 'stripe' || (connection.events?.length ?? 0) > 0)
+    .map(connection => `${connection.name}: integration execution is not deployed for published sites.`)];
 }
 
 export async function setEditorIntegrationSecret(

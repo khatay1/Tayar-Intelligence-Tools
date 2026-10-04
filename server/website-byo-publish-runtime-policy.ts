@@ -13,12 +13,14 @@ function connectionIdentity(value:InfrastructureConnection){assertInfrastructure
  ownerId:value.ownerId,projectId:value.projectId,provider:value.provider,environment:value.environment,accountId:value.accountId,
  targetId:value.targetId,permissions:[...value.permissions].sort(),status:value.status,version:value.version,
  operationId:value.operationId,verifiedAt:value.verifiedAt,updatedAt:value.updatedAt});}
-function supported(capabilities:ByoSourceCapabilities){return capabilities.blockers.length===0&&capabilities.needs.auth
- &&capabilities.needs.database&&capabilities.definition.auth.enabled&&!capabilities.needs.integrations&&!capabilities.needs.cms;}
+function supported(capabilities:ByoSourceCapabilities){const providers=capabilities.integrationProviders??[];
+ const supportedIntegrations=!capabilities.needs.integrations||providers.length===1&&providers[0]==='stripe';
+ return capabilities.blockers.length===0&&capabilities.needs.auth&&capabilities.needs.database
+  &&capabilities.definition.auth.enabled&&supportedIntegrations&&!capabilities.needs.cms;}
 
-/** Concrete server-only policy for the currently compiled owned runtime. It
- * accepts Auth/data/forms/private pages, refuses every unimplemented runtime
- * capability, and re-reads persisted identities after backend preparation. */
+/** Concrete server-only policy for the currently compiled owned runtime.
+ * Stripe checkout is prepared through its own verified sensitive-secret receipt;
+ * this public runtime manifest deliberately remains the two Supabase values. */
 export function createWebsiteByoPublishRuntimePolicy(reader:OwnedSourceReader){
  return{
   async verifyRuntime(binding:OwnedRuntimeBinding,supabase:InfrastructureConnection,vercel:InfrastructureConnection,

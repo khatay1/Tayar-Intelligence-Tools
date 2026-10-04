@@ -142,6 +142,9 @@ export interface WebsiteElement {
   type: WebsiteElementType;
   content: string;
   href?: string;
+  action?: 'link' | 'stripe-checkout';
+  stripePreviewPriceId?: string;
+  stripeProductionPriceId?: string;
   src?: string;
   style: ElementStyle;
   responsive?: Partial<Record<Device, ElementStyle>>;
