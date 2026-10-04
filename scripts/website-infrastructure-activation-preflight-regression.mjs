@@ -6,6 +6,7 @@ const platform = 'https://abcdefghijklmnopqrst.supabase.co';
 const environment = {
   TAYAR_INFRASTRUCTURE_ACTIVATION_MODE: 'isolated', SUPABASE_URL: platform,
   SUPABASE_SERVICE_ROLE_KEY: `sb_secret_${'s'.repeat(32)}`,
+  VITE_SUPABASE_URL: platform, VITE_SUPABASE_ANON_KEY: `sb_publishable_${'a'.repeat(32)}`,
   WEBSITE_GITHUB_APP_CLIENT_ID: 'Iv1_fixture', WEBSITE_GITHUB_APP_CLIENT_SECRET: 'g'.repeat(32),
   WEBSITE_SUPABASE_OAUTH_CLIENT_ID: 'supabase-client', WEBSITE_SUPABASE_OAUTH_CLIENT_SECRET: 'u'.repeat(32),
   WEBSITE_SUPABASE_PKCE_SECRET: 'p'.repeat(40), WEBSITE_SUPABASE_PLATFORM_ORGANIZATION_ID: 'isolated-org',
@@ -22,6 +23,7 @@ const ready = await inspectWebsiteInfrastructureActivation({ environment });
 assert.equal(ready.ready, true);
 assert.equal(ready.checks.find(check => check.id === 'publish-jwt-config').ok, true);
 assert.equal(ready.checks.find(check => check.id === 'application-origin').ok, true);
+assert.equal(ready.checks.find(check => check.id === 'browser-supabase-origin').ok, true);
 assert.equal(infrastructureMigrationFiles.length, 34);
 assert.ok(ready.checks.every(check => check.ok));
 const serialized = JSON.stringify(ready);
@@ -32,6 +34,12 @@ for (const secret of [environment.SUPABASE_SERVICE_ROLE_KEY, environment.WEBSITE
 const incomplete = await inspectWebsiteInfrastructureActivation({ environment: {} });
 assert.equal(incomplete.ready, false);
 assert.ok(incomplete.checks.find(check => check.id === 'configuration-presence').missing.includes('SUPABASE_SERVICE_ROLE_KEY'));
+const wrongBrowserSupabase = await inspectWebsiteInfrastructureActivation({ environment: {
+  ...environment, VITE_SUPABASE_URL: 'https://zzzzzzzzzzzzzzzzzzzz.supabase.co',
+} });
+assert.equal(wrongBrowserSupabase.ready, false);
+assert.deepEqual(wrongBrowserSupabase.checks.find(check => check.id === 'browser-supabase-origin').missing,
+  ['VITE_SUPABASE_URL']);
 const wrongOrigin = await inspectWebsiteInfrastructureActivation({ environment: {
   ...environment, VITE_WEBSITE_GITHUB_CONNECTION_URL: 'https://attacker.example/functions/v1/website-github-connection',
   NEXT_PUBLIC_WEBSITE_GITHUB_APP_SECRET: 'leak',
