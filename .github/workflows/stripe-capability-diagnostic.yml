@@ -40,4 +40,16 @@ jobs:
           stripe.integrationsMax={version:1,connections:[{id:'stripe-prod',providerId:'stripe',name:'Stripe',enabled:true,status:'configured',environments:['production'],config:{publishableKey:'pk_live_fixture123456789'},secrets:{secretKey:{ref:`secret://website/${id}/stripe-prod/secretKey/production`,updatedAt:'2026-10-04T10:00:00.000Z'}},events:[],createdAt:'2026-10-04T10:00:00.000Z',updatedAt:'2026-10-04T10:00:00.000Z'}]};
           const result=analyze(stripe,'production');
           console.log(JSON.stringify({blockers:result.blockers,integrationProviders:result.integrationProviders,stripeCheckouts:result.stripeCheckouts,needs:result.needs}));
+          const compilerFile=join(dir,'compiler.cjs');
+          await build({entryPoints:['server/website-owned-source-compiler.ts'],bundle:true,platform:'node',format:'cjs',outfile:compilerFile});
+          const {compileWebsiteOwnedApplicationSource:compile}=(await import(pathToFileURL(compilerFile))).default;
+          const backend={url:'https://sgewokeojtzsqjaeluan.supabase.co',projectRef:'sgewokeojtzsqjaeluan',publishableKey:'sb_publishable_customer_fixture'};
+          try {
+            const files=await compile(stripe,{projectId:id,applicationOrigin:'https://customer-app.example',expectedProjectRef:backend.projectRef,
+              backend,environment:'production',platformOrigin:'https://tayar.example',platformUrl:'https://pnbllxdlskljcakyaylt.supabase.co'});
+            console.log(JSON.stringify({compile:'ok',paths:files.map(file=>file.path)}));
+          } catch(error) {
+            console.log(JSON.stringify({compile:'failed',message:error instanceof Error?error.message:String(error)}));
+            throw error;
+          }
           NODE
