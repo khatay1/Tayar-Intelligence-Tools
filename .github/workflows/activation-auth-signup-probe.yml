@@ -24,6 +24,14 @@ jobs:
             apikey: process.env.SUPABASE_PUBLISHABLE_KEY,
             'content-type': 'application/json',
           };
+          const settingsResponse = await fetch(process.env.SUPABASE_URL + '/auth/v1/settings', { headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY } });
+          let settings = {};
+          try { settings = await settingsResponse.json(); } catch {}
+          console.log('AUTH_SETTINGS_HTTP=' + settingsResponse.status);
+          console.log('AUTH_DISABLE_SIGNUP=' + Boolean(settings.disable_signup));
+          console.log('AUTH_MAILER_AUTOCONFIRM=' + Boolean(settings.mailer_autoconfirm));
+          console.log('AUTH_CAPTCHA_ENABLED=' + Boolean(settings.captcha_enabled));
+
           const signup = await fetch(process.env.SUPABASE_URL + '/auth/v1/signup', {
             method: 'POST',
             headers,
@@ -34,6 +42,11 @@ jobs:
           if (!signup.ok) {
             console.log('SIGNUP_HTTP=' + signup.status);
             console.log('SIGNUP_SESSION=false');
+            const safeCode = typeof auth.code === 'string' ? auth.code.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80) : '';
+            const safeMessage = typeof auth.msg === 'string' ? auth.msg.replace(/[^A-Za-z0-9 ._:'()-]/g, '').slice(0, 160)
+              : typeof auth.message === 'string' ? auth.message.replace(/[^A-Za-z0-9 ._:'()-]/g, '').slice(0, 160) : '';
+            console.log('AUTH_ERROR_CODE=' + safeCode);
+            console.log('AUTH_ERROR_MESSAGE=' + safeMessage);
             process.exit(2);
           }
           const token = typeof auth.access_token === 'string' ? auth.access_token : null;
