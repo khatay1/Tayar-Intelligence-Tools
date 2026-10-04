@@ -1,0 +1,54 @@
+name: Temporary GitHub Custody Generator
+
+on:
+  push:
+    branches:
+      - fix/github-oauth-custody-byo-publish-20261004
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-check:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/github-oauth-custody-byo-publish-20261004
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate affected bundles
+        run: |
+          node scripts/build-website-github-connection.mjs
+          node scripts/build-website-byo-publish-endpoint.mjs
+          node scripts/build-website-byo-publish-edge.mjs
+          node scripts/build-website-byo-publish-function.mjs
+      - name: Run focused regressions
+        run: |
+          node scripts/website-github-oauth-regression.mjs
+          node scripts/website-github-oauth-custody-regression.mjs
+          node scripts/website-github-repository-binding-regression.mjs
+          node scripts/website-github-connection-endpoint-regression.mjs
+          node scripts/website-github-export-worker-regression.mjs
+          node scripts/website-byo-publish-deployment-entry-regression.mjs
+          node scripts/website-byo-publish-runners-regression.mjs
+          node scripts/website-infrastructure-activation-preflight-regression.mjs
+      - name: Commit generated files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/website-github-connection/index.ts \
+                  supabase/functions/website-byo-publish/index.ts \
+                  server/generated/website-byo-publish-endpoint.js \
+                  server/generated/website-byo-publish-edge.js
+          if git diff --cached --quiet; then
+            echo "Generated files already current"
+            exit 0
+          fi
+          git commit -m "build: refresh GitHub custody publish bundles"
+          git push origin HEAD:fix/github-oauth-custody-byo-publish-20261004
