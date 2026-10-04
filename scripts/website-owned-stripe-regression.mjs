@@ -96,6 +96,8 @@ try{
   for(const proofText of ['website_record_stripe_secret_proof','website_activate_stripe_runtime',
     'website_reconcile_stripe_runtime_binding',"h.status='verified'","h.environment_key='STRIPE_SECRET_KEY'"])
     assert.ok(sql.includes(proofText),proofText);
+  assert.ok(!/\\bas \\$(?:\\r?\\n)|^\\s*end \\$;\\s*$|^\\s*\\$;\\s*$/im.test(sql),
+    'Stripe migration function bodies must use paired dollar quotes');
   assert.ok(!/decrypted_secret|secret_value|authorization/i.test(sql),'Stripe proof migration stores metadata only');
   console.log('PASS owned Stripe verifier/runtime handoff: exact account proof, same-secret Vercel delivery, durable metadata receipt and idempotent ready recovery');
 }finally{await rm(dir,{recursive:true,force:true});}

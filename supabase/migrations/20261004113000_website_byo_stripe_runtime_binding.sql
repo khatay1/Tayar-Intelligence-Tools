@@ -90,7 +90,7 @@ begin
     p_connection_id,p_project_id,p_owner_id,p_expected_connection_version,'stripe',v_environment,
     v_account_id,v_account_id,array['api:'||v_key_type]::text[],'ready',null,v_verified_at,p_commit_id
   );
-end $;
+end $$;
 revoke all on function public.website_activate_stripe_runtime(uuid,uuid,uuid,bigint,uuid,bigint,uuid)
   from public,anon,authenticated;
 grant execute on function public.website_activate_stripe_runtime(uuid,uuid,uuid,bigint,uuid,bigint,uuid)
