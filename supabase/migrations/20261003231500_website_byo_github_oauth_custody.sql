@@ -219,3 +219,21 @@ begin
 end $$;
 revoke all on function public.website_cleanup_expired_github_oauth_custody() from public, anon, authenticated;
 grant execute on function public.website_cleanup_expired_github_oauth_custody() to service_role;
+
+-- Expiry is enforced on every read; when pg_cron is available, erase expired
+-- Vault material proactively without changing the older shared cleanup job.
+do $$
+begin
+  if to_regnamespace('cron') is null then
+    raise notice 'Skipping GitHub OAuth custody cleanup schedule: pg_cron unavailable.';
+    return;
+  end if;
+  if exists (select 1 from cron.job where jobname='website-byo-github-custody-cleanup') then
+    return;
+  end if;
+  perform cron.schedule(
+    'website-byo-github-custody-cleanup',
+    '*/15 * * * *',
+    'select public.website_cleanup_expired_github_oauth_custody()'
+  );
+end $$;
