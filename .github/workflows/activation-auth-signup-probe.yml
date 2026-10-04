@@ -17,6 +17,7 @@ jobs:
         run: |
           node <<'NODE'
           const crypto = require('node:crypto');
+          (async () => {
           const email = `tayar-preview-e2e-${process.env.GITHUB_RUN_ID}@example.test`;
           const password = crypto.randomBytes(32).toString('base64url') + '!Aa9';
           const headers = {
@@ -139,4 +140,5 @@ jobs:
 
           console.log('E2E_USER_ID=' + userId);
           console.log('E2E_PROJECT_ID=' + project.id);
+          })().catch(error => { console.error('PROBE_ERROR=' + error?.name); process.exit(1); });
           NODE
