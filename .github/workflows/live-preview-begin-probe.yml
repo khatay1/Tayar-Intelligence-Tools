@@ -22,7 +22,7 @@ jobs:
           node --input-type=module <<'NODE'
           import crypto from 'node:crypto';
           const base=process.env.ACTIVATION_URL,key=process.env.ACTIVATION_KEY;
-          const email=`tayar-network-e2e-${Date.now()}@example.test`;
+          const email=`tayar-network-e2e-${Date.now()}@example.com`;
           const password=crypto.randomBytes(32).toString('base64url');
           const json=async(response,label)=>{
             const raw=await response.text();
