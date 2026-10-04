@@ -1,5 +1,15 @@
 # Fullstack MAX — canonical BYO checkpoint
 
+## Live Preview gate — 2026-10-04
+
+- Main now includes resumable Preview runtime preparation and the cross-project browser-Supabase activation guard through `681823d7efec6e8dbc0b6ce95eb3432db4f4e102`. Runtime/provider preparation happens only after the durable `validated` checkpoint; Stripe sensitive-runtime delivery is reconciled and live destination metadata is reverified before GitHub export.
+- The isolated Activation project `uepltkguloltmebepvbo` has the Stripe publish-runtime migration applied. Its active connection functions are GitHub v12, Supabase v18 and Vercel v13 with callback JWT verification disabled only for their custom OAuth handlers; `website-byo-publish` is v7 with JWT verification enabled.
+- Vercel Preview browser Auth now uses Activation Supabase, not the production platform project. `VITE_SUPABASE_URL`, its public key and all three Website Builder Connect URLs are Preview-only Activation values; the original platform URL/key remain Production-only. A built Preview artifact contains only the Activation Supabase hostname and all three Activation connection endpoints.
+- Preview deployment `dpl_kPP4nV4aMhRDAu8mAdJBzq6axDt4` built main `681823d7...`, reached READY, returned HTTP 200 and showed no runtime warning/error/fatal entries or runtime error clusters.
+- Activation currently contains zero infrastructure connections, runtime bindings, OAuth states, temporary handoffs and Publish operations. This is intentional clean state; no fake connection or fabricated provider grant was inserted.
+- The next live gate is a disposable permanent Activation Auth session followed by real GitHub, Supabase and Vercel Connect/OAuth consent and the first full Preview Publish E2E. The currently connected automation surface cannot create an Auth admin/magic-link session or perform interactive provider consent, so those identities must remain genuine browser/provider actions. Production promotion remains closed.
+
+
 Updated: 2026-10-03 (UTC). Current branch: `main`. The isolated Activation project contains all 107 migrations, configured provider OAuth credentials and active GitHub/Supabase/Vercel connection functions. The deployed functions now use the trusted platform origin for callback validation and accept the real Deno Edge runtime while continuing to reject an untrusted browser runtime. Production deployment and flags remain unchanged.
 
 ## Current activation state
