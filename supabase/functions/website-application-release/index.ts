@@ -9617,6 +9617,7 @@ function normalizeEditorIntegrationsConfig(value) {
 function validateEditorIntegrations(config) {
   const issues = [];
   const ids = /* @__PURE__ */ new Set();
+  const stripeEnvironments = /* @__PURE__ */ new Set();
   for (const connection of config.connections) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection.id)) issues.push({ connectionId: connection.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
     if (ids.has(connection.id)) issues.push({ connectionId: connection.id, code: "duplicate-id", message: `Duplicate integration id: ${connection.id}` });
@@ -9635,7 +9636,20 @@ function validateEditorIntegrations(config) {
         issues.push({ connectionId: connection.id, field: key, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
       }
     }
-    if (connection.providerId === "stripe" && connection.config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(connection.config.publishableKey))) issues.push({ connectionId: connection.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
+    if (connection.providerId === "stripe") {
+      const publishable = typeof connection.config.publishableKey === "string" ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection.config.publishableKey) : null;
+      if (connection.config.publishableKey && !publishable) issues.push({ connectionId: connection.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
+      if (connection.environments.length !== 1) issues.push({ connectionId: connection.id, code: "invalid-config", message: "Stripe credentials must target exactly one environment." });
+      if (publishable && connection.environments.length === 1) {
+        const expectedMode = connection.environments[0] === "production" ? "live" : "test";
+        if (publishable[1] !== expectedMode) issues.push({ connectionId: connection.id, field: "publishableKey", code: "invalid-config", message: `Stripe ${connection.environments[0]} requires a ${expectedMode}-mode publishable key.` });
+        if (connection.enabled) {
+          const environment = connection.environments[0];
+          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection.id, code: "invalid-config", message: `Only one enabled Stripe account can target ${environment}.` });
+          stripeEnvironments.add(environment);
+        }
+      }
+    }
     for (const field of provider.fields) {
       if (!field.required) continue;
       if (field.secret) {
