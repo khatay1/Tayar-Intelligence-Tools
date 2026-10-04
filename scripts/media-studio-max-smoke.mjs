@@ -56,6 +56,8 @@ const globalModuleIndex = read('src/modules/index.ts');
 const browserHarness = read('src/test/media-studio-max-browser-regression.tsx');
 const browserFixture = read('test-fixtures/media-studio-max-regression.html');
 const browserRegression = read('scripts/media-studio-max-browser-regression.mjs');
+const ffmpegWorkerEntry = read('src/modules/media-studio-max/ffmpeg-class-worker.js');
+const viteConfig = read('vite.config.ts');
 const packageJson = JSON.parse(read('package.json'));
 const packageLock = JSON.parse(read('package-lock.json'));
 
@@ -77,9 +79,16 @@ assert(engine.includes('ffmpeg.deleteFile'), 'virtual file-system cleanup is mis
 assert(engine.includes('AbortController'), 'FFmpeg core download has no abort/timeout protection');
 assert(engine.includes('cdn.jsdelivr.net') && engine.includes('unpkg.com'), 'FFmpeg core mirror fallback is missing');
 assert(engine.includes('MEDIA_ENGINE_LOAD_TIMEOUT') && engine.includes('MEDIA_ENGINE_DOWNLOAD_FAILED'), 'engine failure codes are missing');
+assert(engine.includes('PROBE_TIMEOUT_MS'), 'FFprobe timeout protection is missing');
+assert(engine.includes('classWorkerURL: ffmpegClassWorkerURL'), 'explicit FFmpeg class worker wiring is missing');
+assert(engine.includes('jobLogs.slice(-10)'), 'FFmpeg failure diagnostics are missing');
+assert(ffmpegWorkerEntry.includes("@ffmpeg/ffmpeg/worker"), 'Vite FFmpeg worker entry is missing');
+assert(viteConfig.includes("'@ffmpeg/ffmpeg'") && viteConfig.includes("'@ffmpeg/util'"), 'Vite FFmpeg optimizer exclusions are missing');
 
 assert(planner.includes('anullsrc=channel_layout=stereo'), 'silent-video merge fallback is missing');
 assert(planner.includes("input-audio-unconfirmed"), 'safe audio-operation fallback is missing');
+assert(planner.includes('source.hasAudio !== true'), 'merge fallback does not protect unconfirmed audio tracks');
+assert(planner.includes("sources[0]?.hasAudio !== true"), 'audio filters do not protect unconfirmed input audio');
 assert(planner.includes("'-c:s', 'mov_text'"), 'soft subtitle MP4 codec wiring is missing');
 assert(planner.includes('`subtitles=${inputs[1]}`'), 'burned subtitle filter is missing');
 assert(planner.includes('colorchannelmixer=aa=${opacity}'), 'watermark opacity pipeline is missing');
@@ -98,11 +107,16 @@ assert(browserFixture.includes('media-studio-max-browser-regression.tsx'), 'brow
 assert(browserRegression.includes('MediaRecorder'), 'browser regression does not generate real video fixtures');
 assert(browserRegression.includes('video-to-gif'), 'browser regression does not cover video-to-GIF');
 assert(browserRegression.includes('images-to-video'), 'browser regression does not cover images-to-video');
+assert(browserRegression.includes("add-audio"), 'browser regression does not cover adding audio');
+assert(browserRegression.includes("extract-audio"), 'browser regression does not cover extracting audio');
+assert(browserRegression.includes("silent change-speed"), 'browser regression does not cover silent speed changes');
 assert(browserRegression.includes('silent merge-videos'), 'browser regression does not cover silent video merging');
 assert(browserRegression.includes("?lang=ar") && browserRegression.includes("?lang=sv"), 'browser regression does not cover Arabic and Swedish');
 
 assert(packageJson.dependencies?.['@ffmpeg/ffmpeg'], '@ffmpeg/ffmpeg is missing from package.json');
 assert(packageJson.dependencies?.['@ffmpeg/util'], '@ffmpeg/util is missing from package.json');
+assert(packageJson.scripts?.['smoke:media-studio'], 'Media Studio smoke npm script is missing');
+assert(packageJson.scripts?.['smoke:media-studio:browser'], 'Media Studio browser npm script is missing');
 assert(packageLock.packages?.['node_modules/@ffmpeg/ffmpeg'], '@ffmpeg/ffmpeg is missing from package-lock.json');
 assert(packageLock.packages?.['node_modules/@ffmpeg/util'], '@ffmpeg/util is missing from package-lock.json');
 
