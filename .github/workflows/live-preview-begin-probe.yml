@@ -1,0 +1,71 @@
+name: Temporary Live Preview Begin Probe
+on:
+  push:
+    branches: [test/live-preview-begin-probe-20261004]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACTIVATION_URL: https://uepltkguloltmebepvbo.supabase.co
+      ACTIVATION_KEY: sb_publishable_XPyyhranUSrm3ArH7sntqg_nAXqto_J
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Probe official Auth, RLS project save and provider begin routes
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import crypto from 'node:crypto';
+          const base=process.env.ACTIVATION_URL,key=process.env.ACTIVATION_KEY;
+          const email=`tayar-network-e2e-${Date.now()}@example.test`;
+          const password=crypto.randomBytes(32).toString('base64url');
+          const json=async(response,label)=>{
+            const raw=await response.text();
+            let value;try{value=JSON.parse(raw)}catch{throw new Error(label+' returned non-JSON');}
+            if(!response.ok)throw new Error(label+' failed '+response.status+': '+String(value?.msg||value?.message||value?.error||'unknown').slice(0,160));
+            return value;
+          };
+          const signup=await json(await fetch(base+'/auth/v1/signup',{
+            method:'POST',headers:{apikey:key,'content-type':'application/json'},
+            body:JSON.stringify({email,password})
+          }),'signup');
+          const user=signup.user??signup.session?.user;
+          const token=signup.access_token??signup.session?.access_token;
+          if(!user?.id)throw new Error('signup did not return a user id');
+          console.log(JSON.stringify({stage:'signup',userId:user.id,hasSession:Boolean(token),emailConfirmed:Boolean(user.email_confirmed_at)}));
+          if(!token)throw new Error('signup requires email confirmation; no authenticated session was issued');
+          const projectPayload={user_id:user.id,title:'Tayar Live Preview Begin Probe',type:'website-builder',content:{},status:'draft'};
+          const projects=await json(await fetch(base+'/rest/v1/projects?select=id,user_id,type,updated_at',{
+            method:'POST',headers:{apikey:key,authorization:`Bearer ${token}`,'content-type':'application/json',prefer:'return=representation'},
+            body:JSON.stringify(projectPayload)
+          }),'project insert');
+          if(!Array.isArray(projects)||projects.length!==1||projects[0].user_id!==user.id)throw new Error('project insert identity mismatch');
+          const projectId=projects[0].id;
+          console.log(JSON.stringify({stage:'project',userId:user.id,projectId}));
+          const providers={
+            github:{path:'website-github-connection',origin:'https://github.com',pathname:'/login/oauth/authorize'},
+            supabase:{path:'website-supabase-connection',origin:'https://api.supabase.com',pathname:'/v1/oauth/authorize'},
+            vercel:{path:'website-vercel-connection',origin:'https://vercel.com',pathnamePrefix:'/integrations/'}
+          };
+          const states=[];
+          for(const [name,p] of Object.entries(providers)){
+            const data=await json(await fetch(`${base}/functions/v1/${p.path}?action=begin`,{
+              method:'POST',redirect:'manual',
+              headers:{apikey:key,authorization:`Bearer ${token}`,'content-type':'application/json'},
+              body:JSON.stringify({projectId,environment:'preview'})
+            }),name+' begin');
+            const u=new URL(data.authorizationUrl);
+            const state=u.searchParams.get('state')??'';
+            if(u.origin!==p.origin||p.pathname&&u.pathname!==p.pathname||p.pathnamePrefix&&!u.pathname.startsWith(p.pathnamePrefix)
+              ||!/^[0-9a-f]{64}$/.test(state))throw new Error(name+' authorization URL validation failed');
+            states.push(state);
+            console.log(JSON.stringify({stage:'begin',provider:name,origin:u.origin,path:u.pathname,stateValid:true}));
+          }
+          if(new Set(states).size!==3)throw new Error('provider OAuth states were not unique');
+          console.log(JSON.stringify({stage:'complete',userId:user.id,projectId,providers:3,uniqueStates:true}));
+          NODE
