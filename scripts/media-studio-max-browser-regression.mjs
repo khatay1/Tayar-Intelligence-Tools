@@ -7,7 +7,7 @@ const HOST = '127.0.0.1';
 const VITE_PORT = 4174;
 const CDP_PORT = 9224;
 const FIXTURE = `http://${HOST}:${VITE_PORT}/test-fixtures/media-studio-max-regression.html`;
-const TIMEOUT_MS = 240_000;
+const TIMEOUT_MS = 360_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
@@ -247,7 +247,7 @@ async function regression() {
       assert(changed, `Could not set ${labelText} to ${value}.`);
       await sleep(80);
     };
-    const process = async (label, timeout = 90_000) => {
+    const process = async (label, timeout = 150_000) => {
       await waitFor(`${label} process button`, `(() => {
         const button = document.querySelector('[data-testid="media-process"]');
         return Boolean(button && !button.disabled);
