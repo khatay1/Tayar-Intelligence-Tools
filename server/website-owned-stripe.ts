@@ -161,8 +161,7 @@ export async function handoffOwnedStripeRuntime(input: {
       const activated=await input.client.rpc('website_activate_stripe_runtime',{
         p_connection_id:input.stripeConnectionId,p_project_id:input.projectId,p_owner_id:input.ownerId,
         p_expected_connection_version:input.expectedStripeConnectionVersion,p_handoff_id:input.handoffId,
-        p_expected_handoff_version:input.expectedHandoffVersion,p_commit_id:input.stripeCommitId,
-        p_stripe_commit_id:input.stripeCommitId
+        p_expected_handoff_version:input.expectedHandoffVersion,p_commit_id:input.stripeCommitId
       });
       if(activated.error||activated.data!==input.expectedStripeConnectionVersion+1||!input.isCurrent())throw new Error();
     }catch{

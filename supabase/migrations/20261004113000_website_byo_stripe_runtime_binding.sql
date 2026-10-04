@@ -65,14 +65,14 @@ grant execute on function public.website_record_stripe_secret_proof(uuid,uuid,uu
 
 create function public.website_activate_stripe_runtime(
   p_connection_id uuid,p_project_id uuid,p_owner_id uuid,p_expected_connection_version bigint,
-  p_handoff_id uuid,p_expected_handoff_version bigint,p_commit_id uuid,p_stripe_commit_id uuid
+  p_handoff_id uuid,p_expected_handoff_version bigint,p_commit_id uuid
 ) returns bigint language plpgsql security definer set search_path = '' as $$
 declare v_account_id text;v_key_type text;v_environment text;v_verified_at timestamptz;
 begin
-  if p_connection_id is null or p_handoff_id is null or p_commit_id is null or p_stripe_commit_id is null
+  if p_connection_id is null or p_handoff_id is null or p_commit_id is null
     or p_expected_connection_version is null or p_expected_connection_version<0
     or p_expected_handoff_version is null or p_expected_handoff_version<0
-    or p_commit_id is distinct from p_stripe_commit_id then raise exception 'Stripe runtime unavailable'; end if;
+    then raise exception 'Stripe runtime unavailable'; end if;
   select sp.account_id,sp.key_type,sp.environment,h.verified_at
   into v_account_id,v_key_type,v_environment,v_verified_at
   from private.website_vercel_secret_handoffs h
@@ -88,12 +88,12 @@ begin
   if not found then raise exception 'Stripe runtime unavailable'; end if;
   return public.website_record_infrastructure_connection(
     p_connection_id,p_project_id,p_owner_id,p_expected_connection_version,'stripe',v_environment,
-    v_account_id,v_account_id,array['api:'||v_key_type]::text[],'ready',null,v_verified_at,p_stripe_commit_id
+    v_account_id,v_account_id,array['api:'||v_key_type]::text[],'ready',null,v_verified_at,p_commit_id
   );
-end $$;
-revoke all on function public.website_activate_stripe_runtime(uuid,uuid,uuid,bigint,uuid,bigint,uuid,uuid)
+end $;
+revoke all on function public.website_activate_stripe_runtime(uuid,uuid,uuid,bigint,uuid,bigint,uuid)
   from public,anon,authenticated;
-grant execute on function public.website_activate_stripe_runtime(uuid,uuid,uuid,bigint,uuid,bigint,uuid,uuid)
+grant execute on function public.website_activate_stripe_runtime(uuid,uuid,uuid,bigint,uuid,bigint,uuid)
   to service_role;
 
 create function public.website_reconcile_stripe_runtime_binding(
