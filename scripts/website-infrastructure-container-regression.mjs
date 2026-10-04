@@ -48,6 +48,11 @@ try {
   assert.match(source, /provider === 'stripe'/);
   assert.match(source, /controller[.]begin\(provider, environment\)/);
   assert.match(source, /handoff[.]handoff[.]environment/);
+  const supabaseChooser = await readFile('src/modules/website-builder/v2-ui/BuilderSupabaseConnectionChooser.tsx', 'utf8');
+  assert.match(supabaseChooser, /customer-owned Supabase organization that is separate from Tayar/);
+  const vercelChooser = await readFile('src/modules/website-builder/v2-ui/BuilderVercelConnectionChooser.tsx', 'utf8');
+  assert.match(vercelChooser, /personal account or customer-owned team that is separate from Tayar/);
+  assert.match(vercelChooser, /link its project to this GitHub repository first/);
   const editor = await readFile('src/modules/website-builder/WebsiteBuilderTool.tsx', 'utf8');
   assert.doesNotMatch(editor, /BuilderInfrastructureConnectionContainer/);
   console.log('PASS Infrastructure container: status panel, three chooser transitions, refresh lifecycle and unmounted editor boundary');

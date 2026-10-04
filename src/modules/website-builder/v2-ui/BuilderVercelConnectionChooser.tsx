@@ -28,7 +28,7 @@ export function BuilderVercelConnectionChooser({ scope, transport, handoff, conn
     {error && <p role="alert">{l(error)}</p>}
     {!choices && !error && <p role="status">{l('Loading Vercel projects...')}</p>}
     {choices && <><small>{l('Account')}: {choices.accountId}</small>
-      {choices.projects.length === 0 && <p role="status">{l('No matching Vercel project. Create or link one to the GitHub repository first.')}</p>}
+      {choices.projects.length === 0 && <p role="status">{l('No eligible Vercel project was found. Use a personal account or customer-owned team that is separate from Tayar\'s platform account, and link its project to this GitHub repository first.')}</p>}
       {choices.projects.map(project => <button type="button" key={project.projectId} disabled={busy || bound}
         onClick={async () => {
           setBusy(true); setError('');

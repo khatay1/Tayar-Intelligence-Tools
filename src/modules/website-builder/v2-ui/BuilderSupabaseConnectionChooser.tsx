@@ -28,7 +28,7 @@ export function BuilderSupabaseConnectionChooser({ scope, transport, handoff, co
     <p>{l('Only active projects in organizations you own are shown. Tayar accounts are excluded.')}</p>
     {error && <p role="alert">{l(error)}</p>}
     {!choices && !error && <p role="status">{l('Loading Supabase projects...')}</p>}
-    {choices && choices.projects.length === 0 && <p role="status">{l('No eligible Supabase project was found.')}</p>}
+    {choices && choices.projects.length === 0 && <p role="status">{l('No eligible Supabase project was found. Use a project in a customer-owned Supabase organization that is separate from Tayar\'s platform organization, then reconnect Supabase.')}</p>}
     {choices?.projects.map(project => <button type="button" key={project.projectRef} disabled={busy || bound}
       onClick={async () => {
         setBusy(true); setError('');
