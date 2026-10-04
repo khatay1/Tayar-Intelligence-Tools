@@ -30,7 +30,10 @@ try{
     if(init.method==='POST'){posted=JSON.parse(init.body);return new Response('{}',{status:201});}
     return new Response(JSON.stringify({envs:[{id:'env_fixture123',key:'STRIPE_SECRET_KEY',type:'sensitive',
       target:['production'],comment:marker}]}),{status:200,headers:{'content-type':'application/json'}});};
-  const result=await handoff({...base,client,fetcher});
+  let verifiedSecret=0;
+  const result=await handoff({...base,client,fetcher,verifySecret:async(value,context)=>{
+    verifiedSecret++;assert.equal(value,secret);assert.equal(context.handoffVersion,1);}});
+  assert.equal(verifiedSecret,1,'exact locked source value is verified before Vercel write');
   assert.deepEqual(result,{handoffVersion:2,environmentId:'env_fixture123',status:'verified'});
   assert.equal(posted.value,secret);assert.equal(posted.type,'sensitive');assert.deepEqual(posted.target,['production']);
   assert.equal(posted.comment,marker);assert.ok(!JSON.stringify(result).includes(secret));

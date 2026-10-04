@@ -29,6 +29,7 @@ export async function handoffOwnedSecretToVercel(input:{
   sourceField:string; sourceEnvironment:'preview'|'staging'|'production'; sourceUpdatedAt:string;
   environmentKey:string; target:'preview'|'production'; gitBranch:string; operationId:string;
   commitId:string; isCurrent():boolean; fetcher?:typeof fetch;
+  verifySecret?(value:string,context:{handoffVersion:number}):Promise<void>;
 }):Promise<{handoffVersion:number;environmentId:string;status:'verified'}>{
   if(typeof window!=='undefined'||![input.handoffId,input.connectionId,input.projectId,input.ownerId,input.operationId,input.commitId].every(v=>uuid.test(v))
     ||!Number.isSafeInteger(input.connectionVersion)||input.connectionVersion<1
@@ -58,6 +59,11 @@ export async function handoffOwnedSecretToVercel(input:{
     ||typeof data.secretValue!=='string'||!data.secretValue||new TextEncoder().encode(data.secretValue).length>16384
     ||!provider.test(data.userId)||!provider.test(data.accountId)||!project.test(data.vercelProjectId)||!input.isCurrent())
     throw new Error('Vercel secret handoff unavailable.');
+  if(input.verifySecret){
+    try{await input.verifySecret(data.secretValue,{handoffVersion:data.handoffVersion});}
+    catch{throw new Error('Vercel secret handoff unavailable.');}
+    if(!input.isCurrent())throw new Error('Vercel secret handoff unavailable.');
+  }
   const fetcher=input.fetcher??fetch; const team=data.accountId!==data.userId?`&teamId=${encodeURIComponent(data.accountId)}`:'';
   const marker=`Tayar handoff ${input.operationId}`; const target=[input.target];
   const headers={Authorization:`Bearer ${data.accessToken}`,'Content-Type':'application/json',Accept:'application/json'};

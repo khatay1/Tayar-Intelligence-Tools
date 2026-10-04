@@ -109,6 +109,7 @@ export function normalizeEditorIntegrationsConfig(value: unknown): EditorIntegra
 export function validateEditorIntegrations(config: EditorIntegrationsConfig): EditorIntegrationValidationIssue[] {
   const issues: EditorIntegrationValidationIssue[] = [];
   const ids = new Set<string>();
+  const stripeEnvironments = new Set<EditorIntegrationEnvironment>();
   for (const connection of config.connections) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection.id)) issues.push({ connectionId: connection.id, code: 'invalid-config', message: 'Integration ID must use letters, numbers, underscores or hyphens.' });
     if (ids.has(connection.id)) issues.push({ connectionId: connection.id, code: 'duplicate-id', message: `Duplicate integration id: ${connection.id}` });
@@ -132,6 +133,11 @@ export function validateEditorIntegrations(config: EditorIntegrationsConfig): Ed
       if (publishable && connection.environments.length === 1) {
         const expectedMode = connection.environments[0] === 'production' ? 'live' : 'test';
         if (publishable[1] !== expectedMode) issues.push({ connectionId: connection.id, field: 'publishableKey', code: 'invalid-config', message: `Stripe ${connection.environments[0]} requires a ${expectedMode}-mode publishable key.` });
+        if (connection.enabled) {
+          const environment=connection.environments[0];
+          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection.id, code: 'invalid-config', message: `Only one enabled Stripe account can target ${environment}.` });
+          stripeEnvironments.add(environment);
+        }
       }
     }
     for (const field of provider.fields) {

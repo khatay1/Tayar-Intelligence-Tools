@@ -34,6 +34,7 @@ export const infrastructureMigrationFiles = Object.freeze([
   '20261003231500_website_byo_github_oauth_custody.sql',
   '20261003231600_website_byo_github_custody_cleanup_schedule.sql',
   '20261004110500_website_byo_vercel_secret_handoff_recovery.sql',
+  '20261004113000_website_byo_stripe_runtime_binding.sql',
 ]);
 
 const publishFunctionName = 'website-byo-publish';
