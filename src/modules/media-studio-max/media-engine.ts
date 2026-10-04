@@ -232,6 +232,14 @@ class FFmpegWasmMediaEngine implements MediaEngine {
     if (!sources.length) throw new Error('No media input selected.');
     if (events.onLog) this.logCallbacks.add(events.onLog);
     if (events.onProgress) this.progressCallbacks.add(events.onProgress);
+    const jobLogs: string[] = [];
+    const captureJobLog = (message: string) => {
+      const normalized = message.trim();
+      if (!normalized) return;
+      jobLogs.push(normalized);
+      if (jobLogs.length > 24) jobLogs.shift();
+    };
+    this.logCallbacks.add(captureJobLog);
 
     await this.load();
     const ffmpeg = this.ffmpeg;
@@ -256,7 +264,10 @@ class FFmpegWasmMediaEngine implements MediaEngine {
       );
       const plan = createMediaJobPlan(operation, enrichedSources, settings);
       const exitCode = await ffmpeg.exec(plan.args);
-      if (exitCode !== 0) throw new Error(`FFmpeg exited with code ${exitCode}.`);
+      if (exitCode !== 0) {
+        const detail = jobLogs.slice(-10).join(' | ');
+        throw new Error(`FFmpeg exited with code ${exitCode}.${detail ? ` ${detail}` : ''}`);
+      }
 
       const matches = outputMatcher(plan.outputName);
       const entries = await ffmpeg.listDir('/');
@@ -285,6 +296,7 @@ class FFmpegWasmMediaEngine implements MediaEngine {
       await Promise.allSettled(Array.from(cleanup).map(async (name) => {
         try { await ffmpeg.deleteFile(name); } catch { /* ignore virtual FS cleanup failures */ }
       }));
+      this.logCallbacks.delete(captureJobLog);
       if (events.onLog) this.logCallbacks.delete(events.onLog);
       if (events.onProgress) this.progressCallbacks.delete(events.onProgress);
     }
