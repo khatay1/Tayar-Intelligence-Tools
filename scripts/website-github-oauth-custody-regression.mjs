@@ -124,6 +124,7 @@ try {
     'website_refresh_github_oauth_custody',
     'website_reconcile_github_oauth_refresh',
     'website_delete_github_oauth_custody',
+    'create index website_github_oauth_custody_project_idx',
   ]) assert.ok(sql.includes(proof), proof);
   assert.ok(!/grant execute on function public\.website_(?:bind|read|refresh|delete)_github[^\n]* to authenticated/i.test(sql));
   const cleanup = await readFile('supabase/migrations/20261003231600_website_byo_github_custody_cleanup_schedule.sql', 'utf8');
