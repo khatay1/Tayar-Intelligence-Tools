@@ -1,5 +1,5 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import ffmpegClassWorkerURL from './ffmpeg-class-worker.ts?worker&url';
+import ffmpegClassWorkerURL from './ffmpeg-class-worker.js?worker&url';
 import { createMediaInputNames, createMediaJobPlan } from './command-planner';
 import type { MediaOperationId, MediaOperationSettings, MediaResult, MediaSourceFile } from './types';
 
