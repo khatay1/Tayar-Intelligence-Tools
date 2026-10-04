@@ -1,0 +1,29 @@
+name: Temporary BYO Bundle Regeneration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/regenerate-byo-bundle.yml
+
+permissions:
+  contents: read
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-website-byo-publish-function.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website-byo-publish-generated
+          path: supabase/functions/website-byo-publish/index.ts
+          if-no-files-found: error
+          retention-days: 1
