@@ -12,6 +12,9 @@ try {
   const { validWebsiteWebhookDestination: valid, deliverSignedWebsiteWebhook: deliver } = (await import(pathToFileURL(outfile))).default;
   for (const value of ['http://example.com', 'https://127.0.0.1/hook', 'https://[::1]/hook', 'https://localhost/hook', 'https://dev.internal/hook', 'https://example.com:8443/hook', 'https://user:pass@example.com/hook', 'https://example.com/hook?api_key=secret', 'https://example.com/hook#fragment']) assert.equal(valid(value), false, value);
   assert.equal(valid('https://hooks.example.com/notify'), true);
+  for (const host of ['fcloud.example.com', 'fdomain.example.com', 'feb.example.com']) {
+    assert.equal(valid(`https://${host}/notify`), true, 'IPv6 prefix checks must not reject DNS names');
+  }
   let sent = 0;
   const send = async (_url, options) => { sent++; assert.equal(options.redirect, 'error'); assert.equal(options.method, 'POST'); assert.match(options.headers['X-Tayar-Signature'], /^[a-f0-9]{64}$/); assert.equal(options.body, '{"event":"test"}'); return new Response(null, { status: 204 }); };
   await assert.rejects(deliver('https://hooks.example.com/notify', '{}', '', send), /signing/);
