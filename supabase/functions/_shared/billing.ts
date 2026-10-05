@@ -107,13 +107,14 @@ export async function assertOperationEnabled(
 /**
  * Server-side plan/quota guard for paid provider calls. This is intentionally
  * independent of browser UI state so every Edge Function request is checked.
- * Successful AI/provider requests are counted by ai_usage after completion.
+ * Limited requests reserve a quota slot atomically before provider work.
+ * The AI engine completes the reservation into ai_usage after the request.
  */
 export async function assertServerToolAvailable(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
   toolId: string,
-): Promise<void> {
+): Promise<string | null> {
   await assertOperationEnabled(admin, "ai");
 
   const normalizedTool = toolId.trim().slice(0, 100);
@@ -154,7 +155,7 @@ export async function assertServerToolAvailable(
     : effectivePlan === "pro"
       ? limits.pro_limit
       : limits.free_limit;
-  if (rawLimit === null || rawLimit === undefined) return;
+  if (rawLimit === null || rawLimit === undefined) return null;
 
   const limit = Number(rawLimit);
   if (!Number.isFinite(limit) || limit < 0) {
@@ -162,22 +163,25 @@ export async function assertServerToolAvailable(
   }
   if (limit === 0) throw new HttpError(429, "Usage limit reached for this tool");
 
-  let usageQuery = admin
-    .from("ai_usage")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("tool", normalizedTool)
-    .eq("status", "success");
-
   const windowStart = usageWindowStart(typeof limits.period === "string" ? limits.period : "monthly");
-  if (windowStart) usageQuery = usageQuery.gte("created_at", windowStart);
-
-  const { count, error: usageError } = await usageQuery;
-  if (usageError) {
-    console.error("[TOOL ACCESS] Failed to count tool usage");
+  const { data: reservationId, error: reservationError } = await admin.rpc("reserve_ai_tool_usage", {
+    p_user_id: userId,
+    p_tool: normalizedTool,
+    p_limit: limit,
+    p_window_start: windowStart,
+  });
+  if (reservationError) {
+    if (/usage limit reached/i.test(reservationError.message || "")) {
+      throw new HttpError(429, "Usage limit reached for this tool");
+    }
+    console.error("[TOOL ACCESS] Failed to reserve tool usage");
     throw new HttpError(503, "Tool usage could not be verified");
   }
-  if ((count || 0) >= limit) throw new HttpError(429, "Usage limit reached for this tool");
+  if (typeof reservationId !== "string" || !reservationId) {
+    console.error("[TOOL ACCESS] Invalid tool usage reservation");
+    throw new HttpError(503, "Tool usage could not be verified");
+  }
+  return reservationId;
 }
 
 async function authenticateRequest(req: Request) {

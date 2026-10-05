@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileStack, Loader2, ShieldCheck } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
@@ -30,10 +30,12 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const [error, setError] = useState('');
+  const operationRevision = useRef(0);
 
   const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files]);
 
   useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+  useEffect(() => () => { operationRevision.current += 1; }, []);
 
   function clearPdf() {
     setPdf(null);
@@ -42,6 +44,8 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   function addFiles(nextFiles: File[]) {
+    operationRevision.current += 1;
+    setProcessing(false);
     setError('');
     clearPdf();
     const combined = [...files, ...nextFiles].slice(0, MAX_PDF_IMAGES);
@@ -59,6 +63,8 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   function removeFile(index: number) {
+    operationRevision.current += 1;
+    setProcessing(false);
     setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index));
     clearPdf();
     setError('');
@@ -67,6 +73,8 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
   function moveFile(index: number, direction: -1 | 1) {
     const target = index + direction;
     if (target < 0 || target >= files.length) return;
+    operationRevision.current += 1;
+    setProcessing(false);
     setFiles((current) => {
       const next = [...current];
       const currentFile = next[index];
@@ -79,6 +87,7 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
 
   async function createPdf() {
     if (!files.length || processing) return;
+    const revision = operationRevision.current;
     setProcessing(true);
     setError('');
     clearPdf();
@@ -86,14 +95,18 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
       const nextPdf = await completeMeteredLocalAction('image-to-pdf', 'create-pdf', () => imagesToPdf(
         files,
         { pageSize, marginPt, jpegQuality },
-        (completed, total) => setProgress({ completed, total }),
+        (completed, total) => {
+          if (revision === operationRevision.current) setProgress({ completed, total });
+        },
       ));
+      if (revision !== operationRevision.current) return;
       setPdf(nextPdf);
       setPdfUrl(URL.createObjectURL(nextPdf));
     } catch (caught) {
+      if (revision !== operationRevision.current) return;
       setError(caught instanceof Error ? caught.message : l('Could not create this PDF.'));
     } finally {
-      setProcessing(false);
+      if (revision === operationRevision.current) setProcessing(false);
     }
   }
 
@@ -115,9 +128,9 @@ export default function ImageToPdfTool({ darkMode: _darkMode }: { darkMode: bool
 
           {files.length > 0 && <>
             <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-gray-400 break-words">{files.length} / {MAX_PDF_IMAGES} {l('pages')} · {formatBytes(totalBytes)}</div>
-            <ToolField label={l('Page size')}><select value={pageSize} onChange={(event) => { setPageSize(event.target.value as PdfPageSize); clearPdf(); }} className={toolInputClass}><option value="a4">{l('A4 · auto orientation')}</option><option value="letter">{l('Letter · auto orientation')}</option><option value="auto">{l('Fit page to image')}</option></select></ToolField>
-            {pageSize !== 'auto' && <ToolField label={l('Margin')}><select value={marginPt} onChange={(event) => { setMarginPt(Number(event.target.value)); clearPdf(); }} className={toolInputClass}><option value={0}>{l('None')}</option><option value={18}>{l('Small')}</option><option value={36}>{l('Normal')}</option></select></ToolField>}
-            <ToolField label={`${l('Image quality')} · ${Math.round(jpegQuality * 100)}%`}><input type="range" min="0.6" max="1" step="0.01" value={jpegQuality} onChange={(event) => { setJpegQuality(Number(event.target.value)); clearPdf(); }} className="w-full accent-violet-500" /></ToolField>
+            <ToolField label={l('Page size')}><select value={pageSize} onChange={(event) => { operationRevision.current += 1; setProcessing(false); setPageSize(event.target.value as PdfPageSize); clearPdf(); }} className={toolInputClass}><option value="a4">{l('A4 · auto orientation')}</option><option value="letter">{l('Letter · auto orientation')}</option><option value="auto">{l('Fit page to image')}</option></select></ToolField>
+            {pageSize !== 'auto' && <ToolField label={l('Margin')}><select value={marginPt} onChange={(event) => { operationRevision.current += 1; setProcessing(false); setMarginPt(Number(event.target.value)); clearPdf(); }} className={toolInputClass}><option value={0}>{l('None')}</option><option value={18}>{l('Small')}</option><option value={36}>{l('Normal')}</option></select></ToolField>}
+            <ToolField label={`${l('Image quality')} · ${Math.round(jpegQuality * 100)}%`}><input type="range" min="0.6" max="1" step="0.01" value={jpegQuality} onChange={(event) => { operationRevision.current += 1; setProcessing(false); setJpegQuality(Number(event.target.value)); clearPdf(); }} className="w-full accent-violet-500" /></ToolField>
             <div className="rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-xs text-gray-500 break-words">{l('Transparent PNG/WebP pixels are flattened onto white when embedded as JPEG inside the PDF.')}</div>
             <button type="button" onClick={() => void createPdf()} disabled={processing} className="w-full min-h-11 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors">{processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileStack className="w-4 h-4" />}{l(processing ? 'Creating PDF...' : 'Create PDF')}</button>
             {processing && progress.total > 0 && <div className="text-xs text-gray-500 text-center">{progress.completed} / {progress.total}</div>}

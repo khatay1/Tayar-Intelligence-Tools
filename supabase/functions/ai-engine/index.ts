@@ -235,7 +235,23 @@ async function recordUsage(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
   values: { provider: string; model: string; tool: string; tokensIn?: number; tokensOut?: number; durationMs: number; status: "success" | "error" },
+  reservationId: string | null = null,
 ): Promise<void> {
+  if (reservationId) {
+    const { error } = await admin.rpc("complete_ai_tool_usage", {
+      p_reservation_id: reservationId,
+      p_user_id: userId,
+      p_provider: values.provider.slice(0, 60),
+      p_model: values.model.slice(0, 100),
+      p_tool: values.tool.slice(0, 100),
+      p_tokens_in: Math.max(0, Math.floor(values.tokensIn || 0)),
+      p_tokens_out: Math.max(0, Math.floor(values.tokensOut || 0)),
+      p_duration_ms: Math.max(0, Math.floor(values.durationMs)),
+      p_status: values.status,
+    });
+    if (error) console.error("[AI ENGINE] Reserved usage logging failed");
+    return;
+  }
   const { error } = await admin.from("ai_usage").insert({
     user_id: userId,
     provider: values.provider.slice(0, 60),
@@ -491,6 +507,7 @@ Deno.serve(async (req: Request) => {
   let activeProvider = "internal";
   let activeModel = "none";
   let admin: ReturnType<typeof createAdminClient> | null = null;
+  let usageReservationId: string | null = null;
 
   try {
     assertAllowedOrigin(req);
@@ -501,13 +518,13 @@ Deno.serve(async (req: Request) => {
     const body = await parseBody(req);
     tool = String(body.tool || "ai-chat").trim().slice(0, 100) || "ai-chat";
     if (!AI_TOOL_IDS.has(tool)) throw new HttpError(400, "Unsupported AI tool");
-    await assertServerToolAvailable(admin, user.id, tool);
+    usageReservationId = await assertServerToolAvailable(admin, user.id, tool);
 
     if (body.action === "generate-image") {
       if (tool !== "website-builder") throw new HttpError(403, "Image generation is not available for this tool");
       activeProvider = "fal"; activeModel = "flux";
       const result = await generateImage(admin, user.id, String(body.prompt || "").trim());
-      await recordUsage(admin, user.id, { provider: activeProvider, model: activeModel, tool, durationMs: Date.now() - startedAt, status: "success" });
+      await recordUsage(admin, user.id, { provider: activeProvider, model: activeModel, tool, durationMs: Date.now() - startedAt, status: "success" }, usageReservationId);
       return jsonResponse(req, { ...result, model: activeModel, provider: activeProvider, tokensIn: 0, tokensOut: 0, costUsd: 0 });
     }
 
@@ -522,7 +539,7 @@ Deno.serve(async (req: Request) => {
       tokensOut: result.tokensOut,
       durationMs: Date.now() - startedAt,
       status: "success",
-    });
+    }, usageReservationId);
     let json: unknown = null;
     if (body.jsonMode) { try { json = JSON.parse(result.content); } catch { json = null; } }
     return jsonResponse(req, { content: result.content, json, tokensIn: result.tokensIn, tokensOut: result.tokensOut, model: result.model, provider: result.provider, costUsd: 0 });
@@ -531,7 +548,7 @@ Deno.serve(async (req: Request) => {
     const safeMessage = error instanceof HttpError ? error.message : "AI request failed";
     if (status >= 500) console.error(`[AI ENGINE] Request failed (${status})`);
     if (admin && userId) {
-      await recordUsage(admin, userId, { provider: activeProvider, model: activeModel, tool, durationMs: Date.now() - startedAt, status: "error" });
+      await recordUsage(admin, userId, { provider: activeProvider, model: activeModel, tool, durationMs: Date.now() - startedAt, status: "error" }, usageReservationId);
     }
     return jsonResponse(req, { error: safeMessage }, status);
   }

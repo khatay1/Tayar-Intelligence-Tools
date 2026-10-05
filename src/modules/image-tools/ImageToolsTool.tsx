@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, Image as ImageIcon, Lock, RefreshCw, ShieldCheck, Unlock } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
@@ -32,39 +32,48 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
   const [aspectLocked, setAspectLocked] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const operationRevision = useRef(0);
 
   const selectedFormat = useMemo(() => OUTPUT_FORMATS.find((item) => item.value === format) || OUTPUT_FORMATS[2], [format]);
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
   useEffect(() => () => { if (outputUrl) URL.revokeObjectURL(outputUrl); }, [outputUrl]);
+  useEffect(() => () => { operationRevision.current += 1; }, []);
 
   function clearOutput() { setOutputBlob(null); setOutputUrl(''); }
 
   async function loadFile(nextFile: File | null) {
     if (!nextFile) return;
+    const revision = ++operationRevision.current;
+    setProcessing(false);
     setError(''); clearOutput();
     try {
       const info = await inspectImage(nextFile);
+      if (revision !== operationRevision.current) return;
       const nextPreviewUrl = URL.createObjectURL(nextFile);
       setFile(nextFile); setSource(info); setWidth(info.width); setHeight(info.height); setPreviewUrl(nextPreviewUrl);
     } catch (caught) {
+      if (revision !== operationRevision.current) return;
       setFile(null); setSource(null); setPreviewUrl('');
       setError(caught instanceof Error ? caught.message : l('Could not read this image.'));
     }
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) { void loadFile(event.target.files?.[0] || null); event.target.value = ''; }
-  function changeWidth(nextWidth: number) { if (!source) return; const safeWidth = Math.max(1, Math.round(nextWidth || 1)); setWidth(safeWidth); if (aspectLocked) setHeight(Math.max(1, Math.round(safeWidth * source.height / source.width))); clearOutput(); }
-  function changeHeight(nextHeight: number) { if (!source) return; const safeHeight = Math.max(1, Math.round(nextHeight || 1)); setHeight(safeHeight); if (aspectLocked) setWidth(Math.max(1, Math.round(safeHeight * source.width / source.height))); clearOutput(); }
+  function changeWidth(nextWidth: number) { if (!source) return; operationRevision.current += 1; setProcessing(false); const safeWidth = Math.max(1, Math.round(nextWidth || 1)); setWidth(safeWidth); if (aspectLocked) setHeight(Math.max(1, Math.round(safeWidth * source.height / source.width))); clearOutput(); }
+  function changeHeight(nextHeight: number) { if (!source) return; operationRevision.current += 1; setProcessing(false); const safeHeight = Math.max(1, Math.round(nextHeight || 1)); setHeight(safeHeight); if (aspectLocked) setWidth(Math.max(1, Math.round(safeHeight * source.width / source.height))); clearOutput(); }
 
   async function handleProcess() {
     if (!file || !source || processing) return;
+    const revision = operationRevision.current;
     setProcessing(true); setError(''); clearOutput();
     try {
       const blob = await completeMeteredLocalAction('image-tools', 'process-image', () => processImage(file, { width, height, format, quality }));
+      if (revision !== operationRevision.current) return;
       setOutputBlob(blob); setOutputUrl(URL.createObjectURL(blob));
     } catch (caught) {
+      if (revision !== operationRevision.current) return;
       setError(caught instanceof Error ? caught.message : l('Image processing failed.'));
-    } finally { setProcessing(false); }
+    } finally { if (revision === operationRevision.current) setProcessing(false); }
   }
 
   function downloadResult() {
@@ -82,8 +91,8 @@ export default function ImageToolsTool({ darkMode: _darkMode }: { darkMode: bool
           {source && <>
             <div className="rounded-xl border border-white/10 bg-white/[0.025] p-3 text-xs text-gray-400 min-w-0"><div className="text-white font-medium truncate">{source.name}</div><div className="mt-1 break-words">{source.width} × {source.height}px · {formatBytes(source.size)}</div></div>
             <div className="grid grid-cols-[minmax(0,1fr)_44px_minmax(0,1fr)] gap-2 items-end"><ToolField label={l('Width')}><input type="number" min="1" max="12000" value={width} onChange={(event) => changeWidth(Number(event.target.value))} className={toolInputClass} /></ToolField><button type="button" onClick={() => setAspectLocked((locked) => !locked)} className="mb-0.5 h-11 w-11 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-300 transition-colors" title={l(aspectLocked ? 'Unlock aspect ratio' : 'Lock aspect ratio')}>{aspectLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}</button><ToolField label={l('Height')}><input type="number" min="1" max="12000" value={height} onChange={(event) => changeHeight(Number(event.target.value))} className={toolInputClass} /></ToolField></div>
-            <ToolField label={l('Output format')}><select value={format} onChange={(event) => { setFormat(event.target.value as ImageOutputFormat); clearOutput(); }} className={toolInputClass}>{OUTPUT_FORMATS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></ToolField>
-            {format !== 'image/png' && <ToolField label={`${l('Quality')} · ${Math.round(quality * 100)}%`}><input type="range" min="0.1" max="1" step="0.01" value={quality} onChange={(event) => { setQuality(Number(event.target.value)); clearOutput(); }} className="w-full accent-violet-500" /></ToolField>}
+            <ToolField label={l('Output format')}><select value={format} onChange={(event) => { operationRevision.current += 1; setProcessing(false); setFormat(event.target.value as ImageOutputFormat); clearOutput(); }} className={toolInputClass}>{OUTPUT_FORMATS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></ToolField>
+            {format !== 'image/png' && <ToolField label={`${l('Quality')} · ${Math.round(quality * 100)}%`}><input type="range" min="0.1" max="1" step="0.01" value={quality} onChange={(event) => { operationRevision.current += 1; setProcessing(false); setQuality(Number(event.target.value)); clearOutput(); }} className="w-full accent-violet-500" /></ToolField>}
             {error && <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-200 break-words">{error}</div>}
             <button type="button" onClick={() => void handleProcess()} disabled={processing} className="w-full min-h-11 flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors"><RefreshCw className={`w-4 h-4 ${processing ? 'animate-spin' : ''}`} />{l(processing ? 'Processing...' : 'Process Image')}</button>
           </>}

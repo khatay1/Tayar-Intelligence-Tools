@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, ShieldCheck, Sparkles } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization-tools';
 import { completeMeteredLocalAction } from '@/lib/tool-usage';
@@ -31,6 +31,9 @@ export default function CsvCleanerTool({ darkMode: _darkMode }: { darkMode: bool
   const [options, setOptions] = useState<CsvCleanOptions>(DEFAULT_OPTIONS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const operationRevision = useRef(0);
+
+  useEffect(() => () => { operationRevision.current += 1; }, []);
 
   const sourceStats = document ? csvStats(document.rows) : null;
   const resultStats = cleanedRows ? csvStats(cleanedRows) : null;
@@ -39,17 +42,20 @@ export default function CsvCleanerTool({ darkMode: _darkMode }: { darkMode: bool
 
   async function loadFile(file: File | null) {
     if (!file) return;
+    const revision = ++operationRevision.current;
     setLoading(true);
     setError('');
     setCleanedRows(null);
     try {
       const next = await readCsvFile(file);
+      if (revision !== operationRevision.current) return;
       setDocument(next);
     } catch (caught) {
+      if (revision !== operationRevision.current) return;
       setDocument(null);
       setError(caught instanceof Error ? caught.message : l('Could not read this file.'));
     } finally {
-      setLoading(false);
+      if (revision === operationRevision.current) setLoading(false);
     }
   }
 
@@ -59,21 +65,25 @@ export default function CsvCleanerTool({ darkMode: _darkMode }: { darkMode: bool
   }
 
   function toggleOption(key: keyof CsvCleanOptions) {
+    operationRevision.current += 1;
     setOptions((current) => ({ ...current, [key]: !current[key] }));
     setCleanedRows(null);
   }
 
   async function cleanData() {
     if (!document || loading) return;
+    const revision = operationRevision.current;
     setLoading(true);
     setError('');
     try {
       const next = await completeMeteredLocalAction('csv-cleaner', 'clean-csv', () => cleanCsvRows(document.rows, options));
+      if (revision !== operationRevision.current) return;
       setCleanedRows(next);
     } catch (caught) {
+      if (revision !== operationRevision.current) return;
       setError(caught instanceof Error ? caught.message : l('Could not clean this file.'));
     } finally {
-      setLoading(false);
+      if (revision === operationRevision.current) setLoading(false);
     }
   }
 
