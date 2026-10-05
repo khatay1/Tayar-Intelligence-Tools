@@ -267,6 +267,7 @@ class FFmpegWasmMediaEngine implements MediaEngine {
     let ffmpeg: FFmpeg | null = null;
     const cleanup = new Set<string>();
     const results: MediaResult[] = [];
+    let outputPattern: string | undefined;
 
     try {
       await this.load();
@@ -295,6 +296,7 @@ class FFmpegWasmMediaEngine implements MediaEngine {
       );
       assertCurrent();
       const plan = createMediaJobPlan(operation, enrichedSources, settings);
+      outputPattern = plan.outputName;
       const exitCode = await ffmpeg.exec(plan.args);
       assertCurrent();
       if (exitCode !== 0) {
@@ -330,6 +332,16 @@ class FFmpegWasmMediaEngine implements MediaEngine {
       results.forEach(result => URL.revokeObjectURL(result.previewUrl));
       throw error;
     } finally {
+      // FFmpeg can write partial outputs before returning an error. Collect
+      // every matching file even when execution or an output read failed.
+      if (ffmpeg && outputPattern) {
+        try {
+          const matches = outputMatcher(outputPattern);
+          for (const entry of await ffmpeg.listDir('/')) {
+            if (!entry.isDir && matches(entry.name)) cleanup.add(entry.name);
+          }
+        } catch { /* a cancelled worker no longer owns a live virtual FS */ }
+      }
       await Promise.allSettled(Array.from(cleanup).map(async (name) => {
         try { await ffmpeg?.deleteFile(name); } catch { /* ignore virtual FS cleanup failures */ }
       }));
@@ -341,4 +353,3 @@ class FFmpegWasmMediaEngine implements MediaEngine {
 }
 
 export const mediaEngine: MediaEngine = new FFmpegWasmMediaEngine();
-
