@@ -139,6 +139,10 @@ export default function MediaStudioMax({ darkMode }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourcesRef = useRef<MediaSourceFile[]>([]);
   const resultsRef = useRef<MediaResult[]>([]);
+  const jobRef = useRef(0);
+  const inputRef = useRef(0);
+  const mountedRef = useRef(true);
+  const processingRef = useRef(false);
 
   const operation = getMediaOperation(operationId)!;
   const localizedOperation = getLocalizedOperation(operationId, language);
@@ -155,9 +159,16 @@ export default function MediaStudioMax({ darkMode }: Props) {
 
   useEffect(() => { sourcesRef.current = sources; }, [sources]);
   useEffect(() => { resultsRef.current = results; }, [results]);
-  useEffect(() => () => {
-    disposeSources(sourcesRef.current);
-    resultsRef.current.forEach(result => URL.revokeObjectURL(result.previewUrl));
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      jobRef.current += 1;
+      inputRef.current += 1;
+      if (processingRef.current) mediaEngine.cancel();
+      disposeSources(sourcesRef.current);
+      resultsRef.current.forEach(result => URL.revokeObjectURL(result.previewUrl));
+    };
   }, []);
 
   function clearResults() {
@@ -169,7 +180,8 @@ export default function MediaStudioMax({ darkMode }: Props) {
   }
 
   function chooseOperation(next: MediaOperationId) {
-    if (processing) return;
+    if (processingRef.current) return;
+    inputRef.current += 1;
     disposeSources(sources);
     setSources([]);
     clearResults();
@@ -179,10 +191,17 @@ export default function MediaStudioMax({ darkMode }: Props) {
   }
 
   async function addFiles(files: File[]) {
-    if (!files.length || processing) return;
+    if (!files.length || processingRef.current) return;
+    const input = operation.acceptsMultiple || operation.input.length > 1
+      ? inputRef.current
+      : ++inputRef.current;
     setError(null);
     clearResults();
     const created = await Promise.all(files.map(createMediaSource));
+    if (!mountedRef.current || input !== inputRef.current || processingRef.current) {
+      disposeSources(created);
+      return;
+    }
     if (operation.acceptsMultiple || operation.input.length > 1) {
       setSources(current => [...current, ...created]);
       return;
@@ -196,7 +215,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
   }
 
   function removeSource(id: string) {
-    if (processing) return;
+    if (processingRef.current) return;
     setSources(current => {
       const removed = current.find(source => source.id === id);
       if (removed) URL.revokeObjectURL(removed.objectUrl);
@@ -206,7 +225,8 @@ export default function MediaStudioMax({ darkMode }: Props) {
   }
 
   function clearSources() {
-    if (processing) return;
+    if (processingRef.current) return;
+    inputRef.current += 1;
     disposeSources(sources);
     setSources([]);
     clearResults();
@@ -214,6 +234,7 @@ export default function MediaStudioMax({ darkMode }: Props) {
   }
 
   async function processMedia() {
+    if (processingRef.current) return;
     const validation = localizedValidation(language, operationId, sources);
     if (validation) {
       setError(validation);
@@ -221,6 +242,11 @@ export default function MediaStudioMax({ darkMode }: Props) {
     }
 
     const prepared = orderedSources(operationId, sources);
+    inputRef.current += 1;
+    const job = ++jobRef.current;
+    const isCurrent = () => mountedRef.current && job === jobRef.current;
+    const onProgress = (value: number) => { if (isCurrent()) setProgress(value); };
+    processingRef.current = true;
     setProcessing(true);
     setProgress(0);
     setError(null);
@@ -228,14 +254,20 @@ export default function MediaStudioMax({ darkMode }: Props) {
 
     try {
       setEngineStatus(mediaEngine.isLoaded() ? 'ready' : 'loading');
-      await mediaEngine.load({ onProgress: value => setProgress(value) });
+      await mediaEngine.load({ onProgress });
+      if (!isCurrent()) return;
       setEngineStatus('ready');
       const nextResults = await mediaEngine.process(operationId, prepared, settings, {
-        onProgress: value => setProgress(value),
+        onProgress,
       });
+      if (!isCurrent()) {
+        nextResults.forEach(result => URL.revokeObjectURL(result.previewUrl));
+        return;
+      }
       setResults(nextResults);
       setProgress(1);
     } catch (cause) {
+      if (!isCurrent()) return;
       setEngineStatus(mediaEngine.isLoaded() ? 'ready' : 'failed');
       const message = cause instanceof Error ? cause.message : t('operationFailed');
       if (message === 'Selected video has no audio track.') setError(t('noAudioTrack'));
@@ -243,7 +275,10 @@ export default function MediaStudioMax({ darkMode }: Props) {
       else if (message.startsWith('MEDIA_ENGINE_DOWNLOAD_FAILED:')) setError(t('engineDownloadFailed'));
       else setError(message);
     } finally {
-      setProcessing(false);
+      if (isCurrent()) {
+        processingRef.current = false;
+        setProcessing(false);
+      }
     }
   }
 
@@ -269,6 +304,8 @@ export default function MediaStudioMax({ darkMode }: Props) {
   }
 
   function cancelProcessing() {
+    jobRef.current += 1;
+    processingRef.current = false;
     mediaEngine.cancel();
     setProcessing(false);
     setProgress(0);
@@ -410,3 +447,4 @@ export default function MediaStudioMax({ darkMode }: Props) {
     </div>
   );
 }
+
