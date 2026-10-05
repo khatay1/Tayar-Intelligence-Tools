@@ -42,9 +42,12 @@ function outputMatcher(pattern: string) {
   return (name: string) => regex.test(name);
 }
 
-async function fetchCoreBytes(url: string) {
+async function fetchCoreBytes(url: string, signal: AbortSignal) {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), CORE_FETCH_TIMEOUT_MS);
+  const abort = () => controller.abort();
+  signal.addEventListener('abort', abort, { once: true });
+  if (signal.aborted) abort();
+  const timeout = window.setTimeout(abort, CORE_FETCH_TIMEOUT_MS);
   try {
     const response = await fetch(url, {
       signal: controller.signal,
@@ -56,22 +59,24 @@ async function fetchCoreBytes(url: string) {
     return await response.arrayBuffer();
   } finally {
     window.clearTimeout(timeout);
+    signal.removeEventListener('abort', abort);
   }
 }
 
-async function loadCoreBlobUrls() {
+async function loadCoreBlobUrls(signal: AbortSignal) {
   let lastError: unknown;
   for (const baseUrl of CORE_SOURCES) {
     try {
       const [coreBytes, wasmBytes] = await Promise.all([
-        fetchCoreBytes(`${baseUrl}/ffmpeg-core.js`),
-        fetchCoreBytes(`${baseUrl}/ffmpeg-core.wasm`),
+        fetchCoreBytes(`${baseUrl}/ffmpeg-core.js`, signal),
+        fetchCoreBytes(`${baseUrl}/ffmpeg-core.wasm`, signal),
       ]);
       return {
         coreURL: URL.createObjectURL(new Blob([coreBytes], { type: 'text/javascript' })),
         wasmURL: URL.createObjectURL(new Blob([wasmBytes], { type: 'application/wasm' })),
       };
     } catch (error) {
+      if (signal.aborted) throw new Error('MEDIA_ENGINE_CANCELLED');
       lastError = error;
     }
   }
@@ -172,6 +177,8 @@ async function probeVideoSource(ffmpeg: FFmpeg, inputName: string, source: Media
 class FFmpegWasmMediaEngine implements MediaEngine {
   private ffmpeg: FFmpeg | null = null;
   private loading: Promise<void> | null = null;
+  private generation = 0;
+  private loadController: AbortController | null = null;
   private logCallbacks = new Set<(message: string) => void>();
   private progressCallbacks = new Set<(progress: number) => void>();
 
@@ -189,8 +196,12 @@ class FFmpegWasmMediaEngine implements MediaEngine {
       if (this.ffmpeg?.loaded) return;
       if (this.loading) return await this.loading;
 
-      this.loading = (async () => {
-        const ffmpeg = new FFmpeg();
+      const generation = this.generation;
+      const controller = new AbortController();
+      this.loadController = controller;
+      const ffmpeg = new FFmpeg();
+      this.ffmpeg = ffmpeg;
+      const loading = (async () => {
         ffmpeg.on('log', ({ message }) => {
           this.logCallbacks.forEach((callback) => callback(message));
         });
@@ -199,22 +210,28 @@ class FFmpegWasmMediaEngine implements MediaEngine {
           this.progressCallbacks.forEach((callback) => callback(normalized));
         });
 
-        const urls = await loadCoreBlobUrls();
+        const urls = await loadCoreBlobUrls(controller.signal);
         try {
+          if (generation !== this.generation) throw new Error('MEDIA_ENGINE_CANCELLED');
           await bootFFmpeg(ffmpeg, urls);
-          this.ffmpeg = ffmpeg;
+          if (generation !== this.generation) throw new Error('MEDIA_ENGINE_CANCELLED');
         } finally {
           URL.revokeObjectURL(urls.coreURL);
           URL.revokeObjectURL(urls.wasmURL);
         }
       })().catch((error) => {
-        this.ffmpeg = null;
+        try { ffmpeg.terminate(); } catch { /* worker may already be stopped */ }
+        if (this.ffmpeg === ffmpeg) this.ffmpeg = null;
         throw error;
       }).finally(() => {
-        this.loading = null;
+        if (this.loading === loading) {
+          this.loading = null;
+          this.loadController = null;
+        }
       });
+      this.loading = loading;
 
-      await this.loading;
+      await loading;
     } finally {
       if (logCallback) this.logCallbacks.delete(logCallback);
       if (progressCallback) this.progressCallbacks.delete(progressCallback);
@@ -222,8 +239,10 @@ class FFmpegWasmMediaEngine implements MediaEngine {
   }
 
   cancel() {
-    if (!this.ffmpeg) return;
-    this.ffmpeg.terminate();
+    this.generation += 1;
+    this.loadController?.abort();
+    this.loadController = null;
+    this.ffmpeg?.terminate();
     this.ffmpeg = null;
     this.loading = null;
   }
@@ -241,29 +260,43 @@ class FFmpegWasmMediaEngine implements MediaEngine {
     };
     this.logCallbacks.add(captureJobLog);
 
-    await this.load();
-    const ffmpeg = this.ffmpeg;
-    if (!ffmpeg) throw new Error('Media engine did not initialize.');
-
-    const workingSources = operation === 'add-text-watermark'
-      ? [...sources, await createTextWatermarkSource(settings.text || 'Tayar')]
-      : [...sources];
-    const inputNames = createMediaInputNames(workingSources);
+    const generation = this.generation;
+    const assertCurrent = () => {
+      if (generation !== this.generation) throw new Error('MEDIA_ENGINE_CANCELLED');
+    };
+    let ffmpeg: FFmpeg | null = null;
     const cleanup = new Set<string>();
+    const results: MediaResult[] = [];
 
     try {
+      await this.load();
+      assertCurrent();
+      ffmpeg = this.ffmpeg;
+      if (!ffmpeg) throw new Error('Media engine did not initialize.');
+
+      const workingSources = operation === 'add-text-watermark'
+        ? [...sources, await createTextWatermarkSource(settings.text || 'Tayar')]
+        : [...sources];
+      const inputNames = createMediaInputNames(workingSources);
+      assertCurrent();
+
       for (let index = 0; index < workingSources.length; index += 1) {
         const source = workingSources[index];
         const virtualName = inputNames[index];
         cleanup.add(virtualName);
-        await ffmpeg.writeFile(virtualName, new Uint8Array(await source.file.arrayBuffer()));
+        const bytes = new Uint8Array(await source.file.arrayBuffer());
+        assertCurrent();
+        await ffmpeg.writeFile(virtualName, bytes);
+        assertCurrent();
       }
 
       const enrichedSources = await Promise.all(
-        workingSources.map((source, index) => probeVideoSource(ffmpeg, inputNames[index], source, index, cleanup)),
+        workingSources.map((source, index) => probeVideoSource(ffmpeg!, inputNames[index], source, index, cleanup)),
       );
+      assertCurrent();
       const plan = createMediaJobPlan(operation, enrichedSources, settings);
       const exitCode = await ffmpeg.exec(plan.args);
+      assertCurrent();
       if (exitCode !== 0) {
         const detail = jobLogs.slice(-10).join(' | ');
         throw new Error(`FFmpeg exited with code ${exitCode}.${detail ? ` ${detail}` : ''}`);
@@ -271,6 +304,7 @@ class FFmpegWasmMediaEngine implements MediaEngine {
 
       const matches = outputMatcher(plan.outputName);
       const entries = await ffmpeg.listDir('/');
+      assertCurrent();
       const outputNames = entries
         .filter((entry) => !entry.isDir && matches(entry.name))
         .map((entry) => entry.name)
@@ -279,10 +313,10 @@ class FFmpegWasmMediaEngine implements MediaEngine {
       if (!outputNames.length && !plan.outputName.includes('%')) outputNames.push(plan.outputName);
       if (!outputNames.length) throw new Error('The media engine produced no output files.');
 
-      const results: MediaResult[] = [];
       for (const outputName of outputNames) {
         cleanup.add(outputName);
         const data = await ffmpeg.readFile(outputName);
+        assertCurrent();
         const blob = asBlob(data, plan.outputMimeType);
         results.push({
           name: outputName,
@@ -292,9 +326,12 @@ class FFmpegWasmMediaEngine implements MediaEngine {
         });
       }
       return results;
+    } catch (error) {
+      results.forEach(result => URL.revokeObjectURL(result.previewUrl));
+      throw error;
     } finally {
       await Promise.allSettled(Array.from(cleanup).map(async (name) => {
-        try { await ffmpeg.deleteFile(name); } catch { /* ignore virtual FS cleanup failures */ }
+        try { await ffmpeg?.deleteFile(name); } catch { /* ignore virtual FS cleanup failures */ }
       }));
       this.logCallbacks.delete(captureJobLog);
       if (events.onLog) this.logCallbacks.delete(events.onLog);
@@ -304,3 +341,4 @@ class FFmpegWasmMediaEngine implements MediaEngine {
 }
 
 export const mediaEngine: MediaEngine = new FFmpegWasmMediaEngine();
+
