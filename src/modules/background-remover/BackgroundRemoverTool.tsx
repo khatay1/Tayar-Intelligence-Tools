@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useState } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { Download, Eraser, Loader2, ShieldCheck } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization-tools';
 import { ToolInputPanel, ToolOutputPanel, ToolShell } from '../shared/ToolShell';
@@ -31,6 +31,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
   const [cropToBbox, setCropToBbox] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
+  const operationRevision = useRef(0);
 
   useEffect(() => () => {
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
@@ -40,8 +41,12 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
     if (result?.url.startsWith('blob:')) URL.revokeObjectURL(result.url);
   }, [result]);
 
+  useEffect(() => () => { operationRevision.current += 1; }, []);
+
   function loadFile(nextFile: File | null) {
     if (!nextFile) return;
+    operationRevision.current += 1;
+    setProcessing(false);
     setError('');
     setResult(null);
 
@@ -63,16 +68,23 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
 
   async function removeBackground() {
     if (!file) return;
+    const revision = operationRevision.current;
     setProcessing(true);
     setError('');
     setResult(null);
 
     try {
-      setResult(await removeImageBackground(file, cropToBbox));
+      const nextResult = await removeImageBackground(file, cropToBbox);
+      if (revision !== operationRevision.current) {
+        if (nextResult.url.startsWith('blob:')) URL.revokeObjectURL(nextResult.url);
+        return;
+      }
+      setResult(nextResult);
     } catch (caught) {
+      if (revision !== operationRevision.current) return;
       setError(caught instanceof Error ? caught.message : l('Background removal failed.'));
     } finally {
-      setProcessing(false);
+      if (revision === operationRevision.current) setProcessing(false);
     }
   }
 
@@ -124,7 +136,7 @@ export default function BackgroundRemoverTool({ darkMode: _darkMode }: { darkMod
                 <input
                   type="checkbox"
                   checked={cropToBbox}
-                  onChange={(event) => setCropToBbox(event.target.checked)}
+                  onChange={(event) => { operationRevision.current += 1; setProcessing(false); setResult(null); setCropToBbox(event.target.checked); }}
                   className="accent-violet-500"
                 />
               </label>
