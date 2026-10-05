@@ -224,7 +224,14 @@ export function ElementPreview({
     return <div {...dragProps} className={`${wrapper} w-full`} style={commonStyle}><div className="rounded-xl border border-white/10 bg-black/10 p-5 text-center"><p className="text-sm italic opacity-85">“{first?.body || l('Add testimonial text')}”</p><strong className="mt-3 block text-xs">— {first?.title || l('Customer')}</strong></div><div className="mt-2 text-center text-[9px] opacity-50">Slider preview • {rows.length} testimonials</div></div>;
   }
   if (element.type === 'code') {
-    return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle}><div className="pointer-events-none" dangerouslySetInnerHTML={{ __html: sanitizeCustomHtml(element.content) }} /></div>;
+    return <div {...dragProps} className={`${wrapper} w-full overflow-hidden`} style={commonStyle}><iframe
+        title={l('HTML')}
+        sandbox=""
+        srcDoc={sanitizeCustomHtml(element.content)}
+        tabIndex={-1}
+        className="pointer-events-none block min-h-32 w-full border-0"
+        style={{ height: style.height ? '100%' : undefined }}
+      /></div>;
   }
   if (element.type === 'image') {
     return (

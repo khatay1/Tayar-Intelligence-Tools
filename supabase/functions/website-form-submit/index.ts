@@ -107,7 +107,8 @@ Deno.serve(async (req) => {
     try { context = JSON.parse(text(body.get("_tayar_context"), 20_000)); } catch { throw new HttpError(400, "Invalid form data"); }
     const values = validate(definition, context);
     const clientIp = text(req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for")?.split(",")[0] || "unknown", 80);
-    const clientKey = text(`${clientIp}|${values.email || values.name || "anonymous"}`, 200);
+    // Form values are visitor-controlled and must not reset the rate-limit bucket.
+    const clientKey = clientIp;
     const { error: rateError } = await admin.rpc("enforce_website_public_rate_limit", { p_project_id: projectId, p_bucket: enhancedProtection ? "form-max-enhanced" : "form-max", p_limit: enhancedProtection ? 4 : 8, p_window_seconds: 900, p_client_key: clientKey });
     if (rateError) throw new HttpError(/too many/i.test(rateError.message) ? 429 : 503, rateError.message);
     const { data: limit } = await admin.rpc("website_public_ingestion_limit", { p_project_id: projectId, p_kind: "leads" });
