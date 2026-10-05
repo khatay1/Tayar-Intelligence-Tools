@@ -5,9 +5,10 @@ export function validWebsiteWebhookDestination(value: string): boolean {
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     if (url.protocol !== "https:" || url.username || url.password || url.hash || (url.port && url.port !== "443")) return false;
     if ([...url.searchParams.keys()].some(key => /^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key))) return false;
-    if (/^[\d.]+$/.test(host) || !host.includes(".") || /(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(host)) return false;
+    // Require a DNS name; reject every IPv4/IPv6 literal without treating DNS
+    // prefixes such as "fcloud" or "fdomain" as private IPv6 addresses.
+    if (/^[\d.]+$/.test(host) || host.includes(":") || !host.includes(".") || /(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(host)) return false;
     if (/^127\.|^10\.|^169\.254\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
-    if (/^fc|^fd|^fe[89ab]/i.test(host.replaceAll(":", ""))) return false;
     return true;
   } catch { return false; }
 }
