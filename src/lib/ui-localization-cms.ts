@@ -6,6 +6,7 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  'HTML': 'HTML',
   'Application form data': 'بيانات نموذج التطبيق',
   'Bound forms require secure application publishing before they can accept records.': 'تحتاج النماذج المرتبطة إلى نشر التطبيق الآمن قبل استقبال السجلات.',
   'Target table': 'الجدول المستهدف', 'Select a table': 'اختر جدولًا', 'Select a field': 'اختر حقلًا',
@@ -60,6 +61,8 @@ export const arCmsSupplement: PhraseMap = {
   'Loading Supabase projects...': 'جارٍ تحميل مشاريع Supabase...',
   'Supabase projects are unavailable. Reconnect Supabase.': 'تعذّر عرض مشاريع Supabase. أعد ربط Supabase.',
   'No eligible Supabase project was found.': 'لم يُعثر على مشروع Supabase مؤهل.',
+  'No eligible Supabase project was found. Use a project in a customer-owned Supabase organization that is separate from Tayar\'s platform organization, then reconnect Supabase.': 'لم يُعثر على مشروع Supabase مؤهل. استخدم مشروعًا في مؤسسة Supabase مملوكة للعميل ومنفصلة عن مؤسسة منصة طيار، ثم أعد ربط Supabase.',
+  'No eligible Vercel project was found. Use a personal account or customer-owned team that is separate from Tayar\'s platform account, and link its project to this GitHub repository first.': 'لم يُعثر على مشروع Vercel مؤهل. استخدم حسابًا شخصيًا أو فريقًا مملوكًا للعميل ومنفصلًا عن حساب منصة طيار، واربط مشروعه بمستودع GitHub هذا أولًا.',
   'Supabase project connection could not be verified. Try again.': 'تعذّر التحقق من ربط مشروع Supabase. حاول مجدداً.',
   'Supabase project connected. Backend setup is still required.': 'تم ربط مشروع Supabase. ما زال إعداد الخلفية مطلوباً.',
   'Loading infrastructure status...': 'جارٍ تحميل حالة البنية التشغيلية...',
@@ -67,6 +70,7 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  'HTML': 'HTML',
   'Application form data': 'Data för appformulär',
   'Bound forms require secure application publishing before they can accept records.': 'Kopplade formulär kräver säker apppublicering innan de kan ta emot poster.',
   'Target table': 'Måltabell', 'Select a table': 'Välj tabell', 'Select a field': 'Välj fält',
@@ -113,6 +117,8 @@ export const svCmsSupplement: PhraseMap = {
   'Loading Supabase projects...': 'Läser in Supabase-projekt...',
   'Supabase projects are unavailable. Reconnect Supabase.': 'Supabase-projekten kan inte visas. Anslut Supabase igen.',
   'No eligible Supabase project was found.': 'Inget behörigt Supabase-projekt hittades.',
+  'No eligible Supabase project was found. Use a project in a customer-owned Supabase organization that is separate from Tayar\'s platform organization, then reconnect Supabase.': 'Inget behörigt Supabase-projekt hittades. Använd ett projekt i en kundägd Supabase-organisation som är separat från Tayars plattformsorganisation och anslut sedan Supabase igen.',
+  'No eligible Vercel project was found. Use a personal account or customer-owned team that is separate from Tayar\'s platform account, and link its project to this GitHub repository first.': 'Inget behörigt Vercel-projekt hittades. Använd ett personligt konto eller ett kundägt team som är separat från Tayars plattformskonto och koppla först dess projekt till det här GitHub-arkivet.',
   'Supabase project connection could not be verified. Try again.': 'Supabase-projektanslutningen kunde inte verifieras. Försök igen.',
   'Supabase project connected. Backend setup is still required.': 'Supabase-projektet är anslutet. Backend måste fortfarande konfigureras.',
   'Loading infrastructure status...': 'Läser in infrastrukturstatus...',
