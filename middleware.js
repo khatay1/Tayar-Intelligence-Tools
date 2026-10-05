@@ -22,4 +22,4 @@ export default async function middleware(request) {
   return fetch(target, { method: request.method, headers: { Accept: request.headers.get('accept') || '*/*' }, redirect: 'manual' });
 }
 
-export const config = { matcher: '/(.*)' };
+export const config = { runtime: 'nodejs', matcher: '/(.*)' };
