@@ -113,7 +113,7 @@ const hardcodedCandidates = [];
 const hardcodedJsxRe = />\s*([A-Z][A-Za-z0-9][A-Za-z0-9 &+/.:'’(),!?–—·↗-]{2,110})\s*</g;
 const ignoredHardcoded = new Set([
   'AI', 'API', 'CSV', 'CSS', 'HTML', 'ID', 'JS', 'JSON', 'PDF', 'PRO', 'SEO', 'TS', 'TSX', 'UI', 'URL',
-  'V1.0', 'ZIP', 'PNG', 'JPG', 'Power BI', 'PowerPoint', 'Instagram', 'Facebook', 'LinkedIn',
+  'V1.0', 'ZIP', 'PNG', 'JPG', 'WebM', 'WebP', 'Power BI', 'PowerPoint', 'Instagram', 'Facebook', 'LinkedIn',
   'Tayar Intelligence', 'Tayar AI', 'React · Supabase · Vite', 'Promise', 'PromiseLike',
   'Google Analytics 4', 'Google Tag Manager', 'Meta Pixel', 'Ctrl/Cmd+K',
 ]);
