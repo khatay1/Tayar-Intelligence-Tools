@@ -133,14 +133,12 @@ function setCommonHeaders(res, file, isPreview = false) {
     res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
   }
 
-  if (/\.html?$/i.test(file)) {
-    // Customer HTML receives an opaque sandboxed origin so it cannot read
-    // Tayar cookies/localStorage even when served from the tayar.se deployment.
-    res.setHeader(
-      'Content-Security-Policy',
-      "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation; default-src 'self' https: data: blob:; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src https:; frame-src https:; object-src 'none'; base-uri 'none'; form-action https:;"
-    );
-  }
+  // Every customer response receives an opaque sandboxed origin. SVG and
+  // XML can also be active documents when opened directly on Tayar.
+  res.setHeader(
+    'Content-Security-Policy',
+    "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation; default-src 'self' https: data: blob:; script-src 'unsafe-inline' https:; style-src 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src https:; frame-src https:; object-src 'none'; base-uri 'none'; form-action https:;"
+  );
 }
 
 async function fetchStorageFile(supabaseUrl, storagePath) {
