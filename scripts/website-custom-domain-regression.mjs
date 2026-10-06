@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 const migration = await readFile('supabase/migrations/20260920090000_website_custom_domains.sql', 'utf8');
 const grantFix = await readFile('supabase/migrations/20260920143000_restrict_website_custom_domain_writes.sql', 'utf8');
 const client = await readFile('src/modules/website-builder/services/websiteDomainService.ts', 'utf8');
+const domainApiSource = await readFile('api/website-domain.js', 'utf8');
+const publishedApiSource = await readFile('api/published-site.js', 'utf8');
 assert.match(migration, /enable row level security/i);
 assert.match(migration, /revoke all .* anon/i);
 assert.match(migration, /grant select .* authenticated/i);
@@ -11,6 +13,12 @@ assert.doesNotMatch(migration, /grant select, insert|for insert to authenticated
 assert.match(migration, /revoke all .* authenticated/i);
 assert.match(grantFix, /revoke insert, update, delete/i);
 assert.doesNotMatch(client, /SERVICE_ROLE|VERCEL_TOKEN|VERCEL_PROJECT_ID/);
+assert.doesNotMatch(domainApiSource, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
+assert.doesNotMatch(publishedApiSource, /SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY/);
+assert.match(domainApiSource, /TAYAR_DOMAIN_CONTROL_SECRET/);
+assert.match(domainApiSource, /website_custom_domain_server_save/);
+assert.match(domainApiSource, /website_custom_domain_server_delete/);
+assert.match(publishedApiSource, /website_resolve_verified_custom_domain/);
 
 const domainApi = (await import('../api/website-domain.js')).default;
 const publishedApi = (await import('../api/published-site.js')).default;
@@ -18,7 +26,7 @@ const middleware = (await import('../middleware.js')).default;
 
 process.env.SUPABASE_URL = 'https://supabase.test';
 process.env.SUPABASE_ANON_KEY = 'anon';
-process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
+process.env.TAYAR_DOMAIN_CONTROL_SECRET = 'domain-control-test-secret-12345678901234567890';
 process.env.VERCEL_TOKEN = 'vercel';
 process.env.VERCEL_PROJECT_ID = 'tayar-project';
 process.env.TAYAR_CANONICAL_ORIGIN = 'https://tayar.se';
@@ -40,9 +48,14 @@ try {
     if (target.endsWith('/auth/v1/user')) return Response.json({ id: '11111111-1111-1111-1111-111111111111' });
     if (target.includes('/rest/v1/projects?')) return Response.json([{ id: '22222222-2222-2222-8222-222222222222', user_id: '11111111-1111-1111-1111-111111111111' }]);
     if (target.includes('/rest/v1/website_custom_domains?project_id=')) return Response.json([]);
+    if (target.endsWith('/rest/v1/rpc/website_custom_domain_server_save')) {
+      const body = JSON.parse(options.body);
+      assert.equal(options.headers.Authorization, 'Bearer user-token');
+      assert.equal(body.p_control_secret, process.env.TAYAR_DOMAIN_CONTROL_SECRET);
+      return Response.json({ id: 'domain', project_id: body.p_project_id, user_id: '11111111-1111-1111-1111-111111111111', hostname: body.p_hostname, status: body.p_status, verification: body.p_verification, updated_at: new Date().toISOString() });
+    }
     if (target.includes('/v10/projects/tayar-project/domains')) return Response.json({ name: 'www.example.com', verified: false, verification: [{ type: 'TXT', domain: '_vercel', value: 'verify-me' }] });
     if (target.includes('/v6/domains/')) return Response.json({ misconfigured: false });
-    if (target.endsWith('/rest/v1/website_custom_domains') && options.method === 'POST') return Response.json([{ id: 'domain', hostname: 'www.example.com', status: 'pending', verification: [] }]);
     throw new Error(`Unexpected request: ${target}`);
   };
   const req = { method: 'POST', headers: { authorization: 'Bearer user-token' }, body: { action: 'connect', projectId: '22222222-2222-2222-8222-222222222222', hostname: 'https://www.example.com/path' } };
@@ -53,11 +66,11 @@ try {
   await domainApi({ ...req, body: { ...req.body, hostname: 'www.example.com' } }, validRes);
   assert.equal(validRes.statusCode, 200);
   assert.ok(requests.some((entry) => entry.target.includes('api.vercel.com/v10/projects/tayar-project/domains')));
-  assert.ok(requests.some((entry) => entry.options.headers?.Authorization === 'Bearer service'));
+  assert.ok(requests.some((entry) => entry.target.includes('/rest/v1/rpc/website_custom_domain_server_save') && entry.options.headers?.Authorization === 'Bearer user-token'));
 
   globalThis.fetch = async (url) => {
     const target = String(url);
-    if (target.includes('/rest/v1/website_custom_domains?')) return Response.json([{ project_id: 'project-1', user_id: 'owner-1' }]);
+    if (target.includes('/rest/v1/rpc/website_resolve_verified_custom_domain')) return Response.json([{ project_id: 'project-1', user_id: 'owner-1' }]);
     if (target.includes('/storage/v1/object/public/published-sites/owner-1/project-1/index.html')) return new Response('<html><body>Custom site</body></html>', { status: 200 });
     if (target.includes('/storage/v1/object/public/published-sites/owner-1/project-1/about.html')) return new Response('<html><body>Clean route</body></html>', { status: 200 });
     if (target.includes('/storage/v1/object/public/published-sites/owner-1/project-1/about')) return new Response('missing', { status: 404 });
