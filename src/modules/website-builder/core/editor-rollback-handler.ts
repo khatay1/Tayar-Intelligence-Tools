@@ -227,7 +227,7 @@ export function createRollbackPublishVersionHandler({
       setPublishedAt(nextPublishedAt);
       setLastPublishedVersionId(version.id);
       setLastPublishedFingerprint(version.editor_fingerprint);
-      saveLocalWebsiteProject(projectData);
+      saveLocalWebsiteProject(projectData, user?.id);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
 

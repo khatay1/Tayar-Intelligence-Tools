@@ -126,7 +126,7 @@ export function createDuplicateProjectHandler({
 
     if (!user) {
       setCloudProjectId(null);
-      saveActiveWebsiteProjectId(null);
+      saveActiveWebsiteProjectId(null, null);
       setProjectHistory([]);
       setHistory([]);
       setFuture([]);
@@ -143,7 +143,7 @@ export function createDuplicateProjectHandler({
       setPublishVersions([]);
       setReleaseHistoryOpen(false);
       setLiveVerification('idle');
-      saveLocalWebsiteProject(duplicateContent);
+      saveLocalWebsiteProject(duplicateContent, null);
       lastSavedSnapshotRef.current = '';
       showSavedFeedback(duplicateLoadSequence, duplicateUserId);
       return;
@@ -172,7 +172,7 @@ export function createDuplicateProjectHandler({
     newProjectIntentRef.current = false;
     cloudRevisionRef.current = { projectId: data.id, updatedAt: data.updated_at || null };
     setCloudProjectId(data.id);
-    saveActiveWebsiteProjectId(data.id);
+    saveActiveWebsiteProjectId(data.id, user?.id);
     setProjectHistory([]);
     setHistory([]);
     setFuture([]);
@@ -195,7 +195,7 @@ export function createDuplicateProjectHandler({
     saveLocalWebsiteProject({
       ...duplicateContent,
       cloudProjectId: data.id,
-    });
+    }, user?.id);
     lastSavedSnapshotRef.current = '';
     await refreshCloudProjects();
     if (!duplicateIsCurrent()) return;

@@ -26,7 +26,7 @@ export function WebsiteBuilderV2Bridge(props: WebsiteBuilderV2BridgeProps) {
     }
 
     if (plan.scheduledAt) {
-      const projectId = loadActiveWebsiteProjectId();
+      const projectId = loadActiveWebsiteProjectId(user?.id);
       if (!projectId || !user?.id) {
         throw new Error('Save this project to the cloud before scheduling a publish.');
       }

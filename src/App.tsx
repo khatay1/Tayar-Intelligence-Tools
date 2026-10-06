@@ -159,9 +159,9 @@ function AppContent() {
 
   if (user) {
     if (hashRoute === 'admin') {
-      return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><AdminPanel onExitToWorkspace={goHome} /></Suspense></ErrorBoundary>;
+      return <ErrorBoundary key={user.id}><Suspense fallback={<FullScreenLoader />}><AdminPanel onExitToWorkspace={goHome} /></Suspense></ErrorBoundary>;
     }
-    return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Workspace onExitToLanding={goHome} /></Suspense></ErrorBoundary>;
+    return <ErrorBoundary key={user.id}><Suspense fallback={<FullScreenLoader />}><Workspace onExitToLanding={goHome} /></Suspense></ErrorBoundary>;
   }
 
   if (authPage === 'login') return <ErrorBoundary><Suspense fallback={<FullScreenLoader />}><Login onBack={goHome} onNavigate={p => navigate(p)} /></Suspense></ErrorBoundary>;

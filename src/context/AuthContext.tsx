@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { passwordUpdateAttributes } from '@/lib/password-update';
+import { verifiedSignOut } from '@/lib/verified-sign-out';
+import { localizeUi } from '@/lib/ui-localization-data';
 
 export interface Profile {
   id: string;
@@ -262,13 +264,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    try {
+      await verifiedSignOut(supabase.auth);
+    } catch {
+      const language = document.documentElement.lang;
+      window.alert(localizeUi('Could not sign out. Please try again.', language === 'sv' || language === 'ar' ? language : 'en'));
+      return;
+    }
     authRevision.current += 1;
     currentUserId.current = null;
-    await supabase.auth.signOut();
 
     setSession(null);
     setUser(null);
     setProfile(null);
+    setLoading(false);
   }
 
   async function resetPassword(email: string) {

@@ -98,9 +98,9 @@ export function createImportProjectBackupHandler({
         applyProjectData(importedProject);
         newProjectIntentRef.current = true;
         setCloudProjectId(null);
-        saveActiveWebsiteProjectId(null);
+        saveActiveWebsiteProjectId(null, user?.id);
         setProjectHistory(Array.isArray(importedProject.history) ? importedProject.history.slice(0, 30) : []);
-        saveLocalWebsiteProject(importedProject);
+        saveLocalWebsiteProject(importedProject, user?.id);
         lastSavedSnapshotRef.current = '';
         setAutoSaveStatus('saved');
         setOperationsOpen(false);

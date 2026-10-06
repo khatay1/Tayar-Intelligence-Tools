@@ -35,7 +35,7 @@ export function BuilderPersistedRedirectsPanel({
   const [error, setError] = useState('');
   const loadSequenceRef = useRef(0);
   const saveSequenceRef = useRef(0);
-  const projectId = loadActiveWebsiteProjectId();
+  const projectId = loadActiveWebsiteProjectId(user?.id);
   const externallyControlled = redirects !== undefined || onChange !== undefined || onSave !== undefined;
   const resolvedRedirects = redirects ?? host.redirects;
   const resolvedOnChange = onChange ?? ((next: EditorPublishRedirect[]) => {
@@ -50,7 +50,7 @@ export function BuilderPersistedRedirectsPanel({
     const isCurrent = () =>
       loadSequenceRef.current === sequence &&
       (user?.id ?? null) === ownerId &&
-      loadActiveWebsiteProjectId() === projectId;
+      loadActiveWebsiteProjectId(user?.id) === projectId;
 
     if (externallyControlled) {
       setBusy(false);
@@ -91,7 +91,7 @@ export function BuilderPersistedRedirectsPanel({
     const isCurrent = () =>
       saveSequenceRef.current === sequence &&
       (user?.id ?? null) === ownerId &&
-      loadActiveWebsiteProjectId() === expectedProjectId;
+      loadActiveWebsiteProjectId(user?.id) === expectedProjectId;
 
     if (!ownerId || !expectedProjectId) {
       if (isCurrent()) setError('Save this website to the cloud before saving redirects.');

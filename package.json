@@ -64,7 +64,8 @@
     "build:website-byo-publish": "node scripts/build-website-byo-publish-function.mjs",
     "build:website-owned-application-runtime-template": "node scripts/build-website-owned-application-runtime-template.mjs",
     "smoke:media-studio": "node scripts/media-studio-max-smoke.mjs",
-    "smoke:media-studio:browser": "node scripts/media-studio-max-browser-regression.mjs"
+    "smoke:media-studio:browser": "node scripts/media-studio-max-browser-regression.mjs",
+    "smoke:account-privacy": "node scripts/account-privacy-regression.mjs"
   },
   "dependencies": {
     "@pdfme/pdf-lib": "^6.1.12",

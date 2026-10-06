@@ -200,7 +200,7 @@ export function createPublishWebsiteHandler({
         publishProjectId = String((createResult.data as { id: string }).id);
         cloudRevisionRef.current = { projectId: publishProjectId, updatedAt: createResult.data.updated_at || null };
         setCloudProjectId(publishProjectId);
-        saveActiveWebsiteProjectId(publishProjectId);
+        saveActiveWebsiteProjectId(publishProjectId, user?.id);
         setProjectTeamAccess({
           ...DEFAULT_EDITOR_PROJECT_ACCESS,
           ownerId: publishUserId,
@@ -550,7 +550,7 @@ export function createPublishWebsiteHandler({
 
       setReleaseNote('');
 
-      saveLocalWebsiteProject(projectData);
+      saveLocalWebsiteProject(projectData, user?.id);
 
       lastSavedSnapshotRef.current = '';
 

@@ -3,6 +3,7 @@ import type { Language } from '@/lib/i18n';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'Could not sign out. Please try again.': 'تعذر تسجيل الخروج. حاول مجددًا.',
   "Batch Image Tools": "أدوات معالجة الصور دفعة واحدة",
   "Analytics AI": "تحليلات الذكاء الاصطناعي",
   "Code Assistant": "مساعد البرمجة",
@@ -2861,6 +2862,7 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'Could not sign out. Please try again.': 'Det gick inte att logga ut. Försök igen.',
   "Batch Image Tools": "Bildverktyg för batchbearbetning",
   "Analytics AI": "AI-analys",
   "Code Assistant": "Kodassistent",

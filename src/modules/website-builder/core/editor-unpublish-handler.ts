@@ -151,7 +151,7 @@ export function createUnpublishWebsiteHandler({
       setLastPublishedVersionId(null);
       setLastPublishedFingerprint('');
       setLiveVerification('idle');
-      saveLocalWebsiteProject(projectData);
+      saveLocalWebsiteProject(projectData, user?.id);
       lastSavedSnapshotRef.current = '';
       setAutoSaveStatus('saved');
     } catch (error) {
