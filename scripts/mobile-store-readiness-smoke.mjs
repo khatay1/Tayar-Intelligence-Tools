@@ -27,6 +27,8 @@ const storeConfig = json('apps/mobile/store.config.json');
 const profile = read('apps/mobile/app/(tabs)/profile.tsx');
 const toolsTab = read('apps/mobile/app/(tabs)/tools.tsx');
 const login = read('apps/mobile/app/login.tsx');
+const resetPassword = read('apps/mobile/app/reset-password.tsx');
+const passwordPolicy = read('apps/mobile/lib/password-policy.ts');
 const rootLayout = read('apps/mobile/app/_layout.tsx');
 const teamWorkspace = read('apps/mobile/app/tools/team-workspace.tsx');
 const mobileWebsiteBuilder = read('apps/mobile/app/tools/website-builder.tsx');
@@ -125,6 +127,13 @@ check('Privacy and Terms are reachable before mobile sign-in',
   login.includes("const PRIVACY_URL = 'https://tayar.se/#privacy'") &&
   login.includes("const TERMS_URL = 'https://tayar.se/#terms'") &&
   login.includes('styles.legalRow'));
+check('Mobile signup and recovery enforce the same strong password baseline as web',
+  passwordPolicy.includes('password.length < 8') &&
+  passwordPolicy.includes('/[a-z]/') &&
+  passwordPolicy.includes('/[A-Z]/') &&
+  passwordPolicy.includes('/\\d/') &&
+  login.includes("import { validatePassword } from '@/lib/password-policy'") &&
+  resetPassword.includes("import { validatePassword } from '@/lib/password-policy'"));
 
 check('iOS release is enforced as a free companion independent of web or Android paid plans',
   toolAccess.includes("export const isIosFreeCompanion = Platform.OS === 'ios'") &&
