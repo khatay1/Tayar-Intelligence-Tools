@@ -107,7 +107,7 @@ const previewHandler = hookHarness('src/modules/website-builder/core/editor-shar
     verifyPublishedRoute: async () => previewHealthy,
     removePublishedWebsiteFiles: async () => { previewEvents.push('revoke'); },
   },
-}, { Error }).exports.createSharePreviewHandler;
+}, { Error, crypto: globalThis.crypto }).exports.createSharePreviewHandler;
 const setters = Object.fromEntries(['CloudProjects', 'PreviewBusy', 'PreviewCreatedAt', 'PreviewError', 'PreviewFingerprint', 'PreviewToken', 'PreviewUrl', 'Saved'].map(name => [`set${name}`, value => { previewState[name] = value; }]));
 const createPreview = previewHandler({
   ...setters,

@@ -3,6 +3,7 @@ import handler from '../api/website-domain.js';
 const projectId = '22222222-2222-2222-8222-222222222222';
 const userId = '11111111-1111-1111-1111-111111111111';
 const originalFetch = globalThis.fetch;
+process.env.TAYAR_DOMAIN_CONTROL_SECRET = 'domain-control-test-secret-12345678901234567890';
 let existing, requests, providerStatus, misconfigured, storeFailure, deleteStatus, verified;
 function reset() { existing = null; requests = []; providerStatus = 200; misconfigured = false; storeFailure = false; deleteStatus = 200; verified = true; }
 async function call(body) {
@@ -20,13 +21,27 @@ try {
       assert.equal(url.searchParams.get('deleted_at'), 'is.null');
       return Response.json([{ id: projectId, user_id: userId }]);
     }
-    if (url.pathname === '/rest/v1/website_custom_domains') {
-      if (method === 'GET') return Response.json(existing ? [existing] : []);
-      if (storeFailure) return Response.json({ error: 'database unavailable' }, { status: 500 });
-      if (method === 'DELETE') { existing = null; return new Response(null, { status: 204 }); }
-      const next = JSON.parse(options.body);
-      existing = { ...next, id: 'domain-id' };
-      return Response.json([existing]);
+    if (url.pathname === '/rest/v1/website_custom_domains' && method === 'GET') return Response.json(existing ? [existing] : []);
+    if (url.pathname === '/rest/v1/rpc/website_custom_domain_server_save') {
+      if (storeFailure) return Response.json({ message: 'database unavailable' }, { status: 500 });
+      const body = JSON.parse(options.body);
+      assert.equal(options.headers.Authorization, 'Bearer test');
+      assert.equal(body.p_control_secret, process.env.TAYAR_DOMAIN_CONTROL_SECRET);
+      existing = {
+        id: existing?.id || 'domain-id',
+        project_id: projectId,
+        user_id: userId,
+        hostname: body.p_hostname,
+        status: body.p_status,
+        verification: body.p_verification,
+        updated_at: new Date().toISOString(),
+      };
+      return Response.json(existing);
+    }
+    if (url.pathname === '/rest/v1/rpc/website_custom_domain_server_delete') {
+      if (storeFailure) return Response.json({ message: 'database unavailable' }, { status: 500 });
+      existing = null;
+      return Response.json(true);
     }
     if (method === 'DELETE') return Response.json({}, { status: deleteStatus });
     if (url.pathname.endsWith('/verify')) return Response.json({ verified: true });

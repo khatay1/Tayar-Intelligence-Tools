@@ -7,6 +7,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollVie
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/useAuth';
 import { colors, radius, spacing } from '@/lib/theme';
+import { validatePassword } from '@/lib/password-policy';
 
 type Mode = 'signin' | 'signup';
 
@@ -38,9 +39,12 @@ export default function LoginScreen() {
 
   async function submit() {
     if (!email.trim() || !password) return;
-    if (mode === 'signup' && password.length < 8) {
-      setError('Use at least 8 characters for your password.');
-      return;
+    if (mode === 'signup') {
+      const passwordState = validatePassword(password);
+      if (!passwordState.valid) {
+        setError(passwordState.error);
+        return;
+      }
     }
     setBusy(true);
     setError('');
@@ -142,7 +146,7 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               secureTextEntry
               autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              placeholder={mode === 'signin' ? 'Password' : 'Password · 8+ characters'}
+              placeholder={mode === 'signin' ? 'Password' : 'Password · 8+ chars, upper/lowercase + number'}
               placeholderTextColor={colors.muted}
               style={styles.input}
               onSubmitEditing={() => void submit()}
