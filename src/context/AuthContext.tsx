@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { passwordUpdateAttributes } from '@/lib/password-update';
 import { verifiedSignOut } from '@/lib/verified-sign-out';
 import { localizeUi } from '@/lib/ui-localization-data';
+import { authSessionStorage, AUTH_STORAGE_KEY } from '@/lib/auth-session-storage';
 
 export interface Profile {
   id: string;
@@ -20,9 +21,9 @@ interface AuthContextValue {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string, remember?: boolean) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
-  signInWithGoogle: () => Promise<{ error: string | null }>;
+  signInWithGoogle: (remember?: boolean) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (newPassword: string, currentPassword?: string, nonce?: string) => Promise<{ error: string | null }>;
@@ -163,6 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return;
+      // Broadcast events do not save another tab's tab-local session.
+      if (nextSession?.user && !authSessionStorage.containsUser(nextSession.user.id)) return;
+      if (event === 'SIGNED_OUT') authSessionStorage.removeItem(AUTH_STORAGE_KEY);
       const revision = ++authRevision.current;
       if (event === 'PASSWORD_RECOVERY') window.location.hash = 'reset';
       if (!nextSession?.user) {
@@ -195,7 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function signIn(email: string, password: string) {
+  async function signIn(email: string, password: string, remember = false) {
+    authSessionStorage.setRememberSession(remember);
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
@@ -233,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    authSessionStorage.setRememberSession(false);
     const { error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
@@ -250,7 +256,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   }
 
-  async function signInWithGoogle() {
+  async function signInWithGoogle(remember = false) {
+    authSessionStorage.setRememberSession(remember);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

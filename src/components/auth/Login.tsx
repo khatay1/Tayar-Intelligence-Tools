@@ -15,6 +15,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,16 +24,21 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await signIn(email, password);
-    setLoading(false);
-    if (error) setError(error);
+    try {
+      const { error } = await signIn(email, password, remember);
+      if (error) setError(error);
+    } catch { setError(l('Could not sign in. Please try again.')); }
+    finally { setLoading(false); }
   }
 
   async function handleGoogle() {
     setGoogleLoading(true);
-    const { error } = await signInWithGoogle();
-    if (error) setError(error);
-    setGoogleLoading(false);
+    setError(null);
+    try {
+      const { error } = await signInWithGoogle(remember);
+      if (error) setError(error);
+    } catch { setError(l('Could not sign in. Please try again.')); }
+    finally { setGoogleLoading(false); }
   }
 
   return (
@@ -48,7 +54,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
 
       <button
         onClick={handleGoogle}
-        disabled={googleLoading}
+        disabled={googleLoading || loading}
         className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-100 disabled:opacity-60 text-gray-900 font-medium py-3 rounded-xl transition-all active:scale-95 mb-4"
       >
         {googleLoading ? (
@@ -70,6 +76,11 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
         <div className="flex-1 h-px bg-white/10" />
       </div>
 
+      <label className="mb-4 flex cursor-pointer items-start gap-3 text-sm text-gray-300">
+        <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} disabled={loading || googleLoading} className="mt-1 h-4 w-4 accent-violet-500" />
+        <span>{l('Remember me on this device')}<span className="mt-1 block text-xs text-gray-500">{l('Use this option only on a personal device.')}</span></span>
+      </label>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-gray-300 text-sm font-medium mb-1.5">{l('Email')}</label>
@@ -77,6 +88,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
               type="email"
+              autoComplete="username"
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -101,6 +113,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <input
               type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -119,7 +132,7 @@ export default function Login({ onBack, onNavigate }: LoginProps) {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || googleLoading}
           className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all hover:shadow-lg hover:shadow-violet-500/30 active:scale-95"
         >
           {loading && <Loader2 className="w-4 h-4 animate-spin" />}

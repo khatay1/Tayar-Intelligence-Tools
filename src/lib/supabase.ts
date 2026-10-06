@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from './env';
+import { authSessionStorage, AUTH_STORAGE_KEY } from './auth-session-storage';
 
 const supabaseUrl = env.supabaseUrl.trim();
 const supabaseAnonKey = env.supabaseAnonKey.trim();
@@ -18,7 +19,8 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storageKey: 'tayar-auth',
+      storageKey: AUTH_STORAGE_KEY,
+      storage: authSessionStorage,
     },
   }
 );
