@@ -143,6 +143,9 @@ check('AI image downloads are bounded and reject redirects',
   aiEngine.includes('redirect: "error"') &&
   aiEngine.includes('AbortSignal.timeout(20_000)'));
 
+check('AI generated media downloads are restricted to the Fal media CDN',
+  aiEngine.includes('host === "fal.media" || host.endsWith(".fal.media")'));
+
 check('Share preview tokens require cryptographic randomness',
   sharePreviewHandler.includes('secureCrypto.getRandomValues(bytes)') &&
   !sharePreviewHandler.includes('Math.random()'));
