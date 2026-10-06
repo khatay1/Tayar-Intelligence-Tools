@@ -35,29 +35,35 @@ async function readBody(req) {
   return JSON.parse(body || '{}');
 }
 
-async function supabaseRequest(path, options = {}) {
+function supabaseConfig() {
   const base = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '');
-  if (!base || !serviceKey) throw new Error('Supabase server configuration is missing.');
-  return fetch(`${base}${path}`, {
-    ...options,
-    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, ...(options.headers || {}) },
-  });
+  const publicKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '');
+  if (!base || !publicKey) throw new Error('Supabase server configuration is missing.');
+  return { base, publicKey };
 }
 
 async function authenticatedUser(req) {
   const token = bearer(req);
   if (!token) return null;
-  const base = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '');
-  const publicKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '');
-  if (!base || !publicKey) throw new Error('Supabase authentication configuration is missing.');
+  const { base, publicKey } = supabaseConfig();
   const response = await fetch(`${base}/auth/v1/user`, { headers: { apikey: publicKey, Authorization: `Bearer ${token}` } });
   return response.ok ? response.json() : null;
 }
 
-async function ownedProject(projectId, userId) {
+async function userSupabaseRequest(req, path, options = {}) {
+  const token = bearer(req);
+  const { base, publicKey } = supabaseConfig();
+  return fetch(`${base}${path}`, {
+    ...options,
+    headers: { apikey: publicKey, Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+    redirect: 'error',
+    cache: 'no-store',
+  });
+}
+
+async function ownedProject(req, projectId, userId) {
   const query = new URLSearchParams({ id: `eq.${projectId}`, user_id: `eq.${userId}`, type: 'eq.website-builder', deleted_at: 'is.null', select: 'id,user_id', limit: '1' });
-  const response = await supabaseRequest(`/rest/v1/projects?${query}`);
+  const response = await userSupabaseRequest(req, `/rest/v1/projects?${query}`);
   if (!response.ok) throw new Error('Could not verify project ownership.');
   return (await response.json())[0] || null;
 }
@@ -92,22 +98,37 @@ function domainState(hostname, payload, config) {
   };
 }
 
-async function saveDomain(projectId, userId, state, existing) {
-  const query = existing ? new URLSearchParams({ project_id: `eq.${projectId}`, user_id: `eq.${userId}`, hostname: `eq.${existing.hostname}`, updated_at: `eq.${existing.updated_at}` }) : null;
-  const response = await supabaseRequest(`/rest/v1/website_custom_domains${query ? `?${query}` : ''}`, {
-    method: existing ? 'PATCH' : 'POST',
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    body: JSON.stringify({ project_id: projectId, user_id: userId, ...state, updated_at: new Date().toISOString() }),
+async function rpc(req, name, body) {
+  const controlSecret = String(process.env.TAYAR_DOMAIN_CONTROL_SECRET || '');
+  if (!controlSecret) throw new Error('Domain control is not configured.');
+  const response = await userSupabaseRequest(req, `/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, p_control_secret: controlSecret }),
   });
-  if (!response.ok) throw new Error('Could not save the custom domain. It may already be connected to another project.');
-  const saved = (await response.json())[0];
-  if (!saved) throw new Error('The custom domain changed during this request. Refresh its status before retrying.');
-  return saved;
+  if (!response.ok) {
+    const failure = await response.json().catch(() => ({}));
+    const error = new Error(String(failure?.message || 'Custom domain state changed.'));
+    error.statusCode = response.status === 409 ? 409 : 500;
+    throw error;
+  }
+  return response.json();
 }
 
-async function currentDomain(projectId, userId) {
+async function saveDomain(req, projectId, state, existing) {
+  return rpc(req, 'website_custom_domain_server_save', {
+    p_project_id: projectId,
+    p_hostname: state.hostname,
+    p_status: state.status,
+    p_verification: state.verification,
+    p_expected_hostname: existing?.hostname ?? null,
+    p_expected_updated_at: existing?.updated_at ?? null,
+  });
+}
+
+async function currentDomain(req, projectId, userId) {
   const query = new URLSearchParams({ project_id: `eq.${projectId}`, user_id: `eq.${userId}`, select: '*', limit: '1' });
-  const response = await supabaseRequest(`/rest/v1/website_custom_domains?${query}`);
+  const response = await userSupabaseRequest(req, `/rest/v1/website_custom_domains?${query}`);
   if (!response.ok) throw new Error('Could not load the custom domain.');
   return (await response.json())[0] || null;
 }
@@ -125,18 +146,22 @@ export default async function handler(req, res) {
     const action = String(body.action || 'get');
     if (!['get', 'connect', 'check', 'remove'].includes(action)) return json(res, 400, { error: 'Unknown domain action.' });
     const projectId = String(body.projectId || '');
-    if (!PROJECT_ID.test(projectId) || !(await ownedProject(projectId, user.id))) return json(res, 403, { error: 'Project owner access required.' });
+    if (!PROJECT_ID.test(projectId) || !(await ownedProject(req, projectId, user.id))) return json(res, 403, { error: 'Project owner access required.' });
     const vercelProject = encodeURIComponent(String(process.env.VERCEL_PROJECT_ID || '').trim());
     if (!vercelProject && action !== 'get') throw new Error('VERCEL_PROJECT_ID is not configured.');
 
-    const existing = await currentDomain(projectId, user.id);
+    const existing = await currentDomain(req, projectId, user.id);
     if (action === 'get') return json(res, 200, { domain: existing });
 
     if (action === 'remove') {
       if (existing?.hostname) await vercelRequest(`/v9/projects/${vercelProject}/domains/${encodeURIComponent(existing.hostname)}`, { method: 'DELETE' }, [404]);
-      const query = new URLSearchParams({ project_id: `eq.${projectId}`, user_id: `eq.${user.id}`, ...(existing ? { hostname: `eq.${existing.hostname}`, updated_at: `eq.${existing.updated_at}` } : {}) });
-      const deleted = await supabaseRequest(`/rest/v1/website_custom_domains?${query}`, { method: 'DELETE' });
-      if (!deleted.ok) throw new Error('Could not remove the domain mapping.');
+      if (existing) {
+        await rpc(req, 'website_custom_domain_server_delete', {
+          p_project_id: projectId,
+          p_expected_hostname: existing.hostname,
+          p_expected_updated_at: existing.updated_at,
+        });
+      }
       return json(res, 200, { domain: null });
     }
 
@@ -156,7 +181,7 @@ export default async function handler(req, res) {
         if (verification.response.ok) result = verification;
       }
       const config = await vercelRequest(`/v6/domains/${encodeURIComponent(hostname)}/config?projectIdOrName=${vercelProject}`);
-      saved = await saveDomain(projectId, user.id, domainState(hostname, result.payload, config.payload), existing);
+      saved = await saveDomain(req, projectId, domainState(hostname, result.payload, config.payload), existing);
     } catch (error) {
       if (creating) {
         try { await vercelRequest(domainPath, { method: 'DELETE' }, [404]); }
