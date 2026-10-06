@@ -20,6 +20,9 @@ const AI_TOOL_IDS = new Set([
 const GEMINI_MODEL_ID = /^gemini-[a-z0-9][a-z0-9._-]{1,80}$/i;
 const ROUTE_MODEL_ID = /^[a-z0-9][a-z0-9._:/-]{0,120}$/i;
 const PROVIDER_KEY = /^[a-z0-9][a-z0-9_-]{1,49}$/i;
+const FAL_QUEUE_ORIGIN = "https://queue.fal.run";
+const MAX_PROVIDER_JSON_BYTES = 256 * 1024;
+const MAX_GENERATED_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type ProviderAdapter = "gemini" | "openai_compatible" | "anthropic";
 interface IncomingMessage { role: "user" | "assistant" | "system"; content: string; }
@@ -427,6 +430,73 @@ async function runTextProvider(admin: ReturnType<typeof createAdminClient>, user
   throw new HttpError(503, "AI provider is not configured");
 }
 
+function checkedFalQueueUrl(value: unknown): string {
+  if (typeof value !== "string" || value.length > 4096) throw new HttpError(502, "Image provider returned an invalid queue response");
+  let url: URL;
+  try { url = new URL(value); } catch { throw new HttpError(502, "Image provider returned an invalid queue response"); }
+  if (url.origin !== FAL_QUEUE_ORIGIN || url.username || url.password || url.hash) {
+    throw new HttpError(502, "Image provider returned an invalid queue response");
+  }
+  return url.toString();
+}
+
+function checkedPublicImageUrl(value: unknown): string {
+  if (typeof value !== "string" || value.length > 4096) throw new HttpError(502, "Image provider returned no image");
+  let url: URL;
+  try { url = new URL(value); } catch { throw new HttpError(502, "Image provider returned no image"); }
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (url.protocol !== "https:" || !host || url.username || url.password || url.hash || (url.port && url.port !== "443")
+    || /^[\d.]+$/.test(host) || host.includes(":") || !host.includes(".")
+    || /(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(host)) {
+    throw new HttpError(502, "Image provider returned an unsafe image URL");
+  }
+  return url.toString();
+}
+
+async function readBoundedBytes(response: Response, maxBytes: number): Promise<Uint8Array> {
+  const declared = Number(response.headers.get("content-length") || "0");
+  if (Number.isFinite(declared) && declared > maxBytes) throw new HttpError(502, "AI provider response is too large");
+  if (!response.body) return new Uint8Array();
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw new HttpError(502, "AI provider response is too large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const output = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
+}
+
+async function readBoundedJsonObject(response: Response): Promise<Record<string, unknown>> {
+  const bytes = await readBoundedBytes(response, MAX_PROVIDER_JSON_BYTES);
+  let parsed: unknown;
+  try { parsed = JSON.parse(new TextDecoder().decode(bytes)); }
+  catch { throw new HttpError(502, "AI provider returned an invalid response"); }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new HttpError(502, "AI provider returned an invalid response");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 async function generateImage(admin: ReturnType<typeof createAdminClient>, userId: string, prompt: string): Promise<{ content: string; json: Record<string, unknown> }> {
   if (!FAL_KEY) throw new HttpError(503, "Image generation is not configured");
   if (!prompt) throw new HttpError(400, "Image prompt is required");
@@ -434,58 +504,83 @@ async function generateImage(admin: ReturnType<typeof createAdminClient>, userId
   const headers = { "Authorization": `Key ${FAL_KEY}`, "Content-Type": "application/json" };
   let submit: Response;
   try {
-    submit = await fetch("https://queue.fal.run/fal-ai/flux/dev", {
+    submit = await fetch(`${FAL_QUEUE_ORIGIN}/fal-ai/flux/dev`, {
       method: "POST",
       headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(15_000),
       body: JSON.stringify({ prompt, image_size: "landscape_16_9", num_images: 1, enable_safety_checker: true, output_format: "jpeg" }),
     });
   } catch { throw new HttpError(502, "Could not reach image provider queue"); }
-  const submitRaw = await submit.text();
-  let submitData: Record<string, unknown> = {};
-  try { submitData = JSON.parse(submitRaw) as Record<string, unknown>; } catch { /* handled below */ }
   if (!submit.ok) throw providerFailure(submit.status);
-  const statusUrl = typeof submitData.status_url === "string" ? submitData.status_url : "";
-  const responseUrl = typeof submitData.response_url === "string" ? submitData.response_url : "";
-  if (!statusUrl || !responseUrl) throw new HttpError(502, "Image provider returned an invalid queue response");
+  const submitData = await readBoundedJsonObject(submit);
+  const statusUrl = checkedFalQueueUrl(submitData.status_url);
+  const responseUrl = checkedFalQueueUrl(submitData.response_url);
 
   const deadline = Date.now() + 80_000;
   let imageData: Record<string, unknown> | null = null;
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 1200));
-    const statusResponse = await fetch(statusUrl, { method: "GET", headers: { "Authorization": `Key ${FAL_KEY}` } });
+    let statusResponse: Response;
+    try {
+      statusResponse = await fetch(statusUrl, {
+        method: "GET",
+        headers: { "Authorization": `Key ${FAL_KEY}` },
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch { throw new HttpError(502, "Could not check image generation status"); }
     if (!statusResponse.ok) throw new HttpError(502, "Could not check image generation status");
-    const statusData = await statusResponse.json().catch(() => null) as Record<string, unknown> | null;
-    if (!statusData) throw new HttpError(502, "Image provider returned invalid status");
+    const statusData = await readBoundedJsonObject(statusResponse);
     if (statusData.error) throw new HttpError(502, "Image provider could not generate this image");
     if (statusData.status !== "COMPLETED") continue;
-    const resultResponse = await fetch(responseUrl, { method: "GET", headers: { "Authorization": `Key ${FAL_KEY}` } });
+
+    let resultResponse: Response;
+    try {
+      resultResponse = await fetch(responseUrl, {
+        method: "GET",
+        headers: { "Authorization": `Key ${FAL_KEY}` },
+        redirect: "error",
+        signal: AbortSignal.timeout(15_000),
+      });
+    } catch { throw new HttpError(502, "Could not retrieve generated image"); }
     if (!resultResponse.ok) throw new HttpError(502, "Could not retrieve generated image");
-    imageData = await resultResponse.json().catch(() => null) as Record<string, unknown> | null;
+    imageData = await readBoundedJsonObject(resultResponse);
     break;
   }
   if (!imageData) throw new HttpError(504, "Image generation timed out. Try again.");
   const images = Array.isArray(imageData.images) ? imageData.images : [];
   const first = images[0] && typeof images[0] === "object" ? images[0] as Record<string, unknown> : null;
-  const imageUrl = typeof first?.url === "string" ? first.url : "";
-  if (!imageUrl) throw new HttpError(502, "Image provider returned no image");
+  const imageUrl = checkedPublicImageUrl(first?.url);
 
   let finalUrl = imageUrl;
   let assetPath = "";
   let persisted = false;
   let persistenceError = "";
   try {
-    const generatedImage = await fetch(imageUrl);
+    const generatedImage = await fetch(imageUrl, {
+      method: "GET",
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+    });
     if (!generatedImage.ok) persistenceError = "Generated image could not be downloaded for Media";
     else {
-      const contentType = generatedImage.headers.get("content-type") || "image/jpeg";
-      const extension = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
-      const bytes = await generatedImage.arrayBuffer();
-      assetPath = `${userId}/ai-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
-      const { error } = await admin.storage.from("website-media").upload(assetPath, bytes, { contentType, cacheControl: "31536000", upsert: false });
-      if (error) persistenceError = "Generated image could not be saved to Media";
+      const contentType = (generatedImage.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+      const extension = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : contentType === "image/jpeg" ? "jpg" : "";
+      if (!extension) persistenceError = "Generated image returned an unsupported media type";
       else {
-        finalUrl = `https://www.tayar.se/api/website-media?path=${encodeURIComponent(assetPath)}`;
-        persisted = true;
+        const bytes = await readBoundedBytes(generatedImage, MAX_GENERATED_IMAGE_BYTES);
+        if (!bytes.byteLength) persistenceError = "Generated image was empty";
+        else {
+          assetPath = `${userId}/ai-${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+          const { error } = await admin.storage.from("website-media").upload(assetPath, bytes, { contentType, cacheControl: "31536000", upsert: false });
+          if (error) persistenceError = "Generated image could not be saved to Media";
+          else {
+            finalUrl = `https://www.tayar.se/api/website-media?path=${encodeURIComponent(assetPath)}`;
+            persisted = true;
+          }
+        }
       }
     }
   } catch { persistenceError = "Generated image could not be saved to Media"; }
