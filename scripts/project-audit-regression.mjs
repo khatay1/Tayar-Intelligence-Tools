@@ -51,6 +51,7 @@ const auth = hookHarness('src/context/AuthContext.tsx', {
   '@/lib/verified-sign-out': hookHarness('src/lib/verified-sign-out.ts').exports,
   '@/lib/ui-localization-data': hookHarness('src/lib/ui-localization-data.ts').exports,
   '@/lib/auth-session-storage': sessionStorageModule,
+  '@/lib/website-media-session': { websiteMediaSession: { sync: async () => {} } },
   '@/lib/supabase': { supabase: {
     auth: {
       getSession: () => initial.promise,

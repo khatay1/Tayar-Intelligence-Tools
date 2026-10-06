@@ -40,7 +40,7 @@ try {
         assert.ok(live.release.file_manifest.some(item => decodeURIComponent(url.pathname).endsWith(`${live.release.storage_prefix}/${item.name}`)));
         return new Response('<html>private release page</html>');
       }
-      if (url.pathname.startsWith('/storage/v1/object/public/published-sites/')) return new Response('<html>ordinary static site</html>');
+      if (url.pathname === '/functions/v1/published-site-storage') return new Response('<html>ordinary static site</html>');
       throw new Error(`Unexpected platform request ${url.pathname}`);
     }
     assert.equal(url.origin, backend.url);

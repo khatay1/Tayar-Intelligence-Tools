@@ -98,7 +98,8 @@ export function createMediaManagementHandlers({
     setMediaUploading(true);
     setMediaError('');
 
-    const extension = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+    const extension = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'image/svg+xml': 'svg' } as Record<string, string>)[file.type];
+    if (!extension) { setMediaError('Only image files are supported.'); setMediaUploading(false); return; }
     const base = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '') || 'image';
     const path = `${uploadUserId}/${Date.now()}-${base}.${extension}`;
 

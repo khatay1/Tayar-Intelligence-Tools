@@ -9,7 +9,7 @@ import {
   stripeRequest,
 } from "../_shared/billing.ts";
 
-const USER_OWNED_BUCKETS = ["website-media", "published-sites"] as const;
+const USER_OWNED_BUCKETS = ["website-media", "published-sites", "website-published-media"] as const;
 const LIST_PAGE_SIZE = 1000;
 const MAX_STORAGE_OBJECTS = 20_000;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

@@ -989,6 +989,7 @@ function languageCodeLabel(language) {
 
 // src/lib/ui-localization-data.ts
 var ar = {
+  "Could not prepare website media. Please try again.": "\u062A\u0639\u0630\u0631 \u062A\u062C\u0647\u064A\u0632 \u0648\u0633\u0627\u0626\u0637 \u0627\u0644\u0645\u0648\u0642\u0639. \u062D\u0627\u0648\u0644 \u0645\u062C\u062F\u062F\u064B\u0627.",
   "Remember me on this device": "\u062A\u0630\u0643\u0631\u0646\u064A \u0639\u0644\u0649 \u0647\u0630\u0627 \u0627\u0644\u062C\u0647\u0627\u0632",
   "Use this option only on a personal device.": "\u0627\u0633\u062A\u062E\u062F\u0645 \u0647\u0630\u0627 \u0627\u0644\u062E\u064A\u0627\u0631 \u0639\u0644\u0649 \u062C\u0647\u0627\u0632\u0643 \u0627\u0644\u0634\u062E\u0635\u064A \u0641\u0642\u0637.",
   "Could not sign in. Please try again.": "\u062A\u0639\u0630\u0631 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644. \u062D\u0627\u0648\u0644 \u0645\u062C\u062F\u062F\u064B\u0627.",
@@ -3919,6 +3920,7 @@ var ar = {
   "two-column": "\u0639\u0645\u0648\u062F\u0627\u0646"
 };
 var sv = {
+  "Could not prepare website media. Please try again.": "Det gick inte att f\xF6rbereda webbplatsens media. F\xF6rs\xF6k igen.",
   "Remember me on this device": "Kom ih\xE5g mig p\xE5 den h\xE4r enheten",
   "Use this option only on a personal device.": "Anv\xE4nd bara det h\xE4r alternativet p\xE5 en personlig enhet.",
   "Could not sign in. Please try again.": "Det gick inte att logga in. F\xF6rs\xF6k igen.",

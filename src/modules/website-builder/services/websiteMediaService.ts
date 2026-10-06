@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { materializeWebsiteMedia } from './websiteMediaPublication';
+import { websiteMediaUrl } from '@/lib/website-media-reference';
 
 const websiteMediaStorage = supabase.storage.from('website-media');
 const MEDIA_PAGE_SIZE = 100;
@@ -28,7 +30,7 @@ export async function listWebsiteMediaFiles(userId: string) {
 }
 
 export function getWebsiteMediaPublicUrl(path: string): string {
-  return websiteMediaStorage.getPublicUrl(path).data.publicUrl;
+  return websiteMediaUrl(path);
 }
 
 export async function uploadWebsiteMediaFile(
@@ -44,4 +46,8 @@ export async function uploadWebsiteMediaFile(
 
 export async function deleteWebsiteMediaFile(path: string) {
   return websiteMediaStorage.remove([path]);
+}
+
+export function inlineWebsiteMedia<T extends { content: string }>(files: T[]): Promise<T[]> {
+  return materializeWebsiteMedia(files, supabase.storage, 'inline');
 }

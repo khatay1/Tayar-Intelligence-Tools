@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import { inlineWebsiteMedia } from '../services/websiteMediaService';
 import { normalizeSlug } from './project-identifiers';
 import { sanitizeRobotsRules } from './website-builder-config';
 import { buildWebsiteAnalyticsCsv, buildWebsiteLeadsCsv, buildWebsiteProjectBackupText } from './website-builder-export-data';
@@ -89,14 +90,23 @@ export function createEditorExportHandlers({
     try { await navigator.clipboard.writeText(summary); setCopied(true); window.setTimeout(() => setCopied(false), 1600); } catch { /* Clipboard access is optional. */ }
   }
 
-  function previewWebsite() {
-    const blob = new Blob([getHtml()], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener,noreferrer');
-    window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+  async function previewWebsite() {
+    const preview = window.open('about:blank', '_blank');
+    if (!preview) return;
+    preview.opener = null;
+    try {
+      const [file] = await inlineWebsiteMedia([{ content: getHtml() }]);
+      const blob = new Blob([file.content], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      preview.location.href = url;
+      window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch {
+      preview.close();
+      window.alert(l('Could not prepare website media. Please try again.'));
+    }
   }
 
-  function downloadProductionZip() {
+  async function downloadProductionZip() {
     if (!requireBillingFeature('exportZip', 'Production ZIP export')) return;
     const productionUrl = normalizeSiteUrl(siteUrl);
     if (!productionUrl) {
@@ -126,7 +136,10 @@ export function createEditorExportHandlers({
       { name: 'README.txt', content: readme },
     );
 
-    const blob = createZipBlob(files);
+    let portableFiles;
+    try { portableFiles = await inlineWebsiteMedia(files); }
+    catch { window.alert(l('Could not prepare website media. Please try again.')); return; }
+    const blob = createZipBlob(portableFiles);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -139,7 +152,8 @@ export function createEditorExportHandlers({
 
   async function copyHtml() {
     try {
-      await navigator.clipboard.writeText(getHtml());
+      const [file] = await inlineWebsiteMedia([{ content: getHtml() }]);
+      await navigator.clipboard.writeText(file.content);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {

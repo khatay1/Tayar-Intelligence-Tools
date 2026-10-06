@@ -5,6 +5,7 @@ import { passwordUpdateAttributes } from '@/lib/password-update';
 import { verifiedSignOut } from '@/lib/verified-sign-out';
 import { localizeUi } from '@/lib/ui-localization-data';
 import { authSessionStorage, AUTH_STORAGE_KEY } from '@/lib/auth-session-storage';
+import { websiteMediaSession } from '@/lib/website-media-session';
 
 export interface Profile {
   id: string;
@@ -134,6 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
         if (!isCurrent(revision)) return;
+        await websiteMediaSession.sync(nextSession?.access_token ?? null);
+        if (!isCurrent(revision)) return;
         setSession(nextSession);
         setUser(nextSession?.user ?? null);
         if (nextSession?.user) {
@@ -170,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const revision = ++authRevision.current;
       if (event === 'PASSWORD_RECOVERY') window.location.hash = 'reset';
       if (!nextSession?.user) {
+        void websiteMediaSession.sync(null);
         currentUserId.current = null;
         setSession(null);
         setUser(null);
@@ -273,6 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     try {
       await verifiedSignOut(supabase.auth);
+      await websiteMediaSession.sync(null);
     } catch {
       const language = document.documentElement.lang;
       window.alert(localizeUi('Could not sign out. Please try again.', language === 'sv' || language === 'ar' ? language : 'en'));

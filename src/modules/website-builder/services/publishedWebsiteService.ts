@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { materializeWebsiteMedia } from './websiteMediaPublication';
 import {
   listAllPublishedSiteFiles,
   publishedSiteFilePaths,
@@ -25,6 +26,7 @@ export async function uploadPublishedWebsiteFolderFiles(
   folder: string,
   files: PublishedWebsiteFile[],
 ): Promise<void> {
+  files = await materializeWebsiteMedia(files, supabase.storage, 'publish');
   assertValidPublishedWebsiteBundle(files);
 
   for (const file of files) {
@@ -46,6 +48,7 @@ export async function replacePublishedWebsiteFiles(
   files: PublishedWebsiteFile[],
   rollbackSnapshot?: PublishedWebsiteSnapshot,
 ): Promise<void> {
+  files = await materializeWebsiteMedia(files, supabase.storage, 'publish');
   assertValidPublishedWebsiteBundle(files);
 
   const snapshot = rollbackSnapshot || await snapshotPublishedWebsiteFiles(folder);

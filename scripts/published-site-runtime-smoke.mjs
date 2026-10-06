@@ -72,7 +72,11 @@ await check('Published index renders inline HTML instead of source text', async 
   assert.equal(Buffer.isBuffer(res.body), true);
   assert.equal(res.body.toString('utf8'), html);
   assert.equal(calls.length, 1);
-  assert.match(String(calls[0][0]), /published-sites\/owner-1\/project-1\/index\.html$/);
+  const upstream = new URL(calls[0][0]);
+  assert.equal(upstream.pathname, '/functions/v1/published-site-storage');
+  assert.equal(upstream.searchParams.get('ownerId'), 'owner-1');
+  assert.equal(upstream.searchParams.get('projectId'), 'project-1');
+  assert.equal(upstream.searchParams.get('file'), 'index.html');
 });
 
 await check('Published HEAD request returns headers without a body', async () => {
@@ -95,10 +99,9 @@ await check('Preview pages are noindex and routed to preview storage', async () 
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.headers.get('x-robots-tag'), 'noindex, nofollow, noarchive');
-  assert.match(
-    String(calls[0][0]),
-    /published-sites\/owner-1\/project-1\/previews\/token-1\/index\.html$/,
-  );
+  const upstream = new URL(calls[0][0]);
+  assert.equal(upstream.searchParams.get('previewToken'), 'token-1');
+  assert.equal(upstream.searchParams.get('file'), 'index.html');
 });
 
 await check('Missing HTML falls back to 404.html but keeps HTTP 404', async () => {
@@ -116,7 +119,7 @@ await check('Missing HTML falls back to 404.html but keeps HTTP 404', async () =
   assert.equal(res.headers.get('content-type'), 'text/html; charset=utf-8');
   assert.equal(res.body.toString('utf8'), '<html>custom 404</html>');
   assert.equal(calls.length, 2);
-  assert.match(String(calls[1][0]), /published-sites\/owner-1\/project-1\/404\.html$/);
+  assert.equal(new URL(calls[1][0]).searchParams.get('file'), '404.html');
 });
 
 await check('Archived release files cannot be exposed through live routes', async () => {

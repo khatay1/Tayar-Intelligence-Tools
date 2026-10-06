@@ -1,5 +1,5 @@
 // Service Worker for Tayar Intelligence Tools PWA
-const CACHE_NAME = 'tayar-v3';
+const CACHE_NAME = 'tayar-v4';
 const STATIC_ASSETS = ['/', '/index.html', '/manifest.webmanifest', '/offline.html'];
 const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1']);
 
@@ -29,6 +29,8 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-GET and cross-origin requests.
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Authenticated responses must never be restored from a shared device cache.
+  if (url.pathname.startsWith('/api/')) return;
 
   // Published customer sites and previews must always reflect the real network
   // state. Caching them here can resurrect an unpublished or stale website.

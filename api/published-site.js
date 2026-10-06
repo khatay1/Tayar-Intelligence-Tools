@@ -25,13 +25,6 @@ function safeFilePath(value) {
   return file;
 }
 
-function encodeStoragePath(path) {
-  return path
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-}
-
 function routeFromPath(pathname) {
   const clean = String(pathname || '').split('?')[0];
   const parts = clean
@@ -142,11 +135,16 @@ function setCommonHeaders(res, file, isPreview = false) {
 }
 
 async function fetchStorageFile(supabaseUrl, storagePath) {
+  const [ownerId, projectId, ...parts] = storagePath.split('/');
+  const previewToken = parts[0] === 'previews' ? parts[1] : '';
+  const file = (previewToken ? parts.slice(2) : parts).join('/');
+  const query = new URLSearchParams({ ownerId, projectId, file, ...(previewToken ? { previewToken } : {}) });
   return fetch(
-    `${supabaseUrl}/storage/v1/object/public/published-sites/${encodeStoragePath(storagePath)}`,
+    `${supabaseUrl}/functions/v1/published-site-storage?${query}`,
     {
       method: 'GET',
-      headers: { Accept: '*/*' },
+      headers: { Accept: '*/*', Authorization: `Bearer ${process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''}` },
+      redirect: 'error',
       cache: 'no-store',
     },
   );
