@@ -65,7 +65,7 @@
     "build:website-owned-application-runtime-template": "node scripts/build-website-owned-application-runtime-template.mjs",
     "smoke:media-studio": "node scripts/media-studio-max-smoke.mjs",
     "smoke:media-studio:browser": "node scripts/media-studio-max-browser-regression.mjs",
-    "smoke:account-privacy": "node scripts/account-privacy-regression.mjs && node scripts/remember-session-regression.mjs"
+    "smoke:account-privacy": "node scripts/account-privacy-regression.mjs && node scripts/remember-session-regression.mjs && node scripts/account-deletion-storage-regression.mjs && node scripts/cookie-storage-regression.mjs"
   },
   "dependencies": {
     "@pdfme/pdf-lib": "^6.1.12",

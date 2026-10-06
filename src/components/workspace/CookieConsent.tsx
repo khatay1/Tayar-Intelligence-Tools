@@ -15,22 +15,25 @@ export default function CookieConsent() {
   const [prefs, setPrefs] = useState<CookiePreferences>({ necessary: true, analytics: false });
 
   useEffect(() => {
-    const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (!consent) {
-      const timer = setTimeout(() => setVisible(true), 1500);
-      return () => clearTimeout(timer);
-    }
     try {
+      const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
+      if (!consent) throw new Error('No saved consent');
       const saved = JSON.parse(consent);
+      if (!saved || typeof saved !== 'object') throw new Error('Invalid saved consent');
       setPrefs({ necessary: true, analytics: saved.analytics === true });
     } catch {
-      // ignore
+      const timer = setTimeout(() => setVisible(true), 1500);
+      return () => clearTimeout(timer);
     }
   }, []);
 
   function save(p: CookiePreferences) {
-    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(p));
-    window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_EVENT, { detail: p }));
+    try {
+      localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(p));
+      window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_EVENT, { detail: p }));
+    } catch {
+      // Analytics reads persisted consent and remains disabled if storage is blocked.
+    }
     setVisible(false);
   }
 
