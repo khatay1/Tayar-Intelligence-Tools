@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { passwordUpdateAttributes } from '@/lib/password-update';
 
 export interface Profile {
   id: string;
@@ -22,7 +23,7 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
-  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
+  updatePassword: (newPassword: string, currentPassword?: string, nonce?: string) => Promise<{ error: string | null }>;
   resendVerification: (email: string) => Promise<{ error: string | null }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: string | null }>;
 }
@@ -284,10 +285,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }
 
-  async function updatePassword(newPassword: string) {
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+  async function updatePassword(newPassword: string, currentPassword?: string, nonce?: string) {
+    const { error } = await supabase.auth.updateUser(passwordUpdateAttributes(newPassword, currentPassword, nonce));
 
     return {
       error: error?.message ?? null,

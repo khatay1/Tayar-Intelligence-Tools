@@ -6,6 +6,14 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arWorkspaceSupplement: PhraseMap = {
+  'Current password': 'كلمة المرور الحالية',
+  'If your account has no password, leave the current password empty.': 'إذا لم تكن لحسابك كلمة مرور، اترك كلمة المرور الحالية فارغة.',
+  'Password verification code': 'رمز التحقق لتغيير كلمة المرور',
+  'For an older session, request a code and enter it before changing your password.': 'إذا كانت جلسة دخولك قديمة، اطلب رمزًا وأدخله قبل تغيير كلمة المرور.',
+  'Password verification code sent. Check your email.': 'أُرسل رمز التحقق. راجع بريدك الإلكتروني.',
+  'Could not send verification code. Try again.': 'تعذر إرسال رمز التحقق. حاول مجددًا.',
+  'Send password verification code': 'إرسال رمز التحقق',
+  'Password update failed. Try again.': 'تعذر تغيير كلمة المرور. حاول مجددًا.',
   'Search tools...': 'ابحث عن الأدوات...',
   'Clear search': 'مسح البحث',
   'Ungroup container': 'فك تجميع الحاوية',
@@ -71,6 +79,14 @@ export const arWorkspaceSupplement: PhraseMap = {
 };
 
 export const svWorkspaceSupplement: PhraseMap = {
+  'Current password': 'Nuvarande lösenord',
+  'If your account has no password, leave the current password empty.': 'Om ditt konto saknar lösenord, lämna det nuvarande lösenordet tomt.',
+  'Password verification code': 'Verifieringskod för lösenord',
+  'For an older session, request a code and enter it before changing your password.': 'För en äldre session, begär en kod och ange den innan du ändrar lösenordet.',
+  'Password verification code sent. Check your email.': 'Verifieringskoden har skickats. Kontrollera din e-post.',
+  'Could not send verification code. Try again.': 'Kunde inte skicka verifieringskoden. Försök igen.',
+  'Send password verification code': 'Skicka verifieringskod för lösenord',
+  'Password update failed. Try again.': 'Kunde inte ändra lösenordet. Försök igen.',
   'Search tools...': 'Sök verktyg...',
   'Clear search': 'Rensa sökning',
   'Ungroup container': 'Dela upp behållare',

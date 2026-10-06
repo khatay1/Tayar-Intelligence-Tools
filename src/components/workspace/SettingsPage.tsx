@@ -10,7 +10,7 @@ import { usePreferences, Theme, Language } from '@/context/PreferencesContext';
 import { LANGUAGE_LABELS } from '@/lib/i18n';
 import { validatePassword } from '@/lib/security';
 import { functionErrorMessage } from '@/lib/function-errors';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-workspace';
 import { useToast } from '@/components/ui/Toast';
 import { supabase } from '@/lib/supabase';
 import {
@@ -504,12 +504,16 @@ function SecurityTab({
 }) {
   void darkMode;
   const l = useLocalizer();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [nonce, setNonce] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function handleChangePassword() {
+    if (saving || sendingCode) return;
     if (newPassword !== confirmPassword) {
       toast.error(l('Passwords do not match'));
       return;
@@ -521,15 +525,22 @@ function SecurityTab({
     }
     setSaving(true);
     const toastId = toast.loading(l('Updating password...'));
-    const { error: err } = await updatePassword(newPassword);
-    if (err) {
-      toast.update(toastId, err, 'error');
-    } else {
-      toast.update(toastId, l('Password updated successfully'), 'success');
-      setNewPassword('');
-      setConfirmPassword('');
+    try {
+      const { error: err } = await updatePassword(newPassword, currentPassword, nonce);
+      if (err) {
+        toast.update(toastId, err, 'error');
+      } else {
+        toast.update(toastId, l('Password updated successfully'), 'success');
+        setNewPassword('');
+        setConfirmPassword('');
+        setNonce('');
+      }
+    } catch {
+      toast.update(toastId, l('Password update failed. Try again.'), 'error');
+    } finally {
+      setCurrentPassword('');
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   return (
@@ -583,17 +594,40 @@ function SecurityTab({
           <h3 className="text-white font-semibold">{l('Change Password')}</h3>
         </div>
         <div className="space-y-4">
+          <label className="block text-gray-400 text-xs font-medium">
+            {l('Current password')}
+            <input type="password" autoComplete="current-password" value={currentPassword} disabled={saving}
+              onChange={e => setCurrentPassword(e.target.value)} className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm" />
+          </label>
+          <p className="text-gray-400 text-xs">{l('If your account has no password, leave the current password empty.')}</p>
+          <label className="block text-gray-400 text-xs font-medium">
+            {l('Password verification code')}
+            <input type="text" autoComplete="one-time-code" inputMode="numeric" value={nonce} disabled={saving}
+              onChange={e => setNonce(e.target.value)} className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm" />
+          </label>
+          <p className="text-gray-400 text-xs">{l('For an older session, request a code and enter it before changing your password.')}</p>
+          <button disabled={sendingCode || saving} onClick={async () => {
+            setSendingCode(true);
+            try {
+              const { error } = await supabase.auth.reauthenticate();
+              if (error) toast.error(error.message);
+              else toast.success(l('Password verification code sent. Check your email.'));
+            } catch { toast.error(l('Could not send verification code. Try again.')); }
+            finally { setSendingCode(false); }
+          }} className="text-sm text-violet-400 disabled:opacity-60">{l('Send password verification code')}</button>
           <div>
-            <label className="text-gray-400 text-xs font-medium mb-1.5 block uppercase tracking-wider">{l('New Password')}</label>
+            <label htmlFor="settings-new-password" className="text-gray-400 text-xs font-medium mb-1.5 block uppercase tracking-wider">{l('New Password')}</label>
             <div className="relative">
               <input
                 type={showPasswords ? 'text' : 'password'}
+                id="settings-new-password" autoComplete="new-password" disabled={saving}
                 value={newPassword}
                 onChange={e => setNewPassword(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 pr-10 text-white text-sm focus:border-violet-500/50 focus:outline-none"
                 placeholder={l('Enter new password')}
               />
               <button
+                aria-label={l('New Password')} aria-pressed={showPasswords}
                 onClick={() => setShowPasswords(!showPasswords)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
               >
@@ -602,9 +636,10 @@ function SecurityTab({
             </div>
           </div>
           <div>
-            <label className="text-gray-400 text-xs font-medium mb-1.5 block uppercase tracking-wider">{l('Confirm New Password')}</label>
+            <label htmlFor="settings-confirm-password" className="text-gray-400 text-xs font-medium mb-1.5 block uppercase tracking-wider">{l('Confirm New Password')}</label>
             <input
               type={showPasswords ? 'text' : 'password'}
+              id="settings-confirm-password" autoComplete="new-password" disabled={saving}
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:border-violet-500/50 focus:outline-none"
@@ -613,7 +648,7 @@ function SecurityTab({
           </div>
           <button
             onClick={handleChangePassword}
-            disabled={saving || !newPassword}
+            disabled={saving || sendingCode || !newPassword}
             className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-all"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4" />}
