@@ -9,7 +9,7 @@ set search_path = public
 as $$
   select
     length(coalesce(p_secret, '')) between 32 and 512
-    and encode(digest(coalesce(p_secret, ''), 'sha256'), 'hex')
+    and encode(extensions.digest(coalesce(p_secret, ''), 'sha256'), 'hex')
       = '606d0e7a3b4a67ad918e7450f80859dead9a5a0cef6f14aa968115a32db4c35b';
 $$;
 
