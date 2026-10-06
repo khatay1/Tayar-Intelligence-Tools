@@ -106,7 +106,7 @@ export function createRecoverPublishedStateHandler({
         saveLocalWebsiteProject({
           ...recoveredContent,
           cloudProjectId: project.id,
-        });
+        }, user?.id);
       }
     }
 

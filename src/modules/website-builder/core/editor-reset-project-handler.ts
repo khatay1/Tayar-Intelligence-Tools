@@ -13,6 +13,7 @@ import { DEFAULT_WEBSITE_LOCALIZATION } from '../core/website-localization';
 import type { WebsiteFormDelivery } from '../services/websiteFormService';
 
 interface createResetProjectHandlerDependencies {
+  userId?: string | null;
   setApplication?: React.Dispatch<React.SetStateAction<import('./application-model').ApplicationDefinition | undefined>>;
   cancelPendingProjectPersistence: () => void;
   l: (text: string) => string;
@@ -73,6 +74,7 @@ interface createResetProjectHandlerDependencies {
 }
 
 export function createResetProjectHandler({
+  userId,
   setApplication,
   cancelPendingProjectPersistence,
   l,
@@ -177,9 +179,9 @@ export function createResetProjectHandler({
     setLiveVerification('idle');
     setPublishError('');
     setPreviewError('');
-    clearLocalWebsiteProjects();
+    clearLocalWebsiteProjects(userId);
     setCloudProjectId(null);
-    saveActiveWebsiteProjectId(null);
+    saveActiveWebsiteProjectId(null, userId);
     setCloudError('');
     setProjectHistory([]);
     setHistory([]);

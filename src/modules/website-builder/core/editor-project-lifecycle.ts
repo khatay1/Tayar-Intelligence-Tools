@@ -1,3 +1,4 @@
+import { accountStorageKey } from '@/lib/account-storage';
 import {
   embedEditorMaxProjectState,
   hydrateEditorMaxProjectState,
@@ -25,10 +26,15 @@ export interface EditorRecoverySnapshot<TProject = unknown> {
   project: TProject;
 }
 
-function browserStorage(): Storage | null {
+function browserStorage(userId?: string | null): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null {
   if (typeof window === 'undefined') return null;
   try {
-    return window.localStorage;
+    const storage = window.localStorage;
+    return {
+      getItem: (key) => storage.getItem(accountStorageKey(key, userId)),
+      setItem: (key, value) => storage.setItem(accountStorageKey(key, userId), value),
+      removeItem: (key) => storage.removeItem(accountStorageKey(key, userId)),
+    };
   } catch {
     return null;
   }
@@ -40,8 +46,8 @@ function hasProjectShape(value: unknown): boolean {
   return Array.isArray(project.pages) || Array.isArray(project.sections);
 }
 
-export function loadLocalWebsiteProject(): unknown | null {
-  const storage = browserStorage();
+export function loadLocalWebsiteProject(userId?: string | null): unknown | null {
+  const storage = browserStorage(userId);
   if (!storage) return null;
 
   for (const key of LOCAL_PROJECT_KEYS) {
@@ -55,8 +61,8 @@ export function loadLocalWebsiteProject(): unknown | null {
   return null;
 }
 
-export function saveLocalWebsiteProject(project: unknown): boolean {
-  const storage = browserStorage();
+export function saveLocalWebsiteProject(project: unknown, userId?: string | null): boolean {
+  const storage = browserStorage(userId);
   if (!storage) return false;
 
   try {
@@ -67,8 +73,8 @@ export function saveLocalWebsiteProject(project: unknown): boolean {
   }
 }
 
-export function clearLocalWebsiteProjects(): void {
-  const storage = browserStorage();
+export function clearLocalWebsiteProjects(userId?: string | null): void {
+  const storage = browserStorage(userId);
   if (!storage) return;
 
   for (const key of LOCAL_PROJECT_KEYS) {
@@ -80,8 +86,8 @@ export function clearLocalWebsiteProjects(): void {
   }
 }
 
-export function loadActiveWebsiteProjectId(): string | null {
-  const storage = browserStorage();
+export function loadActiveWebsiteProjectId(userId?: string | null): string | null {
+  const storage = browserStorage(userId);
   if (!storage) return null;
 
   try {
@@ -92,8 +98,8 @@ export function loadActiveWebsiteProjectId(): string | null {
   }
 }
 
-export function saveActiveWebsiteProjectId(projectId: string | null): boolean {
-  const storage = browserStorage();
+export function saveActiveWebsiteProjectId(projectId: string | null, userId?: string | null): boolean {
+  const storage = browserStorage(userId);
   if (!storage) return false;
 
   try {
@@ -105,8 +111,8 @@ export function saveActiveWebsiteProjectId(projectId: string | null): boolean {
   }
 }
 
-export function hasRecoveryWebsiteProject(): boolean {
-  const storage = browserStorage();
+export function hasRecoveryWebsiteProject(userId?: string | null): boolean {
+  const storage = browserStorage(userId);
   if (!storage) return false;
 
   try {
@@ -119,8 +125,9 @@ export function hasRecoveryWebsiteProject(): boolean {
 export function saveRecoveryWebsiteProject(
   project: unknown,
   reason: string,
+  userId?: string | null,
 ): boolean {
-  const storage = browserStorage();
+  const storage = browserStorage(userId);
   if (!storage) return false;
 
   try {
@@ -138,8 +145,8 @@ export function saveRecoveryWebsiteProject(
   }
 }
 
-export function loadRecoveryWebsiteProject<TProject = unknown>(): EditorRecoverySnapshot<TProject> | null {
-  const storage = browserStorage();
+export function loadRecoveryWebsiteProject<TProject = unknown>(userId?: string | null): EditorRecoverySnapshot<TProject> | null {
+  const storage = browserStorage(userId);
   if (!storage) return null;
 
   const raw = storage.getItem(RECOVERY_STORAGE_KEY);

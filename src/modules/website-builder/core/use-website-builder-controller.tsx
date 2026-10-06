@@ -394,7 +394,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       return { stripe: false, domain: false, support: false };
     }
   });
-  const [recoveryAvailable, setRecoveryAvailable] = useState(() => hasRecoveryWebsiteProject());
+  const [recoveryAvailable, setRecoveryAvailable] = useState(() => hasRecoveryWebsiteProject(user?.id));
   const lastSavedSnapshotRef = useRef('');
   const autosaveTimerRef = useRef<number | null>(null);
   const skipNextAutosaveRef = useRef(false);
@@ -737,14 +737,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }, [buildProjectSnapshot, projectHistory]);
 
   function saveRecoverySnapshot(reason: string) {
-    if (saveRecoveryWebsiteProject(buildProjectData(), reason)) {
+    if (saveRecoveryWebsiteProject(buildProjectData(), reason, user?.id)) {
       setRecoveryAvailable(true);
     }
   }
 
   function restoreRecoverySnapshot() {
     try {
-      const parsed = loadRecoveryWebsiteProject<PersistedWebsiteProject>();
+      const parsed = loadRecoveryWebsiteProject<PersistedWebsiteProject>(user?.id);
       if (!parsed) { setRecoveryAvailable(false); return; }
 
       if (snapshotConflictsWithActiveProject(parsed.project, true)) {
@@ -942,14 +942,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     newProjectIntentRef.current = false;
     cloudRevisionRef.current = { projectId: project.id, updatedAt: project.updated_at || null };
     setCloudProjectId(project.id);
-    saveActiveWebsiteProjectId(project.id);
+    saveActiveWebsiteProjectId(project.id, user?.id);
 
     const identifiedContent = {
       ...project.content,
       cloudProjectId: project.id,
     };
 
-    saveLocalWebsiteProject(identifiedContent);
+    saveLocalWebsiteProject(identifiedContent, user?.id);
 
     await refreshProjectTeamAccess(project.id, loadSequence);
     if (!loadIsCurrent()) return;
@@ -1542,7 +1542,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   useEffect(() => {
     if (projectId) return;
     try {
-      const savedProject = loadLocalWebsiteProject();
+      const savedProject = loadLocalWebsiteProject(user?.id);
       if (savedProject) {
         const savedIdentity =
           savedProject &&
@@ -1553,7 +1553,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
             : null;
 
         if (savedIdentity) {
-          saveActiveWebsiteProjectId(savedIdentity);
+          saveActiveWebsiteProjectId(savedIdentity, user?.id);
         }
 
         skipNextAutosaveRef.current = true;
@@ -1562,7 +1562,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
     } catch {
       // Ignore invalid project data.
     }
-  }, [projectId]);
+  }, [projectId, user?.id]);
 
   useEffect(() => {
     void refreshCloudProjects();
@@ -1572,7 +1572,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   useEffect(() => {
     if (!user || !cloudProjectsLoaded || newProjectIntentRef.current) return;
 
-    let desiredProjectId = projectId || loadActiveWebsiteProjectId();
+    let desiredProjectId = projectId || loadActiveWebsiteProjectId(user?.id);
 
     if (desiredProjectId) {
       if (cloudProjectId === desiredProjectId) return;
@@ -1588,7 +1588,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
         return;
       }
 
-      saveActiveWebsiteProjectId(null);
+      saveActiveWebsiteProjectId(null, user?.id);
       desiredProjectId = null;
     }
 
@@ -1597,14 +1597,14 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
       cloudProjects[0];
 
     if (!desiredProjectId && fallbackProject && cloudProjectId !== fallbackProject.id) {
-      saveActiveWebsiteProjectId(fallbackProject.id);
+      saveActiveWebsiteProjectId(fallbackProject.id, user?.id);
       void loadCloudProjectRef.current(fallbackProject.id);
     }
   }, [user, cloudProjectsLoaded, cloudProjects, projectId, cloudProjectId]);
 
   useEffect(() => {
     if (!user || !cloudProjectId) return;
-    saveActiveWebsiteProjectId(cloudProjectId);
+    saveActiveWebsiteProjectId(cloudProjectId, user?.id);
   }, [user, cloudProjectId]);
 
   useEffect(() => {
@@ -3155,6 +3155,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
     const resetProject = createResetProjectHandler({
+    userId: user?.id,
     setApplication,
     cancelPendingProjectPersistence,
     l,

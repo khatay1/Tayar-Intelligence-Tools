@@ -5,6 +5,7 @@ import {
   InvoiceThemeId,
   InvoiceTotals,
 } from './invoice-types';
+import { accountStorageKey } from '@/lib/account-storage';
 
 export const STORAGE_KEY = 'tayar.invoice-generator.draft.v2';
 export const CURRENCIES: InvoiceCurrency[] = ['SEK', 'EUR', 'USD', 'GBP'];
@@ -81,11 +82,11 @@ function normalizeItem(value: unknown): InvoiceItem | null {
   };
 }
 
-export function loadDraft(): InvoiceDraft {
+export function loadDraft(userId?: string | null): InvoiceDraft {
   if (typeof window === 'undefined') return createDefaultDraft();
 
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') as Partial<InvoiceDraft> | null;
+    const parsed = JSON.parse(localStorage.getItem(accountStorageKey(STORAGE_KEY, userId)) || 'null') as Partial<InvoiceDraft> | null;
     if (!parsed || typeof parsed !== 'object') return createDefaultDraft();
 
     const items = Array.isArray(parsed.items)
@@ -116,12 +117,12 @@ export function loadDraft(): InvoiceDraft {
   }
 }
 
-export function saveDraft(draft: InvoiceDraft) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+export function saveDraft(draft: InvoiceDraft, userId?: string | null) {
+  localStorage.setItem(accountStorageKey(STORAGE_KEY, userId), JSON.stringify(draft));
 }
 
-export function clearSavedDraft() {
-  localStorage.removeItem(STORAGE_KEY);
+export function clearSavedDraft(userId?: string | null) {
+  localStorage.removeItem(accountStorageKey(STORAGE_KEY, userId));
 }
 
 export function lineSubtotal(item: InvoiceItem) {

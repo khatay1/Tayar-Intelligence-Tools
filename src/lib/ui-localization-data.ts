@@ -3,6 +3,11 @@ import type { Language } from '@/lib/i18n';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  "Remember me on this device": "تذكرني على هذا الجهاز",
+  "Use this option only on a personal device.": "استخدم هذا الخيار على جهازك الشخصي فقط.",
+  "Could not sign in. Please try again.": "تعذر تسجيل الدخول. حاول مجددًا.",
+
+  'Could not sign out. Please try again.': 'تعذر تسجيل الخروج. حاول مجددًا.',
   "Batch Image Tools": "أدوات معالجة الصور دفعة واحدة",
   "Analytics AI": "تحليلات الذكاء الاصطناعي",
   "Code Assistant": "مساعد البرمجة",
@@ -2861,6 +2866,11 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  "Remember me on this device": "Kom ihåg mig på den här enheten",
+  "Use this option only on a personal device.": "Använd bara det här alternativet på en personlig enhet.",
+  "Could not sign in. Please try again.": "Det gick inte att logga in. Försök igen.",
+
+  'Could not sign out. Please try again.': 'Det gick inte att logga ut. Försök igen.',
   "Batch Image Tools": "Bildverktyg för batchbearbetning",
   "Analytics AI": "AI-analys",
   "Code Assistant": "Kodassistent",

@@ -44,8 +44,13 @@ assert.equal(admin.render('AdminProvider').isAdmin, false);
 assert.equal(admin.render('AdminProvider').adminLoading, false);
 
 const initial = deferred(), profile = deferred();
+const sessionStorageModule = hookHarness('src/lib/auth-session-storage.ts').exports;
 let authEvent;
 const auth = hookHarness('src/context/AuthContext.tsx', {
+  '@/lib/password-update': hookHarness('src/lib/password-update.ts').exports,
+  '@/lib/verified-sign-out': hookHarness('src/lib/verified-sign-out.ts').exports,
+  '@/lib/ui-localization-data': hookHarness('src/lib/ui-localization-data.ts').exports,
+  '@/lib/auth-session-storage': sessionStorageModule,
   '@/lib/supabase': { supabase: {
     auth: {
       getSession: () => initial.promise,
@@ -56,6 +61,10 @@ const auth = hookHarness('src/context/AuthContext.tsx', {
   } },
 });
 auth.render('AuthProvider');
+authEvent('SIGNED_IN', { user: { id: 'foreign-tab' } });
+await settle();
+assert.equal(auth.render('AuthProvider').user, null, 'Ignore another tab without a matching stored identity');
+sessionStorageModule.authSessionStorage.setItem('tayar-auth', JSON.stringify({ user: { id: 'a' } }));
 authEvent('SIGNED_IN', { user: { id: 'a' } }); await settle();
 authEvent('SIGNED_OUT', null);
 profile.resolve({ data: { id: 'a', role: 'admin' }, error: null });

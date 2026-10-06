@@ -96,7 +96,7 @@ export function createSaveProjectHandler({
     }
 
     if (user && !cloudProjectId) {
-      const preservedProjectId = projectId || loadActiveWebsiteProjectId();
+      const preservedProjectId = projectId || loadActiveWebsiteProjectId(user?.id);
       if (preservedProjectId) {
         setCloudError('Your existing website is still reconnecting. Tayar will not create a duplicate draft while its saved identity is available.');
         setAutoSaveStatus('failed');
@@ -108,7 +108,7 @@ export function createSaveProjectHandler({
           cloudProjects.find((project) => project.user_id === user.id) ??
           cloudProjects[0];
 
-        saveActiveWebsiteProjectId(fallbackProject.id);
+        saveActiveWebsiteProjectId(fallbackProject.id, user?.id);
         setCloudError('Opening your most recent saved website before saving. No duplicate draft was created.');
         setAutoSaveStatus('saving');
         void loadCloudProjectRef.current(fallbackProject.id);
@@ -149,7 +149,7 @@ export function createSaveProjectHandler({
       }
 
       const projectData = buildProjectData(historyEntries);
-    const localSaved = saveLocalWebsiteProject(projectData);
+    const localSaved = saveLocalWebsiteProject(projectData, user?.id);
     if (!localSaved) {
       setCloudError('Local recovery storage is full. Cloud save will still be attempted.');
     }
@@ -221,11 +221,11 @@ export function createSaveProjectHandler({
           cloudRevisionRef.current = { projectId: createdProject.id, updatedAt: createdProject.updated_at || null };
           newProjectIntentRef.current = false;
           setCloudProjectId(createdProject.id);
-          saveActiveWebsiteProjectId(createdProject.id);
+          saveActiveWebsiteProjectId(createdProject.id, user?.id);
           saveLocalWebsiteProject({
             ...projectData,
             cloudProjectId: createdProject.id,
-          });
+          }, user?.id);
           setProjectTeamAccess({ ...DEFAULT_EDITOR_PROJECT_ACCESS, ownerId: user.id });
           setCloudProjects((current) => [
             {

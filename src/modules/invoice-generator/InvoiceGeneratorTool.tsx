@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Printer, ReceiptText, RotateCcw, Save } from 'lucide-react';
 import { useLocalizer } from '@/lib/ui-localization-tools';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useAuth } from '@/context/AuthContext';
 import { consumeToolAction } from '@/lib/tool-usage';
 import {
   ToolField,
@@ -28,7 +29,8 @@ import { InvoiceCurrency, InvoiceDraft, InvoiceItem, InvoiceThemeId } from './in
 export default function InvoiceGeneratorTool({ darkMode: _darkMode }: { darkMode: boolean }) {
   const l = useLocalizer();
   const { prefs } = usePreferences();
-  const [draft, setDraft] = useState<InvoiceDraft>(loadDraft);
+  const { user } = useAuth();
+  const [draft, setDraft] = useState<InvoiceDraft>(() => loadDraft(user?.id));
   const [message, setMessage] = useState('');
   const [printing, setPrinting] = useState(false);
 
@@ -51,7 +53,7 @@ export default function InvoiceGeneratorTool({ darkMode: _darkMode }: { darkMode
   }
 
   function persistDraft() {
-    try { saveDraft(draft); setMessage(l('Draft saved on this device.')); }
+    try { saveDraft(draft, user?.id); setMessage(l('Draft saved on this device.')); }
     catch { setMessage(l('Could not save this draft in browser storage.')); }
   }
 
@@ -59,7 +61,7 @@ export default function InvoiceGeneratorTool({ darkMode: _darkMode }: { darkMode
     if (!window.confirm(l('Clear the current invoice draft?'))) return;
     setDraft(createDefaultDraft());
     setMessage('');
-    try { clearSavedDraft(); } catch { /* storage can be unavailable */ }
+    try { clearSavedDraft(user?.id); } catch { /* storage can be unavailable */ }
   }
 
   async function printInvoice() {
