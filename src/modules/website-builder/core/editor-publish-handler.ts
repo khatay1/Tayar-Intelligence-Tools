@@ -339,28 +339,11 @@ export function createPublishWebsiteHandler({
       liveFilesReplaced = true;
       assertPublishIsCurrent();
 
-      const versionId =
-        typeof crypto !== 'undefined' &&
-        'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-              .replace(
-                /[xy]/g,
-                (character) => {
-                  const random =
-                    Math.floor(
-                      Math.random() * 16,
-                    );
-
-                  const value =
-                    character === 'x'
-                      ? random
-                      : (random & 0x3) |
-                        0x8;
-
-                  return value.toString(16);
-                },
-              );
+      const secureCrypto = globalThis.crypto;
+      if (!secureCrypto || typeof secureCrypto.randomUUID !== 'function') {
+        throw new Error('Secure random generation is unavailable.');
+      }
+      const versionId = secureCrypto.randomUUID();
 
       const versionPrefix =
         folder +
