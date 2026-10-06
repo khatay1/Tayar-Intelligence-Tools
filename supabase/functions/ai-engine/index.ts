@@ -445,9 +445,8 @@ function checkedPublicImageUrl(value: unknown): string {
   let url: URL;
   try { url = new URL(value); } catch { throw new HttpError(502, "Image provider returned no image"); }
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (url.protocol !== "https:" || !host || url.username || url.password || url.hash || (url.port && url.port !== "443")
-    || /^[\d.]+$/.test(host) || host.includes(":") || !host.includes(".")
-    || /(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(host)) {
+  const trustedFalMediaHost = host === "fal.media" || host.endsWith(".fal.media");
+  if (url.protocol !== "https:" || !trustedFalMediaHost || url.username || url.password || url.hash || (url.port && url.port !== "443")) {
     throw new HttpError(502, "Image provider returned an unsafe image URL");
   }
   return url.toString();
