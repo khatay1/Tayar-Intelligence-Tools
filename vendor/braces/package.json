@@ -1,7 +1,7 @@
 {
   "name": "braces",
-  "description": "Bash-like brace expansion, implemented in JavaScript. Safer than other brace expansion libs, with complete support for the Bash 4.3 braces specification, without sacrificing speed.",
-  "version": "3.0.3-tayar.1",
+  "description": "Tayar locally patched braces 3.0.3: bounded nesting and AST traversal; not an upstream release.",
+  "version": "3.0.4",
   "homepage": "https://github.com/micromatch/braces",
   "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
   "contributors": [
