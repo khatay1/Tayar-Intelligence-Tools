@@ -484,9 +484,8 @@ async function generateImage(admin: ReturnType<typeof createAdminClient>, userId
       const { error } = await admin.storage.from("website-media").upload(assetPath, bytes, { contentType, cacheControl: "31536000", upsert: false });
       if (error) persistenceError = "Generated image could not be saved to Media";
       else {
-        const { data } = admin.storage.from("website-media").getPublicUrl(assetPath);
-        if (data?.publicUrl) { finalUrl = data.publicUrl; persisted = true; }
-        else persistenceError = "Media URL could not be created";
+        finalUrl = `https://www.tayar.se/api/website-media?path=${encodeURIComponent(assetPath)}`;
+        persisted = true;
       }
     }
   } catch { persistenceError = "Generated image could not be saved to Media"; }

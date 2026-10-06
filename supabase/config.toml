@@ -22,6 +22,11 @@ verify_jwt = false
 [functions.website-form-submit]
 verify_jwt = false
 
+# Public static renderer. Handler restricts owner/project/live paths, refuses
+# private application pages and internal archives, and sandboxes every response.
+[functions.published-site-storage]
+verify_jwt = true
+
 # Retired/test endpoints remain JWT-protected even though they only return 410.
 # Keeping this explicit prevents a future CLI deploy from reopening them.
 [functions.gemini-flash]

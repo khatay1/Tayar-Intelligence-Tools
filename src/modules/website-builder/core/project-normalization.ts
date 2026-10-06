@@ -1,4 +1,5 @@
 import type { Language } from '@/context/PreferencesContext';
+import { normalizeWebsiteMediaReferences } from '@/lib/website-media-reference';
 import { createSection, normalizeSection } from './defaults';
 import type { WebsiteSection } from './types';
 import { normalizePageLanguage, normalizeSlug } from './project-identifiers';
@@ -73,6 +74,7 @@ function createLegacyHomePage(sections: WebsiteSection[]): NormalizedWebsiteProj
 }
 
 export function normalizeWebsiteProjectLoad(input: unknown): NormalizedWebsiteProjectLoad {
+  input = normalizeWebsiteMediaReferences(input);
   const maxState = hydrateEditorMaxProjectState(input);
 
   if (Array.isArray(input) && input.length) {

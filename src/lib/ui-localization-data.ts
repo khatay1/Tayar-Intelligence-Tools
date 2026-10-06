@@ -3,6 +3,7 @@ import type { Language } from '@/lib/i18n';
 type PhraseMap = Record<string, string>;
 
 const ar: PhraseMap = {
+  'Could not prepare website media. Please try again.': 'تعذر تجهيز وسائط الموقع. حاول مجددًا.',
   "Remember me on this device": "تذكرني على هذا الجهاز",
   "Use this option only on a personal device.": "استخدم هذا الخيار على جهازك الشخصي فقط.",
   "Could not sign in. Please try again.": "تعذر تسجيل الدخول. حاول مجددًا.",
@@ -2866,6 +2867,7 @@ const ar: PhraseMap = {
   "two-column": "عمودان",
 };
 const sv: PhraseMap = {
+  'Could not prepare website media. Please try again.': 'Det gick inte att förbereda webbplatsens media. Försök igen.',
   "Remember me on this device": "Kom ihåg mig på den här enheten",
   "Use this option only on a personal device.": "Använd bara det här alternativet på en personlig enhet.",
   "Could not sign in. Please try again.": "Det gick inte att logga in. Försök igen.",
@@ -5683,4 +5685,3 @@ export function localizeUi(text: string, language: Language): string {
   if (language === 'en') return text;
   return maps[language][text] ?? text;
 }
-

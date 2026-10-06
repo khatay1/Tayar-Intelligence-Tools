@@ -170,19 +170,19 @@ check('Published proxy resolves live pathname without relying on rewrite query p
   liveProxyCase.headers['content-disposition'] === 'inline' &&
   liveProxyCase.headers['x-tayar-published-site'] === '1' &&
   liveProxyCase.body.startsWith('<!doctype html>') &&
-  liveProxyCase.requests[0]?.includes('/published-sites/user_123/project_456/about.html'));
+  new URL(liveProxyCase.requests[0]).searchParams.get('file') === 'about.html' && new URL(liveProxyCase.requests[0]).pathname === '/functions/v1/published-site-storage');
 
 const queryProxyCase = await runPublishedProxyCase('/api/published-site?ownerId=user_123&projectId=project_456&file=index.html');
 check('Published proxy resolves explicit Vercel rewrite query parameters',
   queryProxyCase.statusCode === 200 &&
   queryProxyCase.headers['content-type'] === 'text/html; charset=utf-8' &&
-  queryProxyCase.requests[0]?.includes('/published-sites/user_123/project_456/index.html'));
+  new URL(queryProxyCase.requests[0]).searchParams.get('file') === 'index.html' && new URL(queryProxyCase.requests[0]).searchParams.get('ownerId') === 'user_123' && new URL(queryProxyCase.requests[0]).searchParams.get('projectId') === 'project_456');
 
 const previewProxyCase = await runPublishedProxyCase('/preview/user_123/project_456/token_789/index.html');
 check('Preview proxy resolves token path and remains noindex',
   previewProxyCase.statusCode === 200 &&
   previewProxyCase.headers['x-robots-tag'] === 'noindex, nofollow, noarchive' &&
-  previewProxyCase.requests[0]?.includes('/published-sites/user_123/project_456/previews/token_789/index.html'));
+  new URL(previewProxyCase.requests[0]).searchParams.get('previewToken') === 'token_789' && new URL(previewProxyCase.requests[0]).searchParams.get('file') === 'index.html');
 
 console.log(`Production hardening smoke test: ${passes.length} passed, ${failures.length} failed`);
 for (const label of passes) console.log(`  ✓ ${label}`);
