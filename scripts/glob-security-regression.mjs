@@ -5,7 +5,7 @@ const tailwindRequire = createRequire(rootRequire.resolve('tailwindcss/package.j
 const require = createRequire(tailwindRequire.resolve('micromatch'));
 const braces = require('braces');
 const micromatch = require('micromatch');
-assert.equal(require('braces/package.json').version, '3.0.3-tayar.1');
+assert.equal(require('braces/package.json').version, '3.0.4');
 assert.deepEqual(braces.expand('src/{a,b}/{1..3}.tsx'), ['src/a/1.tsx', 'src/a/2.tsx', 'src/a/3.tsx', 'src/b/1.tsx', 'src/b/2.tsx', 'src/b/3.tsx']);
 assert.deepEqual(micromatch(['src/a.tsx', 'src/b.ts', 'api/a.js'], 'src/*.{ts,tsx}'), ['src/a.tsx', 'src/b.ts']);
 for (const nesting of ['{', '(']) for (const n of [65, 1000, 4000]) {
