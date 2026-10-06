@@ -25,7 +25,7 @@ globalThis.__concurrencyClient = createClient('https://test.supabase.co', 'test-
 try {
   const outfile = join(temp, 'subject.mjs');
   await build({ stdin: { contents: `export * from './src/modules/website-builder/services/projectCloudService'; export * from './src/modules/website-builder/core/latest-async-request';`, resolveDir: process.cwd() },
-    bundle: true, platform: 'node', format: 'esm', outfile,
+    bundle: true, platform: 'node', format: 'esm', outfile, tsconfig: 'tsconfig.app.json',
     plugins: [{ name: 'client', setup(builder) {
       builder.onResolve({ filter: /^@\/lib\/supabase$/ }, () => ({ path: 'client', namespace: 'test' }));
       builder.onLoad({ filter: /.*/, namespace: 'test' }, () => ({ contents: 'export const supabase = globalThis.__concurrencyClient;' }));

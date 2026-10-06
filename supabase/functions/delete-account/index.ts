@@ -76,6 +76,34 @@ async function removeStoragePaths(
   }
 }
 
+async function collectFormUploadPaths(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+): Promise<string[]> {
+  const paths: string[] = [];
+  let projectCount = 0;
+  for (let offset = 0; ; offset += LIST_PAGE_SIZE) {
+    // Include soft-deleted projects. Attachments use project IDs, not user IDs.
+    const { data, error } = await admin.from("projects")
+      .select("id").eq("user_id", userId).eq("type", "website-builder")
+      .order("id").range(offset, offset + LIST_PAGE_SIZE - 1);
+    if (error) throw new HttpError(503, "Could not inspect account projects");
+    const projects = data || [];
+    projectCount += projects.length;
+    if (projectCount > MAX_STORAGE_OBJECTS) {
+      throw new HttpError(409, "Account storage is too large for automatic deletion. Contact support.");
+    }
+    for (const project of projects) {
+      if (!UUID_PATTERN.test(project.id)) throw new HttpError(503, "Invalid account project ID");
+      paths.push(...await collectStoragePaths(admin, "website-form-uploads", project.id));
+      if (paths.length > MAX_STORAGE_OBJECTS) {
+        throw new HttpError(409, "Account storage is too large for automatic deletion. Contact support.");
+      }
+    }
+    if (projects.length < LIST_PAGE_SIZE) return paths;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -143,10 +171,14 @@ Deno.serve(async (req: Request) => {
 
     // Finish all read-only preflight work before canceling billing or removing
     // anything so size/configuration failures leave the account untouched.
-    const storageByBucket = await Promise.all(USER_OWNED_BUCKETS.map(async (bucket) => ({
+    const storageByBucket: Array<{ bucket: string; paths: string[] }> = await Promise.all(USER_OWNED_BUCKETS.map(async (bucket) => ({
       bucket,
       paths: await collectStoragePaths(admin, bucket, targetUserId),
     })));
+    storageByBucket.push({
+      bucket: "website-form-uploads",
+      paths: await collectFormUploadPaths(admin, targetUserId),
+    });
 
     const subscriptionIds = new Set<string>();
     const stripeCustomerId = String(subscriptionResult.data?.stripe_customer_id || "").trim();

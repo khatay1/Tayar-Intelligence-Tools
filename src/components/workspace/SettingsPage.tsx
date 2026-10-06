@@ -200,7 +200,12 @@ function PrivacyTab({ toast }: { toast: ReturnType<typeof useToast> }) {
 
   function setAnalyticsConsent(enabled: boolean) {
     const nextConsent = { necessary: true, analytics: enabled };
-    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(nextConsent));
+    try {
+      localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(nextConsent));
+    } catch {
+      setAnalyticsEnabled(hasAnalyticsConsent());
+      return;
+    }
     window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_EVENT, { detail: nextConsent }));
     setAnalyticsEnabled(enabled);
   }
