@@ -71,9 +71,16 @@ try {
   globalThis.fetch = async (url) => {
     const target = String(url);
     if (target.includes('/rest/v1/rpc/website_resolve_verified_custom_domain')) return Response.json([{ project_id: 'project-1', user_id: 'owner-1' }]);
-    if (target.includes('/storage/v1/object/public/published-sites/owner-1/project-1/index.html')) return new Response('<html><body>Custom site</body></html>', { status: 200 });
-    if (target.includes('/storage/v1/object/public/published-sites/owner-1/project-1/about.html')) return new Response('<html><body>Clean route</body></html>', { status: 200 });
-    if (target.includes('/storage/v1/object/public/published-sites/owner-1/project-1/about')) return new Response('missing', { status: 404 });
+    if (target.includes('/functions/v1/published-site-storage')) {
+      const requestUrl = new URL(target);
+      const file = requestUrl.searchParams.get('file');
+      assert.equal(requestUrl.searchParams.get('ownerId'), 'owner-1');
+      assert.equal(requestUrl.searchParams.get('projectId'), 'project-1');
+      if (file === 'index.html') return new Response('<html><body>Custom site</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      if (file === 'about.html') return new Response('<html><body>Clean route</body></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+      if (file === 'about') return new Response('missing', { status: 404 });
+      if (file === '404.html') return new Response('missing', { status: 404 });
+    }
     throw new Error(`Unexpected published request: ${target}`);
   };
   const publishedRes = responseCapture();
