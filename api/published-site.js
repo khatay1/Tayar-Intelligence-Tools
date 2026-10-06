@@ -151,16 +151,19 @@ async function fetchStorageFile(supabaseUrl, storagePath) {
 }
 
 async function projectForHostname(supabaseUrl, hostname) {
-  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '');
-  if (!serviceKey || !SAFE_HOSTNAME.test(hostname)) return null;
-  const query = new URLSearchParams({ hostname: `eq.${hostname}`, status: 'eq.verified', select: 'project_id,user_id', limit: '1' });
-  const response = await fetch(`${supabaseUrl}/rest/v1/website_custom_domains?${query}`, {
-    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+  const publicKey = String(process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '');
+  if (!publicKey || !SAFE_HOSTNAME.test(hostname)) return null;
+  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/website_resolve_verified_custom_domain`, {
+    method: 'POST',
+    headers: { apikey: publicKey, Authorization: `Bearer ${publicKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_hostname: hostname }),
+    redirect: 'error',
     cache: 'no-store',
   });
   if (!response.ok) return null;
-  const row = (await response.json())[0];
-  return row ? { ownerId: row.user_id, projectId: row.project_id } : null;
+  const data = await response.json().catch(() => null);
+  const row = Array.isArray(data) ? data[0] : data;
+  return row?.user_id && row?.project_id ? { ownerId: row.user_id, projectId: row.project_id } : null;
 }
 
 export default async function handler(req, res) {
