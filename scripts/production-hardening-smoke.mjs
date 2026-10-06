@@ -28,6 +28,9 @@ const requiredFiles = [
   'src/lib/published-site-url.ts',
   'api/published-site.js',
   'public/sw.js',
+  'supabase/functions/ai-engine/index.ts',
+  'src/modules/website-builder/core/editor-share-preview-handler.ts',
+  'src/modules/website-builder/core/editor-publish-handler.ts',
 ];
 
 for (const path of requiredFiles) {
@@ -47,6 +50,9 @@ const publishedUrlHelper = read('src/lib/published-site-url.ts');
 const publishedProxy = read('api/published-site.js');
 const serviceWorker = read('public/sw.js');
 const vercelConfig = read('vercel.json');
+const aiEngine = read('supabase/functions/ai-engine/index.ts');
+const sharePreviewHandler = read('src/modules/website-builder/core/editor-share-preview-handler.ts');
+const publishHandler = read('src/modules/website-builder/core/editor-publish-handler.ts');
 
 check('Canonical production domain is tayar.se',
   index.includes('https://tayar.se/') &&
@@ -125,6 +131,25 @@ check('Published and preview routes bypass the app service worker',
 check('AI Assistant escapes model output before applying markdown HTML',
   aiAssistant.includes('let html = escapeHtml(text)') &&
   aiAssistant.includes('dangerouslySetInnerHTML'));
+
+check('AI image provider credentials are never forwarded to provider-supplied origins',
+  aiEngine.includes('url.origin !== FAL_QUEUE_ORIGIN') &&
+  aiEngine.includes('const statusUrl = checkedFalQueueUrl') &&
+  aiEngine.includes('const responseUrl = checkedFalQueueUrl'));
+
+check('AI image downloads are bounded and reject redirects',
+  aiEngine.includes('MAX_GENERATED_IMAGE_BYTES = 5 * 1024 * 1024') &&
+  aiEngine.includes('readBoundedBytes(generatedImage, MAX_GENERATED_IMAGE_BYTES)') &&
+  aiEngine.includes('redirect: "error"') &&
+  aiEngine.includes('AbortSignal.timeout(20_000)'));
+
+check('Share preview tokens require cryptographic randomness',
+  sharePreviewHandler.includes('secureCrypto.getRandomValues(bytes)') &&
+  !sharePreviewHandler.includes('Math.random()'));
+
+check('Publish version IDs require cryptographic UUIDs',
+  publishHandler.includes("typeof secureCrypto.randomUUID !== 'function'") &&
+  !publishHandler.includes('Math.random()'));
 
 async function runPublishedProxyCase(url, extraHeaders = {}) {
   const originalFetch = globalThis.fetch;
