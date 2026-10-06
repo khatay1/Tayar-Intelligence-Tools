@@ -6,6 +6,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleShee
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/context/useAuth';
 import { colors, radius } from '@/lib/theme';
+import { validatePassword } from '@/lib/password-policy';
 
 export default function ResetPasswordScreen() {
   const insets = useSafeAreaInsets();
@@ -16,7 +17,8 @@ export default function ResetPasswordScreen() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
-  const valid = useMemo(() => password.length >= 8 && password === confirm && !busy, [password, confirm, busy]);
+  const passwordState = useMemo(() => validatePassword(password), [password]);
+  const valid = useMemo(() => passwordState.valid && password === confirm && !busy, [passwordState.valid, password, confirm, busy]);
 
   async function savePassword() {
     if (!valid) return;
@@ -61,7 +63,7 @@ export default function ResetPasswordScreen() {
       <View style={[styles.content, { paddingTop: insets.top + 42, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.iconWrap}><MaterialCommunityIcons name="lock-reset" size={30} color={colors.violetBright} /></View>
         <Text style={styles.title}>Choose a new password</Text>
-        <Text style={styles.subtitle}>Use at least 8 characters. This changes the password for your existing Tayar account.</Text>
+        <Text style={styles.subtitle}>Use at least 8 characters with uppercase, lowercase and a number. This changes the password for your existing Tayar account.</Text>
 
         <Text style={styles.label}>New password</Text>
         <TextInput value={password} onChangeText={setPassword} secureTextEntry autoComplete="new-password" placeholder="8+ characters" placeholderTextColor={colors.muted} style={styles.input} />
@@ -69,7 +71,7 @@ export default function ResetPasswordScreen() {
         <TextInput value={confirm} onChangeText={setConfirm} secureTextEntry autoComplete="new-password" placeholder="Repeat new password" placeholderTextColor={colors.muted} style={styles.input} onSubmitEditing={() => void savePassword()} />
 
         {confirm && password !== confirm ? <Text style={styles.hintError}>Passwords do not match.</Text> : null}
-        {password && password.length < 8 ? <Text style={styles.hintError}>Password must be at least 8 characters.</Text> : null}
+        {password && !passwordState.valid ? <Text style={styles.hintError}>{passwordState.error}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable disabled={!valid} onPress={() => void savePassword()} style={({ pressed }) => [styles.primaryButton, pressed && valid && { opacity: 0.86 }, !valid && styles.disabled]}>
