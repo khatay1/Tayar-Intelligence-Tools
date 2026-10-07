@@ -6,6 +6,15 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  'Save the project before connecting your accounts.': 'احفظ المشروع قبل ربط حساباتك.',
+  'Connect and verify your accounts before publishing.': 'اربط حساباتك وتحقق منها قبل النشر.',
+  'Add application data and access settings before linking a backend.': 'أضف إعدادات بيانات التطبيق والدخول قبل ربط قاعدة البيانات.',
+  'Publishing is blocked. Check your connections and application configuration, then retry. This project has not been verified as ready.': 'النشر متوقف. راجع الاتصالات وإعدادات التطبيق ثم حاول مجددًا. لم يتم التحقق من جاهزية هذا المشروع.',
+  'Code, database and hosting remain in your accounts. Provider billing, backups and ongoing administration belong to you after handover.': 'يبقى الكود وقاعدة البيانات والاستضافة في حساباتك. بعد التسليم تتولى أنت فواتير المزودين والنسخ الاحتياطية والإدارة المستمرة.',
+  'A verified release runs independently of Tayar. Keep its runtime credentials in your hosting account; remove Tayar setup permissions only after verifying the handover.': 'يعمل الإصدار المتحقق منه بشكل مستقل عن طيار. احتفظ ببيانات اعتماد تشغيله في حساب الاستضافة، وألغِ صلاحيات إعداد طيار بعد التحقق من التسليم.',
+  'After handover, you manage these accounts and their billing. Tayar is used for project setup and future edits you request.': 'بعد التسليم تتولى أنت إدارة هذه الحسابات وفواتيرها. يُستخدم طيار لإعداد المشروع وللتعديلات المستقبلية التي تطلبها.',
+  'Connection setup is not available yet. Tayar must activate this provider before you can connect your account.': 'إعداد الاتصال غير متاح بعد. يجب أن يفعّل طيار هذا المزود قبل أن تتمكن من ربط حسابك.',
+  'Save the current project before publishing on your accounts.': 'احفظ المشروع الحالي قبل نشره على حساباتك.',
   'HTML': 'HTML',
   'Application form data': 'بيانات نموذج التطبيق',
   'Bound forms require secure application publishing before they can accept records.': 'تحتاج النماذج المرتبطة إلى نشر التطبيق الآمن قبل استقبال السجلات.',
@@ -70,6 +79,15 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  'Save the project before connecting your accounts.': 'Spara projektet innan du ansluter dina konton.',
+  'Connect and verify your accounts before publishing.': 'Anslut och verifiera dina konton innan du publicerar.',
+  'Add application data and access settings before linking a backend.': 'Lägg till appdata och åtkomstinställningar innan du ansluter en backend.',
+  'Publishing is blocked. Check your connections and application configuration, then retry. This project has not been verified as ready.': 'Publiceringen är blockerad. Kontrollera anslutningarna och appens inställningar och försök igen. Projektets beredskap har inte verifierats.',
+  'Code, database and hosting remain in your accounts. Provider billing, backups and ongoing administration belong to you after handover.': 'Kod, databas och drift finns kvar på dina konton. Efter överlämningen ansvarar du för leverantörernas fakturering, säkerhetskopior och löpande administration.',
+  'A verified release runs independently of Tayar. Keep its runtime credentials in your hosting account; remove Tayar setup permissions only after verifying the handover.': 'En verifierad version körs oberoende av Tayar. Behåll dess driftuppgifter på ditt hostingkonto och ta bort Tayars inställningsbehörigheter först efter att överlämningen har verifierats.',
+  'After handover, you manage these accounts and their billing. Tayar is used for project setup and future edits you request.': 'Efter överlämningen hanterar du dessa konton och deras fakturering. Tayar används för projektets inställningar och framtida ändringar som du begär.',
+  'Connection setup is not available yet. Tayar must activate this provider before you can connect your account.': 'Anslutning är inte tillgänglig ännu. Tayar måste aktivera denna leverantör innan du kan ansluta ditt konto.',
+  'Save the current project before publishing on your accounts.': 'Spara det aktuella projektet innan du publicerar på dina konton.',
   'HTML': 'HTML',
   'Application form data': 'Data för appformulär',
   'Bound forms require secure application publishing before they can accept records.': 'Kopplade formulär kräver säker apppublicering innan de kan ta emot poster.',

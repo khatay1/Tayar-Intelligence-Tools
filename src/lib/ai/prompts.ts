@@ -676,6 +676,9 @@ Return ONLY valid JSON. Do not use markdown fences, comments or prose outside th
 
 Preferred JSON shape:
 {
+  "projectKind": "website|application",
+  "application": "optional ApplicationDefinition for requests needing Auth/data",
+  "unsupportedFeatures": [],
   "siteName": "string",
   "summary": "one short sentence describing the website direction",
   "style": {
@@ -721,7 +724,14 @@ Rules:
 - Use valid 6-digit hex colors.
 - Use pricing only when it genuinely fits the business.
 - Navigation labels should be short and natural.
-- Button URLs should prefer useful anchors such as #contact or page paths such as /services.
+- Internal button URLs MUST be page:<exact-slug> or #<existing-section-anchorId>. Never use root-relative /booking or /services. Set section.anchorId when using a custom anchor. Do not invent #login or #booking-form without a real target.
+- A request for booking, accounts, a patient/staff portal or saved application data is an application, not descriptive marketing pages. Return projectKind="application" and a complete application definition alongside pages. A plain business brochure remains projectKind="website".
+- ApplicationDefinition shape: {"version":1,"tables":[{"id":"appointments","key":"appointments","name":"Appointments","fields":[{"id":"appointment_date","key":"visit_date","name":"Visit date","type":"date","required":true}],"permissions":[{"operation":"read","access":"owner"},{"operation":"create","access":"owner"}]}],"roles":[{"id":"staff","name":"Staff"}],"auth":{"enabled":true,"signUpEnabled":true,"emailVerificationRequired":true},"pageAccess":[{"pageId":"booking","access":"authenticated"},{"pageId":"admin-portal","access":"role","roleId":"staff"}]}. Response pageAccess.pageId MUST be an exact page slug; the editor resolves it to the generated page ID.
+- Table/field keys are lowercase SQL-safe identifiers; IDs are globally unique. System fields id, owner_id, created_at and updated_at already exist. Never redefine them. Never include SQL, credentials, tokens, runtime rows or sample patient data. Public writes are forbidden. Sensitive records require owner or role permissions, not broad authenticated access.
+- Every application contact section needs native formFields and applicationFormBinding: {"operation":"create","tableId":"appointments","fields":[{"formFieldId":"visit_date_input","tableFieldId":"appointment_date"}]}. Each formField has id, name, label, type, required and optional options. Supported form types: text,email,tel,url,textarea,number,date,checkbox,select,radio. Bind all form fields, include every required table field without a default, match data types. Do not return a generic Name/Email/Message form as a booking system.
+- Auth is provided by the independent application runtime. Link to page:<protected-page-slug> for sign-in, never a fake #login anchor.
+- The current runtime supports Auth, role-protected pages and create forms. Live calendars, SMS/email notifications, file uploads, data dashboards/editors, inventory workflows and prescription dispatch require additional adapters. List requested unsupported behaviors in unsupportedFeatures; do not claim to implement them with text or dead buttons.
+- Never claim backend provisioning, legal compliance, encryption guarantees, successful testing or deployment from generated copy. Account connection and verified deployment happen separately under the user's own accounts.
 - Avoid placeholder language such as "Lorem ipsum", "Feature 1", or generic AI filler.
 - If the user explicitly asks for one landing page, keep it one page.
 - If a legacy consumer requires "sections", it may derive them from the first page, but "pages" is the source of truth.

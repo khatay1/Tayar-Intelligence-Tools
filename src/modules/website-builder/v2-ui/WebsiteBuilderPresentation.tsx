@@ -241,7 +241,7 @@ export function WebsiteBuilderPresentation(view: WebsiteBuilderView) {
   );
   const v2SettingsPanel = (<>
     <BuilderInfrastructureSettingsSlot projectId={cloudProjectId} ownerId={user?.id} ownerIsAnonymous={user?.is_anonymous}
-      loadSequence={applicationLoadSequence} />
+      loadSequence={applicationLoadSequence} hasUnsavedChanges={hasUnsavedChanges} />
     <Suspense fallback={<div role="status">{l('Loading...')}</div>}>
       <BuilderApplicationPanel hasUnsavedChanges={hasUnsavedChanges} value={application} pages={getCurrentPages()} cloudProjectId={cloudProjectId} loadSequence={applicationLoadSequence} disabled={cloudBusy || publishBusy || aiBusy} onApply={applyApplicationOperations} />
     </Suspense>

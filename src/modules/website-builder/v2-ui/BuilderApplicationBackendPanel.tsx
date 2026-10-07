@@ -68,7 +68,8 @@ export default function BuilderApplicationBackendPanel({ projectId, definition, 
   return <details className="builder-v2-card builder-v2-card--nested" data-testid="application-backend-panel">
     <summary>{l('Application backend connection')}</summary>
     <p>{l('Connect an existing dedicated backend with the matching application schema.')}</p>
-    {!eligible && <p>{l('Save this project before linking a backend.')}</p>}
+    {(!projectId || !saved) ? <p>{l('Save this project before linking a backend.')}</p>
+      : !definition && <p>{l('Add application data and access settings before linking a backend.')}</p>}
     <p role="status" aria-live="polite">{busy ? l('Checking backend…') : backend ? `${l('Backend linked')}: ${backend.projectRef}` : l('No verified backend connection.')}</p>
     {backend && <p>{l('Backend linked. Publishing still requires the remaining runtime checks.')}</p>}
     {error && <p role="alert">{l(error)}</p>}

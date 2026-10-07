@@ -67,6 +67,9 @@ try {
   const { render } = (await import(pathToFileURL(panelOutfile))).default;
   const html = render({ projectId, definition: app, saved: false });
   assert.match(html, /Save this project before linking a backend/);
+  const savedWithoutDefinition = render({ projectId, saved: true });
+  assert.match(savedWithoutDefinition, /Add application data and access settings before linking a backend/);
+  assert.doesNotMatch(savedWithoutDefinition, /Save this project before linking a backend/);
   assert.match(html, /type="password"/);
   assert.match(html, /autoComplete="new-password"/);
   assert.doesNotMatch(html, /sb_secret_/);

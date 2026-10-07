@@ -20,7 +20,9 @@ try {
   const { BuilderInfrastructurePanel: Panel } = require(outfile);
   const render = (props = {}) => renderToStaticMarkup(React.createElement(Panel, { connections: [], projectSaved: true, ...props }));
   const empty = render();
-  assert.match(empty, /Connect your accounts after saving the project/);
+  assert.match(empty, /Connect and verify your accounts before publishing/);
+  assert.doesNotMatch(empty, /Save the project before connecting/);
+  assert.match(render({ projectSaved: false }), /Save the project before connecting your accounts/);
   assert.match(empty, /Connection setup is not available yet/);
   assert.match(empty, /Connect account/);
   assert.match(empty, /Connect preview/);
@@ -36,7 +38,8 @@ try {
     { ...base, id: '33333333-3333-4333-8333-333333333335', provider: 'vercel', environment: 'production', status: 'connected' },
   ];
   const ready = render({ connections: slots, availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} });
-  assert.match(ready, /Infrastructure ready for publishing/);
+  assert.doesNotMatch(ready, /Infrastructure ready for publishing/, 'Connected, outdated schema and failed deployment are not readiness');
+  assert.match(render({ connections: slots.map(item => ({ ...item, status: 'ready' })), availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} }), /Infrastructure ready for publishing/);
   assert.match(ready, /Manage connection/);
   assert.match(ready, /Manage preview/);
   assert.match(ready, /Manage production/);

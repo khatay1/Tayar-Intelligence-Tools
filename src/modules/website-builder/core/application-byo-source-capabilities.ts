@@ -1,3 +1,4 @@
+import { websiteProjectLinkIssues } from './website-project-links';
 import { readApplicationDefinition } from './application-validation';
 import { readEditorIntegrationsFromProject } from './editor-integrations-project-host';
 import { validateEditorIntegrations } from './editor-integrations';
@@ -63,6 +64,7 @@ export function analyzeByoSourceCapabilities(snapshot: Record<string, unknown>, 
       }
     }
   }
+  blockers.push(...websiteProjectLinkIssues(snapshot.pages, typeof snapshot.homePageId === 'string' ? snapshot.homePageId : undefined).map(issue => issue.message));
   const definition = readApplicationDefinition(snapshot.application, ids);
   const privatePages = definition.pageAccess.some(rule => rule.access !== 'public');
   const auth = definition.auth.enabled || privatePages || definition.roles.length > 0;

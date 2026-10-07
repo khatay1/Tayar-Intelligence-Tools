@@ -14,6 +14,7 @@ interface EnvConfig {
   gaMeasurementId: string;
   sentryDsn: string;
   stripePublishableKey: string;
+  websiteByoPublishEnabled: boolean;
   websiteGithubConnectionUrl: string;
   websiteSupabaseConnectionUrl: string;
   websiteVercelConnectionUrl: string;
@@ -36,6 +37,7 @@ export const env: EnvConfig = {
   gaMeasurementId: getEnv('VITE_GA_MEASUREMENT_ID'),
   sentryDsn: getEnv('VITE_SENTRY_DSN'),
   stripePublishableKey: getEnv('VITE_STRIPE_PUBLISHABLE_KEY'),
+  websiteByoPublishEnabled: getEnv('VITE_WEBSITE_BYO_PUBLISH_ENABLED') === 'true',
   websiteGithubConnectionUrl: getEnv('VITE_WEBSITE_GITHUB_CONNECTION_URL'),
   websiteSupabaseConnectionUrl: getEnv('VITE_WEBSITE_SUPABASE_CONNECTION_URL'),
   websiteVercelConnectionUrl: getEnv('VITE_WEBSITE_VERCEL_CONNECTION_URL'),

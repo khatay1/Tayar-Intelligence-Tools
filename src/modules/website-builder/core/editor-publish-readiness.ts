@@ -1,3 +1,4 @@
+import { websiteProjectLinkIssues } from './website-project-links';
 import type { EditorProjectLike } from './editor-model';
 import { validateEditorProject } from './editor-validation';
 import { applicationPublishBlockers } from './application-publish-readiness';
@@ -39,6 +40,7 @@ export function checkEditorPublishReadiness<P extends EditorProjectLike>(
   const blockers: EditorReadinessIssue[] = [];
   const warnings: EditorReadinessIssue[] = [];
   const validation = validateEditorProject(project);
+  for (const issue of websiteProjectLinkIssues(project.pages, project.homePageId)) addIssue(blockers, { ...issue, severity: 'blocker' });
   for (const issue of applicationPublishBlockers(project.application, new Set(project.pages.map(page => page.id)))) {
     addIssue(blockers, { code: `APPLICATION_${issue.code}`, severity: 'blocker', message: `${issue.path}: ${issue.message}` });
   }

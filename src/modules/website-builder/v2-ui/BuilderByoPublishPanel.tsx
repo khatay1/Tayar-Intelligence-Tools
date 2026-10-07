@@ -14,6 +14,8 @@ function view(result?:WebsiteByoPublishResult|null):ViewStatus{return result?.st
 export function BuilderByoPublishPanel({projectSaved,controller,initialPreview=null,initialProduction=null,pollIntervalMs=3000}:Props){
   const l=useLocalizer(),[preview,setPreview]=useState<WebsiteByoPublishResult|null>(initialPreview);
   const[production,setProduction]=useState<WebsiteByoPublishResult|null>(initialProduction),[failed,setFailed]=useState<WebsiteByoPublishEnvironment|null>(null);
+  useEffect(()=>{if(initialPreview)setPreview(initialPreview);},[initialPreview]);
+  useEffect(()=>{if(initialProduction)setProduction(initialProduction);},[initialProduction]);
   const[busy,setBusy]=useState<WebsiteByoPublishEnvironment|null>(null),available=projectSaved&&Boolean(controller);
   useEffect(()=>{if(!controller)return;const pending:WebsiteByoPublishEnvironment[]=[];if(preview?.status==='pending'&&failed!=='preview')pending.push('preview');if(production?.status==='pending'&&failed!=='production')pending.push('production');
     if(!pending.length)return;let active=true;const timer=window.setTimeout(()=>{void Promise.all(pending.map(async environment=>{try{const result=await controller.poll(environment);if(!active||!result)return;
@@ -26,13 +28,15 @@ export function BuilderByoPublishPanel({projectSaved,controller,initialPreview=n
   const row=(environment:WebsiteByoPublishEnvironment,result:WebsiteByoPublishResult|null)=>{const status=failed===environment?'failed':view(result);
     const canProduction=environment==='preview'||preview?.status==='ready';return <div className="builder-v2-card builder-v2-card--nested" data-environment={environment}>
       <div className="builder-v2-card__header"><strong>{l(environment==='preview'?'Preview':'Production')}</strong><span role="status">{l(status)}</span></div>
-      {result&&<small>{l('Stage')}: {result.stage}</small>}{result?.liveUrl&&<a href={result.liveUrl} target="_blank" rel="noreferrer">{l('Open published website')}</a>}
+      {result&&<small>{l('Stage')}: {result.stage}</small>}{status==='blocked'&&<p role="alert">{l('Publishing is blocked. Check your connections and application configuration, then retry. This project has not been verified as ready.')}</p>}{result?.liveUrl&&<a href={result.liveUrl} target="_blank" rel="noreferrer">{l('Open published website')}</a>}
       <button type="button" disabled={!available||!canProduction||Boolean(busy)||status==='pending'} onClick={()=>void start(environment)}>
         {busy===environment?l('Publishing…'):l(environment==='preview'?'Create verified preview':'Publish verified preview')}
       </button>{environment==='production'&&preview?.status!=='ready'&&<small>{l('Create and verify a preview first.')}</small>}
     </div>;};
   return <section className="builder-v2-card" data-testid="byo-publish-panel"><div className="builder-v2-card__header"><div><strong>{l('Publish on your infrastructure')}</strong>
     <p>{l('Tayar prepares and verifies the release. Your connected accounts run it.')}</p></div></div>
+    <p>{l('Code, database and hosting remain in your accounts. Provider billing, backups and ongoing administration belong to you after handover.')}</p>
+    <p>{l('A verified release runs independently of Tayar. Keep its runtime credentials in your hosting account; remove Tayar setup permissions only after verifying the handover.')}</p>
     {row('preview',preview)}{row('production',production)}
     {!controller&&<small>{l('Publishing endpoint is not available yet.')}</small>}
   </section>;

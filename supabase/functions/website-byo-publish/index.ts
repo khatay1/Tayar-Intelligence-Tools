@@ -538,455 +538,6 @@ function validateOwnedApplicationPublicBackend(config, expectedProjectRef) {
   }
 }
 
-// src/modules/website-builder/core/editor-integration-security.ts
-function isEditorSecretReference(value) {
-  return typeof value === "string" && /^secret:\/\/[a-zA-Z0-9][a-zA-Z0-9/_:.-]{0,450}$/.test(value) && value !== "secret://redacted";
-}
-function isEditorProjectSecretReferenceFor(value, connectionId, field2, environment) {
-  if (!isEditorSecretReference(value)) return false;
-  const match = /^secret:\/\/website\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/([a-zA-Z0-9][a-zA-Z0-9_-]{0,119})\/([a-zA-Z][a-zA-Z0-9_-]{0,63})\/(preview|staging|production)$/i.exec(value);
-  return Boolean(match && match[2] === connectionId && match[3] === field2 && match[4] === environment);
-}
-function hasEmbeddedIntegrationCredentials(value) {
-  try {
-    const url = new URL(value);
-    return Boolean(url.username || url.password) || [...url.searchParams.keys()].some((key2) => /^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key2));
-  } catch {
-    return false;
-  }
-}
-function isPublicIntegrationEndpoint(value) {
-  if (typeof value !== "string" || value.length > 2e3) return false;
-  try {
-    const url = new URL(value);
-    const host = url.hostname.toLowerCase().replace(/\.$/, "");
-    if (url.protocol !== "https:" || url.username || url.password || url.hash || url.port && url.port !== "443") return false;
-    if (!host.includes(".") || host.includes(":") || /^[\d.]+$/.test(host)) return false;
-    if (/(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(host)) return false;
-    if (!/^[a-z0-9.-]+$/.test(host) || host.split(".").some((part) => !part || part.startsWith("-") || part.endsWith("-"))) return false;
-    for (const key2 of url.searchParams.keys()) {
-      if (/^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key2)) return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// src/modules/website-builder/core/editor-integrations.ts
-var EDITOR_INTEGRATION_PROVIDERS = [
-  { id: "google-analytics", name: "Google Analytics", category: "analytics", description: "Measure traffic and page events.", capabilities: ["pageviews", "events"], fields: [{ key: "measurementId", label: "Measurement ID", type: "text", required: true, placeholder: "G-XXXXXXXXXX" }] },
-  { id: "plausible", name: "Plausible", category: "analytics", description: "Privacy-focused website analytics.", capabilities: ["pageviews", "events"], fields: [{ key: "domain", label: "Site domain", type: "text", required: true }] },
-  { id: "stripe", name: "Stripe", category: "payments", description: "Payments and checkout events.", capabilities: ["checkout", "payment-events"], fields: [{ key: "publishableKey", label: "Publishable key", type: "text", required: true }, { key: "secretKey", label: "Secret key", type: "secret", required: true, secret: true }], supportedEvents: ["commerce.checkout", "commerce.paid"] },
-  { id: "resend", name: "Resend", category: "email", description: "Transactional email delivery.", capabilities: ["transactional-email"], fields: [{ key: "from", label: "From address", type: "text", required: true }, { key: "apiKey", label: "API key", type: "secret", required: true, secret: true }], supportedEvents: ["form.submitted", "contact.created"] },
-  { id: "hubspot", name: "HubSpot", category: "crm", description: "Send leads and contacts to CRM.", capabilities: ["contacts"], fields: [{ key: "accessToken", label: "Private app token", type: "secret", required: true, secret: true }], supportedEvents: ["form.submitted", "contact.created"] },
-  { id: "http-api", name: "HTTP API", category: "api", description: "Call a custom HTTP endpoint.", capabilities: ["http-request"], fields: [{ key: "url", label: "Endpoint URL", type: "url", required: true }, { key: "authorization", label: "Authorization", type: "secret", secret: true }], supportedEvents: ["form.submitted", "site.published", "site.unpublished", "commerce.checkout", "commerce.paid", "contact.created", "custom"] },
-  { id: "webhook", name: "Webhook", category: "webhook", description: "Deliver signed project events to an external endpoint.", capabilities: ["signed-webhooks"], fields: [{ key: "url", label: "Webhook URL", type: "url", required: true }, { key: "signingSecret", label: "Signing secret", type: "secret", required: true, secret: true }], supportedEvents: ["form.submitted", "site.published", "site.unpublished", "commerce.checkout", "commerce.paid", "contact.created", "custom"] }
-];
-function createEditorIntegrationsConfig() {
-  return { version: 1, connections: [] };
-}
-function getEditorIntegrationProvider(providerId2) {
-  return EDITOR_INTEGRATION_PROVIDERS.find((provider11) => provider11.id === providerId2);
-}
-function cleanString(value, max = 2e3) {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
-}
-function normalizeEditorIntegrationsConfig(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return createEditorIntegrationsConfig();
-  const raw = value;
-  const connections = Array.isArray(raw.connections) ? raw.connections : [];
-  const normalized = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const candidate of connections) {
-    if (!candidate || typeof candidate !== "object") continue;
-    const source = candidate;
-    const id4 = cleanString(source.id, 120);
-    const providerId2 = cleanString(source.providerId, 120);
-    if (!id4 || seen.has(id4) || !getEditorIntegrationProvider(providerId2)) continue;
-    seen.add(id4);
-    const provider11 = getEditorIntegrationProvider(providerId2);
-    const publicFields = new Set(provider11.fields.filter((field2) => !field2.secret).map((field2) => field2.key));
-    const secretFields = new Set(provider11.fields.filter((field2) => field2.secret).map((field2) => field2.key));
-    const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([key2, item]) => publicFields.has(key2) && (typeof item === "string" || typeof item === "boolean")).map(([key2, item]) => [key2, typeof item === "string" ? item.slice(0, 5e3) : item]));
-    for (const field2 of provider11.fields) {
-      if (field2.type === "url" && typeof config[field2.key] === "string" && hasEmbeddedIntegrationCredentials(String(config[field2.key]))) delete config[field2.key];
-    }
-    if (providerId2 === "stripe" && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
-    const secrets2 = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key2, item]) => secretFields.has(key2) && !!item && typeof item === "object" && isEditorSecretReference(item.ref)).map(([key2, item]) => [key2, { ref: item.ref, updatedAt: cleanString(item.updatedAt, 80) || void 0 }]));
-    const environments = Array.from(new Set((Array.isArray(source.environments) ? source.environments : ["production"]).filter((item) => item === "preview" || item === "staging" || item === "production")));
-    normalized.push({ id: id4, providerId: providerId2, name: cleanString(source.name, 160) || provider11.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
-  }
-  return { version: 1, connections: normalized };
-}
-function validateEditorIntegrations(config) {
-  const issues = [];
-  const ids2 = /* @__PURE__ */ new Set();
-  const stripeEnvironments = /* @__PURE__ */ new Set();
-  for (const connection2 of config.connections) {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection2.id)) issues.push({ connectionId: connection2.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
-    if (ids2.has(connection2.id)) issues.push({ connectionId: connection2.id, code: "duplicate-id", message: `Duplicate integration id: ${connection2.id}` });
-    ids2.add(connection2.id);
-    const provider11 = getEditorIntegrationProvider(connection2.providerId);
-    if (!provider11) {
-      issues.push({ connectionId: connection2.id, code: "unknown-provider", message: `Unknown integration provider: ${connection2.providerId}` });
-      continue;
-    }
-    for (const key2 of Object.keys(connection2.config)) {
-      if (!provider11.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection2.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
-    }
-    for (const [key2, secret] of Object.entries(connection2.secrets)) {
-      if (!provider11.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection2.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
-      else if (secret.ref.startsWith("secret://website/") && (connection2.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection2.id, key2, connection2.environments[0]))) {
-        issues.push({ connectionId: connection2.id, field: key2, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
-      }
-    }
-    if (connection2.providerId === "stripe") {
-      const publishable2 = typeof connection2.config.publishableKey === "string" ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection2.config.publishableKey) : null;
-      if (connection2.config.publishableKey && !publishable2) issues.push({ connectionId: connection2.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
-      if (connection2.environments.length !== 1) issues.push({ connectionId: connection2.id, code: "invalid-config", message: "Stripe credentials must target exactly one environment." });
-      if (publishable2 && connection2.environments.length === 1) {
-        const expectedMode = connection2.environments[0] === "production" ? "live" : "test";
-        if (publishable2[1] !== expectedMode) issues.push({ connectionId: connection2.id, field: "publishableKey", code: "invalid-config", message: `Stripe ${connection2.environments[0]} requires a ${expectedMode}-mode publishable key.` });
-        if (connection2.enabled) {
-          const environment = connection2.environments[0];
-          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection2.id, code: "invalid-config", message: `Only one enabled Stripe account can target ${environment}.` });
-          stripeEnvironments.add(environment);
-        }
-      }
-    }
-    for (const field2 of provider11.fields) {
-      if (!field2.required) continue;
-      if (field2.secret) {
-        if (!connection2.secrets[field2.key]?.ref) issues.push({ connectionId: connection2.id, field: field2.key, code: "missing-secret", message: `${field2.label} is required.` });
-      } else if (connection2.config[field2.key] === void 0 || connection2.config[field2.key] === "") issues.push({ connectionId: connection2.id, field: field2.key, code: "missing-field", message: `${field2.label} is required.` });
-    }
-    for (const field2 of provider11.fields.filter((item) => item.type === "url")) {
-      const value = connection2.config[field2.key];
-      if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection2.id, field: field2.key, code: "invalid-url", message: `${field2.label} must use a public HTTPS URL without embedded credentials.` });
-    }
-    if (provider11.supportedEvents) {
-      for (const event of connection2.events ?? []) if (!provider11.supportedEvents.includes(event)) issues.push({ connectionId: connection2.id, code: "unsupported-event", message: `${provider11.name} does not support ${event}.` });
-    }
-  }
-  return issues;
-}
-
-// src/modules/website-builder/core/editor-integrations-storage.ts
-function deserializeEditorIntegrations(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return createEditorIntegrationsConfig();
-  if ("config" in value) return normalizeEditorIntegrationsConfig(value.config);
-  return normalizeEditorIntegrationsConfig(value);
-}
-
-// src/modules/website-builder/core/editor-integrations-project-host.ts
-var EDITOR_INTEGRATIONS_PROJECT_KEY = "integrationsMax";
-function readEditorIntegrationsFromProject(projectData) {
-  if (!projectData || typeof projectData !== "object" || Array.isArray(projectData)) return deserializeEditorIntegrations(void 0);
-  const project9 = projectData;
-  const maxState = project9.maxState && typeof project9.maxState === "object" && !Array.isArray(project9.maxState) ? project9.maxState : {};
-  return deserializeEditorIntegrations(maxState.integrations ?? project9[EDITOR_INTEGRATIONS_PROJECT_KEY] ?? project9.integrations ?? project9.integrationsConfig);
-}
-function editorIntegrationPublishBlockers(config) {
-  const production = config.connections.filter((connection2) => connection2.enabled && connection2.environments.includes("production"));
-  const productionIds = new Set(production.map((connection2) => connection2.id));
-  return [
-    ...validateEditorIntegrations(config).filter((issue) => typeof issue.connectionId === "string" && productionIds.has(issue.connectionId)).map((issue) => issue.message),
-    ...production.filter((connection2) => connection2.providerId !== "stripe" || (connection2.events?.length ?? 0) > 0).map((connection2) => `${connection2.name}: integration execution is not deployed for published sites.`)
-  ];
-}
-
-// src/modules/website-builder/core/application-byo-source-capabilities.ts
-var checkoutId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,159}$/;
-var price = /^price_[A-Za-z0-9]{8,128}$/;
-function analyzeByoSourceCapabilities(snapshot, environment) {
-  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot) || !["preview", "production"].includes(environment) || !Array.isArray(snapshot.pages) || !snapshot.pages.length || snapshot.pages.length > 100) {
-    throw new Error("BYO source capabilities are unavailable.");
-  }
-  const ids2 = /* @__PURE__ */ new Set(), checkoutIds = /* @__PURE__ */ new Set(), blockers = [];
-  const stripeCheckouts = [];
-  let forms = false;
-  for (const page of snapshot.pages) {
-    if (!page || typeof page.id !== "string" || !page.id || ids2.has(page.id) || !Array.isArray(page.sections) || page.sections.length > 100) throw new Error("BYO source page identity is unavailable.");
-    ids2.add(page.id);
-    if (page.cmsTemplate) blockers.push("CMS template routes need a verified customer-owned data adapter.");
-    for (const section of page.sections) {
-      if (!section || typeof section !== "object") throw new Error("BYO source section is unavailable.");
-      forms ||= "applicationFormBinding" in section;
-      if ("cmsBinding" in section) blockers.push("CMS bindings need a verified customer-owned data adapter.");
-      if (section.type === "code" || section.type === "embed" || Array.isArray(section.elements) && section.elements.some((element) => element?.type === "code" || element?.type === "embed")) {
-        blockers.push("Custom code and embeds need a reviewed customer-owned runtime.");
-      }
-      if (section.type === "contact" && !("applicationFormBinding" in section)) {
-        blockers.push("Contact forms require a saved application form binding.");
-      }
-      if (Array.isArray(section.elements)) for (const raw of section.elements) {
-        if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
-        const element = raw;
-        if (element.type !== "button" || element.action !== "stripe-checkout") continue;
-        const id4 = typeof element.id === "string" ? element.id : "";
-        const previewPriceId = typeof element.stripePreviewPriceId === "string" ? element.stripePreviewPriceId.trim() : "";
-        const productionPriceId = typeof element.stripeProductionPriceId === "string" ? element.stripeProductionPriceId.trim() : "";
-        if (!checkoutId.test(id4) || checkoutIds.has(id4) || !price.test(previewPriceId) || !price.test(productionPriceId)) {
-          blockers.push("Stripe checkout buttons require unique IDs plus valid Preview and Production Price IDs.");
-          continue;
-        }
-        checkoutIds.add(id4);
-        stripeCheckouts.push({ id: id4, previewPriceId, productionPriceId });
-      }
-    }
-  }
-  const definition = readApplicationDefinition(snapshot.application, ids2);
-  const privatePages = definition.pageAccess.some((rule) => rule.access !== "public");
-  const auth = definition.auth.enabled || privatePages || definition.roles.length > 0;
-  const database = !!definition.tables.length || auth || forms;
-  const cms = !!(snapshot.cms && typeof snapshot.cms === "object" && Array.isArray(snapshot.cms.collections) && snapshot.cms.collections.length);
-  if (cms) blockers.push("CMS collections need an asset and data export adapter.");
-  const integrationConfig = readEditorIntegrationsFromProject(snapshot);
-  const active = integrationConfig.connections.filter((connection2) => connection2.enabled && connection2.status !== "disabled" && connection2.environments.includes(environment));
-  const integrationProviders = [...new Set(active.map((connection2) => connection2.providerId))].sort();
-  const issues = validateEditorIntegrations({ version: 1, connections: active });
-  if (issues.length) blockers.push("Active integrations contain invalid configuration or credential references.");
-  if (active.some((connection2) => connection2.providerId !== "stripe"))
-    blockers.push("External integrations other than Stripe checkout still need a customer-owned runtime adapter.");
-  const stripe = active.filter((connection2) => connection2.providerId === "stripe");
-  if (stripe.some((connection2) => (connection2.events?.length ?? 0) > 0))
-    blockers.push("Stripe event automation is not deployed yet; checkout buttons are supported without integration events.");
-  if (stripeCheckouts.length && stripe.length !== 1)
-    blockers.push("Stripe checkout requires exactly one enabled Stripe connection for this environment.");
-  if (forms && !definition.auth.enabled) blockers.push("Bound forms need configured application Auth and RLS.");
-  return {
-    definition,
-    pageIds: [...ids2],
-    needs: {
-      auth,
-      database,
-      privatePages,
-      forms,
-      integrations: active.length > 0 || stripeCheckouts.length > 0,
-      cms
-    },
-    integrationProviders,
-    stripeCheckouts,
-    blockers: [...new Set(blockers)]
-  };
-}
-
-// src/modules/website-builder/core/defaults.ts
-function normalizeCmsBinding(value) {
-  if (!value || typeof value !== "object") return void 0;
-  const source = value;
-  if (typeof source.collectionId !== "string" || typeof source.fieldKey !== "string") return void 0;
-  const target2 = source.target === "src" || source.target === "href" ? source.target : "content";
-  return {
-    collectionId: source.collectionId.slice(0, 120),
-    fieldKey: source.fieldKey.slice(0, 80),
-    referenceFieldKey: typeof source.referenceFieldKey === "string" ? source.referenceFieldKey.slice(0, 80) : void 0,
-    entryId: typeof source.entryId === "string" ? source.entryId.slice(0, 120) : void 0,
-    target: target2
-  };
-}
-function normalizeElementContainer(container, index) {
-  const number = (value, fallback, min, max) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
-  };
-  return {
-    id: typeof container.id === "string" && container.id ? container.id : `container-${Date.now()}-${index}`,
-    name: typeof container.name === "string" && container.name.trim() ? container.name.slice(0, 80) : `Container ${index + 1}`,
-    layout: container.layout === "row" || container.layout === "grid" ? container.layout : "stack",
-    gap: number(container.gap, 16, 0, 80),
-    rowGap: container.rowGap === void 0 ? void 0 : number(container.rowGap, 16, 0, 80),
-    columns: container.columns === void 0 ? void 0 : number(container.columns, 2, 1, 12),
-    wrap: container.wrap !== false,
-    align: container.align === "start" || container.align === "end" || container.align === "stretch" ? container.align : "center",
-    justify: container.justify === "start" || container.justify === "end" || container.justify === "between" ? container.justify : "center",
-    backgroundColor: typeof container.backgroundColor === "string" ? container.backgroundColor : "#ffffff08",
-    padding: number(container.padding, 20, 0, 120),
-    borderRadius: number(container.borderRadius, 16, 0, 120),
-    borderWidth: number(container.borderWidth, 1, 0, 16),
-    borderColor: typeof container.borderColor === "string" ? container.borderColor : "#ffffff18",
-    shadow: container.shadow === "sm" || container.shadow === "md" || container.shadow === "lg" || container.shadow === "xl" ? container.shadow : "none",
-    layoutColumn: container.layoutColumn ? number(container.layoutColumn, 1, 1, 3) : void 0,
-    columnSpan: container.columnSpan ? number(container.columnSpan, 1, 1, 3) : void 0
-  };
-}
-function createDefaultContactFormFields() {
-  return [
-    { id: `field-name-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: "name", label: "Name", type: "text", placeholder: "Your name", required: true },
-    { id: `field-email-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: "email", label: "Email", type: "email", placeholder: "Your email", required: true },
-    { id: `field-message-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: "message", label: "Message", type: "textarea", placeholder: "Your message", required: true }
-  ];
-}
-function elementId(type) {
-  return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-function createElement(type, accent = "#7c3aed") {
-  if (type === "heading") {
-    return { id: elementId(type), type, content: "New heading", style: { color: "#ffffff", fontSize: 42, fontWeight: 800, textAlign: "center" } };
-  }
-  if (type === "text") {
-    return { id: elementId(type), type, content: "Add your text here.", style: { color: "#cbd5e1", fontSize: 16, fontWeight: 400, textAlign: "center" } };
-  }
-  if (type === "button") {
-    return { id: elementId(type), type, content: "Learn More", href: "#contact", style: { color: "#ffffff", backgroundColor: accent, fontSize: 14, fontWeight: 700, textAlign: "center", padding: 12, borderRadius: 12 } };
-  }
-  if (type === "image") {
-    return { id: elementId(type), type, content: "Image", src: "", style: { width: 100, borderRadius: 16 } };
-  }
-  if (type === "video") {
-    return { id: elementId(type), type, content: "Video", src: "", style: { width: 100, borderRadius: 16, backgroundColor: "#000000" } };
-  }
-  if (type === "list") {
-    return { id: elementId(type), type, content: "First benefit\nSecond benefit\nThird benefit", style: { color: "#cbd5e1", fontSize: 16, fontWeight: 400, textAlign: "left" } };
-  }
-  if (type === "divider") {
-    return { id: elementId(type), type, content: "", style: { backgroundColor: accent, width: 100, opacity: 0.35 } };
-  }
-  if (type === "spacer") {
-    return { id: elementId(type), type, content: "", style: { padding: 24, width: 100 } };
-  }
-  if (type === "accordion") {
-    return { id: elementId(type), type, content: "What do you offer? | Describe your service here.\nHow does it work? | Explain the process in a clear answer.\nHow can I start? | Add the next step for your customer.", style: { color: "#ffffff", backgroundColor: "#ffffff08", fontSize: 16, width: 100, borderRadius: 14, padding: 14 } };
-  }
-  if (type === "tabs") {
-    return { id: elementId(type), type, content: "Overview | Add your overview content here.\nFeatures | Describe the main features here.\nDetails | Add more information here.", style: { color: "#ffffff", backgroundColor: "#ffffff08", fontSize: 16, width: 100, borderRadius: 14, padding: 14 } };
-  }
-  if (type === "gallery") {
-    return { id: elementId(type), type, content: "https://images.unsplash.com/photo-1497366811353-6870744d04b2\nhttps://images.unsplash.com/photo-1497366754035-f200968a6e72\nhttps://images.unsplash.com/photo-1497366216548-37526070297c", style: { width: 100, borderRadius: 14 } };
-  }
-  if (type === "embed") {
-    return { id: elementId(type), type, content: "Map or embedded content", src: "", style: { width: 100, borderRadius: 14, backgroundColor: "#ffffff08" } };
-  }
-  if (type === "countdown") {
-    return { id: elementId(type), type, content: "2026-12-31T23:59:59 | Launching soon", style: { color: "#ffffff", backgroundColor: "#ffffff08", width: 100, borderRadius: 16, padding: 18, textAlign: "center" } };
-  }
-  if (type === "stats") {
-    return { id: elementId(type), type, content: "120 | Projects completed\n98 | Satisfaction %\n24 | Countries served", style: { color: "#ffffff", backgroundColor: "#ffffff08", width: 100, borderRadius: 16, padding: 18, textAlign: "center" } };
-  }
-  if (type === "testimonials-slider") {
-    return { id: elementId(type), type, content: "Alex | Amazing experience and excellent results.\nSarah | Professional, simple and exactly what we needed.\nDaniel | The easiest way to present our business online.", style: { color: "#ffffff", backgroundColor: "#ffffff08", width: 100, borderRadius: 16, padding: 18, textAlign: "center" } };
-  }
-  return { id: elementId(type), type, content: '<div style="padding:24px;text-align:center"><strong>Custom HTML</strong><p>Edit this block in the inspector.</p></div>', style: { width: 100, borderRadius: 14 } };
-}
-function createDefaultElements(section) {
-  const elements = [
-    { ...createElement("heading", section.accent), content: section.title },
-    { ...createElement("text", section.accent), content: section.description }
-  ];
-  if (section.image) elements.push({ ...createElement("image", section.accent), src: section.image });
-  if (section.buttonText) elements.push({ ...createElement("button", section.accent), content: section.buttonText, href: section.buttonUrl });
-  return elements;
-}
-function buildSection(id4, type, data) {
-  const section = { id: id4, type, ...data };
-  return { ...section, layout: "stack", layoutGap: 20, layoutAlign: "center", elements: createDefaultElements(section) };
-}
-var defaultSections = [
-  buildSection("hero-1", "hero", { title: "Build Something Amazing", description: "Create a professional website for your business, portfolio, service or personal brand.", buttonText: "Get Started", buttonUrl: "#contact", background: "#111827", accent: "#7c3aed" }),
-  buildSection("features-1", "features", { title: "Everything You Need", description: "Showcase the key benefits that make your product or service different.", buttonText: "Explore Features", buttonUrl: "#features", background: "#0f172a", accent: "#8b5cf6" }),
-  buildSection("about-1", "about", { title: "About Your Business", description: "Tell visitors who you are, what you do and why they should choose you.", buttonText: "Learn More", buttonUrl: "#about", background: "#111827", accent: "#a855f7" }),
-  buildSection("contact-1", "contact", { title: "Let's Work Together", description: "Ready to get started? Give your customers an easy way to contact you.", buttonText: "Contact Us", buttonUrl: "mailto:hello@example.com", background: "#0f172a", accent: "#7c3aed" }),
-  buildSection("footer-1", "footer", { title: "Your Company", description: "All rights reserved.", buttonText: "", buttonUrl: "", background: "#020617", accent: "#7c3aed" })
-];
-function createSection(type) {
-  const templates = {
-    hero: { title: "New Hero Section", description: "Introduce your website and your main offer.", buttonText: "Get Started", buttonUrl: "#contact", background: "#111827", accent: "#7c3aed" },
-    features: { title: "Our Features", description: "Show the main benefits of your product or service.", buttonText: "Learn More", buttonUrl: "#features", background: "#0f172a", accent: "#8b5cf6" },
-    about: { title: "About Us", description: "Tell your visitors more about your company.", buttonText: "Read More", buttonUrl: "#about", background: "#111827", accent: "#a855f7" },
-    services: { title: "Our Services", description: "Present the services you offer to your customers.", buttonText: "View Services", buttonUrl: "#services", background: "#0f172a", accent: "#6366f1" },
-    pricing: { title: "Simple Pricing", description: "Present your plans and pricing clearly.", buttonText: "Choose Plan", buttonUrl: "#contact", background: "#111827", accent: "#8b5cf6" },
-    testimonials: { title: "What Customers Say", description: "Build trust with testimonials from your customers.", buttonText: "See Reviews", buttonUrl: "#contact", background: "#0f172a", accent: "#a855f7" },
-    contact: { title: "Contact Us", description: "Make it easy for customers to get in touch.", buttonText: "Send Message", buttonUrl: "mailto:hello@example.com", background: "#111827", accent: "#7c3aed" },
-    footer: { title: "Your Company", description: "All rights reserved.", buttonText: "", buttonUrl: "", background: "#020617", accent: "#7c3aed" }
-  };
-  const data = templates[type];
-  const section = buildSection(`${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type, data);
-  if (type === "contact") {
-    return {
-      ...section,
-      formFields: createDefaultContactFormFields(),
-      formSuccessMessage: "Thanks! Your message has been sent.",
-      formSuccessAction: "message",
-      formRedirectUrl: "",
-      formName: "Contact form",
-      formSpamProtection: "standard",
-      formMinimumCompletionSeconds: 3,
-      formAutomations: []
-    };
-  }
-  return section;
-}
-function normalizeSectionResponsiveStyle(value) {
-  const source = value && typeof value === "object" ? value : {};
-  const finite = (candidate, min, max) => {
-    const parsed = Number(candidate);
-    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : void 0;
-  };
-  return {
-    minHeight: finite(source.minHeight, 0, 1200),
-    sectionPaddingY: finite(source.sectionPaddingY, 0, 240),
-    sectionPaddingX: finite(source.sectionPaddingX, 0, 160),
-    layoutGap: finite(source.layoutGap, 0, 80)
-  };
-}
-function normalizeSectionResponsive(value) {
-  if (!value || typeof value !== "object") return void 0;
-  const source = value;
-  const result = {};
-  ["desktop", "tablet", "mobile"].forEach((device) => {
-    if (!source[device] || typeof source[device] !== "object") return;
-    const normalized = normalizeSectionResponsiveStyle(source[device]);
-    if (Object.values(normalized).some((entry) => entry !== void 0)) result[device] = normalized;
-  });
-  return Object.keys(result).length ? result : void 0;
-}
-function normalizeSection(section) {
-  const base = createSection(section.type);
-  const merged = { ...base, ...section };
-  const layout = section.layout === "two-column" || section.layout === "three-column" ? section.layout : "stack";
-  const columnCount = layout === "three-column" ? 3 : layout === "two-column" ? 2 : 1;
-  const layoutGapValue = Number(section.layoutGap);
-  const layoutGap = Number.isFinite(layoutGapValue) ? Math.min(80, Math.max(0, layoutGapValue)) : 20;
-  const layoutAlign = section.layoutAlign === "start" || section.layoutAlign === "end" || section.layoutAlign === "stretch" ? section.layoutAlign : "center";
-  const sourceElements = Array.isArray(section.elements) && section.elements.length ? section.elements : createDefaultElements(merged);
-  const containers = Array.isArray(section.containers) ? section.containers.map((container, index) => normalizeElementContainer(container, index)).slice(0, 30) : [];
-  const containerIds = new Set(containers.map((container) => container.id));
-  return {
-    ...merged,
-    layout,
-    layoutGap,
-    layoutAlign,
-    responsive: normalizeSectionResponsive(section.responsive),
-    containers,
-    formFields: section.type === "contact" ? Array.isArray(section.formFields) ? section.formFields : createDefaultContactFormFields() : section.formFields,
-    formSuccessMessage: section.type === "contact" ? section.formSuccessMessage || "Thanks! Your message has been sent." : section.formSuccessMessage,
-    formSuccessAction: section.type === "contact" && section.formSuccessAction === "redirect" ? "redirect" : "message",
-    formRedirectUrl: section.type === "contact" && typeof section.formRedirectUrl === "string" ? section.formRedirectUrl : "",
-    formName: section.type === "contact" && typeof section.formName === "string" ? section.formName.slice(0, 120) : section.formName,
-    formSpamProtection: section.type === "contact" && section.formSpamProtection === "enhanced" ? "enhanced" : "standard",
-    formMinimumCompletionSeconds: section.type === "contact" ? Math.min(60, Math.max(1, Number(section.formMinimumCompletionSeconds) || 3)) : section.formMinimumCompletionSeconds,
-    formAutomations: section.type === "contact" && Array.isArray(section.formAutomations) ? section.formAutomations.slice(0, 10) : section.formAutomations,
-    elements: sourceElements.map((element, index) => ({
-      ...element,
-      cmsBinding: normalizeCmsBinding(element.cmsBinding),
-      containerId: element.containerId && containerIds.has(element.containerId) ? element.containerId : void 0,
-      layoutColumn: layout === "stack" ? void 0 : Math.min(columnCount, Math.max(1, Number(element.layoutColumn) || index % columnCount + 1))
-    }))
-  };
-}
-
-// src/modules/website-builder/core/project-identifiers.ts
-function normalizeSlug(value) {
-  return value.normalize("NFKC").toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "page";
-}
-function normalizePageLanguage(value, fallback = "en") {
-  return value === "ar" || value === "sv" || value === "en" ? value : fallback;
-}
-function languageCodeLabel(language) {
-  return language.toUpperCase();
-}
-
 // src/lib/ui-localization-data.ts
 var ar = {
   "Could not prepare website media. Please try again.": "\u062A\u0639\u0630\u0631 \u062A\u062C\u0647\u064A\u0632 \u0648\u0633\u0627\u0626\u0637 \u0627\u0644\u0645\u0648\u0642\u0639. \u062D\u0627\u0648\u0644 \u0645\u062C\u062F\u062F\u064B\u0627.",
@@ -7995,6 +7546,17 @@ function elementAnimationEasing(value) {
   return "cubic-bezier(.22,1,.36,1)";
 }
 
+// src/modules/website-builder/core/project-identifiers.ts
+function normalizeSlug(value) {
+  return value.normalize("NFKC").toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "page";
+}
+function normalizePageLanguage(value, fallback = "en") {
+  return value === "ar" || value === "sv" || value === "en" ? value : fallback;
+}
+function languageCodeLabel(language) {
+  return language.toUpperCase();
+}
+
 // src/modules/website-builder/core/website-localization.ts
 function normalizeWebsiteLocalization(value, fallbackLanguage = "en") {
   const defaultLanguage = value?.defaultLanguage === "ar" || value?.defaultLanguage === "sv" || value?.defaultLanguage === "en" ? value.defaultLanguage : fallbackLanguage;
@@ -8028,6 +7590,210 @@ function websitePathUrl(baseUrl, path, homeUsesIndexFile) {
   if (!normalizedBase) return "";
   if (path === "index.html" && !homeUsesIndexFile) return `${normalizedBase}/`;
   return `${normalizedBase}/${path}`;
+}
+
+// src/modules/website-builder/core/defaults.ts
+function normalizeCmsBinding(value) {
+  if (!value || typeof value !== "object") return void 0;
+  const source = value;
+  if (typeof source.collectionId !== "string" || typeof source.fieldKey !== "string") return void 0;
+  const target2 = source.target === "src" || source.target === "href" ? source.target : "content";
+  return {
+    collectionId: source.collectionId.slice(0, 120),
+    fieldKey: source.fieldKey.slice(0, 80),
+    referenceFieldKey: typeof source.referenceFieldKey === "string" ? source.referenceFieldKey.slice(0, 80) : void 0,
+    entryId: typeof source.entryId === "string" ? source.entryId.slice(0, 120) : void 0,
+    target: target2
+  };
+}
+function normalizeElementContainer(container, index) {
+  const number = (value, fallback, min, max) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+  };
+  return {
+    id: typeof container.id === "string" && container.id ? container.id : `container-${Date.now()}-${index}`,
+    name: typeof container.name === "string" && container.name.trim() ? container.name.slice(0, 80) : `Container ${index + 1}`,
+    layout: container.layout === "row" || container.layout === "grid" ? container.layout : "stack",
+    gap: number(container.gap, 16, 0, 80),
+    rowGap: container.rowGap === void 0 ? void 0 : number(container.rowGap, 16, 0, 80),
+    columns: container.columns === void 0 ? void 0 : number(container.columns, 2, 1, 12),
+    wrap: container.wrap !== false,
+    align: container.align === "start" || container.align === "end" || container.align === "stretch" ? container.align : "center",
+    justify: container.justify === "start" || container.justify === "end" || container.justify === "between" ? container.justify : "center",
+    backgroundColor: typeof container.backgroundColor === "string" ? container.backgroundColor : "#ffffff08",
+    padding: number(container.padding, 20, 0, 120),
+    borderRadius: number(container.borderRadius, 16, 0, 120),
+    borderWidth: number(container.borderWidth, 1, 0, 16),
+    borderColor: typeof container.borderColor === "string" ? container.borderColor : "#ffffff18",
+    shadow: container.shadow === "sm" || container.shadow === "md" || container.shadow === "lg" || container.shadow === "xl" ? container.shadow : "none",
+    layoutColumn: container.layoutColumn ? number(container.layoutColumn, 1, 1, 3) : void 0,
+    columnSpan: container.columnSpan ? number(container.columnSpan, 1, 1, 3) : void 0
+  };
+}
+function createDefaultContactFormFields() {
+  return [
+    { id: `field-name-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: "name", label: "Name", type: "text", placeholder: "Your name", required: true },
+    { id: `field-email-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: "email", label: "Email", type: "email", placeholder: "Your email", required: true },
+    { id: `field-message-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, name: "message", label: "Message", type: "textarea", placeholder: "Your message", required: true }
+  ];
+}
+function elementId(type) {
+  return `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+function createElement(type, accent = "#7c3aed") {
+  if (type === "heading") {
+    return { id: elementId(type), type, content: "New heading", style: { color: "#ffffff", fontSize: 42, fontWeight: 800, textAlign: "center" } };
+  }
+  if (type === "text") {
+    return { id: elementId(type), type, content: "Add your text here.", style: { color: "#cbd5e1", fontSize: 16, fontWeight: 400, textAlign: "center" } };
+  }
+  if (type === "button") {
+    return { id: elementId(type), type, content: "Learn More", href: "#contact", style: { color: "#ffffff", backgroundColor: accent, fontSize: 14, fontWeight: 700, textAlign: "center", padding: 12, borderRadius: 12 } };
+  }
+  if (type === "image") {
+    return { id: elementId(type), type, content: "Image", src: "", style: { width: 100, borderRadius: 16 } };
+  }
+  if (type === "video") {
+    return { id: elementId(type), type, content: "Video", src: "", style: { width: 100, borderRadius: 16, backgroundColor: "#000000" } };
+  }
+  if (type === "list") {
+    return { id: elementId(type), type, content: "First benefit\nSecond benefit\nThird benefit", style: { color: "#cbd5e1", fontSize: 16, fontWeight: 400, textAlign: "left" } };
+  }
+  if (type === "divider") {
+    return { id: elementId(type), type, content: "", style: { backgroundColor: accent, width: 100, opacity: 0.35 } };
+  }
+  if (type === "spacer") {
+    return { id: elementId(type), type, content: "", style: { padding: 24, width: 100 } };
+  }
+  if (type === "accordion") {
+    return { id: elementId(type), type, content: "What do you offer? | Describe your service here.\nHow does it work? | Explain the process in a clear answer.\nHow can I start? | Add the next step for your customer.", style: { color: "#ffffff", backgroundColor: "#ffffff08", fontSize: 16, width: 100, borderRadius: 14, padding: 14 } };
+  }
+  if (type === "tabs") {
+    return { id: elementId(type), type, content: "Overview | Add your overview content here.\nFeatures | Describe the main features here.\nDetails | Add more information here.", style: { color: "#ffffff", backgroundColor: "#ffffff08", fontSize: 16, width: 100, borderRadius: 14, padding: 14 } };
+  }
+  if (type === "gallery") {
+    return { id: elementId(type), type, content: "https://images.unsplash.com/photo-1497366811353-6870744d04b2\nhttps://images.unsplash.com/photo-1497366754035-f200968a6e72\nhttps://images.unsplash.com/photo-1497366216548-37526070297c", style: { width: 100, borderRadius: 14 } };
+  }
+  if (type === "embed") {
+    return { id: elementId(type), type, content: "Map or embedded content", src: "", style: { width: 100, borderRadius: 14, backgroundColor: "#ffffff08" } };
+  }
+  if (type === "countdown") {
+    return { id: elementId(type), type, content: "2026-12-31T23:59:59 | Launching soon", style: { color: "#ffffff", backgroundColor: "#ffffff08", width: 100, borderRadius: 16, padding: 18, textAlign: "center" } };
+  }
+  if (type === "stats") {
+    return { id: elementId(type), type, content: "120 | Projects completed\n98 | Satisfaction %\n24 | Countries served", style: { color: "#ffffff", backgroundColor: "#ffffff08", width: 100, borderRadius: 16, padding: 18, textAlign: "center" } };
+  }
+  if (type === "testimonials-slider") {
+    return { id: elementId(type), type, content: "Alex | Amazing experience and excellent results.\nSarah | Professional, simple and exactly what we needed.\nDaniel | The easiest way to present our business online.", style: { color: "#ffffff", backgroundColor: "#ffffff08", width: 100, borderRadius: 16, padding: 18, textAlign: "center" } };
+  }
+  return { id: elementId(type), type, content: '<div style="padding:24px;text-align:center"><strong>Custom HTML</strong><p>Edit this block in the inspector.</p></div>', style: { width: 100, borderRadius: 14 } };
+}
+function createDefaultElements(section) {
+  const elements = [
+    { ...createElement("heading", section.accent), content: section.title },
+    { ...createElement("text", section.accent), content: section.description }
+  ];
+  if (section.image) elements.push({ ...createElement("image", section.accent), src: section.image });
+  if (section.buttonText) elements.push({ ...createElement("button", section.accent), content: section.buttonText, href: section.buttonUrl });
+  return elements;
+}
+function buildSection(id4, type, data) {
+  const section = { id: id4, type, ...data };
+  return { ...section, layout: "stack", layoutGap: 20, layoutAlign: "center", elements: createDefaultElements(section) };
+}
+var defaultSections = [
+  buildSection("hero-1", "hero", { title: "Build Something Amazing", description: "Create a professional website for your business, portfolio, service or personal brand.", buttonText: "Get Started", buttonUrl: "#contact", background: "#111827", accent: "#7c3aed" }),
+  buildSection("features-1", "features", { title: "Everything You Need", description: "Showcase the key benefits that make your product or service different.", buttonText: "Explore Features", buttonUrl: "#features", background: "#0f172a", accent: "#8b5cf6" }),
+  buildSection("about-1", "about", { title: "About Your Business", description: "Tell visitors who you are, what you do and why they should choose you.", buttonText: "Learn More", buttonUrl: "#about", background: "#111827", accent: "#a855f7" }),
+  buildSection("contact-1", "contact", { title: "Let's Work Together", description: "Ready to get started? Give your customers an easy way to contact you.", buttonText: "Contact Us", buttonUrl: "mailto:hello@example.com", background: "#0f172a", accent: "#7c3aed" }),
+  buildSection("footer-1", "footer", { title: "Your Company", description: "All rights reserved.", buttonText: "", buttonUrl: "", background: "#020617", accent: "#7c3aed" })
+];
+function createSection(type) {
+  const templates = {
+    hero: { title: "New Hero Section", description: "Introduce your website and your main offer.", buttonText: "Get Started", buttonUrl: "#contact", background: "#111827", accent: "#7c3aed" },
+    features: { title: "Our Features", description: "Show the main benefits of your product or service.", buttonText: "Learn More", buttonUrl: "#features", background: "#0f172a", accent: "#8b5cf6" },
+    about: { title: "About Us", description: "Tell your visitors more about your company.", buttonText: "Read More", buttonUrl: "#about", background: "#111827", accent: "#a855f7" },
+    services: { title: "Our Services", description: "Present the services you offer to your customers.", buttonText: "View Services", buttonUrl: "#services", background: "#0f172a", accent: "#6366f1" },
+    pricing: { title: "Simple Pricing", description: "Present your plans and pricing clearly.", buttonText: "Choose Plan", buttonUrl: "#contact", background: "#111827", accent: "#8b5cf6" },
+    testimonials: { title: "What Customers Say", description: "Build trust with testimonials from your customers.", buttonText: "See Reviews", buttonUrl: "#contact", background: "#0f172a", accent: "#a855f7" },
+    contact: { title: "Contact Us", description: "Make it easy for customers to get in touch.", buttonText: "Send Message", buttonUrl: "mailto:hello@example.com", background: "#111827", accent: "#7c3aed" },
+    footer: { title: "Your Company", description: "All rights reserved.", buttonText: "", buttonUrl: "", background: "#020617", accent: "#7c3aed" }
+  };
+  const data = templates[type];
+  const section = buildSection(`${type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type, data);
+  if (type === "contact") {
+    return {
+      ...section,
+      formFields: createDefaultContactFormFields(),
+      formSuccessMessage: "Thanks! Your message has been sent.",
+      formSuccessAction: "message",
+      formRedirectUrl: "",
+      formName: "Contact form",
+      formSpamProtection: "standard",
+      formMinimumCompletionSeconds: 3,
+      formAutomations: []
+    };
+  }
+  return section;
+}
+function normalizeSectionResponsiveStyle(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const finite = (candidate, min, max) => {
+    const parsed = Number(candidate);
+    return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : void 0;
+  };
+  return {
+    minHeight: finite(source.minHeight, 0, 1200),
+    sectionPaddingY: finite(source.sectionPaddingY, 0, 240),
+    sectionPaddingX: finite(source.sectionPaddingX, 0, 160),
+    layoutGap: finite(source.layoutGap, 0, 80)
+  };
+}
+function normalizeSectionResponsive(value) {
+  if (!value || typeof value !== "object") return void 0;
+  const source = value;
+  const result = {};
+  ["desktop", "tablet", "mobile"].forEach((device) => {
+    if (!source[device] || typeof source[device] !== "object") return;
+    const normalized = normalizeSectionResponsiveStyle(source[device]);
+    if (Object.values(normalized).some((entry) => entry !== void 0)) result[device] = normalized;
+  });
+  return Object.keys(result).length ? result : void 0;
+}
+function normalizeSection(section) {
+  const base = createSection(section.type);
+  const merged = { ...base, ...section };
+  const layout = section.layout === "two-column" || section.layout === "three-column" ? section.layout : "stack";
+  const columnCount = layout === "three-column" ? 3 : layout === "two-column" ? 2 : 1;
+  const layoutGapValue = Number(section.layoutGap);
+  const layoutGap = Number.isFinite(layoutGapValue) ? Math.min(80, Math.max(0, layoutGapValue)) : 20;
+  const layoutAlign = section.layoutAlign === "start" || section.layoutAlign === "end" || section.layoutAlign === "stretch" ? section.layoutAlign : "center";
+  const sourceElements = Array.isArray(section.elements) && section.elements.length ? section.elements : createDefaultElements(merged);
+  const containers = Array.isArray(section.containers) ? section.containers.map((container, index) => normalizeElementContainer(container, index)).slice(0, 30) : [];
+  const containerIds = new Set(containers.map((container) => container.id));
+  return {
+    ...merged,
+    layout,
+    layoutGap,
+    layoutAlign,
+    responsive: normalizeSectionResponsive(section.responsive),
+    containers,
+    formFields: section.type === "contact" ? Array.isArray(section.formFields) ? section.formFields : createDefaultContactFormFields() : section.formFields,
+    formSuccessMessage: section.type === "contact" ? section.formSuccessMessage || "Thanks! Your message has been sent." : section.formSuccessMessage,
+    formSuccessAction: section.type === "contact" && section.formSuccessAction === "redirect" ? "redirect" : "message",
+    formRedirectUrl: section.type === "contact" && typeof section.formRedirectUrl === "string" ? section.formRedirectUrl : "",
+    formName: section.type === "contact" && typeof section.formName === "string" ? section.formName.slice(0, 120) : section.formName,
+    formSpamProtection: section.type === "contact" && section.formSpamProtection === "enhanced" ? "enhanced" : "standard",
+    formMinimumCompletionSeconds: section.type === "contact" ? Math.min(60, Math.max(1, Number(section.formMinimumCompletionSeconds) || 3)) : section.formMinimumCompletionSeconds,
+    formAutomations: section.type === "contact" && Array.isArray(section.formAutomations) ? section.formAutomations.slice(0, 10) : section.formAutomations,
+    elements: sourceElements.map((element, index) => ({
+      ...element,
+      cmsBinding: normalizeCmsBinding(element.cmsBinding),
+      containerId: element.containerId && containerIds.has(element.containerId) ? element.containerId : void 0,
+      layoutColumn: layout === "stack" ? void 0 : Math.min(columnCount, Math.max(1, Number(element.layoutColumn) || index % columnCount + 1))
+    }))
+  };
 }
 
 // src/modules/website-builder/core/website-builder-config.ts
@@ -8584,8 +8350,10 @@ function videoSource(value) {
 }
 function resolveBuilderHref(value, homeSlug = "home") {
   if (!value.startsWith("page:")) return value || "#";
-  const slug3 = normalizeSlug(value.slice(5));
-  return slug3 === normalizeSlug(homeSlug) ? "index.html" : `${slug3}.html`;
+  const [path, fragment] = value.slice(5).split("#", 2);
+  const slug3 = normalizeSlug(path);
+  const route = slug3 === normalizeSlug(homeSlug) ? "index.html" : `${slug3}.html`;
+  return fragment ? `${route}#${normalizeAnchorId(fragment, "section")}` : route;
 }
 function safeFormRedirectHref(value, homeSlug = "home") {
   const resolved = resolveBuilderHref(value || "", homeSlug).trim();
@@ -9563,6 +9331,646 @@ function effectiveStyle(element, device) {
   return { ...element.style, ...element.responsive?.[device] || {} };
 }
 
+// src/modules/website-builder/core/website-project-links.ts
+function websiteProjectLinkIssues(pages, homePageId) {
+  const issues = [];
+  const find = (path) => pages.find((page) => page.slug === path.replace(/\.html$/, ""));
+  const hasAnchor = (page, anchor) => ["tayar-main-content", "top"].includes(anchor) || page.sections.some((section) => normalizeAnchorId(String(section.anchorId || section.type || ""), String(section.type || "section")) === anchor);
+  const check = (href, page, section, elementId2) => {
+    if (typeof href !== "string") return;
+    const value = href.trim();
+    if (!value || value === "#" || /^(?:https?:|mailto:|tel:|\/\/)/i.test(value)) return;
+    let target2 = page, anchor = "", code = "";
+    if (value.startsWith("#")) anchor = value.slice(1);
+    else if (value.startsWith("page:")) {
+      const parts = value.slice(5).split("#");
+      target2 = find(parts[0]);
+      anchor = parts[1] ?? "";
+      if (parts.length > 2 || !target2) code = "LINK_PAGE_MISSING";
+    } else if (value.startsWith("/")) code = "LINK_ESCAPES_PROJECT";
+    else if (!/^[a-z][a-z0-9+.-]*:/i.test(value)) {
+      const parts = value.replace(/^\.\//, "").split("#");
+      target2 = parts[0] === "index.html" ? pages.find((page2) => page2.id === homePageId) ?? pages[0] : find(parts[0]);
+      anchor = parts[1] ?? "";
+      if (parts.length > 2 || !target2) code = "LINK_PAGE_MISSING";
+    }
+    if (!code && target2 && anchor && !hasAnchor(target2, anchor)) code = "LINK_ANCHOR_MISSING";
+    if (code) issues.push({ code, message: `Link "${value}" has no valid destination inside this project.`, pageId: page.id, sectionId: section.id, ...elementId2 ? { elementId: elementId2 } : {} });
+  };
+  for (const page of pages) for (const section of page.sections) {
+    if (section.type !== "contact" && section.buttonText) check(section.buttonUrl, page, section);
+    for (const element of section.elements) if (element.type === "button" && (!element.action || element.action === "link")) {
+      if (section.type !== "contact") check(element.href, page, section, element.id);
+    }
+  }
+  return issues;
+}
+
+// src/modules/website-builder/core/editor-integration-security.ts
+function isEditorSecretReference(value) {
+  return typeof value === "string" && /^secret:\/\/[a-zA-Z0-9][a-zA-Z0-9/_:.-]{0,450}$/.test(value) && value !== "secret://redacted";
+}
+function isEditorProjectSecretReferenceFor(value, connectionId, field2, environment) {
+  if (!isEditorSecretReference(value)) return false;
+  const match = /^secret:\/\/website\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/([a-zA-Z0-9][a-zA-Z0-9_-]{0,119})\/([a-zA-Z][a-zA-Z0-9_-]{0,63})\/(preview|staging|production)$/i.exec(value);
+  return Boolean(match && match[2] === connectionId && match[3] === field2 && match[4] === environment);
+}
+function hasEmbeddedIntegrationCredentials(value) {
+  try {
+    const url = new URL(value);
+    return Boolean(url.username || url.password) || [...url.searchParams.keys()].some((key2) => /^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key2));
+  } catch {
+    return false;
+  }
+}
+function isPublicIntegrationEndpoint(value) {
+  if (typeof value !== "string" || value.length > 2e3) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/\.$/, "");
+    if (url.protocol !== "https:" || url.username || url.password || url.hash || url.port && url.port !== "443") return false;
+    if (!host.includes(".") || host.includes(":") || /^[\d.]+$/.test(host)) return false;
+    if (/(^|\.)(localhost|local|internal|test|invalid|onion)$/.test(host)) return false;
+    if (!/^[a-z0-9.-]+$/.test(host) || host.split(".").some((part) => !part || part.startsWith("-") || part.endsWith("-"))) return false;
+    for (const key2 of url.searchParams.keys()) {
+      if (/^(api[_-]?key|access[_-]?token|token|secret|password|authorization)$/i.test(key2)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// src/modules/website-builder/core/editor-integrations.ts
+var EDITOR_INTEGRATION_PROVIDERS = [
+  { id: "google-analytics", name: "Google Analytics", category: "analytics", description: "Measure traffic and page events.", capabilities: ["pageviews", "events"], fields: [{ key: "measurementId", label: "Measurement ID", type: "text", required: true, placeholder: "G-XXXXXXXXXX" }] },
+  { id: "plausible", name: "Plausible", category: "analytics", description: "Privacy-focused website analytics.", capabilities: ["pageviews", "events"], fields: [{ key: "domain", label: "Site domain", type: "text", required: true }] },
+  { id: "stripe", name: "Stripe", category: "payments", description: "Payments and checkout events.", capabilities: ["checkout", "payment-events"], fields: [{ key: "publishableKey", label: "Publishable key", type: "text", required: true }, { key: "secretKey", label: "Secret key", type: "secret", required: true, secret: true }], supportedEvents: ["commerce.checkout", "commerce.paid"] },
+  { id: "resend", name: "Resend", category: "email", description: "Transactional email delivery.", capabilities: ["transactional-email"], fields: [{ key: "from", label: "From address", type: "text", required: true }, { key: "apiKey", label: "API key", type: "secret", required: true, secret: true }], supportedEvents: ["form.submitted", "contact.created"] },
+  { id: "hubspot", name: "HubSpot", category: "crm", description: "Send leads and contacts to CRM.", capabilities: ["contacts"], fields: [{ key: "accessToken", label: "Private app token", type: "secret", required: true, secret: true }], supportedEvents: ["form.submitted", "contact.created"] },
+  { id: "http-api", name: "HTTP API", category: "api", description: "Call a custom HTTP endpoint.", capabilities: ["http-request"], fields: [{ key: "url", label: "Endpoint URL", type: "url", required: true }, { key: "authorization", label: "Authorization", type: "secret", secret: true }], supportedEvents: ["form.submitted", "site.published", "site.unpublished", "commerce.checkout", "commerce.paid", "contact.created", "custom"] },
+  { id: "webhook", name: "Webhook", category: "webhook", description: "Deliver signed project events to an external endpoint.", capabilities: ["signed-webhooks"], fields: [{ key: "url", label: "Webhook URL", type: "url", required: true }, { key: "signingSecret", label: "Signing secret", type: "secret", required: true, secret: true }], supportedEvents: ["form.submitted", "site.published", "site.unpublished", "commerce.checkout", "commerce.paid", "contact.created", "custom"] }
+];
+function createEditorIntegrationsConfig() {
+  return { version: 1, connections: [] };
+}
+function getEditorIntegrationProvider(providerId2) {
+  return EDITOR_INTEGRATION_PROVIDERS.find((provider11) => provider11.id === providerId2);
+}
+function cleanString(value, max = 2e3) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+function normalizeEditorIntegrationsConfig(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return createEditorIntegrationsConfig();
+  const raw = value;
+  const connections = Array.isArray(raw.connections) ? raw.connections : [];
+  const normalized = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const candidate of connections) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const source = candidate;
+    const id4 = cleanString(source.id, 120);
+    const providerId2 = cleanString(source.providerId, 120);
+    if (!id4 || seen.has(id4) || !getEditorIntegrationProvider(providerId2)) continue;
+    seen.add(id4);
+    const provider11 = getEditorIntegrationProvider(providerId2);
+    const publicFields = new Set(provider11.fields.filter((field2) => !field2.secret).map((field2) => field2.key));
+    const secretFields = new Set(provider11.fields.filter((field2) => field2.secret).map((field2) => field2.key));
+    const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([key2, item]) => publicFields.has(key2) && (typeof item === "string" || typeof item === "boolean")).map(([key2, item]) => [key2, typeof item === "string" ? item.slice(0, 5e3) : item]));
+    for (const field2 of provider11.fields) {
+      if (field2.type === "url" && typeof config[field2.key] === "string" && hasEmbeddedIntegrationCredentials(String(config[field2.key]))) delete config[field2.key];
+    }
+    if (providerId2 === "stripe" && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
+    const secrets2 = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key2, item]) => secretFields.has(key2) && !!item && typeof item === "object" && isEditorSecretReference(item.ref)).map(([key2, item]) => [key2, { ref: item.ref, updatedAt: cleanString(item.updatedAt, 80) || void 0 }]));
+    const environments = Array.from(new Set((Array.isArray(source.environments) ? source.environments : ["production"]).filter((item) => item === "preview" || item === "staging" || item === "production")));
+    normalized.push({ id: id4, providerId: providerId2, name: cleanString(source.name, 160) || provider11.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
+  }
+  return { version: 1, connections: normalized };
+}
+function validateEditorIntegrations(config) {
+  const issues = [];
+  const ids2 = /* @__PURE__ */ new Set();
+  const stripeEnvironments = /* @__PURE__ */ new Set();
+  for (const connection2 of config.connections) {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection2.id)) issues.push({ connectionId: connection2.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
+    if (ids2.has(connection2.id)) issues.push({ connectionId: connection2.id, code: "duplicate-id", message: `Duplicate integration id: ${connection2.id}` });
+    ids2.add(connection2.id);
+    const provider11 = getEditorIntegrationProvider(connection2.providerId);
+    if (!provider11) {
+      issues.push({ connectionId: connection2.id, code: "unknown-provider", message: `Unknown integration provider: ${connection2.providerId}` });
+      continue;
+    }
+    for (const key2 of Object.keys(connection2.config)) {
+      if (!provider11.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection2.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
+    }
+    for (const [key2, secret] of Object.entries(connection2.secrets)) {
+      if (!provider11.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection2.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
+      else if (secret.ref.startsWith("secret://website/") && (connection2.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection2.id, key2, connection2.environments[0]))) {
+        issues.push({ connectionId: connection2.id, field: key2, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
+      }
+    }
+    if (connection2.providerId === "stripe") {
+      const publishable2 = typeof connection2.config.publishableKey === "string" ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection2.config.publishableKey) : null;
+      if (connection2.config.publishableKey && !publishable2) issues.push({ connectionId: connection2.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
+      if (connection2.environments.length !== 1) issues.push({ connectionId: connection2.id, code: "invalid-config", message: "Stripe credentials must target exactly one environment." });
+      if (publishable2 && connection2.environments.length === 1) {
+        const expectedMode = connection2.environments[0] === "production" ? "live" : "test";
+        if (publishable2[1] !== expectedMode) issues.push({ connectionId: connection2.id, field: "publishableKey", code: "invalid-config", message: `Stripe ${connection2.environments[0]} requires a ${expectedMode}-mode publishable key.` });
+        if (connection2.enabled) {
+          const environment = connection2.environments[0];
+          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection2.id, code: "invalid-config", message: `Only one enabled Stripe account can target ${environment}.` });
+          stripeEnvironments.add(environment);
+        }
+      }
+    }
+    for (const field2 of provider11.fields) {
+      if (!field2.required) continue;
+      if (field2.secret) {
+        if (!connection2.secrets[field2.key]?.ref) issues.push({ connectionId: connection2.id, field: field2.key, code: "missing-secret", message: `${field2.label} is required.` });
+      } else if (connection2.config[field2.key] === void 0 || connection2.config[field2.key] === "") issues.push({ connectionId: connection2.id, field: field2.key, code: "missing-field", message: `${field2.label} is required.` });
+    }
+    for (const field2 of provider11.fields.filter((item) => item.type === "url")) {
+      const value = connection2.config[field2.key];
+      if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection2.id, field: field2.key, code: "invalid-url", message: `${field2.label} must use a public HTTPS URL without embedded credentials.` });
+    }
+    if (provider11.supportedEvents) {
+      for (const event of connection2.events ?? []) if (!provider11.supportedEvents.includes(event)) issues.push({ connectionId: connection2.id, code: "unsupported-event", message: `${provider11.name} does not support ${event}.` });
+    }
+  }
+  return issues;
+}
+
+// src/modules/website-builder/core/editor-integrations-storage.ts
+function deserializeEditorIntegrations(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return createEditorIntegrationsConfig();
+  if ("config" in value) return normalizeEditorIntegrationsConfig(value.config);
+  return normalizeEditorIntegrationsConfig(value);
+}
+
+// src/modules/website-builder/core/editor-integrations-project-host.ts
+var EDITOR_INTEGRATIONS_PROJECT_KEY = "integrationsMax";
+function readEditorIntegrationsFromProject(projectData) {
+  if (!projectData || typeof projectData !== "object" || Array.isArray(projectData)) return deserializeEditorIntegrations(void 0);
+  const project9 = projectData;
+  const maxState = project9.maxState && typeof project9.maxState === "object" && !Array.isArray(project9.maxState) ? project9.maxState : {};
+  return deserializeEditorIntegrations(maxState.integrations ?? project9[EDITOR_INTEGRATIONS_PROJECT_KEY] ?? project9.integrations ?? project9.integrationsConfig);
+}
+function editorIntegrationPublishBlockers(config) {
+  const production = config.connections.filter((connection2) => connection2.enabled && connection2.environments.includes("production"));
+  const productionIds = new Set(production.map((connection2) => connection2.id));
+  return [
+    ...validateEditorIntegrations(config).filter((issue) => typeof issue.connectionId === "string" && productionIds.has(issue.connectionId)).map((issue) => issue.message),
+    ...production.filter((connection2) => connection2.providerId !== "stripe" || (connection2.events?.length ?? 0) > 0).map((connection2) => `${connection2.name}: integration execution is not deployed for published sites.`)
+  ];
+}
+
+// src/modules/website-builder/core/application-byo-source-capabilities.ts
+var checkoutId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,159}$/;
+var price = /^price_[A-Za-z0-9]{8,128}$/;
+function analyzeByoSourceCapabilities(snapshot, environment) {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot) || !["preview", "production"].includes(environment) || !Array.isArray(snapshot.pages) || !snapshot.pages.length || snapshot.pages.length > 100) {
+    throw new Error("BYO source capabilities are unavailable.");
+  }
+  const ids2 = /* @__PURE__ */ new Set(), checkoutIds = /* @__PURE__ */ new Set(), blockers = [];
+  const stripeCheckouts = [];
+  let forms = false;
+  for (const page of snapshot.pages) {
+    if (!page || typeof page.id !== "string" || !page.id || ids2.has(page.id) || !Array.isArray(page.sections) || page.sections.length > 100) throw new Error("BYO source page identity is unavailable.");
+    ids2.add(page.id);
+    if (page.cmsTemplate) blockers.push("CMS template routes need a verified customer-owned data adapter.");
+    for (const section of page.sections) {
+      if (!section || typeof section !== "object") throw new Error("BYO source section is unavailable.");
+      forms ||= "applicationFormBinding" in section;
+      if ("cmsBinding" in section) blockers.push("CMS bindings need a verified customer-owned data adapter.");
+      if (section.type === "code" || section.type === "embed" || Array.isArray(section.elements) && section.elements.some((element) => element?.type === "code" || element?.type === "embed")) {
+        blockers.push("Custom code and embeds need a reviewed customer-owned runtime.");
+      }
+      if (section.type === "contact" && !("applicationFormBinding" in section)) {
+        blockers.push("Contact forms require a saved application form binding.");
+      }
+      if (Array.isArray(section.elements)) for (const raw of section.elements) {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+        const element = raw;
+        if (element.type !== "button" || element.action !== "stripe-checkout") continue;
+        const id4 = typeof element.id === "string" ? element.id : "";
+        const previewPriceId = typeof element.stripePreviewPriceId === "string" ? element.stripePreviewPriceId.trim() : "";
+        const productionPriceId = typeof element.stripeProductionPriceId === "string" ? element.stripeProductionPriceId.trim() : "";
+        if (!checkoutId.test(id4) || checkoutIds.has(id4) || !price.test(previewPriceId) || !price.test(productionPriceId)) {
+          blockers.push("Stripe checkout buttons require unique IDs plus valid Preview and Production Price IDs.");
+          continue;
+        }
+        checkoutIds.add(id4);
+        stripeCheckouts.push({ id: id4, previewPriceId, productionPriceId });
+      }
+    }
+  }
+  blockers.push(...websiteProjectLinkIssues(snapshot.pages, typeof snapshot.homePageId === "string" ? snapshot.homePageId : void 0).map((issue) => issue.message));
+  const definition = readApplicationDefinition(snapshot.application, ids2);
+  const privatePages = definition.pageAccess.some((rule) => rule.access !== "public");
+  const auth = definition.auth.enabled || privatePages || definition.roles.length > 0;
+  const database = !!definition.tables.length || auth || forms;
+  const cms = !!(snapshot.cms && typeof snapshot.cms === "object" && Array.isArray(snapshot.cms.collections) && snapshot.cms.collections.length);
+  if (cms) blockers.push("CMS collections need an asset and data export adapter.");
+  const integrationConfig = readEditorIntegrationsFromProject(snapshot);
+  const active = integrationConfig.connections.filter((connection2) => connection2.enabled && connection2.status !== "disabled" && connection2.environments.includes(environment));
+  const integrationProviders = [...new Set(active.map((connection2) => connection2.providerId))].sort();
+  const issues = validateEditorIntegrations({ version: 1, connections: active });
+  if (issues.length) blockers.push("Active integrations contain invalid configuration or credential references.");
+  if (active.some((connection2) => connection2.providerId !== "stripe"))
+    blockers.push("External integrations other than Stripe checkout still need a customer-owned runtime adapter.");
+  const stripe = active.filter((connection2) => connection2.providerId === "stripe");
+  if (stripe.some((connection2) => (connection2.events?.length ?? 0) > 0))
+    blockers.push("Stripe event automation is not deployed yet; checkout buttons are supported without integration events.");
+  if (stripeCheckouts.length && stripe.length !== 1)
+    blockers.push("Stripe checkout requires exactly one enabled Stripe connection for this environment.");
+  if (forms && !definition.auth.enabled) blockers.push("Bound forms need configured application Auth and RLS.");
+  return {
+    definition,
+    pageIds: [...ids2],
+    needs: {
+      auth,
+      database,
+      privatePages,
+      forms,
+      integrations: active.length > 0 || stripeCheckouts.length > 0,
+      cms
+    },
+    integrationProviders,
+    stripeCheckouts,
+    blockers: [...new Set(blockers)]
+  };
+}
+
+// src/modules/website-builder/core/application-schema-sql.ts
+var sqlName = (value) => `"${value}"`;
+var literal = (value) => `'${value.replace(/'/g, "''")}'`;
+var tableName = (table) => `app_${table.key}`;
+var fieldType = (field2) => ({
+  text: "text",
+  number: "numeric",
+  boolean: "boolean",
+  date: "date",
+  datetime: "timestamptz",
+  uuid: "uuid",
+  json: "jsonb",
+  enum: "text",
+  reference: "uuid"
+})[field2.type];
+var operationSql = { read: "SELECT", create: "INSERT", update: "UPDATE", delete: "DELETE" };
+var permanentUser = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
+function condition(rule) {
+  switch (rule.access) {
+    case "public":
+      return "true";
+    case "authenticated":
+      return permanentUser;
+    case "owner":
+      return `(${permanentUser} and (select auth.uid()) = owner_id)`;
+    case "role":
+      return `(${permanentUser} and (select private.app_has_role(${literal(rule.roleId)})))`;
+  }
+}
+function column(field2) {
+  const parts = [sqlName(field2.key), fieldType(field2)];
+  if (field2.required) parts.push("not null");
+  if (field2.defaultValue !== void 0 && field2.defaultValue !== null) {
+    parts.push(`default ${typeof field2.defaultValue === "string" ? literal(field2.defaultValue) : String(field2.defaultValue)}`);
+  }
+  if (field2.type === "enum") parts.push(`check (${sqlName(field2.key)} in (${field2.options.map(literal).join(", ")}))`);
+  return parts.join(" ");
+}
+function fieldIndex(tableIndex, index, table, field2) {
+  const name2 = `public.${sqlName(tableName(table))}`;
+  if (field2.unique) return [`create unique index ${sqlName(`app_i_${tableIndex}_${index}_unique`)} on ${name2} (${sqlName(field2.key)});`];
+  if (field2.indexed || field2.type === "reference") return [`create index ${sqlName(`app_i_${tableIndex}_${index}`)} on ${name2} (${sqlName(field2.key)});`];
+  return [];
+}
+function referenceConstraint(app, tableIndex, fieldIndex2, field2) {
+  const table = app.tables[tableIndex];
+  const target2 = app.tables.find((item) => item.id === field2.referenceTableId);
+  return `alter table public.${sqlName(tableName(table))} add constraint ${sqlName(`app_fk_${tableIndex}_${fieldIndex2}`)} foreign key (${sqlName(field2.key)}) references public.${sqlName(tableName(target2))}(id) on delete restrict;`;
+}
+function policies(table, tableIndex) {
+  const name2 = `public.${sqlName(tableName(table))}`;
+  const statements = [];
+  for (const operation of ["read", "create", "update", "delete"]) {
+    const rules = table.permissions.filter((rule) => rule.operation === operation);
+    if (!rules.length) continue;
+    const verb = operationSql[operation];
+    const audience = rules.some((rule) => rule.access === "public") ? "anon, authenticated" : "authenticated";
+    const check = rules.map(condition).join(" or ");
+    statements.push(`grant ${verb} on ${name2} to ${audience};`);
+    const policy = sqlName(`app_p_${tableIndex}_${operation}`);
+    const options = operation === "create" ? `with check ((${check}) and owner_id = (select auth.uid()))` : operation === "update" ? `using (${check}) with check (${check})` : `using (${check})`;
+    statements.push(`create policy ${policy} on ${name2} for ${verb} to ${audience} ${options};`);
+  }
+  return statements;
+}
+function applicationSecurityPolicies(input) {
+  const app = readApplicationDefinition(input);
+  return app.tables.flatMap((table, tableIndex) => ["read", "create", "update", "delete"].flatMap((operation) => {
+    const rules = table.permissions.filter((rule) => rule.operation === operation);
+    if (!rules.length) return [];
+    const expression = rules.map(condition).join(" or ");
+    return [{
+      table: `app_${table.key}`,
+      name: `app_p_${tableIndex}_${operation}`,
+      command: { read: "r", create: "a", update: "w", delete: "d" }[operation],
+      roles: rules.some((rule) => rule.access === "public") ? ["anon", "authenticated"] : ["authenticated"],
+      using: operation === "create" ? null : expression,
+      check: operation === "create" ? `((${expression}) and owner_id = (select auth.uid()))` : operation === "update" ? expression : null
+    }];
+  }));
+}
+function roleInfrastructure() {
+  return [
+    "grant usage on schema private to authenticated;",
+    "create table private.app_user_roles (user_id uuid not null references auth.users(id) on delete cascade, role_id text not null, primary key (user_id, role_id));",
+    "alter table private.app_user_roles enable row level security;",
+    "revoke all on private.app_user_roles from public, anon, authenticated;",
+    "create table private.app_role_administrators (user_id uuid primary key references auth.users(id) on delete cascade);",
+    "alter table private.app_role_administrators enable row level security;",
+    "revoke all on private.app_role_administrators from public, anon, authenticated;",
+    `create function private.app_has_role(requested_role text) returns boolean language sql stable security definer set search_path = '' as $$
+  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
+    and exists (select 1 from private.app_user_roles where user_id = (select auth.uid()) and role_id = requested_role)
+$$;`,
+    "revoke all on function private.app_has_role(text) from public;",
+    "grant execute on function private.app_has_role(text) to authenticated;",
+    `create function public.app_bootstrap_role_admin(target_user uuid) returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if target_user is null or not exists (select 1 from auth.users where id = target_user and is_anonymous is not true) then
+    raise exception 'Valid permanent application user required';
+  end if;
+  insert into private.app_role_administrators(user_id) values (target_user) on conflict do nothing;
+end $$;`,
+    "revoke all on function public.app_bootstrap_role_admin(uuid) from public, anon, authenticated;",
+    "grant execute on function public.app_bootstrap_role_admin(uuid) to service_role;",
+    `create function private.app_is_role_admin_impl() returns boolean language sql stable security definer set search_path = '' as $$
+  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
+    and exists (select 1 from private.app_role_administrators where user_id = (select auth.uid()))
+$$;`,
+    "revoke all on function private.app_is_role_admin_impl() from public;",
+    "grant execute on function private.app_is_role_admin_impl() to authenticated;",
+    `create function public.app_is_role_admin() returns boolean language sql stable security invoker set search_path = '' as $$
+  select private.app_is_role_admin_impl()
+$$;`,
+    "revoke all on function public.app_is_role_admin() from public, anon;",
+    "grant execute on function public.app_is_role_admin() to authenticated;",
+    `create function private.app_my_roles_impl() returns setof text language sql stable security definer set search_path = '' as $$
+  select r.role_id from private.app_user_roles r where r.user_id = (select auth.uid())
+    and (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
+$$;`,
+    "revoke all on function private.app_my_roles_impl() from public;",
+    "grant execute on function private.app_my_roles_impl() to authenticated;",
+    `create function public.app_my_roles() returns setof text language sql stable security invoker set search_path = '' as $$
+  select * from private.app_my_roles_impl()
+$$;`,
+    "revoke all on function public.app_my_roles() from public, anon;",
+    "grant execute on function public.app_my_roles() to authenticated;",
+    `create function private.app_set_user_role_impl(target_user uuid, requested_role text, enabled boolean) returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if (select auth.uid()) is null or (((select auth.jwt())->>'is_anonymous')::boolean) is true
+    or not exists (select 1 from private.app_role_administrators where user_id = (select auth.uid())) then
+    raise exception 'Application role administration denied';
+  end if;
+  if target_user is null or not exists (select 1 from auth.users where id = target_user and is_anonymous is not true) then
+    raise exception 'Valid permanent application user required';
+  end if;
+  if requested_role is null or not exists (
+    select 1 from private.app_schema_revisions s, jsonb_array_elements(s.definition->'roles') as r(value)
+    where s.id = true and r.value->>'id' = requested_role
+  ) then raise exception 'Unknown application role'; end if;
+  if enabled is null then raise exception 'Role state required'; end if;
+  if enabled then
+    insert into private.app_user_roles(user_id,role_id) values (target_user,requested_role) on conflict do nothing;
+  else
+    delete from private.app_user_roles where user_id = target_user and role_id = requested_role;
+  end if;
+end $$;`,
+    "revoke all on function private.app_set_user_role_impl(uuid,text,boolean) from public;",
+    "grant execute on function private.app_set_user_role_impl(uuid,text,boolean) to authenticated;",
+    `create function public.app_set_user_role(target_user uuid, requested_role text, enabled boolean) returns void language sql security invoker set search_path = '' as $$
+  select private.app_set_user_role_impl(target_user, requested_role, enabled)
+$$;`,
+    "revoke all on function public.app_set_user_role(uuid,text,boolean) from public, anon;",
+    "grant execute on function public.app_set_user_role(uuid,text,boolean) to authenticated;"
+  ];
+}
+function applicationRoleFunctionManifest() {
+  const statements = roleInfrastructure().filter((statement) => statement.startsWith("create function "));
+  const functions = statements.map((statement) => {
+    const match = /^create function (private|public)\.(app_[a-z_]+)\(([^)]*)\) returns (setof )?(boolean|void|text) language (sql|plpgsql)( stable)? security (definer|invoker) set search_path = '' as \$\$([\s\S]*)\$\$;$/.exec(statement);
+    if (!match) throw new Error("Application role function manifest is unavailable.");
+    return {
+      schema: match[1],
+      name: match[2],
+      arguments: match[3].replace(/,\s*/g, ", "),
+      result: `${match[4] ?? ""}${match[5]}`,
+      language: match[6],
+      stable: Boolean(match[7]),
+      securityDefiner: match[8] === "definer",
+      source: match[9]
+    };
+  });
+  if (functions.length !== 8) throw new Error("Application role function manifest is incomplete.");
+  return functions;
+}
+function formRequestFunction() {
+  return [
+    `create or replace function public.app_guard_form_request() returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new._tayar_request_id is distinct from old._tayar_request_id then
+    raise exception 'Immutable application request identity';
+  end if;
+  return new;
+end $$;`,
+    `create or replace function private.app_record_form_request() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new._tayar_request_id is not null then
+    insert into private.app_form_request_ledger(owner_id, table_name, request_id, record_id)
+      values (new.owner_id, TG_TABLE_NAME, new._tayar_request_id, new.id);
+  end if;
+  return new;
+end $$;`,
+    "revoke all on function private.app_record_form_request() from public, anon, authenticated;"
+  ];
+}
+function formRequestLedger() {
+  return [
+    "create table private.app_form_request_ledger (owner_id uuid not null, table_name text not null, request_id uuid not null, record_id uuid not null, primary key (owner_id, table_name, request_id));",
+    "alter table private.app_form_request_ledger enable row level security;",
+    "revoke all on private.app_form_request_ledger from public, anon, authenticated;"
+  ];
+}
+function formRequestCapability() {
+  return [
+    "create table private.app_runtime_capabilities (id boolean primary key default true check (id), form_request_version integer not null check (form_request_version in (1, 2)));",
+    "revoke all on private.app_runtime_capabilities from public, anon, authenticated;",
+    "insert into private.app_runtime_capabilities (id, form_request_version) values (true, 2);",
+    `create or replace function private.app_form_request_revision() returns integer language sql stable security definer set search_path = '' as $$
+  select form_request_version from private.app_runtime_capabilities where id = true
+$$;`,
+    "revoke all on function private.app_form_request_revision() from public, anon, authenticated;",
+    "grant execute on function private.app_form_request_revision() to service_role;",
+    `create or replace function public.app_form_request_revision() returns integer language sql stable security invoker set search_path = '' as $$
+  select private.app_form_request_revision()
+$$;`,
+    "revoke all on function public.app_form_request_revision() from public, anon, authenticated;",
+    "grant execute on function public.app_form_request_revision() to service_role;"
+  ];
+}
+function formRequestIndex(tableIndex, table) {
+  return `create unique index ${sqlName(`app_i_${tableIndex}_request`)} on public.${sqlName(tableName(table))} (owner_id, _tayar_request_id) where _tayar_request_id is not null;`;
+}
+function formRequestTrigger(table) {
+  return `create trigger app_guard_form_request before update on public.${sqlName(tableName(table))} for each row execute function public.app_guard_form_request();`;
+}
+function formRequestLedgerTrigger(table) {
+  return `create trigger app_record_form_request after insert on public.${sqlName(tableName(table))} for each row execute function private.app_record_form_request();`;
+}
+function revisionReadInfrastructure() {
+  return [
+    "grant usage on schema private to service_role;",
+    `create or replace function private.app_deployed_definition() returns jsonb language sql stable security definer set search_path = '' as $$
+  select definition from private.app_schema_revisions where id = true
+$$;`,
+    "revoke all on function private.app_deployed_definition() from public, anon, authenticated;",
+    "grant execute on function private.app_deployed_definition() to service_role;",
+    `create or replace function public.app_deployed_definition() returns jsonb language sql stable security invoker set search_path = '' as $$
+  select private.app_deployed_definition()
+$$;`,
+    "revoke all on function public.app_deployed_definition() from public, anon, authenticated;",
+    "grant execute on function public.app_deployed_definition() to service_role;"
+  ];
+}
+function compileInitialApplicationSchema(input) {
+  const app = readApplicationDefinition(input);
+  const statements = [];
+  statements.push("create schema private;");
+  statements.push("revoke all on schema private from public;");
+  statements.push("create table private.app_schema_revisions (id boolean primary key default true check (id), definition jsonb not null);");
+  statements.push("revoke all on private.app_schema_revisions from public, anon, authenticated;");
+  statements.push(`insert into private.app_schema_revisions (id, definition) values (true, ${literal(JSON.stringify(app))}::jsonb);`);
+  statements.push(...revisionReadInfrastructure());
+  statements.push(...formRequestLedger(), ...formRequestFunction(), ...formRequestCapability());
+  statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.id is distinct from old.id or new.owner_id is distinct from old.owner_id or new.created_at is distinct from old.created_at then
+    raise exception 'Immutable application record identity';
+  end if;
+  new.updated_at := now();
+  return new;
+end $$;`);
+  if (app.roles.length) statements.push(...roleInfrastructure());
+  for (const [tableIndex, table] of app.tables.entries()) {
+    const name2 = `public.${sqlName(tableName(table))}`;
+    const fields = table.fields.map(column);
+    statements.push(`create table ${name2} (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null default auth.uid() references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  _tayar_request_id uuid${fields.length ? `,
+  ${fields.join(",\n  ")}` : ""}
+);`);
+    statements.push(`alter table ${name2} enable row level security;`);
+    statements.push(`revoke all on ${name2} from public, anon, authenticated;`);
+    statements.push(`create index ${sqlName(`app_i_${tableIndex}_owner`)} on ${name2} (owner_id);`);
+    statements.push(`create trigger app_guard_audit before update on ${name2} for each row execute function public.app_guard_audit_fields();`);
+    statements.push(formRequestIndex(tableIndex, table), formRequestTrigger(table), formRequestLedgerTrigger(table));
+    for (const [index, field2] of table.fields.entries()) statements.push(...fieldIndex(tableIndex, index, table, field2));
+  }
+  for (const [tableIndex, table] of app.tables.entries()) for (const [fieldIndex2, field2] of table.fields.entries()) {
+    if (field2.type !== "reference") continue;
+    statements.push(referenceConstraint(app, tableIndex, fieldIndex2, field2));
+  }
+  for (const [tableIndex, table] of app.tables.entries()) {
+    statements.push(...policies(table, tableIndex));
+  }
+  return statements;
+}
+function compileAdditiveApplicationMigration(previous, next) {
+  const before = readApplicationDefinition(previous);
+  const after = readApplicationDefinition(next);
+  if (JSON.stringify(before.auth) !== JSON.stringify(after.auth)) {
+    throw new Error("Authentication changes require a separately reviewed backend migration.");
+  }
+  if (before.roles.length > after.roles.length || before.roles.some((role, index) => JSON.stringify(role) !== JSON.stringify(after.roles[index]))) {
+    throw new Error("Removing, reordering or changing existing roles requires a separately reviewed backend migration.");
+  }
+  if (before.tables.length > after.tables.length || before.tables.some((table, index) => {
+    const updated = after.tables[index];
+    return !updated || table.id !== updated.id || table.key !== updated.key || table.name !== updated.name || table.fields.length > updated.fields.length || table.fields.some((field2, fieldIndex2) => JSON.stringify(field2) !== JSON.stringify(updated.fields[fieldIndex2]));
+  })) throw new Error("Removing, reordering or changing existing tables and fields requires a separately reviewed data migration.");
+  if (JSON.stringify(before) === JSON.stringify(after)) return [];
+  const statements = [
+    `do $revision$ begin
+  perform 1 from private.app_schema_revisions where id = true for update;
+  if not exists (select 1 from private.app_schema_revisions where id = true and definition = ${literal(JSON.stringify(before))}::jsonb) then
+    raise exception 'Application schema revision does not match deployed definition';
+  end if;
+end $revision$;`
+  ];
+  statements.push(...revisionReadInfrastructure());
+  if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
+  if (after.tables.length > before.tables.length) statements.push(...formRequestFunction());
+  for (const [index, table] of after.tables.entries()) {
+    const old = before.tables[index];
+    const name2 = `public.${sqlName(tableName(table))}`;
+    if (!old) {
+      const fields = table.fields.map(column);
+      statements.push(`create table ${name2} (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null default auth.uid() references auth.users(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  _tayar_request_id uuid${fields.length ? `,
+  ${fields.join(",\n  ")}` : ""}
+);`);
+      statements.push(`alter table ${name2} enable row level security;`);
+      statements.push(`revoke all on ${name2} from public, anon, authenticated;`);
+      statements.push(`create index ${sqlName(`app_i_${index}_owner`)} on ${name2} (owner_id);`);
+      statements.push(`create trigger app_guard_audit before update on ${name2} for each row execute function public.app_guard_audit_fields();`);
+      statements.push(formRequestIndex(index, table), formRequestTrigger(table));
+      statements.push(`do $form_ledger$ begin
+  if to_regclass('private.app_form_request_ledger') is not null then
+    execute ${literal(formRequestLedgerTrigger(table))};
+  end if;
+end $form_ledger$;`);
+    }
+    for (let fieldIndexValue = old?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
+      const field2 = table.fields[fieldIndexValue];
+      if (old) {
+        if (field2.required && field2.defaultValue === void 0) throw new Error(`Required field ${table.key}.${field2.key} needs a default or a reviewed backfill.`);
+        statements.push(`alter table ${name2} add column ${column(field2)};`);
+      }
+      statements.push(...fieldIndex(index, fieldIndexValue, table, field2));
+    }
+  }
+  for (const [index, table] of after.tables.entries()) {
+    for (let fieldIndexValue = before.tables[index]?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
+      const field2 = table.fields[fieldIndexValue];
+      if (field2.type === "reference") statements.push(referenceConstraint(after, index, fieldIndexValue, field2));
+    }
+  }
+  for (const [index, table] of after.tables.entries()) {
+    const old = before.tables[index];
+    if (old && JSON.stringify(old.permissions) === JSON.stringify(table.permissions)) continue;
+    if (old) {
+      statements.push(`revoke all on ${`public.${sqlName(tableName(table))}`} from anon, authenticated;`);
+      for (const operation of ["read", "create", "update", "delete"]) {
+        if (old.permissions.some((rule) => rule.operation === operation)) {
+          statements.push(`drop policy ${sqlName(`app_p_${index}_${operation}`)} on public.${sqlName(tableName(table))};`);
+        }
+      }
+    }
+    statements.push(...policies(table, index));
+  }
+  statements.push(`update private.app_schema_revisions set definition = ${literal(JSON.stringify(after))}::jsonb where id = true;`);
+  return statements;
+}
+
 // src/modules/website-builder/core/website-cms.ts
 var WEBSITE_CMS_LIMITS = { collections: 20, fields: 30, entries: 500, views: 20, filters: 8 };
 var WEBSITE_CMS_LANGUAGES = ["en", "sv", "ar"];
@@ -10234,7 +10642,32 @@ ${websiteOwnedApplicationRuntimeTemplate}`;
       buildCommand: null,
       rewrites
     }, null, 2) + "\n" },
-    { path: "api/application.js", content: runtime }
+    { path: "api/application.js", content: runtime },
+    { path: "database/schema.sql", content: "-- Initial schema for a NEW dedicated Supabase project only. Do not reapply to an existing database.\n" + compileInitialApplicationSchema(capabilities.definition).join("\n") + "\n" },
+    { path: "application-definition.json", content: JSON.stringify(capabilities.definition, null, 2) + "\n" },
+    { path: "HANDOVER.md", content: `# Your application
+
+This repository, hosting project and database belong to your connected provider accounts.
+The deployed application runs on your hosting and dedicated Supabase project without calling the Tayar platform.
+
+Application origin: ${input.applicationOrigin}
+Supabase project reference: ${input.expectedProjectRef}
+
+## Database source
+
+The repository includes application-definition.json and database/schema.sql so another developer can maintain the schema and access policies without Tayar.
+The SQL is an initial schema for a NEW dedicated Supabase project only; it is not a data backup or a migration to rerun on an existing database.
+Use your provider backup/restore tools to preserve actual records. Reconfigure Auth redirects and hosting runtime credentials when rebuilding on a different project.
+
+## After delivery
+
+You manage provider billing, backups, user administration, credential rotation, monitoring and future maintenance.
+Keep the application runtime credentials configured in your hosting account. They are separate from the OAuth permissions used by Tayar to set up the project.
+Before revoking Tayar setup access, test sign-in, a bound form submission and access denial on protected pages on your deployed domain.
+Revoke the setup applications from your provider account settings after verifying the handover. Do not remove runtime environment variables or delete the repository, database or hosting project.
+A Tayar disconnect action may also clean runtime credentials for security; do not use it as a completed-project handover without checking its effect first.
+Future edits require a new authorized connection. No patient or user records, passwords or provider secrets are included in this handover document.
+` }
   ];
   validateGitHubSourceManifest(files);
   return files;
@@ -12786,306 +13219,6 @@ async function applicationDefinitionDigest(definition) {
   const bytes = new TextEncoder().encode(canonical2(readApplicationDefinition(definition)));
   const digest9 = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest9), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-// src/modules/website-builder/core/application-schema-sql.ts
-var sqlName = (value) => `"${value}"`;
-var literal = (value) => `'${value.replace(/'/g, "''")}'`;
-var tableName = (table) => `app_${table.key}`;
-var fieldType = (field2) => ({
-  text: "text",
-  number: "numeric",
-  boolean: "boolean",
-  date: "date",
-  datetime: "timestamptz",
-  uuid: "uuid",
-  json: "jsonb",
-  enum: "text",
-  reference: "uuid"
-})[field2.type];
-var operationSql = { read: "SELECT", create: "INSERT", update: "UPDATE", delete: "DELETE" };
-var permanentUser = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
-function condition(rule) {
-  switch (rule.access) {
-    case "public":
-      return "true";
-    case "authenticated":
-      return permanentUser;
-    case "owner":
-      return `(${permanentUser} and (select auth.uid()) = owner_id)`;
-    case "role":
-      return `(${permanentUser} and (select private.app_has_role(${literal(rule.roleId)})))`;
-  }
-}
-function column(field2) {
-  const parts = [sqlName(field2.key), fieldType(field2)];
-  if (field2.required) parts.push("not null");
-  if (field2.defaultValue !== void 0 && field2.defaultValue !== null) {
-    parts.push(`default ${typeof field2.defaultValue === "string" ? literal(field2.defaultValue) : String(field2.defaultValue)}`);
-  }
-  if (field2.type === "enum") parts.push(`check (${sqlName(field2.key)} in (${field2.options.map(literal).join(", ")}))`);
-  return parts.join(" ");
-}
-function fieldIndex(tableIndex, index, table, field2) {
-  const name2 = `public.${sqlName(tableName(table))}`;
-  if (field2.unique) return [`create unique index ${sqlName(`app_i_${tableIndex}_${index}_unique`)} on ${name2} (${sqlName(field2.key)});`];
-  if (field2.indexed || field2.type === "reference") return [`create index ${sqlName(`app_i_${tableIndex}_${index}`)} on ${name2} (${sqlName(field2.key)});`];
-  return [];
-}
-function referenceConstraint(app, tableIndex, fieldIndex2, field2) {
-  const table = app.tables[tableIndex];
-  const target2 = app.tables.find((item) => item.id === field2.referenceTableId);
-  return `alter table public.${sqlName(tableName(table))} add constraint ${sqlName(`app_fk_${tableIndex}_${fieldIndex2}`)} foreign key (${sqlName(field2.key)}) references public.${sqlName(tableName(target2))}(id) on delete restrict;`;
-}
-function policies(table, tableIndex) {
-  const name2 = `public.${sqlName(tableName(table))}`;
-  const statements = [];
-  for (const operation of ["read", "create", "update", "delete"]) {
-    const rules = table.permissions.filter((rule) => rule.operation === operation);
-    if (!rules.length) continue;
-    const verb = operationSql[operation];
-    const audience = rules.some((rule) => rule.access === "public") ? "anon, authenticated" : "authenticated";
-    const check = rules.map(condition).join(" or ");
-    statements.push(`grant ${verb} on ${name2} to ${audience};`);
-    const policy = sqlName(`app_p_${tableIndex}_${operation}`);
-    const options = operation === "create" ? `with check ((${check}) and owner_id = (select auth.uid()))` : operation === "update" ? `using (${check}) with check (${check})` : `using (${check})`;
-    statements.push(`create policy ${policy} on ${name2} for ${verb} to ${audience} ${options};`);
-  }
-  return statements;
-}
-function applicationSecurityPolicies(input) {
-  const app = readApplicationDefinition(input);
-  return app.tables.flatMap((table, tableIndex) => ["read", "create", "update", "delete"].flatMap((operation) => {
-    const rules = table.permissions.filter((rule) => rule.operation === operation);
-    if (!rules.length) return [];
-    const expression = rules.map(condition).join(" or ");
-    return [{
-      table: `app_${table.key}`,
-      name: `app_p_${tableIndex}_${operation}`,
-      command: { read: "r", create: "a", update: "w", delete: "d" }[operation],
-      roles: rules.some((rule) => rule.access === "public") ? ["anon", "authenticated"] : ["authenticated"],
-      using: operation === "create" ? null : expression,
-      check: operation === "create" ? `((${expression}) and owner_id = (select auth.uid()))` : operation === "update" ? expression : null
-    }];
-  }));
-}
-function roleInfrastructure() {
-  return [
-    "grant usage on schema private to authenticated;",
-    "create table private.app_user_roles (user_id uuid not null references auth.users(id) on delete cascade, role_id text not null, primary key (user_id, role_id));",
-    "alter table private.app_user_roles enable row level security;",
-    "revoke all on private.app_user_roles from public, anon, authenticated;",
-    "create table private.app_role_administrators (user_id uuid primary key references auth.users(id) on delete cascade);",
-    "alter table private.app_role_administrators enable row level security;",
-    "revoke all on private.app_role_administrators from public, anon, authenticated;",
-    `create function private.app_has_role(requested_role text) returns boolean language sql stable security definer set search_path = '' as $$
-  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
-    and exists (select 1 from private.app_user_roles where user_id = (select auth.uid()) and role_id = requested_role)
-$$;`,
-    "revoke all on function private.app_has_role(text) from public;",
-    "grant execute on function private.app_has_role(text) to authenticated;",
-    `create function public.app_bootstrap_role_admin(target_user uuid) returns void language plpgsql security definer set search_path = '' as $$
-begin
-  if target_user is null or not exists (select 1 from auth.users where id = target_user and is_anonymous is not true) then
-    raise exception 'Valid permanent application user required';
-  end if;
-  insert into private.app_role_administrators(user_id) values (target_user) on conflict do nothing;
-end $$;`,
-    "revoke all on function public.app_bootstrap_role_admin(uuid) from public, anon, authenticated;",
-    "grant execute on function public.app_bootstrap_role_admin(uuid) to service_role;",
-    `create function private.app_is_role_admin_impl() returns boolean language sql stable security definer set search_path = '' as $$
-  select (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
-    and exists (select 1 from private.app_role_administrators where user_id = (select auth.uid()))
-$$;`,
-    "revoke all on function private.app_is_role_admin_impl() from public;",
-    "grant execute on function private.app_is_role_admin_impl() to authenticated;",
-    `create function public.app_is_role_admin() returns boolean language sql stable security invoker set search_path = '' as $$
-  select private.app_is_role_admin_impl()
-$$;`,
-    "revoke all on function public.app_is_role_admin() from public, anon;",
-    "grant execute on function public.app_is_role_admin() to authenticated;",
-    `create function private.app_my_roles_impl() returns setof text language sql stable security definer set search_path = '' as $$
-  select r.role_id from private.app_user_roles r where r.user_id = (select auth.uid())
-    and (select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true
-$$;`,
-    "revoke all on function private.app_my_roles_impl() from public;",
-    "grant execute on function private.app_my_roles_impl() to authenticated;",
-    `create function public.app_my_roles() returns setof text language sql stable security invoker set search_path = '' as $$
-  select * from private.app_my_roles_impl()
-$$;`,
-    "revoke all on function public.app_my_roles() from public, anon;",
-    "grant execute on function public.app_my_roles() to authenticated;",
-    `create function private.app_set_user_role_impl(target_user uuid, requested_role text, enabled boolean) returns void language plpgsql security definer set search_path = '' as $$
-begin
-  if (select auth.uid()) is null or (((select auth.jwt())->>'is_anonymous')::boolean) is true
-    or not exists (select 1 from private.app_role_administrators where user_id = (select auth.uid())) then
-    raise exception 'Application role administration denied';
-  end if;
-  if target_user is null or not exists (select 1 from auth.users where id = target_user and is_anonymous is not true) then
-    raise exception 'Valid permanent application user required';
-  end if;
-  if requested_role is null or not exists (
-    select 1 from private.app_schema_revisions s, jsonb_array_elements(s.definition->'roles') as r(value)
-    where s.id = true and r.value->>'id' = requested_role
-  ) then raise exception 'Unknown application role'; end if;
-  if enabled is null then raise exception 'Role state required'; end if;
-  if enabled then
-    insert into private.app_user_roles(user_id,role_id) values (target_user,requested_role) on conflict do nothing;
-  else
-    delete from private.app_user_roles where user_id = target_user and role_id = requested_role;
-  end if;
-end $$;`,
-    "revoke all on function private.app_set_user_role_impl(uuid,text,boolean) from public;",
-    "grant execute on function private.app_set_user_role_impl(uuid,text,boolean) to authenticated;",
-    `create function public.app_set_user_role(target_user uuid, requested_role text, enabled boolean) returns void language sql security invoker set search_path = '' as $$
-  select private.app_set_user_role_impl(target_user, requested_role, enabled)
-$$;`,
-    "revoke all on function public.app_set_user_role(uuid,text,boolean) from public, anon;",
-    "grant execute on function public.app_set_user_role(uuid,text,boolean) to authenticated;"
-  ];
-}
-function applicationRoleFunctionManifest() {
-  const statements = roleInfrastructure().filter((statement) => statement.startsWith("create function "));
-  const functions = statements.map((statement) => {
-    const match = /^create function (private|public)\.(app_[a-z_]+)\(([^)]*)\) returns (setof )?(boolean|void|text) language (sql|plpgsql)( stable)? security (definer|invoker) set search_path = '' as \$\$([\s\S]*)\$\$;$/.exec(statement);
-    if (!match) throw new Error("Application role function manifest is unavailable.");
-    return {
-      schema: match[1],
-      name: match[2],
-      arguments: match[3].replace(/,\s*/g, ", "),
-      result: `${match[4] ?? ""}${match[5]}`,
-      language: match[6],
-      stable: Boolean(match[7]),
-      securityDefiner: match[8] === "definer",
-      source: match[9]
-    };
-  });
-  if (functions.length !== 8) throw new Error("Application role function manifest is incomplete.");
-  return functions;
-}
-function formRequestFunction() {
-  return [
-    `create or replace function public.app_guard_form_request() returns trigger language plpgsql set search_path = '' as $$
-begin
-  if new._tayar_request_id is distinct from old._tayar_request_id then
-    raise exception 'Immutable application request identity';
-  end if;
-  return new;
-end $$;`,
-    `create or replace function private.app_record_form_request() returns trigger language plpgsql security definer set search_path = '' as $$
-begin
-  if new._tayar_request_id is not null then
-    insert into private.app_form_request_ledger(owner_id, table_name, request_id, record_id)
-      values (new.owner_id, TG_TABLE_NAME, new._tayar_request_id, new.id);
-  end if;
-  return new;
-end $$;`,
-    "revoke all on function private.app_record_form_request() from public, anon, authenticated;"
-  ];
-}
-function formRequestIndex(tableIndex, table) {
-  return `create unique index ${sqlName(`app_i_${tableIndex}_request`)} on public.${sqlName(tableName(table))} (owner_id, _tayar_request_id) where _tayar_request_id is not null;`;
-}
-function formRequestTrigger(table) {
-  return `create trigger app_guard_form_request before update on public.${sqlName(tableName(table))} for each row execute function public.app_guard_form_request();`;
-}
-function formRequestLedgerTrigger(table) {
-  return `create trigger app_record_form_request after insert on public.${sqlName(tableName(table))} for each row execute function private.app_record_form_request();`;
-}
-function revisionReadInfrastructure() {
-  return [
-    "grant usage on schema private to service_role;",
-    `create or replace function private.app_deployed_definition() returns jsonb language sql stable security definer set search_path = '' as $$
-  select definition from private.app_schema_revisions where id = true
-$$;`,
-    "revoke all on function private.app_deployed_definition() from public, anon, authenticated;",
-    "grant execute on function private.app_deployed_definition() to service_role;",
-    `create or replace function public.app_deployed_definition() returns jsonb language sql stable security invoker set search_path = '' as $$
-  select private.app_deployed_definition()
-$$;`,
-    "revoke all on function public.app_deployed_definition() from public, anon, authenticated;",
-    "grant execute on function public.app_deployed_definition() to service_role;"
-  ];
-}
-function compileAdditiveApplicationMigration(previous, next) {
-  const before = readApplicationDefinition(previous);
-  const after = readApplicationDefinition(next);
-  if (JSON.stringify(before.auth) !== JSON.stringify(after.auth)) {
-    throw new Error("Authentication changes require a separately reviewed backend migration.");
-  }
-  if (before.roles.length > after.roles.length || before.roles.some((role, index) => JSON.stringify(role) !== JSON.stringify(after.roles[index]))) {
-    throw new Error("Removing, reordering or changing existing roles requires a separately reviewed backend migration.");
-  }
-  if (before.tables.length > after.tables.length || before.tables.some((table, index) => {
-    const updated = after.tables[index];
-    return !updated || table.id !== updated.id || table.key !== updated.key || table.name !== updated.name || table.fields.length > updated.fields.length || table.fields.some((field2, fieldIndex2) => JSON.stringify(field2) !== JSON.stringify(updated.fields[fieldIndex2]));
-  })) throw new Error("Removing, reordering or changing existing tables and fields requires a separately reviewed data migration.");
-  if (JSON.stringify(before) === JSON.stringify(after)) return [];
-  const statements = [
-    `do $revision$ begin
-  perform 1 from private.app_schema_revisions where id = true for update;
-  if not exists (select 1 from private.app_schema_revisions where id = true and definition = ${literal(JSON.stringify(before))}::jsonb) then
-    raise exception 'Application schema revision does not match deployed definition';
-  end if;
-end $revision$;`
-  ];
-  statements.push(...revisionReadInfrastructure());
-  if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
-  if (after.tables.length > before.tables.length) statements.push(...formRequestFunction());
-  for (const [index, table] of after.tables.entries()) {
-    const old = before.tables[index];
-    const name2 = `public.${sqlName(tableName(table))}`;
-    if (!old) {
-      const fields = table.fields.map(column);
-      statements.push(`create table ${name2} (
-  id uuid primary key default gen_random_uuid(),
-  owner_id uuid not null default auth.uid() references auth.users(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  _tayar_request_id uuid${fields.length ? `,
-  ${fields.join(",\n  ")}` : ""}
-);`);
-      statements.push(`alter table ${name2} enable row level security;`);
-      statements.push(`revoke all on ${name2} from public, anon, authenticated;`);
-      statements.push(`create index ${sqlName(`app_i_${index}_owner`)} on ${name2} (owner_id);`);
-      statements.push(`create trigger app_guard_audit before update on ${name2} for each row execute function public.app_guard_audit_fields();`);
-      statements.push(formRequestIndex(index, table), formRequestTrigger(table));
-      statements.push(`do $form_ledger$ begin
-  if to_regclass('private.app_form_request_ledger') is not null then
-    execute ${literal(formRequestLedgerTrigger(table))};
-  end if;
-end $form_ledger$;`);
-    }
-    for (let fieldIndexValue = old?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
-      const field2 = table.fields[fieldIndexValue];
-      if (old) {
-        if (field2.required && field2.defaultValue === void 0) throw new Error(`Required field ${table.key}.${field2.key} needs a default or a reviewed backfill.`);
-        statements.push(`alter table ${name2} add column ${column(field2)};`);
-      }
-      statements.push(...fieldIndex(index, fieldIndexValue, table, field2));
-    }
-  }
-  for (const [index, table] of after.tables.entries()) {
-    for (let fieldIndexValue = before.tables[index]?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
-      const field2 = table.fields[fieldIndexValue];
-      if (field2.type === "reference") statements.push(referenceConstraint(after, index, fieldIndexValue, field2));
-    }
-  }
-  for (const [index, table] of after.tables.entries()) {
-    const old = before.tables[index];
-    if (old && JSON.stringify(old.permissions) === JSON.stringify(table.permissions)) continue;
-    if (old) {
-      statements.push(`revoke all on ${`public.${sqlName(tableName(table))}`} from anon, authenticated;`);
-      for (const operation of ["read", "create", "update", "delete"]) {
-        if (old.permissions.some((rule) => rule.operation === operation)) {
-          statements.push(`drop policy ${sqlName(`app_p_${index}_${operation}`)} on public.${sqlName(tableName(table))};`);
-        }
-      }
-    }
-    statements.push(...policies(table, index));
-  }
-  statements.push(`update private.app_schema_revisions set definition = ${literal(JSON.stringify(after))}::jsonb where id = true;`);
-  return statements;
 }
 
 // server/website-owned-supabase-catalog.ts
