@@ -25,6 +25,20 @@ The exported schema is for reconstructing a NEW dedicated project, not rerunning
 
 Read-only production inspection on 2026-10-07 found no deployed `website-github-connection`, `website-supabase-connection`, `website-vercel-connection` or `website-byo-publish` functions. Browser connection endpoint settings existed for Preview only, not Production. No production provider settings, account permissions, paid plans or existing client projects were changed by this work.
 
+The follow-up inspection also found all 34 infrastructure migrations absent from production migration history; a catalog query confirmed that the connection/OAuth tables are absent. This is a deployment gap, not a browser cache problem. GitHub Release Gate for the initial change completed successfully, including browser regression, full project health, production build and dependency audit.
+
+Use `npm run preflight:website-builder:deployment-inventory -- <inventory.json> pnbllxdlskljcakyaylt` to compare a names-only live inventory against the required manifest. It exits unsuccessfully for missing migrations, inactive functions, wrong JWT settings, an unexpected project or missing target-wide browser configuration. It never returns inventory values or secrets. The inventory contains `projectRef`, `target` (`preview` or `production`), `migrations` (objects with `version`), `functions` (objects with `name`, `status`, `verify_jwt`) and `environmentKeys` (objects with `key`, `target`, optional `gitBranch`/`customEnvironmentIds`). Obtain these from current provider inventories; do not treat an old saved inventory as deployment proof. Passing this check still requires the isolated configuration preflight and actual consent/customer-flow verification.
+
+Exact callbacks for the current Tayar platform project:
+
+| Provider | OAuth callback |
+| --- | --- |
+| GitHub | `https://pnbllxdlskljcakyaylt.supabase.co/functions/v1/website-github-connection?action=callback` |
+| Supabase | `https://pnbllxdlskljcakyaylt.supabase.co/functions/v1/website-supabase-connection?action=callback` |
+| Vercel | `https://pnbllxdlskljcakyaylt.supabase.co/functions/v1/website-vercel-connection?action=callback` |
+
+Browser endpoint values are those same URLs without `?action=callback`. Register the integration applications under Tayar's operator account; customer repositories, databases and deployments must be created in the consenting customer's account. Integration registration itself does not transfer customer account ownership. The connected tools cannot inspect or register these operator OAuth applications or manage Supabase function secrets. Their registration and server-side credential configuration must be completed through the providers' application settings; do not send client secrets in chat or commit them.
+
 Before enabling the production flag:
 
 1. Verify/register the official GitHub App, Supabase OAuth application and Vercel integration with exact HTTPS callbacks and minimum required permissions. Keep provider client secrets server-side.
