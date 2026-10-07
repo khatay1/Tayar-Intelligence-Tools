@@ -28,8 +28,10 @@ try {
     environment: { VITE_WEBSITE_SUPABASE_CONNECTION_URL: `${platformUrl}/functions/v1/website-supabase-connection` },
     platformUrl, anonKey: `sb_publishable_${'p'.repeat(32)}`,
     getSession: async () => ({ ownerId, accessToken: 'header.payload.signature' }), fetcher });
+  let disconnected = true;
   const client = { rpc: async (name, args) => {
     rpcCalls += 1; assert.equal(name, 'website_infrastructure_connections_for_owner'); assert.equal(args.p_project_id, projectId);
+    if (disconnected) return { error: null, data: [] };
     return { error: null, data: [{ id: connectionId, ownerId, projectId, provider: 'supabase', environment: 'production',
       accountId: 'user_1', targetId: 'abcdefghijklmnopqrst', permissions: ['database:write', 'secrets:read'],
       status: 'connected', version: 1, verifiedAt: '2026-10-02T18:00:00.000Z', updatedAt: '2026-10-02T18:00:00.000Z' }] };
@@ -37,6 +39,12 @@ try {
   const controller = controllerModule.createWebsiteInfrastructureController({ client, catalog, scope, storage,
     location, history, navigate: url => { navigated = url; } });
   assert.deepEqual(controller.availableProviders, ['supabase']);
+  const firstVisit = await controller.refresh();
+  assert.deepEqual(firstVisit.connections, [], 'A saved account without provider connections starts disconnected');
+  await controller.begin('supabase', 'production');
+  assert.equal(new URL(navigated).origin, 'https://api.supabase.com', 'Initial OAuth starts without a pre-existing provider connection');
+  assert.deepEqual(controller.getState().connections, [], 'Starting consent never marks the provider connected or ready');
+  disconnected = false;
   const refreshed = await controller.refresh();
   assert.equal(refreshed.connections.length, 1); assert.equal(refreshed.connections[0].provider, 'supabase');
   await controller.begin('supabase', 'production');
@@ -47,7 +55,7 @@ try {
   controller.clearHandoff(); assert.equal(controller.getState().handoff, null);
   current = false;
   await assert.rejects(controller.refresh(), /scope changed/);
-  assert.equal(rpcCalls, 1, 'stale project stops before owner status RPC');
+  assert.equal(rpcCalls, 2, 'stale project stops before owner status RPC');
   controller.dispose(); assert.deepEqual(controller.getState().connections, []);
   const chooser = await readFile('src/modules/website-builder/v2-ui/BuilderSupabaseConnectionChooser.tsx', 'utf8');
   assert.match(chooser, /data-testid="supabase-project-chooser"/);
