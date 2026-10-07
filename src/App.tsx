@@ -89,8 +89,8 @@ function AppContent() {
     };
 
     if (user) {
-      if (hashRoute === 'admin' || hashRoute === 'reset' || recoveryRequested || publicPage
-        || hashRoute.startsWith('workspace/') || isWebsiteProviderHandoffHash(window.location.hash)) return;
+      if (hashRoute === 'admin' || hashRoute === 'reset' || recoveryRequested || publicPage ||
+        hashRoute.startsWith('workspace/') || isWebsiteProviderHandoffHash(window.location.hash)) return;
       replaceHash('#workspace/my-workspace');
       return;
     }
