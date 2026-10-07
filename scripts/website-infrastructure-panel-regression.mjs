@@ -20,7 +20,9 @@ try {
   const { BuilderInfrastructurePanel: Panel } = require(outfile);
   const render = (props = {}) => renderToStaticMarkup(React.createElement(Panel, { connections: [], projectSaved: true, ...props }));
   const empty = render();
-  assert.match(empty, /Connect your accounts after saving the project/);
+  assert.match(empty, /Connect and verify your accounts before publishing/);
+  assert.doesNotMatch(empty, /Save the project before connecting/);
+  assert.match(render({ projectSaved: false }), /Save the project before connecting your accounts/);
   assert.match(empty, /Connection setup is not available yet/);
   assert.match(empty, /Connect account/);
   assert.match(empty, /Connect preview/);

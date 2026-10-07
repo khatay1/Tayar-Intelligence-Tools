@@ -49,7 +49,8 @@ export function BuilderInfrastructurePanel({ connections, projectSaved, requires
   return <section className="builder-v2-card" data-testid="byo-infrastructure-panel">
     <div className="builder-v2-card__header"><div><strong>{l('Infrastructure')}</strong><p>{l('Your accounts own the code, database and hosting. Tayar handles setup.')}</p></div></div>
     <p>{l('After handover, you manage these accounts and their billing. Tayar is used for project setup and future edits you request.')}</p>
-    <p role="status">{l(ready ? 'Infrastructure ready for publishing' : 'Connect your accounts after saving the project')}</p>
+    <p role="status">{l(!projectSaved ? 'Save the project before connecting your accounts.' : ready
+      ? 'Infrastructure ready for publishing' : 'Connect and verify your accounts before publishing.')}</p>
     {error && <p role="alert">{l(error)}</p>}
     {providers.map(provider => {
       const optional = provider === 'stripe' && !requiresStripe;

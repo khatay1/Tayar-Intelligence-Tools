@@ -65,6 +65,16 @@ The existing Apex Dental publication has not been rewritten or republished. It n
 
 ## Validation
 
+### Same-admin clinic inspection — 2026-10-07
+
+The production browser was signed in through secure authentication as `khaled`, visibly marked `Admin · Business Access`. The existing Apex Dental project (`c3b19c4e-ec97-4fd9-a9c9-c1a1a3d00ce9`) was opened from recent files. It has six pages and no persisted `application` definition. Its infrastructure panel exposes disabled GitHub/Supabase/Vercel actions; refreshing returns unavailable infrastructure status. Production has neither `public.website_infrastructure_connections` nor `website_infrastructure_connections_for_owner(uuid)`.
+
+The published staff portal has no login form or `staff-login` target. Booking has contact fields (name/email/message), no appointment date/doctor fields and no `booking-form` target. No form was submitted, project content edited or clinic republished during inspection.
+
+The saved clinic also incorrectly displays a save-before-backend message when its actual missing prerequisite is the application definition. The reviewed fix separates unsaved-project messaging from missing data/access configuration, and separates infrastructure saving from connecting/verifying accounts. Arabic and Swedish translations and saved/unsaved regression cases are included.
+
+Activation contains neither the production admin UUID nor this clinic project. A Preview test there cannot be claimed as a test of the same account/project. Connector inventories expose only the Tayar Tools Supabase organization and Vercel team. The next real customer flow requires an independently owned test backend/hosting target and consent. Production activation requires separate operator applications/credentials and the reviewed migrations/functions; copying Activation callbacks into Production frontend configuration would cross authentication boundaries and is not a valid fix. Do not merge/activate Production merely to remove the disabled buttons, seed verified connection rows, or weaken the customer-resource ownership guards.
+
 The new regression exercises the actual AI generation handler. It fails on baseline main (`5ff20905`) because the application definition is dropped, and passes with this change. It also checks native forms, internal routes, page access identity, history snapshots and atomic rejection of unsafe/incomplete results.
 
 Application, independent infrastructure/publishing and owned-source suites pass. TypeScript, production build and ESLint have been checked; four existing unused-directive lint warnings and the existing large-bundle build warning remain. Full project health was resumed after adding the new Arabic/Swedish UI phrases.
