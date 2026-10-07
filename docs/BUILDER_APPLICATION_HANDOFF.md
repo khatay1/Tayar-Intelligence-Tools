@@ -47,6 +47,8 @@ The authorized Supabase application has Database read/write, Organizations/Proje
 
 The isolated platform refuses resources in its own Supabase organization and Vercel account. Full customer flow tests need separate customer-owned test resources and explicit customer consent. Operator-app setup alone is not a completed application handover.
 
+The tested `website-byo-publish` bundle was deployed to Activation on 2026-10-07 as version 8. A fresh provider inventory confirmed ACTIVE status and `verify_jwt=true`; Production was not deployed. Release Gate run 37593055682 passed, including the real browser scenarios, after increasing the hosted Chrome startup endpoint deadline from 10 to 20 seconds (the previous failed job showed DevTools starting just after the ten-second deadline). The whole-suite hard timeouts and assertions remain enforced. The local browser suite could not start because Chrome is absent in this workspace; the successful hosted run supplies that validation. Customer OAuth consent and full customer Preview Publish remain pending.
+
 1. Verify/register the official GitHub App, Supabase OAuth application and Vercel integration with exact HTTPS callbacks and minimum required permissions. Keep provider client secrets server-side.
 2. Use the existing isolated activation preflight, apply/verify its database migration manifest and deploy the generated connection/publishing functions with the existing JWT configuration. Do not point customer resources at Tayar's own accounts.
 3. Configure browser endpoints only after checking provider consent, target selection, disconnect/cleanup and source export on isolated customer test accounts.
