@@ -42,6 +42,7 @@ import InstallPrompt from '@/components/ui/InstallPrompt';
 import { PageSkeleton } from '@/components/ui/Skeleton';
 import { useKeyboardShortcuts, SHORTCUT_HINTS } from '@/lib/use-keyboard-shortcuts';
 import { trackPageView } from '@/lib/analytics';
+import { isWebsiteProviderHandoffHash } from '@/lib/website-provider-handoff-route';
 import '@/modules';
 import { toolRegistry } from '@/modules/registry';
 
@@ -59,7 +60,9 @@ const DEFAULT_WORKSPACE_VIEW: ViewId = 'my-workspace';
 const STATIC_NAV_IDS = new Set<string>(NAV_ITEMS.map((item) => item.id));
 
 function getWorkspaceViewFromHash(): ViewId {
-  const route = window.location.hash.replace(/^#/, '');
+  const hash = window.location.hash;
+  if (isWebsiteProviderHandoffHash(hash)) return 'website-builder' as ViewId;
+  const route = hash.replace(/^#/, '');
   if (!route.startsWith('workspace/')) return DEFAULT_WORKSPACE_VIEW;
 
   const candidate = route.slice('workspace/'.length);

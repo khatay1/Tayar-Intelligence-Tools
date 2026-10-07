@@ -9,6 +9,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { startAnalytics, track, trackPageView } from '@/lib/analytics';
 import { PAGE_SEO, updateSEO } from '@/lib/seo';
+import { isWebsiteProviderHandoffHash } from '@/lib/website-provider-handoff-route';
 
 const Navbar = lazy(() => import('@/components/Navbar'));
 const Hero = lazy(() => import('@/components/Hero'));
@@ -53,7 +54,7 @@ const AUTH_PAGES: AuthPage[] = ['login', 'register', 'forgot', 'verify', 'reset'
 const PUBLIC_PAGES: PublicPage[] = ['about', 'privacy', 'terms', 'account-deletion'];
 
 function useHashRoute() {
-  const [hash, setHash] = useState('');
+  const [hash, setHash] = useState(() => window.location.hash.replace(/^#/, ''));
   useEffect(() => {
     const sync = () => setHash(window.location.hash.replace('#', ''));
     sync();
@@ -88,7 +89,8 @@ function AppContent() {
     };
 
     if (user) {
-      if (hashRoute === 'admin' || hashRoute === 'reset' || recoveryRequested || publicPage || hashRoute.startsWith('workspace/')) return;
+      if (hashRoute === 'admin' || hashRoute === 'reset' || recoveryRequested || publicPage ||
+        hashRoute.startsWith('workspace/') || isWebsiteProviderHandoffHash(window.location.hash)) return;
       replaceHash('#workspace/my-workspace');
       return;
     }
