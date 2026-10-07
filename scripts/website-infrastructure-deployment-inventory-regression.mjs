@@ -16,6 +16,13 @@ assert.equal(inspect(input, 'zzzzzzzzzzzzzzzzzzzz').inventoryReady, false);
 assert.equal(inspect({}, ref).inventoryReady, false);
 assert.equal(inspect({ ...input, target: 'unknown' }, ref).inventoryReady, false);
 assert.equal(inspect({ ...input, migrations: input.migrations.slice(1) }, ref).inventoryReady, false);
+const renamed = input.migrations.map((item, index) => ({ version: `20270101${String(index).padStart(6, '0')}`,
+  name: infrastructureMigrationFiles[index].slice(0, -4) }));
+assert.equal(inspect({ ...input, migrations: renamed }, ref).inventoryReady, true);
+assert.equal(inspect({ ...input, migrations: renamed.map(item => ({ ...item,
+  name: item.name.replace(/^\d+_/, '') })) }, ref).inventoryReady, true);
+assert.equal(inspect({ ...input, migrations: renamed.map(item => ({ ...item,
+  name: `${item.name}_incomplete` })) }, ref).inventoryReady, false);
 assert.equal(inspect({ ...input, functions: input.functions.map(item => ({ ...item, verify_jwt: false })) }, ref).inventoryReady, false);
 assert.equal(inspect({ ...input, functions: input.functions.map(item => ({ ...item, status: 'REMOVED' })) }, ref).inventoryReady, false);
 assert.equal(inspect({ ...input, environmentKeys: input.environmentKeys.map(item => ({ ...item, target: ['preview'] })) }, ref).inventoryReady, false);

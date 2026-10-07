@@ -130,7 +130,9 @@ async function regression() {
       ]);
       chromeAttempts.push(attempt);
       try {
-        await waitHttp(`http://${HOST}:${CDP_PORT}/json/version`, 10_000);
+        // Hosted runners can start DevTools just after ten seconds. Keep the
+        // real endpoint check and the outer hard timeout; allow startup time.
+        await waitHttp(`http://${HOST}:${CDP_PORT}/json/version`, 20_000);
         return attempt;
       } catch (error) {
         await stop(attempt.child);

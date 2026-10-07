@@ -23,7 +23,15 @@ export function inspectWebsiteInfrastructureDeploymentInventory(input = {}, expe
   check('deployment-target', ['preview', 'production'].includes(input.target) ? [] : ['target']);
   const migrations = new Set((Array.isArray(input.migrations) ? input.migrations : [])
     .filter(item => item && typeof item.version === 'string').map(item => item.version));
-  check('applied-migrations', infrastructureMigrationFiles.filter(file => !migrations.has(file.split('_')[0])));
+  // Management API deployments receive a new timestamp and retain the source
+  // migration identity in name. Match exact identities, never fuzzy substrings.
+  const migrationNames = new Set((Array.isArray(input.migrations) ? input.migrations : [])
+    .filter(item => item && typeof item.name === 'string').map(item => item.name));
+  check('applied-migrations', infrastructureMigrationFiles.filter(file => {
+    const identity = file.slice(0, -4), separator = identity.indexOf('_');
+    return !migrations.has(identity.slice(0, separator)) && !migrationNames.has(identity)
+      && !migrationNames.has(identity.slice(separator + 1));
+  }));
   const deployed = Array.isArray(input.functions) ? input.functions : [];
   check('active-functions', functions.filter(expected => !deployed.some(actual =>
     actual?.name === expected.name && actual.status === 'ACTIVE'

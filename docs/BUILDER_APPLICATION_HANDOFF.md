@@ -41,6 +41,12 @@ Browser endpoint values are those same URLs without `?action=callback`. Register
 
 Before enabling the production flag:
 
+Browser verification on 2026-10-07 confirmed that the existing GitHub App, two published Supabase OAuth apps and private Vercel integration already target the isolated Activation project `uepltkguloltmebepvbo`. Its four connection/publish functions are ACTIVE. Its migration history uses Management API deployment timestamps with source identities in the migration names; inventory verification now accepts exact source names as well as original versions. These isolated registrations must not be overwritten with production callbacks merely to expose production buttons.
+
+The authorized Supabase application has Database read/write, Organizations/Projects/Secrets read-only, and no other scopes. The current flow selects an existing dedicated customer project; it does not create a customer Supabase project. The Vercel integration has Projects/Teams/Current User read, integration-owned environment variable write, but Deployments has no access. Preview deployment verification and Production promotion therefore require additional deployment permission. A proposed Deployments read/write selection is awaiting action-time user confirmation before saving; no provider permissions have been expanded.
+
+The isolated platform refuses resources in its own Supabase organization and Vercel account. Full customer flow tests need separate customer-owned test resources and explicit customer consent. Operator-app setup alone is not a completed application handover.
+
 1. Verify/register the official GitHub App, Supabase OAuth application and Vercel integration with exact HTTPS callbacks and minimum required permissions. Keep provider client secrets server-side.
 2. Use the existing isolated activation preflight, apply/verify its database migration manifest and deploy the generated connection/publishing functions with the existing JWT configuration. Do not point customer resources at Tayar's own accounts.
 3. Configure browser endpoints only after checking provider consent, target selection, disconnect/cleanup and source export on isolated customer test accounts.
