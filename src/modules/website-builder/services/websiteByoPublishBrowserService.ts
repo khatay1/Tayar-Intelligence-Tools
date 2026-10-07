@@ -67,8 +67,8 @@ export async function startWebsiteByoProduction(input:{scope:WebsiteByoPublishBr
   if(result.operationId!==operationId)throw new Error('Publish status is unavailable. Refresh and try again.');writeOperation(input.scope,'production',input.storage,result);return result;
 }
 export async function pollWebsiteByoPublish(input:{scope:WebsiteByoPublishBrowserScope;transport:WebsiteByoPublishBrowserTransport;
-  storage:StorageLike;environment:WebsiteByoPublishEnvironment}){
-  const saved=readOperation(input.scope,input.environment,input.storage);if(!saved||saved.status!=='pending')return null;
+  storage:StorageLike;environment:WebsiteByoPublishEnvironment;includeSettled?:boolean}){
+  const saved=readOperation(input.scope,input.environment,input.storage);if(!saved||(!input.includeSettled&&saved.status!=='pending'))return null;
   const result=await request({scope:input.scope,transport:input.transport,environment:input.environment,body:{action:'status',projectId:input.scope.projectId,operationId:saved.operationId,environment:input.environment}});
   if(result.operationId!==saved.operationId)throw new Error('Publish status is unavailable. Refresh and try again.');writeOperation(input.scope,input.environment,input.storage,result);return result;
 }

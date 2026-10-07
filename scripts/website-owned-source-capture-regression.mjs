@@ -23,9 +23,10 @@ try {
   const vercelId = '55555555-5555-4555-8555-555555555555';
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan',
     publishableKey: 'sb_publishable_customer_fixture' };
+  const hero = createSection('hero'); hero.buttonUrl = '#hero'; hero.elements = hero.elements.map(element => element.type === 'button' ? { ...element, href: '#hero' } : element);
   let snapshot = { homePageId: 'home', siteName: 'Owned App', application: { version: 1,
     tables: [], roles: [], auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, pageAccess: [] },
-    pages: [{ id: 'home', name: 'Home', slug: 'home', language: 'en', sections: [createSection('hero')] }],
+    pages: [{ id: 'home', name: 'Home', slug: 'home', language: 'en', sections: [hero] }],
     supabaseUrl: 'https://platform.invalid', supabaseAnonKey: 'PLATFORM_SECRET_NEVER_EXPORT' };
   const common = { ownerId, projectId, environment: 'production', permissions: ['read'], status: 'ready', version: 1,
     operationId: null, verifiedAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z' };
@@ -56,7 +57,7 @@ try {
       assert.equal(capabilities.definition.auth.enabled, true);
       assert.equal(supabase.provider, 'supabase'); assert.equal(vercel.provider, 'vercel'); return verified; } };
   const source = await capture(args);
-  assert.deepEqual(source.files.map(file => file.path), ['api/application.js', 'package.json', 'vercel.json']);
+  assert.deepEqual(source.files.map(file => file.path), ['HANDOVER.md', 'api/application.js', 'application-definition.json', 'database/schema.sql', 'package.json', 'vercel.json']);
   assert.equal(source.capabilities.needs.auth, true);
   assert(source.files.every(file => !file.content.includes('PLATFORM_SECRET_NEVER_EXPORT')));
   assert.equal(await source.isCurrent(), true);

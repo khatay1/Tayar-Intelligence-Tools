@@ -1,3 +1,4 @@
+import { compileInitialApplicationSchema } from '../src/modules/website-builder/core/application-schema-sql';
 import { analyzeByoSourceCapabilities } from '../src/modules/website-builder/core/application-byo-source-capabilities';
 import { validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from '../src/modules/website-builder/core/application-data-runtime';
 import { renderWebsiteApplicationSnapshot } from '../src/modules/website-builder/services/websiteApplicationRenderService';
@@ -67,6 +68,31 @@ ${websiteOwnedApplicationRuntimeTemplate}`;
     { path: 'vercel.json', content: JSON.stringify({ $schema: 'https://openapi.vercel.sh/vercel.json', framework: null,
       buildCommand: null, rewrites }, null, 2) + '\n' },
     { path: 'api/application.js', content: runtime },
+    { path: 'database/schema.sql', content: '-- Initial schema for a NEW dedicated Supabase project only. Do not reapply to an existing database.\n' + compileInitialApplicationSchema(capabilities.definition).join('\n') + '\n' },
+    { path: 'application-definition.json', content: JSON.stringify(capabilities.definition, null, 2) + '\n' },
+    { path: 'HANDOVER.md', content: `# Your application
+
+This repository, hosting project and database belong to your connected provider accounts.
+The deployed application runs on your hosting and dedicated Supabase project without calling the Tayar platform.
+
+Application origin: ${input.applicationOrigin}
+Supabase project reference: ${input.expectedProjectRef}
+
+## Database source
+
+The repository includes application-definition.json and database/schema.sql so another developer can maintain the schema and access policies without Tayar.
+The SQL is an initial schema for a NEW dedicated Supabase project only; it is not a data backup or a migration to rerun on an existing database.
+Use your provider backup/restore tools to preserve actual records. Reconfigure Auth redirects and hosting runtime credentials when rebuilding on a different project.
+
+## After delivery
+
+You manage provider billing, backups, user administration, credential rotation, monitoring and future maintenance.
+Keep the application runtime credentials configured in your hosting account. They are separate from the OAuth permissions used by Tayar to set up the project.
+Before revoking Tayar setup access, test sign-in, a bound form submission and access denial on protected pages on your deployed domain.
+Revoke the setup applications from your provider account settings after verifying the handover. Do not remove runtime environment variables or delete the repository, database or hosting project.
+A Tayar disconnect action may also clean runtime credentials for security; do not use it as a completed-project handover without checking its effect first.
+Future edits require a new authorized connection. No patient or user records, passwords or provider secrets are included in this handover document.
+` },
   ];
   validateGitHubSourceManifest(files);
   return files;

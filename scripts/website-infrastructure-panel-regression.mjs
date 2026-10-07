@@ -36,7 +36,8 @@ try {
     { ...base, id: '33333333-3333-4333-8333-333333333335', provider: 'vercel', environment: 'production', status: 'connected' },
   ];
   const ready = render({ connections: slots, availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} });
-  assert.match(ready, /Infrastructure ready for publishing/);
+  assert.doesNotMatch(ready, /Infrastructure ready for publishing/, 'Connected, outdated schema and failed deployment are not readiness');
+  assert.match(render({ connections: slots.map(item => ({ ...item, status: 'ready' })), availableProviders: ['github', 'supabase', 'vercel'], onConnect: async () => {} }), /Infrastructure ready for publishing/);
   assert.match(ready, /Manage connection/);
   assert.match(ready, /Manage preview/);
   assert.match(ready, /Manage production/);

@@ -23,6 +23,7 @@ try {
   const application = { version: 1, tables: [], roles: [], auth: { enabled: false,
     signUpEnabled: false, emailVerificationRequired: true }, pageAccess: [] };
   const section = createSection('hero');
+  section.buttonUrl = '#hero'; section.elements = section.elements.map(element => element.type === 'button' ? { ...element, href: '#hero' } : element);
   section.title = 'Welcome';
   const snapshot = { application, homePageId: 'home', siteName: 'Customer site',
     pages: [{ id: 'home', name: 'Home', slug: 'home', language: 'en', sections: [section] },

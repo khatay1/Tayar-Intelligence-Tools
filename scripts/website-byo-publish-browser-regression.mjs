@@ -10,6 +10,8 @@ const transport={platformUrl:'https://platform.example',anonKey:'anon-public-key
 const first=await mod.startWebsiteByoPreview({scope,transport,storage});assert.equal(first.status,'pending');assert.match(first.operationId,/^[0-9a-f-]{36}$/);assert.equal(requests[0].action,'preview');
 const retry=await mod.startWebsiteByoPreview({scope,transport,storage});assert.equal(retry.operationId,first.operationId,'pending retry reuses operation');
 pollReady=true;const ready=await mod.pollWebsiteByoPublish({scope,transport,storage,environment:'preview'});assert.equal(ready.status,'ready');assert.equal(ready.operationId,first.operationId);
+assert.equal(await mod.pollWebsiteByoPublish({scope,transport,storage,environment:'preview'}),null,'settled operations do not auto-poll');
+const restored=await mod.pollWebsiteByoPublish({scope,transport,storage,environment:'preview',includeSettled:true});assert.equal(restored.status,'ready');assert.equal(requests.at(-1).action,'status','reopening verifies the server instead of trusting stored readiness');
 const blocked=await mod.startWebsiteByoProduction({scope,transport,storage});assert.equal(blocked.status,'blocked');assert.equal(requests.at(-1).previewOperationId,first.operationId);
 const productionRetry=await mod.startWebsiteByoProduction({scope,transport,storage,newOperation:true});assert.notEqual(productionRetry.operationId,blocked.operationId);
 assert.equal(await mod.pollWebsiteByoPublish({scope,transport,storage,environment:'production'}),null,'blocked operations are not polled');

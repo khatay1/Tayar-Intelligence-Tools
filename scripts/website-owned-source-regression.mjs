@@ -18,7 +18,8 @@ try {
   await build({ entryPoints: ['src/modules/website-builder/core/defaults.ts'], bundle: true,
     platform: 'node', format: 'cjs', outfile: defaultsFile });
   const { createSection } = (await import(pathToFileURL(defaultsFile))).default;
-  const section = createSection('hero'); section.title = 'Owner App';
+  const section = createSection('hero');
+  section.buttonUrl = '#hero'; section.elements = section.elements.map(element => element.type === 'button' ? { ...element, href: '#hero' } : element); section.title = 'Owner App';
   const id = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan',
     publishableKey: 'sb_publishable_customer_fixture' };
@@ -34,8 +35,12 @@ try {
   const before = JSON.stringify(snapshot);
   const files = await compile(snapshot, config);
   assert.equal(JSON.stringify(snapshot), before);
-  assert.deepEqual(files.map(file => file.path), ['package.json', 'vercel.json', 'api/application.js']);
+  assert.deepEqual(files.map(file => file.path), ['package.json', 'vercel.json', 'api/application.js', 'database/schema.sql', 'application-definition.json', 'HANDOVER.md']);
   assert.deepEqual(await compile(snapshot, config), files);
+  assert.match(files[3].content, /enable row level security/i);
+  assert.deepEqual(JSON.parse(files[4].content), snapshot.application);
+  assert.match(files[5].content, /without calling the Tayar platform/);
+  assert.match(files[5].content, /separate from the OAuth permissions/);
   assert(files.every(file => !file.path.startsWith('public/')));
   assert(files.every(file => !file.content.includes(config.platformUrl) && !file.content.includes(config.platformOrigin)
     && !file.content.includes('PLATFORM_KEY_NEVER_EXPORT')));

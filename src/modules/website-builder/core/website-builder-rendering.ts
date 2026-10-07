@@ -558,8 +558,10 @@ export function videoSource(value: string): { kind: 'iframe' | 'video'; src: str
 
 export function resolveBuilderHref(value: string, homeSlug = 'home'): string {
   if (!value.startsWith('page:')) return value || '#';
-  const slug = normalizeSlug(value.slice(5));
-  return slug === normalizeSlug(homeSlug) ? 'index.html' : `${slug}.html`;
+  const [path, fragment] = value.slice(5).split('#', 2);
+  const slug = normalizeSlug(path);
+  const route = slug === normalizeSlug(homeSlug) ? 'index.html' : `${slug}.html`;
+  return fragment ? `${route}#${normalizeAnchorId(fragment, 'section')}` : route;
 }
 
 export function safeFormRedirectHref(value: string, homeSlug = 'home'): string {

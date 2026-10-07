@@ -44,9 +44,11 @@ export function BuilderInfrastructurePanel({ connections, projectSaved, requires
   ];
   const requiredProviders = [...new Set(requiredSlots.map(([provider]) => provider))];
   const ready = requiredSlots.every(([provider, environment]) => usable(provider,
-    connections.find(item => item.provider === provider && item.environment === environment)));
+    connections.find(item => item.provider === provider && item.environment === environment))
+    && connections.some(item => item.provider === provider && item.environment === environment && item.status === 'ready'));
   return <section className="builder-v2-card" data-testid="byo-infrastructure-panel">
     <div className="builder-v2-card__header"><div><strong>{l('Infrastructure')}</strong><p>{l('Your accounts own the code, database and hosting. Tayar handles setup.')}</p></div></div>
+    <p>{l('After handover, you manage these accounts and their billing. Tayar is used for project setup and future edits you request.')}</p>
     <p role="status">{l(ready ? 'Infrastructure ready for publishing' : 'Connect your accounts after saving the project')}</p>
     {error && <p role="alert">{l(error)}</p>}
     {providers.map(provider => {
@@ -80,7 +82,7 @@ export function BuilderInfrastructurePanel({ connections, projectSaved, requires
       finally { setBusy(undefined); }
     }}>{l('Refresh connection status')}</button>}
     {(!onConnect || requiredProviders.some(provider => !availableProviders.includes(provider)))
-      && <small>{l('Connection setup is not available yet.')}</small>}
+      && <small>{l('Connection setup is not available yet. Tayar must activate this provider before you can connect your account.')}</small>}
   </section>;
 }
 

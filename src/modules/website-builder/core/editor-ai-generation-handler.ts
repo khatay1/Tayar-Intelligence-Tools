@@ -1,3 +1,5 @@
+import { prepareGeneratedApplication, normalizeGeneratedPageLinks } from './editor-generated-application';
+import type { ApplicationDefinition } from './application-model';
 import type { Language } from '@/context/PreferencesContext';
 import { createAIService } from '@/lib/ai/service';
 import type { User } from '@supabase/supabase-js';
@@ -35,6 +37,7 @@ interface AIGenerationHandlerDependencies {
   pushProjectCheckpoint: (label: string, snapshot?: Record<string, unknown>) => void;
   requestGeneratedImage: (prompt: string, signal?: AbortSignal) => Promise<{ url: string; assetPath?: string; persisted?: boolean; persistenceError?: string; }>;
   seo: WebsiteSEO;
+  setApplication: React.Dispatch<React.SetStateAction<ApplicationDefinition | undefined>>;
   setActivePageId: React.Dispatch<React.SetStateAction<string>>;
   setAiBusy: React.Dispatch<React.SetStateAction<boolean>>;
   setAiCandidatePreview: React.Dispatch<React.SetStateAction<AIWebsiteCandidatePreview | null>>;
@@ -84,6 +87,7 @@ export function createAIGenerationHandler({
   pushProjectCheckpoint,
   requestGeneratedImage,
   seo,
+  setApplication,
   setActivePageId,
   setAiBusy,
   setAiCandidatePreview,
@@ -144,7 +148,7 @@ export function createAIGenerationHandler({
       const response = await ai.completeJSON<AIWebsiteGeneration>(
         { action: 'generate', prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
         [],
-        { temperature: 0.65, maxTokens: 9000, signal: abortController.signal },
+        { temperature: 0.65, maxTokens: 16000, signal: abortController.signal },
       );
 
       if (!operationCanApply()) return;
@@ -186,6 +190,7 @@ export function createAIGenerationHandler({
       const generatedMutedTextColor = generatedSurfaceIsLight ? '#475569' : '#cbd5e1';
       const generatedAt = Date.now();
       const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
+      if ((generated.projectKind === 'application' || generated.application) && pageCandidates.length > maxGeneratedPages) throw new Error('This application exceeds the available page limit. Reduce the scope or page count; no partial application was applied.');
       const usedSlugs = new Set<string>();
 
       let nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
@@ -201,6 +206,8 @@ export function createAIGenerationHandler({
             buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
             background: validHex(section.background) ? section.background! : generatedPrimary,
             accent: validHex(section.accent) ? section.accent! : generatedAccent,
+            anchorId: section.anchorId,
+            ...(section.type === 'contact' ? { formFields: section.formFields, applicationFormBinding: section.applicationFormBinding, formSuccessMessage: section.formSuccessMessage } : {}),
             image: section.image?.trim() || undefined,
             imagePrompt: section.imagePrompt?.trim() || undefined,
           }));
@@ -230,6 +237,11 @@ export function createAIGenerationHandler({
       if (nextPages.length === 0) {
         throw new Error(l('AI did not return usable pages or sections. Please try again.'));
       }
+
+      // Validate the complete application before mutating any editor state.
+      // Page access uses response slugs; resolve them to the retained native IDs.
+      const nextApplication = prepareGeneratedApplication(generated, nextPages, prompt);
+      nextPages = normalizeGeneratedPageLinks(nextPages);
 
       let agentImagesGenerated = 0;
       if (agentMode) {
@@ -292,6 +304,7 @@ export function createAIGenerationHandler({
         summary,
         pages: nextPages.map((page) => ({ name: page.name, sections: page.sections.length })),
       });
+      setApplication(nextApplication);
       setPages(nextPages);
       setActivePageId(firstPage.id);
       setHomePageId(firstPage.id);
@@ -338,6 +351,7 @@ export function createAIGenerationHandler({
       pushProjectCheckpoint(agentMode ? 'After Tayar Agent build' : 'After AI build', {
         ...buildProjectSnapshot(),
         siteName: finalSiteName,
+        application: nextApplication,
         pages: nextPages,
         activePageId: firstPage.id,
         homePageId: firstPage.id,
@@ -354,14 +368,15 @@ export function createAIGenerationHandler({
       setAiPrompt('');
       setAiStage('ready');
       setAiIntent('edit');
+      const setupNotice = nextApplication ? ' Application definition and form bindings prepared. Save the project, connect your own GitHub, Supabase and Vercel accounts, and verify a preview before publishing. No backend has been provisioned yet.' : '';
       setAiMessages((current) => [
         ...current,
         {
           id: `ai-result-${generatedAt}`,
           role: 'assistant' as const,
           content: agentMode
-            ? `Tayar Agent prepared ${nextPages.length} page${nextPages.length === 1 ? '' : 's'}, ${totalSections} sections, design system, SEO and ${agentImagesGenerated} generated image${agentImagesGenerated === 1 ? '' : 's'}. ${summary}`
-            : `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}`,
+            ? `Tayar Agent prepared ${nextPages.length} page${nextPages.length === 1 ? '' : 's'}, ${totalSections} sections, design system, SEO and ${agentImagesGenerated} generated image${agentImagesGenerated === 1 ? '' : 's'}. ${summary}${setupNotice}`
+            : `Built ${nextPages.length} page${nextPages.length === 1 ? '' : 's'} with ${totalSections} sections. ${summary}${setupNotice}`,
         },
       ].slice(-12));
     } catch (error) {

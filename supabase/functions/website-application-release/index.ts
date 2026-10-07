@@ -8247,8 +8247,10 @@ function videoSource(value) {
 }
 function resolveBuilderHref(value, homeSlug = "home") {
   if (!value.startsWith("page:")) return value || "#";
-  const slug = normalizeSlug(value.slice(5));
-  return slug === normalizeSlug(homeSlug) ? "index.html" : `${slug}.html`;
+  const [path, fragment] = value.slice(5).split("#", 2);
+  const slug = normalizeSlug(path);
+  const route = slug === normalizeSlug(homeSlug) ? "index.html" : `${slug}.html`;
+  return fragment ? `${route}#${normalizeAnchorId(fragment, "section")}` : route;
 }
 function safeFormRedirectHref(value, homeSlug = "home") {
   const resolved = resolveBuilderHref(value || "", homeSlug).trim();

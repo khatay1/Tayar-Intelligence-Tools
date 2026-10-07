@@ -1,3 +1,4 @@
+import { websiteProjectLinkIssues } from './website-project-links';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences,type Language } from '@/context/PreferencesContext';
 import { createAIService } from '@/lib/ai/service';
@@ -2738,6 +2739,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   }
 
     const generateWithAI = createAIGenerationHandler({
+    setApplication,
     activeUserIdRef,
     aiAbortControllerRef,
     aiBusy,
@@ -3291,6 +3293,8 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
   function publishOperationalBlocker(): string {
+    const linkIssue = websiteProjectLinkIssues(getCurrentPages(), homePageId)[0];
+    if (linkIssue) return `${l('Publish preflight blocked')}: ${linkIssue.message}`;
     const appBlocker = applicationPublishBlockers(application, new Set(getCurrentPages().map(page => page.id)))[0];
     if (appBlocker) return `${l('Publish preflight blocked')}: ${appBlocker.message}`;
     const integrationBlocker = editorIntegrationPublishBlockers(getEditorIntegrationsHostConfig())[0];
