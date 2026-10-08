@@ -1,3 +1,4 @@
+import { verifyOwnedCounterCatalog } from './website-owned-counter-catalog';
 import type { ApplicationDefinition } from '../src/modules/website-builder/core/application-model';
 import { readApplicationDefinition } from '../src/modules/website-builder/core/application-validation';
 import { applicationBookingConstraintManifest, applicationRoleFunctionManifest, applicationSecurityPolicies } from '../src/modules/website-builder/core/application-schema-sql';
@@ -212,6 +213,7 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
     }
     return seenTables.size === tables.size && seenPolicies.size === expectedPolicies.length
       && (!app.roles.length || await verifyRoleInfrastructure(query))
-      && await verifyOwnedSupabaseBookingConstraints(app, query);
+      && await verifyOwnedSupabaseBookingConstraints(app, query)
+      && await verifyOwnedCounterCatalog(app, query);
   } catch { return false; }
 }

@@ -19,6 +19,7 @@ try {
   const chrome = findChrome();
   const fixture = `import { mountApplicationDataView } from './src/modules/website-builder/browser/application-data-view';
 import { ApplicationBookingRejected } from './src/modules/website-builder/core/application-booking';
+import { ApplicationCounterRejected } from './src/modules/website-builder/core/application-counter';
 const check=(value,message)=>{if(!value)throw Error(message)};
 const wait=async fn=>{for(let n=0;n<400;n++){if(fn())return;await new Promise(resolve=>setTimeout(resolve,10))}throw Error('Timed out')};
 const owner='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -86,10 +87,24 @@ async function run(){
   await wait(()=>!bookingRoot.querySelector('.editor form'));
   check(bookingRoot.querySelectorAll('tbody tr').length===0,'relationship lookup account switch clears private UI');
   stopBooking();bookingHost.remove();
+  const counterApp={...app,roles:[],tables:[{id:'stock_items',key:'stock_items',name:'Stock items',fields:[{id:'item_name',key:'name',name:'Name',type:'text',required:true},{id:'item_stock',key:'quantity',name:'Quantity',type:'number',required:true,defaultValue:0}],permissions:['read','update'].map(operation=>({operation,access:'owner'})),counter:{fieldId:'item_stock',minimum:0,maximum:100,integer:true}}]};
+  let quantity=10,adjustments=0;const counterRequests=new Set();
+  const counterRuntime={auth:{currentUser:async()=>({id:owner,is_anonymous:false}),currentRoles:async()=>[]},list:async()=>[{id:ids[0],name:'Generic product',quantity}],adjustCounter:async(_table,id,delta,requestId)=>{if(counterRequests.has(requestId))return 'already-created';if(quantity+delta<0||quantity+delta>100)throw new ApplicationCounterRejected();quantity+=delta;adjustments++;counterRequests.add(requestId);return 'created'},createOnce:async()=>{throw Error('unexpected create')},update:async()=>{},remove:async()=>{}};
+  const counterHost=document.createElement('div');document.body.append(counterHost);const stopCounter=mountApplicationDataView(counterHost,counterApp,{tableId:'stock_items',columns:['item_name','item_stock'],actions:['update','adjust'],pageSize:10},counterRuntime,language,{projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'stock',sectionId:'counter'});
+  const counterRoot=counterHost.shadowRoot,counterIdle=()=>wait(()=>counterRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const counterButton=text=>[...counterRoot.querySelectorAll('button')].find(button=>button.textContent===text&&!button.hidden&&!button.disabled);
+  await counterIdle();counterButton(copy.edit).click();check(counterRoot.querySelector('[name=quantity]').readOnly,'protected quantity cannot be overwritten by normal edit');
+  const adjustLabel={en:'Adjust quantity',ar:'تغيير الكمية',sv:'Ändra antal'}[language];counterButton(adjustLabel).click();let counterForm=counterRoot.querySelector('.editor form');
+  counterForm.elements.adjustment.value='-11';counterForm.requestSubmit();await counterIdle();
+  const boundsCopy={en:'The change exceeds the allowed limits. Choose another amount.',ar:'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.',sv:'Ändringen överskrider tillåtna gränser. Välj ett annat antal.'}[language];
+  check(quantity===10&&adjustments===0&&counterRoot.querySelector('[role=status]').textContent===boundsCopy,'rejected underflow has localized message');
+  counterForm.elements.adjustment.value='-3';counterForm.requestSubmit();await counterIdle();check(quantity===7&&adjustments===1,'corrected generic stock adjustment persists');
+  stopCounter();counterHost.remove();
+
 
  }
 }
-run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / reference selectors / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
+run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / reference selectors / generic counters / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'data-view-fixture.ts' }, bundle: true, write: false,
     platform: 'browser', format: 'iife', target: 'es2020', alias: { '@': resolve('src') } });
   const html = '<!doctype html><html><body><p id="result">RUNNING</p><script src="/fixture.js"></script></body></html>';

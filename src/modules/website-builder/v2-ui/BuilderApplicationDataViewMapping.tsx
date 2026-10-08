@@ -34,9 +34,9 @@ export function BuilderApplicationDataViewMapping({ section, application, disabl
           if (!event.target.checked && searchFieldId === field.id) setSearchFieldId('');
         }} />{field.name}
       </label>)}</fieldset>
-      <fieldset disabled={disabled}><legend>{l('Allowed actions')}</legend>{(['create', 'update', 'delete'] as const).map(action => <label key={action}>
-        <input type="checkbox" checked={actions.includes(action)} disabled={disabled || !table.permissions.some(rule => rule.operation === action)} onChange={event => setActions(current => event.target.checked ? [...current, action] : current.filter(value => value !== action))} />
-        {l(action === 'create' ? 'Add record' : action === 'update' ? 'Edit record' : 'Delete record')}
+      <fieldset disabled={disabled}><legend>{l('Allowed actions')}</legend>{(['create', 'update', 'delete', 'adjust'] as const).map(action => <label key={action}>
+        <input type="checkbox" checked={actions.includes(action)} disabled={disabled || !table.permissions.some(rule => rule.operation === (action === 'adjust' ? 'update' : action)) || (action === 'adjust' && !table.counter)} onChange={event => setActions(current => event.target.checked ? [...current, action] : current.filter(value => value !== action))} />
+        {l(action === 'create' ? 'Add record' : action === 'update' ? 'Edit record' : action === 'adjust' ? 'Adjust quantity' : 'Delete record')}
       </label>)}</fieldset>
       <label>{l('Search column')}<select value={searchFieldId} disabled={disabled} onChange={event => setSearchFieldId(event.target.value)}>
         <option value="">{l('None')}</option>{table.fields.filter(field => field.type === 'text' && columns.includes(field.id)).map(field => <option key={field.id} value={field.id}>{field.name}</option>)}

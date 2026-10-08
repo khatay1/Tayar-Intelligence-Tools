@@ -26,6 +26,7 @@ export interface ApplicationBookingRule {
   statusFieldId?: string;
   blockingStatuses?: string[];
 }
+export interface ApplicationCounterRule { fieldId: string; minimum: number; maximum?: number; integer: boolean }
 export interface ApplicationTable {
   id: string;
   key: string;
@@ -33,6 +34,7 @@ export interface ApplicationTable {
   fields: ApplicationField[];
   permissions: ApplicationPermission[];
   booking?: ApplicationBookingRule;
+  counter?: ApplicationCounterRule;
 }
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {

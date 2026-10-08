@@ -1,3 +1,4 @@
+import { ApplicationCounterRejected, parseApplicationCounterDelta } from './application-counter';
 import { ApplicationBookingRejected, applicationBookingDatabaseRejection, validateApplicationBookingValues } from './application-booking';
 import { createApplicationBrowserSessionBridge, createOwnedApplicationBrowserSessionBridge,
   type ApplicationBrowserSessionOptions } from './application-browser-session';
@@ -311,6 +312,19 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       const row = checked(result);
       if (!row) throw new Error('Record not found or update not permitted.');
       return row;
+    },
+    async adjustCounter(tableId: string, id: string, input: unknown, requestId: string, expectedUserId: string): Promise<'created' | 'already-created'> {
+      const target = table(tableId), delta = parseApplicationCounterDelta(target, input);
+      const index = app.tables.findIndex(table => table.id === target.id), token = await captureWriteToken(expectedUserId);
+      const query = client.rpc(`app_adjust_counter_${index}`, { record_id: rowId(id), adjustment: delta, request_id: rowId(requestId) });
+      if (token) query.setHeader('Authorization', `Bearer ${token}`);
+      const response = await query;
+      if (response.error?.code === 'P0001' && response.error.message === 'Counter adjustment exceeds allowed bounds') throw new ApplicationCounterRejected();
+      const result = checked(response);
+      if (result !== 'adjusted' && result !== 'already-adjusted') throw new Error('Counter outcome is uncertain.');
+      const current = await client.auth.getUser();
+      if (current.error || current.data.user?.id !== expectedUserId) throw new Error('Counter outcome is uncertain.');
+      return result === 'adjusted' ? 'created' : 'already-created';
     },
     async remove(tableId: string, id: string, expectedUserId?: string) {
       const target = table(tableId);

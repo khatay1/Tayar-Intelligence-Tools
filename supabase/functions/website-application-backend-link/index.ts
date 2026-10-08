@@ -96,7 +96,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -149,6 +149,17 @@ function validateApplicationDefinition(value, pageIds) {
             issue(bookingPath, "invalid-booking-status", "Blocking statuses must reference a required enum and declared unique values.");
           }
         }
+      }
+    }
+    if (table.counter !== void 0) {
+      const counterPath = `${path}.counter`;
+      if (shape(table.counter, ["fieldId", "minimum", "maximum", "integer"], counterPath)) {
+        const rule = table.counter;
+        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object(field2) && field2.id === rule.fieldId) : void 0;
+        if (!authEnabled || !id(rule.fieldId) || !object(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
+          issue(counterPath, "invalid-counter", "A counter needs Auth, a required numeric field defaulting to its finite minimum, and valid optional bounds.");
+        }
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
       }
     }
     const permissionKeys = /* @__PURE__ */ new Set();

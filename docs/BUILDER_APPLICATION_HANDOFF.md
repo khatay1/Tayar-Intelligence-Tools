@@ -66,6 +66,25 @@ UUID-only fields still accept real operator-supplied IDs. Calendar grids, availa
 recurrence, multi-resource booking and business-hours enforcement remain outside
 this adapter's scope.
 
+## Generic quantity operations
+
+Optional `table.counter` targets a required numeric field defaulting to its configured
+minimum, with an optional maximum and integer-only rule. Stock items, quotas and
+points use the same native `adjust` data view action. Normal editing cannot overwrite
+the protected field. A single database transaction locks an authorized row, checks
+current read/update policies, applies a signed delta within bounds and records the
+actor/request UUID in a private idempotency ledger. Concurrent deductions cannot
+cross the minimum; concurrent or lost-response retries cannot apply twice.
+
+Write guards require a private transaction context which browser roles cannot forge.
+The public RPC is an invoker wrapper around a private narrowly scoped implementation.
+Customer preflight verifies exact function bodies/grants, ledger uniqueness, required
+typed columns, active guards and bounds. Permission upgrades replace the RPC bodies
+alongside RLS; removing/changing deployed counter rules requires reviewed migration.
+The independent source includes the same schema and runtime. Initial records start at
+minimum; operators use adjustments for opening quantities. This is an atomic operation
+on one record, not a multi-product order/payment/reservation workflow or financial ledger.
+
 ## Ownership after handover
 
 GitHub source, dedicated Supabase data/Auth and Vercel hosting belong to the connected customer's accounts. Tayar is setup/editing tooling. The deployed runtime operates independently of Tayar, and the customer manages billing, backups, user administration, monitoring and maintenance.
@@ -112,7 +131,7 @@ No provider setup consent or real customer-owned deployment was performed in thi
 
 ## Supported scope and remaining application work
 
-The existing runtime supports Auth, role-protected pages, create forms and bound data dashboards/editing views. It does not implement a complete clinical management system. Live calendars/availability, recurring scheduling, SMS/email, files, prescription dispatch and atomic inventory workflows require additional native runtime adapters and complete-flow tests. Generation must explicitly reject those requested features instead of substituting descriptive sections.
+The runtime is shared across project types: Auth, role-protected pages, create forms, bound data dashboards/editing views, related-record selectors, conflict-safe single-resource bookings and atomic single-record stock/quota/points adjustments. These are reusable capabilities for customer portals, resource management, membership tools and inventory applications. Full multi-product order/payment/reservation transactions, live calendars/availability, recurring scheduling, SMS/email and files still require additional runtime adapters and complete-flow tests. Generation must explicitly reject unsupported requested features instead of substituting descriptive sections.
 
 The existing Apex Dental publication has not been rewritten or republished. It needs a new complete application revision after the relevant adapters and live connection activation are ready.
 

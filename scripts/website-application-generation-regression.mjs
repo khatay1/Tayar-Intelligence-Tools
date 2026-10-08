@@ -83,6 +83,17 @@ try {
     const failed = await run(invalid, 6, 'Build appointment booking');
     assert.equal(failed.state.AiStage, 'error'); assert.equal(failed.state.Pages, undefined); assert.equal(failed.checkpoints.length, 0);
   }
+  const inventoryTable = { id: 'stock_items', key: 'stock_items', name: 'Stock', fields: [
+    { id: 'item_name', key: 'name', name: 'Name', type: 'text', required: true },
+    { id: 'item_qty', key: 'quantity', name: 'Quantity', type: 'number', required: true, defaultValue: 0 }],
+    permissions: ['read','create','update'].map(operation => ({ operation, access: 'owner' })),
+    counter: { fieldId: 'item_qty', minimum: 0, integer: true } };
+  const inventoryResponse = { projectKind: 'application', application: { ...application, pageAccess: [], tables: [inventoryTable] },
+    pages: [{ name: 'Stock', slug: 'stock', sections: [{ type: 'features', applicationDataView: { tableId: 'stock_items', columns: ['item_name','item_qty'], actions: ['create','adjust'], pageSize: 10 } }] }] };
+  const inventory = await run(inventoryResponse, 6, 'بدي إدارة المخزون'); assert.equal(inventory.state.AiStage, 'ready');
+  assert.deepEqual(inventory.state.Application.tables[0].counter, inventoryTable.counter);
+  const fakeInventory = await run(dashboardResponse, 6, 'Build inventory management');
+  assert.equal(fakeInventory.state.AiStage, 'error'); assert.equal(fakeInventory.state.Pages, undefined); assert.equal(fakeInventory.checkpoints.length, 0);
   const fakeDashboard = await run(response, 6, 'Build record management');
   assert.equal(fakeDashboard.state.AiStage, 'error'); assert.equal(fakeDashboard.state.Pages, undefined);
   const fakeRecordBrochure = await run({ projectKind: 'website', pages: [response.pages[0]] }, 6, 'بدي إدارة السجلات');
