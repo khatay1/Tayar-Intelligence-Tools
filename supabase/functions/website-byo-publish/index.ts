@@ -9941,6 +9941,7 @@ function compileApplicationTransactionSchema(input, index, existing = false) {
   const bound = `changed < ${counter.minimum}${counter.maximum === void 0 ? "" : ` or changed > ${counter.maximum}`}`;
   const shapeChecks = table.fields.map(fieldShape).join(" or ") || "false";
   const quantityInteger = counter.integer ? " or entry.quantity <> trunc(entry.quantity)" : "";
+  const candidateInteger = counter.integer ? " or candidate.quantity <> trunc(candidate.quantity)" : "";
   const lineConstraint = `alter table ${lineName} add constraint ${quoted2(`app_transaction_quantity_${index}`)} check (${quoted2(quantityField.key)} > 0 and ${quoted2(quantityField.key)} <= 1000000000000 and ${quoted2(quantityField.key)} not in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)${counter.integer ? ` and ${quoted2(quantityField.key)} = trunc(${quoted2(quantityField.key)})` : ""});`;
   const body = `
 <<transaction_operation>>
@@ -9956,8 +9957,8 @@ begin
     or jsonb_typeof(value->'quantity') <> 'number') then raise exception 'Application transaction unavailable'; end if;
   select jsonb_agg(jsonb_build_object('itemId', item_id, 'quantity', quantity) order by item_id), count(*), count(distinct item_id)
     into normalized, item_count, unique_count from (select (value->>'itemId')::uuid item_id, (value->>'quantity')::numeric quantity from jsonb_array_elements(lines) value) parsed;
-  if item_count <> unique_count or exists (select 1 from jsonb_to_recordset(normalized) as entry("itemId" uuid, quantity numeric)
-    where entry.quantity <= 0 or entry.quantity > 1000000000000 or entry.quantity in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)${quantityInteger})
+  if item_count <> unique_count or exists (select 1 from jsonb_to_recordset(normalized) as candidate("itemId" uuid, quantity numeric)
+    where candidate.quantity <= 0 or candidate.quantity > 1000000000000 or candidate.quantity in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)${candidateInteger})
     then raise exception 'Application transaction unavailable'; end if;
   insert into private.app_transaction_requests(actor_id,request_id,table_name,record_id,attributes,items)
     values (actor,${inner}.request_id,${literal2(`app_${table.key}`)},parent_id,attrs,normalized)
