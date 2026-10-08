@@ -84,7 +84,7 @@ try {
     const query = text => new Promise((resolveQuery, reject) => { const child = spawn('psql', [databaseUrl, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-A', '-t'], { stdio: ['pipe', 'pipe', 'pipe'] }); let output = '', error = '';
       child.stdout.on('data', data => output += data); child.stderr.on('data', data => error += data); child.on('error', reject); child.on('close', code => code ? reject(Error(error)) : resolveQuery(output.trim())); child.stdin.end(text); });
     await query('drop schema private cascade; drop schema public cascade; create schema public; grant usage on schema public to anon,authenticated,service_role;'); await query(sql);
-    const asUser = user => `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`;
+    const asUser = user => `set role authenticated; set request.jwt.claim.sub to '${user}';`;
     await query(`insert into public.app_products(id,owner_id,name) values ('${itemA}','${owner}','A'),('${itemB}','${owner}','B');`);
     await query(`${asUser(owner)} select public.app_adjust_counter_0('${itemA}',10,gen_random_uuid()); select public.app_adjust_counter_0('${itemB}',10,gen_random_uuid());`);
     const created = JSON.parse(await query(`${asUser(owner)} select public.app_create_transaction_1('{"note":"First"}'::jsonb,'[{"itemId":"${itemA}","quantity":2},{"itemId":"${itemB}","quantity":3}]'::jsonb,'${request}');`));
