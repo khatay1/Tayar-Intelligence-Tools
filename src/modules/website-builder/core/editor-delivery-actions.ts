@@ -39,7 +39,7 @@ export function createDeliveryActions({
   function approveForDelivery() {
     const blocker = requirementsBlocker();
     if (blocker) {
-      window.alert(`${l('Application requirements are incomplete')}: ${blocker}`);
+      window.alert(l('Application requirements are incomplete. Restore every required page, form and action before approval.'));
       return;
     }
     const approvedAt = new Date().toISOString();
@@ -67,7 +67,7 @@ export function createDeliveryActions({
   function markProjectDelivered() {
     const blocker = requirementsBlocker();
     if (blocker) {
-      window.alert(`${l('Application requirements are incomplete')}: ${blocker}`);
+      window.alert(l('Application requirements are incomplete. Restore every required page, form and action before approval.'));
       return;
     }
     if (!approvalCurrent) {
