@@ -135,7 +135,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     }
     const picker = document.createElement('fieldset'), search = document.createElement('input'), select = document.createElement('select'), quantity = document.createElement('input');
     const itemLabel = document.createElement('label'), quantityLabel = document.createElement('label'), selected = document.createElement('div'); let itemPage = 0, itemQuery = '', hasNext = false;
-    search.type = 'search'; search.maxLength = 200; search.placeholder = copy.search; select.required = true; quantity.type = 'number'; quantity.required = true; quantity.min = '0'; quantity.step = 'any';
+    // These inputs stage a line; only the committed lines belong to the transaction.
+    // Adding a line clears quantity, so requiring it would block the parent form.
+    search.type = 'search'; search.maxLength = 200; search.placeholder = copy.search; quantity.type = 'number'; quantity.min = '0'; quantity.step = 'any';
     itemLabel.textContent = copy.item; itemLabel.append(select); quantityLabel.textContent = copy.quantity; quantityLabel.append(quantity);
     const lines: Array<{ itemId: string; quantity: number; label: string }> = [];
     const renderLines = () => { selected.replaceChildren(); for (const line of lines) { const row = document.createElement('p'); row.textContent = `${line.label}: ${line.quantity} `; row.append(button(copy.remove, () => { lines.splice(lines.indexOf(line), 1); renderLines(); })); selected.append(row); } };
