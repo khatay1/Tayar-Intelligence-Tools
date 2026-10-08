@@ -854,6 +854,9 @@ export function sectionToHtml(section: WebsiteSection, homeSlug: string, leadCap
   const tr = (text: string) => localizeUi(text, language);
   const html = (text: string) => escapeHtml(tr(text));
   const sectionId = escapeHtml(sectionDomId(section));
+  if (section.applicationDataView !== undefined) {
+    return `<section id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section" style="${sectionInlineCss(section)}"><div class="${sectionContainerClass(section)}">${sectionElementsToHtml(section, homeSlug, false, language)}<div data-tayar-data-view-id="${escapeHtml(section.id)}" role="region" aria-label="${escapeHtml(section.title)}"><p>${html('Data is available after secure application publishing and sign-in.')}</p></div></div></section>`;
+  }
   if (section.type === 'contact') {
     const submitElement = (section.elements || []).find((element) => element.type === 'button');
     const submitLabel = escapeHtml(submitElement?.content || section.buttonText || tr('Send Message'));

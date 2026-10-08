@@ -45,7 +45,7 @@ export async function compileWebsiteByoStaticSource(snapshot: Record<string, unk
   for (const page of pages) {
     if (!page || page.cmsTemplate || !Array.isArray(page.sections)) throw new Error('BYO source page is unsupported.');
     for (const section of page.sections as Array<Record<string, unknown>>) {
-      if (!section || !safeSections.has(String(section.type)) || section.applicationFormBinding !== undefined
+      if (!section || !safeSections.has(String(section.type)) || section.applicationFormBinding !== undefined || section.applicationDataView !== undefined
         || section.cmsBinding !== undefined || !Array.isArray(section.elements)
         || section.elements.some((element: Record<string, unknown>) => !element || ['code', 'embed'].includes(String(element.type)))) {
         throw new Error('BYO source requires a user-owned backend or reviewed integration runtime.');

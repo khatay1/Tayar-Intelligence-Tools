@@ -63,7 +63,9 @@ export async function publishWebsiteApplicationRelease(input: {
     const hasBoundForm = Array.isArray(snapshot.pages) && snapshot.pages.some(page => {
       if (!page || typeof page !== 'object' || !Array.isArray(page.sections)) return false;
       return page.sections.some((section: unknown) => !!section && typeof section === 'object'
-        && 'applicationFormBinding' in section);
+        && ('applicationFormBinding' in section || ('applicationDataView' in section
+          && Array.isArray((section.applicationDataView as { actions?: unknown } | undefined)?.actions)
+          && (section.applicationDataView as { actions: unknown[] }).actions.includes('create'))));
     });
     if (hasBoundForm) {
       const reader = await createStoredApplicationRevisionReader({ platform, platformUrl, projectId, backend });

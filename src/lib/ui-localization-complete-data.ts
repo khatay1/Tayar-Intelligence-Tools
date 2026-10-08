@@ -4,6 +4,9 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Data is available after secure application publishing and sign-in.': 'تظهر البيانات بعد نشر التطبيق الآمن وتسجيل الدخول.',
+  'Application data view': 'عرض بيانات التطبيق',
+  'Records load after secure application publishing and sign-in. Database permissions control every action.': 'تظهر السجلات بعد نشر التطبيق الآمن وتسجيل الدخول. تتحكم صلاحيات قاعدة البيانات بكل إجراء.',
   'Checking release…': 'جارٍ فحص الإصدار…',
   'Publishing still requires the remaining runtime checks.': 'النشر ما زال يتطلب إكمال اختبارات التشغيل المتبقية.',
   "Private release status": "حالة الإصدار الخاص",
@@ -532,6 +535,9 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Data is available after secure application publishing and sign-in.': 'Data visas efter säker apppublicering och inloggning.',
+  'Application data view': 'Appens datavy',
+  'Records load after secure application publishing and sign-in. Database permissions control every action.': 'Poster visas efter säker apppublicering och inloggning. Databasens behörigheter styr varje åtgärd.',
   'Checking release…': 'Kontrollerar version…',
   'Publishing still requires the remaining runtime checks.': 'Publicering kräver fortfarande de återstående driftkontrollerna.',
   "Private release status": "Status för privat publicering",

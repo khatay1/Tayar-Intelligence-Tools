@@ -94,6 +94,7 @@ const SECTION_CHANGE_KEYS = new Set([
   'imagePrompt',
   'formFields',
   'applicationFormBinding',
+  'applicationDataView',
   'formSuccessMessage',
   'formSuccessAction',
   'formRedirectUrl',

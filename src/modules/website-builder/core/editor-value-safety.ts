@@ -1,3 +1,4 @@
+import { validateApplicationDataViewShape } from './application-data-view';
 import type {
   EditorElementLike,
   EditorPageLike,
@@ -415,6 +416,10 @@ function validateSectionRecord(
   optionalUrl(record, 'image', 'media', errors, label, 5000);
   optionalString(record, 'imagePrompt', errors, label, 8000);
   optionalString(record, 'formSuccessMessage', errors, label, 2000);
+  if (record.applicationDataView !== undefined && ((record.type !== undefined && ['contact', 'footer'].includes(String(record.type)))
+    || !validateApplicationDataViewShape(record.applicationDataView))) {
+    pushError(errors, `${label}.applicationDataView`, 'must contain valid table/column/action references');
+  }
   if (record.applicationFormBinding !== undefined) {
     const binding = record.applicationFormBinding;
     if ((record.type !== undefined && record.type !== 'contact') || !isRecord(binding)

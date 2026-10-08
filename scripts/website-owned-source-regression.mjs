@@ -71,6 +71,23 @@ try {
   assert.equal((await handler(request('unknown'))).status, 404);
   assert.equal((await handler(new Request('https://wrong.example/api/application?tayarRoute=dashboard'))).status, 403);
   assert.equal(verified, 1, 'Denied requests cannot call upstream Auth without credentials');
+  const dataSnapshot = structuredClone(snapshot);
+  dataSnapshot.application.tables = [{ id: 'records', key: 'records', name: 'Records', fields: [
+    { id: 'record_name', key: 'name', name: 'Name', type: 'text', required: true },
+  ], permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'owner' })) }];
+  dataSnapshot.pages[1].sections[0].applicationDataView = { tableId: 'records', columns: ['record_name'], actions: ['create', 'update', 'delete'], pageSize: 10, searchFieldId: 'record_name' };
+  const dataFiles = await compile(dataSnapshot, config);
+  assert.match(dataFiles.find(file => file.path === 'database/schema.sql').content, /owner_id = \(select auth.uid\(\)\)/);
+  const dataRuntimeFile = join(dir, 'data-runtime.cjs'); await writeFile(dataRuntimeFile, dataFiles.find(file => file.path === 'api/application.js').content);
+  const dataHandler = (await import(pathToFileURL(dataRuntimeFile))).default;
+  const deniedData = await dataHandler(request('dashboard', { accept: 'text/html' }));
+  assert.equal(deniedData.status, 401); assert.doesNotMatch(await deniedData.text(), /data-tayar-data-view-id/);
+  const dataPage = await dataHandler(request('dashboard', { authorization: `Bearer ${token}`, accept: 'text/html' }));
+  assert.equal(dataPage.status, 200);
+  const dataHtml = await dataPage.text(); assert.match(dataHtml, /data-tayar-data-view-id/); assert.match(dataHtml, /applicationDataViews/);
+  const browserConfig = JSON.parse(/data-application="([^"]+)"/.exec(dataHtml)[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
+  assert.equal(browserConfig.applicationDataViews[0].pageId, 'dashboard');
+  assert.deepEqual(browserConfig.applicationDataViews[0].binding, dataSnapshot.pages[1].sections[0].applicationDataView);
 
   const stripeSnapshot=structuredClone(snapshot);
   stripeSnapshot.pages[0].sections[0]=structuredClone(stripeSnapshot.pages[0].sections[0]);

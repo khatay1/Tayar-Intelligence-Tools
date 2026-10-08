@@ -164,7 +164,7 @@ export function createApplicationFormSubmission(compiled: ReturnType<typeof comp
  * submitted values. The caller supplies a key scoped to the dedicated project,
  * authenticated user and form. A changed payload cannot reuse its identity.
  * Storage failure stops the mutation before it reaches the database. */
-export function createDurableApplicationFormSubmission(compiled: ReturnType<typeof compileApplicationCreateForm>, runtime: {
+export function createDurableApplicationFormSubmission(compiled: Pick<ReturnType<typeof compileApplicationCreateForm>, 'tableId' | 'values'>, runtime: {
   createOnce(tableId: string, values: Record<string, unknown>, requestId: string): Promise<'created' | 'already-created'>;
 }, scope: { key: string; storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>; crypto: Pick<Crypto, 'randomUUID' | 'subtle'> }) {
   if (!scope || typeof scope.key !== 'string' || !/^tayar-app-form:[a-zA-Z0-9:._-]{1,240}$/.test(scope.key)

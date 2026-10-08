@@ -101,7 +101,7 @@ try {
     assert.equal(await once.createOnce('vehicles', { plate: 'ABC' }, requestId), 'created');
     const inserted = requests.findLast(item => item.init?.method === 'POST' && item.url.includes('/rest/v1/app_vehicles'));
     assert.equal(new URL(inserted.url).pathname, '/rest/v1/app_vehicles');
-    assert.deepEqual(JSON.parse(inserted.init.body), { plate: 'ABC', _tayar_request_id: requestId });
+    assert.deepEqual(JSON.parse(inserted.init.body), { plate: 'ABC', owner_id: userId, _tayar_request_id: requestId });
     assert.equal(new Headers(inserted.init.headers).get('apikey'), config.publishableKey);
     const beforeInvalid = requests.length;
     await assert.rejects(() => once.createOnce('vehicles', { owner_id: 'forged' }, requestId));

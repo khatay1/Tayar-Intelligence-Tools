@@ -134,6 +134,16 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
     if (result.error) throw new Error(result.error.message);
     return result.data;
   };
+  const captureWriteToken = async (expectedUserId?: string) => {
+    if (expectedUserId === undefined) return undefined;
+    rowId(expectedUserId);
+    const session = await client.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (session.error || !token) throw new Error('Application write identity is unavailable.');
+    const identity = await client.auth.getUser(token);
+    if (identity.error || !identity.data.user || identity.data.user.is_anonymous || identity.data.user.id !== expectedUserId) throw new Error('Application write identity changed.');
+    return token;
+  };
   return {
     dispose() { sessionBridge?.dispose(); void client.auth.stopAutoRefresh().catch(() => {}); },
     auth: {
@@ -245,10 +255,11 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
     /** The UUID is stable for one intentional submission. The dedicated database
      * enforces owner-scoped uniqueness; a lost insert response is confirmed only
      * if the same user's readable row still matches every submitted field. */
-    async createOnce(tableId: string, input: Record<string, unknown>, requestId: string): Promise<'created' | 'already-created'> {
+    async createOnce(tableId: string, input: Record<string, unknown>, requestId: string, expectedUserId?: string): Promise<'created' | 'already-created'> {
       const target = table(tableId);
       const request = rowId(requestId).toLowerCase();
       const values = writable(target, input);
+      const token = await captureWriteToken(expectedUserId);
       const currentOwner = async () => {
         const identity = await client.auth.getUser();
         const user = identity.data.user;
@@ -258,8 +269,11 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       let owner: string;
       try { owner = await currentOwner(); }
       catch { throw new Error('Application submission identity is unavailable.'); }
+      if (expectedUserId !== undefined && owner !== expectedUserId) throw new Error('Application write identity changed.');
       try {
-        const result = await client.from(`app_${target.key}`).insert({ ...values, _tayar_request_id: request });
+        const query = client.from(`app_${target.key}`).insert({ ...values, owner_id: owner, _tayar_request_id: request });
+        if (token) query.setHeader('Authorization', `Bearer ${token}`);
+        const result = await query;
         if (!result.error) {
           try { if (await currentOwner() === owner) return 'created'; }
           catch { /* A changed/unavailable session makes the commit uncertain. */ }
@@ -280,15 +294,21 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       }
       throw new Error('Application submission outcome is uncertain.');
     },
-    async update(tableId: string, id: string, input: Record<string, unknown>) {
+    async update(tableId: string, id: string, input: Record<string, unknown>, expectedUserId?: string) {
       const target = table(tableId);
-      const row = checked(await client.from(`app_${target.key}`).update(writable(target, input)).eq('id', rowId(id)).select('*').maybeSingle());
+      const token = await captureWriteToken(expectedUserId);
+      const query = client.from(`app_${target.key}`).update(writable(target, input)).eq('id', rowId(id)).select('*').maybeSingle();
+      if (token) query.setHeader('Authorization', `Bearer ${token}`);
+      const row = checked(await query);
       if (!row) throw new Error('Record not found or update not permitted.');
       return row;
     },
-    async remove(tableId: string, id: string) {
+    async remove(tableId: string, id: string, expectedUserId?: string) {
       const target = table(tableId);
-      const row = checked(await client.from(`app_${target.key}`).delete().eq('id', rowId(id)).select('id').maybeSingle());
+      const token = await captureWriteToken(expectedUserId);
+      const query = client.from(`app_${target.key}`).delete().eq('id', rowId(id)).select('id').maybeSingle();
+      if (token) query.setHeader('Authorization', `Bearer ${token}`);
+      const row = checked(await query);
       if (!row) throw new Error('Record not found or deletion not permitted.');
       return row;
     },

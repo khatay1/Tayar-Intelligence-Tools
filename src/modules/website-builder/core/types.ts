@@ -185,6 +185,7 @@ export interface WebsiteSection {
   formFields?: WebsiteFormField[];
   /** References into this project's application schema; no submitted values. */
   applicationFormBinding?: import('./application-form-runtime').ApplicationCreateFormBinding;
+  applicationDataView?: import('./application-data-view').ApplicationDataViewBinding;
   formSuccessMessage?: string;
   formSuccessAction?: 'message' | 'redirect';
   formRedirectUrl?: string;

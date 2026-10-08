@@ -8,6 +8,7 @@ import { assertValidPublishedWebsiteBundle, isValidPublishedHtml } from '../core
 import type { WebsitePage } from '../core/website-builder-model';
 import type { WebsiteSection } from '../core/types';
 import { compileApplicationCreateForm } from '../core/application-form-runtime';
+import { preparePublishedApplicationDataViews } from '../core/application-published-data-views';
 import type { ApplicationDefinition } from '../core/application-model';
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -33,6 +34,7 @@ export async function renderWebsiteApplicationSnapshot(input: Record<string, unk
     // Generated CMS IDs need a trusted template-to-runtime authorization mapping.
     // Refuse this case rather than omitting/reclassifying protected dynamic pages.
     if (page.cmsTemplate) throw new Error('Private CMS route mapping is unavailable.');
+    preparePublishedApplicationDataViews(snapshot.application as ApplicationDefinition, page.id, page.sections as WebsiteSection[]);
     for (const section of page.sections as WebsiteSection[]) {
       if (section.applicationFormBinding === undefined) continue;
       compileApplicationCreateForm(snapshot.application as ApplicationDefinition, section, section.applicationFormBinding);

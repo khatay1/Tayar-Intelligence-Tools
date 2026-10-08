@@ -4,6 +4,7 @@ import type { WebsiteSection } from '../core/types';
 import { readApplicationDefinition } from '../core/application-validation';
 import { validateOwnedApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import { preparePublishedApplicationForms } from '../core/application-published-forms';
+import { preparePublishedApplicationDataViews } from '../core/application-published-data-views';
 import { applicationAuthScreenResponse } from './websiteApplicationAuthScreenService';
 import { addApplicationPageBootstrap } from './websiteApplicationPageBootstrapService';
 import { serveOwnedWebsiteApplicationPage } from './websiteApplicationPageService';
@@ -65,7 +66,8 @@ export async function serveOwnedApplicationRoute(request: Request, manifest: Own
     if (browserHtml && definition.auth.enabled && response.status === 401) return applicationAuthScreenResponse(config, 401);
     if (browserHtml && response.status === 200 && definition.auth.enabled) {
       response = await addApplicationPageBootstrap(response, { ...config, definition, pageId: page.pageId,
-        paths: [...paths], applicationForms: preparePublishedApplicationForms(definition, page.pageId, page.sections) });
+        paths: [...paths], applicationForms: preparePublishedApplicationForms(definition, page.pageId, page.sections),
+        applicationDataViews: preparePublishedApplicationDataViews(definition, page.pageId, page.sections) });
       response.headers.set('content-security-policy', "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' https: data: blob:; font-src 'self' https: data:; connect-src 'self' https:; frame-src https:; object-src 'none'; base-uri 'none'; form-action 'self' https:; frame-ancestors 'none';");
     }
     return response;

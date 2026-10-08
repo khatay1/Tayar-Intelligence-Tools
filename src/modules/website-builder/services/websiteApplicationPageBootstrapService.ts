@@ -2,6 +2,7 @@ import type { ApplicationAuthScreenConfig, OwnedApplicationAuthScreenConfig } fr
 import type { ApplicationDefinition } from '../core/application-model';
 import { applicationPageScript } from '../browser/generated/application-page-script';
 import type { PublishedApplicationForm } from '../core/application-published-forms';
+import type { PublishedApplicationDataView } from '../core/application-published-data-views';
 
 /** Called only on an authorized private HTML response on its isolated origin.
  * The stored immutable page stays unchanged; only public runtime configuration
@@ -9,6 +10,7 @@ import type { PublishedApplicationForm } from '../core/application-published-for
 export async function addApplicationPageBootstrap(response: Response, config: (ApplicationAuthScreenConfig | OwnedApplicationAuthScreenConfig) & {
   definition: ApplicationDefinition; paths: string[]; pageId: string;
   applicationForms: PublishedApplicationForm[];
+  applicationDataViews?: PublishedApplicationDataView[];
 }): Promise<Response> {
   const html = await response.text();
   const end = html.toLowerCase().lastIndexOf('</body>');

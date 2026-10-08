@@ -24,6 +24,7 @@ import type { EditorNativeOperation } from '../core/editor-native-operation';
 import type { ApplicationDefinition } from '../core/application-model';
 import type { WebsiteSection } from '../core/types';
 import { BuilderApplicationFormMapping } from './BuilderApplicationFormMapping';
+import { BuilderApplicationDataViewMapping } from './BuilderApplicationDataViewMapping';
 import type { EditorSelection } from '../core/editor-selection';
 import type { EditorShellContract } from '../core/editor-shell-contract';
 import type { EditorTemplateLibraryItem } from '../core/editor-template-library';
@@ -312,6 +313,11 @@ export function BuilderV2NativeBridge<P extends EditorProjectLike>(props: Builde
       </div>}
       {target.kind === 'element' && (props.selectedElementIds?.length || 0) > 1 && <div className="tayar-v2-multi-edit-note" role="status">{props.selectedElementIds?.length} {l('Selected elements')} · {l('Inspector changes apply to all')}</div>}
       <BuilderInspectorFields fields={inspectorFields} group={tab} onChange={handleInspectorChange} disabled={Boolean(shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking)} />
+      {target.kind === 'section' && formSection && formSection.type !== 'contact' && formSection.type !== 'footer' && props.application && selection.pageId && <BuilderApplicationDataViewMapping
+        key={`data:${selection.pageId}:${formSection.id}:${JSON.stringify(formSection.applicationDataView)}:${JSON.stringify(props.application)}`}
+        section={formSection as unknown as WebsiteSection} application={props.application}
+        disabled={Boolean(shell.status.mutating || shell.status.saving || shell.status.publishing || shell.status.checking)}
+        onChange={applicationDataView => applyOperations([{ action: 'update_section', pageId: selection.pageId, sectionId: formSection.id, changes: { applicationDataView } }], selection)} />}
       {target.kind === 'section' && formSection?.type === 'contact' && props.application && selection.pageId && <BuilderApplicationFormMapping
         key={`${selection.pageId}:${formSection.id}:${JSON.stringify(formSection.applicationFormBinding)}:${JSON.stringify(props.application)}`}
         section={formSection as unknown as WebsiteSection} application={props.application}

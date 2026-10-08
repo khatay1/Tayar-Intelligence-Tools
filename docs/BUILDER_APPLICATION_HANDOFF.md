@@ -14,6 +14,28 @@ The published Apex Dental example exposed three distinct gaps: AI generation dro
 - Application generation reports that the backend has not yet been provisioned. The Tayar page publisher remains blocked for application definitions and points users toward their own infrastructure.
 - Independent export includes the application runtime, application-definition.json, initial database schema with access policies, and HANDOVER.md. No runtime rows, provider secrets, or platform endpoint are exported.
 
+## Native record views
+
+Content sections can save `applicationDataView` references to a declared table,
+visible field IDs, allowed CRUD actions, pagination size and an optional text
+search column. AI generation, manual inspector editing, native snapshots and
+independent source export retain the same binding. Invalid table/column/action
+references and dashboards without a bound view abort before generation applies.
+
+The published component reads and writes only through the isolated customer
+Supabase runtime. It checks current identity/roles before each action and current
+identity after responses; database RLS remains authoritative. Every mutation must
+return a confirmed result, and deletion asks the site's user for confirmation.
+Search escapes wildcard characters; field forms validate declared data types;
+records render as text, never HTML. Account changes, logout and page disposal
+clear the UI. Create requests persist only a scoped UUID and SHA-256 fingerprint
+in tab storage so an uncertain commit can be reconciled after a reload without
+duplicating a row. Submitted values and record caches are never persisted there.
+
+This supplies working generic record dashboards/editors. Atomic appointment
+conflicts, inventory reservations, file attachments and notification delivery
+still require dedicated business adapters; basic CRUD must not claim these.
+
 ## Ownership after handover
 
 GitHub source, dedicated Supabase data/Auth and Vercel hosting belong to the connected customer's accounts. Tayar is setup/editing tooling. The deployed runtime operates independently of Tayar, and the customer manages billing, backups, user administration, monitoring and maintenance.
@@ -60,7 +82,7 @@ No provider setup consent or real customer-owned deployment was performed in thi
 
 ## Supported scope and remaining application work
 
-The existing runtime supports Auth, role-protected pages and create forms. It does not implement a complete clinical management system. Calendar conflict handling, SMS/email, data dashboards and editing views, files, prescription dispatch and inventory workflows require additional native runtime adapters and complete-flow tests. Generation must explicitly reject those requested features instead of substituting descriptive sections.
+The existing runtime supports Auth, role-protected pages, create forms and bound data dashboards/editing views. It does not implement a complete clinical management system. Calendar conflict handling, SMS/email, files, prescription dispatch and atomic inventory workflows require additional native runtime adapters and complete-flow tests. Generation must explicitly reject those requested features instead of substituting descriptive sections.
 
 The existing Apex Dental publication has not been rewritten or republished. It needs a new complete application revision after the relevant adapters and live connection activation are ready.
 

@@ -59,6 +59,9 @@ jobs:
       - name: Website Builder browser regression
         run: timeout 75s npm run smoke:website-builder:browser
 
+      - name: Application data view browser regression
+        run: timeout 40s npm run smoke:website-builder:data-views:browser
+
       - name: Production build
         run: npm run build
 
