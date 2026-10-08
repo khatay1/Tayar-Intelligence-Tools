@@ -61,7 +61,6 @@ export function compileApplicationTransactionSchema(input: ApplicationDefinition
   const delta = rule.counterDirection === 'decrement' ? '-entry.quantity' : 'entry.quantity';
   const bound = `changed < ${counter.minimum}${counter.maximum === undefined ? '' : ` or changed > ${counter.maximum}`}`;
   const shapeChecks = table.fields.map(fieldShape).join(' or ') || 'false';
-  const quantityInteger = counter.integer ? ' or entry.quantity <> trunc(entry.quantity)' : '';
   const candidateInteger = counter.integer ? ' or candidate.quantity <> trunc(candidate.quantity)' : '';
   const lineConstraint = `alter table ${lineName} add constraint ${quoted(`app_transaction_quantity_${index}`)} check (${quoted(quantityField.key)} > 0 and ${quoted(quantityField.key)} <= 1000000000000 and ${quoted(quantityField.key)} not in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)${counter.integer ? ` and ${quoted(quantityField.key)} = trunc(${quoted(quantityField.key)})` : ''});`;
   const body = `
