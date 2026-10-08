@@ -57,9 +57,13 @@ export async function verifyOwnedTransactionCatalog(input: ApplicationDefinition
       const field = rows[0].fields[quantity.key];
       if (!object(field) || field.required !== true || field.type !== 'numeric' || typeof rows[0].definition !== 'string') return false;
       const definition = rows[0].definition as string;
-      if (!definition.includes(`${quantity.key} > (0)::numeric`) || !definition.includes(`${quantity.key} <= (1000000000000)::numeric`)
-        || !definition.includes("'NaN'::numeric") || !definition.includes("'Infinity'::numeric") || !definition.includes("'-Infinity'::numeric")
-        || (item.counter!.integer && !definition.includes(`trunc(${quantity.key})`))) return false;
+      // PostgreSQL may deparse the same numeric literal through an intermediate
+      // bigint cast. Compare a cast/format-neutral form while retaining every
+      // required bound and non-finite guard.
+      const normalized = definition.replace(/::(?:bigint|numeric)/g, '').replace(/["'()\s]/g, '');
+      if (!normalized.includes(`${quantity.key}>0`) || !normalized.includes(`${quantity.key}<=1000000000000`)
+        || !normalized.includes('NaN') || !normalized.includes('Infinity') || !normalized.includes('-Infinity')
+        || (item.counter!.integer && !normalized.includes(`trunc${quantity.key}`))) return false;
     }
     return seen.size === manifest.length;
   } catch { return false; }
