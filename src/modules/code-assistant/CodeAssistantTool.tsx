@@ -813,7 +813,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
           [],
           { temperature: 0.05, maxTokens: 8192 },
         );
-        if (!repair.json) throw new Error(l('AI did not return a structured feature patch repair.'));
+        if (!repair.json) throw new Error(l('AI did not return a structured feature patch plan.'));
         const repairedPlan = validatePatchPlan(repair.json);
         validateFeaturePatchPlan(projectContext, repairedPlan);
         const repairedVerification = verifyCodePatchPlan(projectContext, repairedPlan);
