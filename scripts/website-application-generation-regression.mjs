@@ -26,7 +26,7 @@ try {
       formFields: [{ id: 'date_input', name: 'visit_date', label: 'Date', type: 'date', required: true }],
       applicationFormBinding: { operation: 'create', tableId: 'appointments', fields: [{ formFieldId: 'date_input', tableFieldId: 'visit_date' }] } }] },
   ] };
-  async function run(json, maxPages = 6, prompt = 'Build appointment booking with a patient portal') {
+  async function run(json, maxPages = 6, prompt = 'Build saved records with a patient portal') {
     globalThis.__generationResponse = { json };
     globalThis.window = { confirm: () => true };
     const state = {}, checkpoints = [];
@@ -55,7 +55,7 @@ try {
   const dataView = { tableId: 'appointments', columns: ['visit_date'], actions: ['update', 'delete'], pageSize: 10 };
   const dashboardResponse = { ...response, application: { ...application, tables: [{ ...table, permissions: [...table.permissions, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] }] },
     pages: [...response.pages, { name: 'Records', slug: 'records', sections: [{ type: 'features', title: 'My records', applicationDataView: dataView }] }] };
-  const dashboard = await run(dashboardResponse, 6, 'Build appointment booking and record management');
+  const dashboard = await run(dashboardResponse, 6, 'Build record management');
   assert.equal(dashboard.state.AiStage, 'ready');
   assert.deepEqual(dashboard.state.Pages[2].sections[0].applicationDataView, dataView);
   assert.deepEqual(dashboard.checkpoints.at(-1)[1].pages[2].sections[0].applicationDataView, dataView);
@@ -65,6 +65,22 @@ try {
     { ...dashboardResponse, pages: [...response.pages, { ...dashboardResponse.pages[2], sections: [{ type: 'features', applicationDataView: { ...dataView, columns: ['missing'] } }] }] },
   ]) {
     const failed = await run(invalid, 6, 'Build record management');
+    assert.equal(failed.state.AiStage, 'error'); assert.equal(failed.state.Pages, undefined); assert.equal(failed.checkpoints.length, 0);
+  }
+  const bookingFields = [
+    { id: 'booking_resource', key: 'resource_id', name: 'Resource', type: 'uuid', required: true },
+    { id: 'booking_start', key: 'starts_at', name: 'Start', type: 'datetime', required: true },
+    { id: 'booking_end', key: 'ends_at', name: 'End', type: 'datetime', required: true },
+  ];
+  const bookingRule = { resourceFieldId: 'booking_resource', startFieldId: 'booking_start', endFieldId: 'booking_end' };
+  const bookingResponse = { projectKind: 'application', application: { ...application,
+    tables: [{ ...table, fields: bookingFields, booking: bookingRule }] }, pages: [{ name: 'Booking', slug: 'booking', sections: [{ type: 'features',
+      applicationDataView: { tableId: 'appointments', columns: bookingFields.map(field => field.id), actions: ['create'], pageSize: 10 } }] }] };
+  const realBooking = await run(bookingResponse, 6, 'بدي حجز المواعيد');
+  assert.equal(realBooking.state.AiStage, 'ready'); assert.deepEqual(realBooking.state.Application.tables[0].booking, bookingRule);
+  for (const invalid of [response, { ...bookingResponse, application: { ...bookingResponse.application, tables: [{ ...bookingResponse.application.tables[0], booking: undefined }] } },
+    { ...bookingResponse, application: { ...bookingResponse.application, tables: [{ ...bookingResponse.application.tables[0], booking: { ...bookingRule, secret: 'forbidden' } }] } }]) {
+    const failed = await run(invalid, 6, 'Build appointment booking');
     assert.equal(failed.state.AiStage, 'error'); assert.equal(failed.state.Pages, undefined); assert.equal(failed.checkpoints.length, 0);
   }
   const fakeDashboard = await run(response, 6, 'Build record management');

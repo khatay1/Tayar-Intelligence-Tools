@@ -19,12 +19,20 @@ export interface ApplicationPermission {
   access: ApplicationAccess;
   roleId?: string;
 }
+export interface ApplicationBookingRule {
+  resourceFieldId: string;
+  startFieldId: string;
+  endFieldId: string;
+  statusFieldId?: string;
+  blockingStatuses?: string[];
+}
 export interface ApplicationTable {
   id: string;
   key: string;
   name: string;
   fields: ApplicationField[];
   permissions: ApplicationPermission[];
+  booking?: ApplicationBookingRule;
 }
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {

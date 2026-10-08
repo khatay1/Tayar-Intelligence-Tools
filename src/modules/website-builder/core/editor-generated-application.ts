@@ -6,6 +6,8 @@ import { compileApplicationCreateForm } from './application-form-runtime';
 import { compileApplicationDataView } from './application-data-view';
 import { websiteProjectLinkIssues } from './website-project-links';
 
+const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt);
+
 /** Never silently downgrade requested application behavior to a brochure. */
 export function prepareGeneratedApplication(generated: AIWebsiteGeneration, pages: WebsitePage[], prompt: string): ApplicationDefinition | undefined {
   if (generated.projectKind !== undefined && !['website', 'application'].includes(generated.projectKind)) throw new Error('AI returned an invalid project kind.');
@@ -16,7 +18,7 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
   if (generated.unsupportedFeatures?.length) throw new Error(`This request needs additional application features before it can be built: ${generated.unsupportedFeatures.join('; ')}. No incomplete application was applied.`);
   const requested = /\b(?:patient portal|staff portal|admin portal|sign[ -]?in|log[ -]?in|authentication|database|book(?:ing)? appointments?|appointment booking|data dashboard|record management|crud|data editor)\b|(?:حجز المواعيد|حجز موعد|تسجيل الدخول|قاعدة بيانات|بوابة المرضى|بوابة الموظفين|إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt);
   if (generated.application === undefined) {
-    if (generated.projectKind === 'application' || requested || pages.some(page => page.sections.some(section => section.applicationFormBinding || section.applicationDataView))) {
+    if (generated.projectKind === 'application' || requested || bookingRequest(prompt) || pages.some(page => page.sections.some(section => section.applicationFormBinding || section.applicationDataView))) {
       throw new Error('This request needs a real application definition and bound forms. AI returned only pages; no incomplete application was applied.');
     }
     return undefined;
@@ -29,12 +31,13 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
   });
   const definition = readApplicationDefinition(raw, new Set(pages.map(page => page.id)));
   if (!definition.auth.enabled && !definition.tables.length) throw new Error('AI returned an empty application instead of the requested functionality.');
-  let boundForms = 0;
   let dataViews = 0;
+  let bookingCreates = 0;
   for (const page of pages) for (const section of page.sections) {
     if (section.applicationDataView !== undefined) {
       if (section.type === 'contact' || section.type === 'footer') throw new Error('Data views require a content section.');
-      compileApplicationDataView(definition, section.applicationDataView);
+      const view = compileApplicationDataView(definition, section.applicationDataView);
+      if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
       dataViews++;
     }
     if (section.type === 'contact' && !section.applicationFormBinding) throw new Error('Every form in a customer-owned application must be bound to its application data.');
@@ -47,10 +50,10 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
         if (Object.keys(field).some(key => !['id', 'name', 'label', 'type', 'required', 'options', 'placeholder', 'validation'].includes(key))) throw new Error('AI returned unsupported form configuration.');
       }
       compileApplicationCreateForm(definition, section, section.applicationFormBinding);
-      boundForms++;
+      if (definition.tables.find(table => table.id === section.applicationFormBinding!.tableId)?.booking) bookingCreates++;
     }
   }
-  if (/\b(?:book(?:ing)? appointments?|appointment booking)\b|(?:حجز المواعيد|حجز موعد)/iu.test(prompt) && !boundForms) throw new Error('Appointment booking requires a real bound form; descriptive pages cannot replace it.');
+  if (bookingRequest(prompt) && !bookingCreates) throw new Error('Appointment booking requires a bound create form or data view with a database booking rule; ordinary records cannot replace conflict-safe booking.');
   if (/\b(?:data dashboard|record management|crud|data editor)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt) && !dataViews) throw new Error('Record management requires a bound data view; descriptive pages cannot replace it.');
   return definition;
 }

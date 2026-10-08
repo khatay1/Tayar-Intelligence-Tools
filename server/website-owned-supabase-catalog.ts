@@ -1,6 +1,6 @@
 import type { ApplicationDefinition } from '../src/modules/website-builder/core/application-model';
 import { readApplicationDefinition } from '../src/modules/website-builder/core/application-validation';
-import { applicationRoleFunctionManifest, applicationSecurityPolicies } from '../src/modules/website-builder/core/application-schema-sql';
+import { applicationBookingConstraintManifest, applicationRoleFunctionManifest, applicationSecurityPolicies } from '../src/modules/website-builder/core/application-schema-sql';
 
 type Row = Record<string, unknown>;
 type Query = (sql: string) => Promise<unknown>;
@@ -83,6 +83,54 @@ const ROLE_SCHEMA_SQL = `select pg_catalog.has_schema_privilege('anon', n.oid, '
   pg_catalog.has_schema_privilege('authenticated', n.oid, 'USAGE') as authenticated_usage
 from pg_catalog.pg_namespace n where n.nspname = 'private'`;
 
+const BOOKING_SQL = `select t.relname as table_name, c.conname as name, c.contype as type,
+  c.convalidated as validated, c.condeferrable as deferrable,
+  pg_catalog.pg_get_constraintdef(c.oid) as definition,
+  case when c.contype = 'x' then i.indisvalid and i.indisready else true end as index_valid,
+  (select jsonb_object_agg(a.attname, jsonb_build_object('required', a.attnotnull, 'type', a.atttypid::regtype::text))
+    from pg_catalog.pg_attribute a where a.attrelid = t.oid and a.attnum > 0 and not a.attisdropped) as fields
+from pg_catalog.pg_constraint c join pg_catalog.pg_class t on t.oid = c.conrelid
+join pg_catalog.pg_namespace n on n.oid = t.relnamespace
+left join pg_catalog.pg_index i on i.indexrelid = c.conindid
+where n.nspname = 'public' and pg_catalog.left(c.conname, 12) = 'app_booking_'`;
+const bookingLiteral = (value: string) => `'${value.replace(/'/g, "''")}'::text`;
+// PostgreSQL quotes SQL keyword identifiers. Quote those same names here rather
+// than deleting quoted/literal bytes from a security expression.
+const bookingIdentifier = (value: string) => `"${value}"`;
+export async function verifyOwnedSupabaseBookingConstraints(definition: ApplicationDefinition, query: Query): Promise<boolean> {
+  try {
+    const rules = applicationBookingConstraintManifest(definition);
+    if (!rules.length) return true;
+    const rows = await query(BOOKING_SQL);
+    if (!Array.isArray(rows) || rows.length !== rules.length * 2) return false;
+    for (const rule of rules) {
+      const start = bookingIdentifier(rule.start), end = bookingIdentifier(rule.end);
+      const interval = `CHECK ((isfinite(${start}) AND isfinite(${end}) AND (${start} < ${end})))`;
+      const predicate = !rule.status ? '' : rule.blockingStatuses!.length === 1
+        ? ` WHERE ((${bookingIdentifier(rule.status)} = ${bookingLiteral(rule.blockingStatuses![0])}))`
+        : ` WHERE ((${bookingIdentifier(rule.status)} = ANY (ARRAY[${rule.blockingStatuses!.map(bookingLiteral).join(', ')}])))`;
+      const overlap = `EXCLUDE USING gist (${bookingIdentifier(rule.resource)} WITH =, tstzrange(${start}, ${end}, '[)'::text) WITH &&)${predicate}`;
+      for (const [name, type, expected] of [[rule.intervalName, 'c', interval], [rule.overlapName, 'x', overlap]]) {
+        const matches = rows.filter((row: Row) => row?.table_name === rule.table && row.name === name);
+        if (matches.length !== 1) return false;
+        const row = matches[0] as Row;
+        if (row.type !== type || row.validated !== true || row.deferrable !== false || row.index_valid !== true
+          || typeof row.definition !== 'string' || !row.fields || typeof row.fields !== 'object') return false;
+        // Quote bare identifiers with a SQL-aware scanner; literals stay byte exact.
+        const actual = row.definition.replace(/'(?:''|[^'])*'|"(?:""|[^"])*"|[a-z_][a-z0-9_]*/g, (token, offset, source) =>
+          [rule.resource, rule.start, rule.end, rule.status].includes(token) && !source.slice(offset + token.length).startsWith('(')
+            && !source.slice(0, offset).endsWith('::') && !source.slice(0, offset).endsWith('USING ') ? bookingIdentifier(token) : token);
+        if (actual !== expected) return false;
+        const fields = row.fields as Record<string, { required?: unknown; type?: unknown }>;
+        for (const [field, fieldType] of [[rule.resource, 'uuid'], [rule.start, 'timestamp with time zone'], [rule.end, 'timestamp with time zone'], ...(rule.status ? [[rule.status, 'text']] : [])]) {
+          if (fields[field]?.required !== true || fields[field]?.type !== fieldType) return false;
+        }
+      }
+    }
+    return true;
+  } catch { return false; }
+}
+
 // Keep quoted literal bytes and case intact; even whitespace inside a SQL
 // literal can change access semantics. Only trim transport padding.
 const compact = (expression: string) => expression.trim();
@@ -163,6 +211,7 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
       seenPolicies.add(policy.name);
     }
     return seenTables.size === tables.size && seenPolicies.size === expectedPolicies.length
-      && (!app.roles.length || await verifyRoleInfrastructure(query));
+      && (!app.roles.length || await verifyRoleInfrastructure(query))
+      && await verifyOwnedSupabaseBookingConstraints(app, query);
   } catch { return false; }
 }

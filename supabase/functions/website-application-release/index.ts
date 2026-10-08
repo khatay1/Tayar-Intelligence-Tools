@@ -96,7 +96,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -133,6 +133,24 @@ function validateApplicationDefinition(value, pageIds) {
         if (!validDefault) issue(`${fieldPath}.defaultValue`, "invalid-default", "The default must match the field type. Computed, relationship and structured defaults are not accepted.");
       }
     });
+    if (table.booking !== void 0) {
+      const bookingPath = `${path}.booking`;
+      if (shape(table.booking, ["resourceFieldId", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses"], bookingPath)) {
+        const rule = table.booking;
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
+        const find = (fieldId) => fields.find((field) => field.id === fieldId);
+        const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (!authEnabled || !id(rule.resourceFieldId) || !id(rule.startFieldId) || !id(rule.endFieldId) || (/* @__PURE__ */ new Set([rule.resourceFieldId, rule.startFieldId, rule.endFieldId])).size !== 3 || !resource?.required || !["uuid", "reference"].includes(String(resource.type)) || !start?.required || start.type !== "datetime" || !end?.required || end.type !== "datetime") {
+          issue(bookingPath, "invalid-booking", "Booking needs Auth, a required UUID/resource reference and two distinct required datetime fields.");
+        }
+        if (rule.statusFieldId !== void 0 || rule.blockingStatuses !== void 0) {
+          const status = find(rule.statusFieldId);
+          if (!id(rule.statusFieldId) || !status?.required || status.type !== "enum" || !Array.isArray(rule.blockingStatuses) || !rule.blockingStatuses.length || rule.blockingStatuses.length > 100 || new Set(rule.blockingStatuses).size !== rule.blockingStatuses.length || rule.blockingStatuses.some((value2) => typeof value2 !== "string" || !Array.isArray(status.options) || !status.options.includes(value2))) {
+            issue(bookingPath, "invalid-booking-status", "Blocking statuses must reference a required enum and declared unique values.");
+          }
+        }
+      }
+    }
     const permissionKeys = /* @__PURE__ */ new Set();
     list(table.permissions, APPLICATION_LIMITS.permissions, `${path}.permissions`).forEach((permission, index) => {
       const permissionPath = `${path}.permissions[${index}]`;
@@ -161,6 +179,23 @@ function readApplicationDefinition(value, pageIds) {
   const issues = validateApplicationDefinition(value, pageIds);
   if (issues.length) throw new Error(issues.map((item) => `${item.path}: ${item.message}`).join("\n"));
   return structuredClone(value);
+}
+
+// src/modules/website-builder/core/application-booking.ts
+var ApplicationBookingRejected = class extends Error {
+  constructor(reason) {
+    super(reason === "conflict" ? "This resource is already booked for that time." : "Booking end must be after start.");
+    this.reason = reason;
+    this.name = "ApplicationBookingRejected";
+  }
+};
+function validateApplicationBookingValues(table, values) {
+  if (!table.booking) return;
+  const start = table.fields.find((field) => field.id === table.booking.startFieldId);
+  const end = table.fields.find((field) => field.id === table.booking.endFieldId);
+  if (values[start.key] === void 0 || values[end.key] === void 0) return;
+  const from = Date.parse(String(values[start.key])), to = Date.parse(String(values[end.key]));
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) throw new ApplicationBookingRejected("interval");
 }
 
 // src/modules/website-builder/core/application-origin.ts
@@ -6521,6 +6556,16 @@ function localizeUi(text2, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Booking conflict protection": "\u0645\u0646\u0639 \u062A\u0639\u0627\u0631\u0636 \u0627\u0644\u062D\u062C\u0648\u0632\u0627\u062A",
+  "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u062C\u0632 \u0627\u0644\u0645\u0648\u0631\u062F \u0646\u0641\u0633\u0647 \u0628\u0623\u0648\u0642\u0627\u062A \u0645\u062A\u062F\u0627\u062E\u0644\u0629. \u064A\u064F\u0633\u0645\u062D \u0628\u0627\u0644\u0623\u0648\u0642\u0627\u062A \u0627\u0644\u0645\u062A\u062C\u0627\u0648\u0631\u0629 \u0648\u064A\u0645\u0643\u0646 \u0644\u0644\u062D\u0627\u0644\u0627\u062A \u0627\u0644\u0645\u0644\u063A\u0627\u0629 \u062A\u062D\u0631\u064A\u0631 \u0627\u0644\u0648\u0642\u062A.",
+  "Booking resource": "\u0645\u0648\u0631\u062F \u0627\u0644\u062D\u062C\u0632",
+  "Booking start": "\u0628\u062F\u0627\u064A\u0629 \u0627\u0644\u062D\u062C\u0632",
+  "Booking end": "\u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u062D\u062C\u0632",
+  "Booking status": "\u062D\u0627\u0644\u0629 \u0627\u0644\u062D\u062C\u0632",
+  "Every booking blocks time": "\u0643\u0644 \u062D\u062C\u0632 \u064A\u062D\u062C\u0632 \u0627\u0644\u0648\u0642\u062A",
+  "States that block time": "\u0627\u0644\u062D\u0627\u0644\u0627\u062A \u0627\u0644\u062A\u064A \u062A\u062D\u062C\u0632 \u0627\u0644\u0648\u0642\u062A",
+  "Save booking rule": "\u062D\u0641\u0638 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u062D\u062C\u0632",
+  "Remove booking rule": "\u0625\u0632\u0627\u0644\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u062D\u062C\u0632",
   "Data is available after secure application publishing and sign-in.": "\u062A\u0638\u0647\u0631 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0639\u062F \u0646\u0634\u0631 \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0622\u0645\u0646 \u0648\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644.",
   "Application data view": "\u0639\u0631\u0636 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
   "Records load after secure application publishing and sign-in. Database permissions control every action.": "\u062A\u0638\u0647\u0631 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0628\u0639\u062F \u0646\u0634\u0631 \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0622\u0645\u0646 \u0648\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644. \u062A\u062A\u062D\u0643\u0645 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0643\u0644 \u0625\u062C\u0631\u0627\u0621.",
@@ -7050,6 +7095,16 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Booking conflict protection": "Skydd mot bokningskonflikter",
+  "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "En resurs kan inte ha \xF6verlappande bokningar. Angr\xE4nsande tider till\xE5ts. Avbokade tillst\xE5nd kan frig\xF6ra tiden.",
+  "Booking resource": "Bokningsresurs",
+  "Booking start": "Bokningens start",
+  "Booking end": "Bokningens slut",
+  "Booking status": "Bokningsstatus",
+  "Every booking blocks time": "Varje bokning blockerar tiden",
+  "States that block time": "Tillst\xE5nd som blockerar tiden",
+  "Save booking rule": "Spara bokningsregel",
+  "Remove booking rule": "Ta bort bokningsregel",
   "Data is available after secure application publishing and sign-in.": "Data visas efter s\xE4ker apppublicering och inloggning.",
   "Application data view": "Appens datavy",
   "Records load after secure application publishing and sign-in. Database permissions control every action.": "Poster visas efter s\xE4ker apppublicering och inloggning. Databasens beh\xF6righeter styr varje \xE5tg\xE4rd.",
@@ -9922,11 +9977,14 @@ function compileApplicationCreateForm(definition, source, input) {
         if (!names.has(name2) || value.length > 32768) throw invalid();
         values.set(name2, value);
       }
+      let payload;
       try {
-        return Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))]));
+        payload = Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))]));
       } catch {
         throw invalid();
       }
+      validateApplicationBookingValues(table, payload);
+      return payload;
     }
   };
 }

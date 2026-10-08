@@ -18,6 +18,7 @@ let server;
 try {
   const chrome = findChrome();
   const fixture = `import { mountApplicationDataView } from './src/modules/website-builder/browser/application-data-view';
+import { ApplicationBookingRejected } from './src/modules/website-builder/core/application-booking';
 const check=(value,message)=>{if(!value)throw Error(message)};
 const wait=async fn=>{for(let n=0;n<400;n++){if(fn())return;await new Promise(resolve=>setTimeout(resolve,10))}throw Error('Timed out')};
 const owner='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -44,9 +45,30 @@ async function run(){
   roles=['admin'];button(copy.refresh).click();await idle();const remove=button(copy.remove);check(remove,'role enables delete');window.confirm=()=>false;remove.click();check(rows.length===4,'cancel deletion');window.confirm=()=>true;remove.click();await idle();check(rows.length===3,'confirmed deletion');
   userId='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';button(copy.refresh).click();await idle();check(root.querySelectorAll('tbody tr').length===0&&!root.querySelector('.editor form'),'account switch clears records');
   dispose();check(!root.childNodes.length,'disposal removes private UI');host.remove();
+  const bookingFields=[{id:'resource',key:'resource_id',name:'Resource',type:'uuid',required:true},{id:'start',key:'starts_at',name:'Start',type:'datetime',required:true},{id:'end',key:'ends_at',name:'End',type:'datetime',required:true}];
+  const bookingApp={...app,roles:[],tables:[{id:'bookings',key:'bookings',name:'Bookings',fields:bookingFields,permissions:['read','create','update'].map(operation=>({operation,access:'owner'})),booking:{resourceFieldId:'resource',startFieldId:'start',endFieldId:'end'}}]};
+  let bookingWrites=0,bookings=[];
+  const bookingRuntime={auth:{currentUser:async()=>({id:owner,is_anonymous:false}),currentRoles:async()=>[]},list:async()=>bookings,createOnce:async(_id,values)=>{bookingWrites++;if(bookingWrites===1)throw new ApplicationBookingRejected('conflict');bookings.push({...values,id:ids[0]});return 'created'},update:async()=>{throw new ApplicationBookingRejected('conflict')},remove:async()=>{}};
+  const bookingHost=document.createElement('div');document.body.append(bookingHost);
+  const stopBooking=mountApplicationDataView(bookingHost,bookingApp,{tableId:'bookings',columns:bookingFields.map(field=>field.id),actions:['create','update'],pageSize:10},bookingRuntime,language,{projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'booking',sectionId:'bookings'});
+  const bookingRoot=bookingHost.shadowRoot,bookingIdle=()=>wait(()=>bookingRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const bookingButton=text=>[...bookingRoot.querySelectorAll('button')].find(button=>button.textContent===text&&!button.hidden&&!button.disabled);
+  const conflict={en:'This resource is already booked for that time. Choose another time.',ar:'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.',sv:'Resursen är redan bokad den tiden. Välj en annan tid.'}[language];
+  const interval={en:'Booking end must be after start.',ar:'يجب أن يكون انتهاء الحجز بعد بدايته.',sv:'Bokningens slut måste vara efter starten.'}[language];
+  await bookingIdle();bookingButton(copy.add).click();let bookingForm=bookingRoot.querySelector('.editor form');
+  bookingForm.elements.resource_id.value=ids[1];bookingForm.elements.starts_at.value='2026-10-09T10:00';bookingForm.elements.ends_at.value='2026-10-09T09:00';bookingForm.requestSubmit();await bookingIdle();
+  check(bookingWrites===0&&bookingRoot.querySelector('[role=status]').textContent===interval,'invalid interval rejected locally with translated message');
+  bookingForm.elements.ends_at.value='2026-10-09T11:00';bookingForm.requestSubmit();await bookingIdle();
+  check(bookingWrites===1&&bookingRoot.querySelector('[role=status]').textContent===conflict,'database conflict message');
+  bookingForm.elements.starts_at.value='2026-10-09T12:00';bookingForm.elements.ends_at.value='2026-10-09T13:00';bookingForm.requestSubmit();await bookingIdle();
+  check(bookings.length===1&&bookingWrites===2,'corrected rejected booking saves once');
+  bookingButton(copy.edit).click();bookingRoot.querySelector('.editor form').requestSubmit();await bookingIdle();
+  check(bookingRoot.querySelector('[role=status]').textContent===conflict&&bookings.length===1,'edit conflict retains editor without success');
+  stopBooking();bookingHost.remove();
+
  }
 }
-run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
+run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'data-view-fixture.ts' }, bundle: true, write: false,
     platform: 'browser', format: 'iife', target: 'es2020', alias: { '@': resolve('src') } });
   const html = '<!doctype html><html><body><p id="result">RUNNING</p><script src="/fixture.js"></script></body></html>';

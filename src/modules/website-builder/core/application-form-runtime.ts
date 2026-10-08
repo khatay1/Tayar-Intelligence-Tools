@@ -1,3 +1,4 @@
+import { ApplicationBookingRejected, validateApplicationBookingValues } from './application-booking';
 import type { ApplicationDefinition, ApplicationField } from './application-model';
 import { readApplicationDefinition } from './application-validation';
 import type { WebsiteSection, WebsiteFormField } from './types';
@@ -129,8 +130,11 @@ export function compileApplicationCreateForm(definition: ApplicationDefinition, 
         if (!names.has(name) || value.length > 32_768) throw invalid();
         values.set(name, value);
       }
-      try { return Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))])); }
+      let payload: Record<string, unknown>;
+      try { payload = Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))])); }
       catch { throw invalid(); }
+      validateApplicationBookingValues(table, payload);
+      return payload;
     },
   };
 }
@@ -187,6 +191,7 @@ export function createDurableApplicationFormSubmission(compiled: Pick<ReturnType
       activeFormRequests.add(scope.key);
       try {
         let requestId: string;
+        let fresh = false;
         try {
           const stored = scope.storage.getItem(scope.key);
           if (stored !== null) {
@@ -198,6 +203,7 @@ export function createDurableApplicationFormSubmission(compiled: Pick<ReturnType
             requestId = scope.crypto.randomUUID();
             if (!uuid.test(requestId)) throw new Error();
             scope.storage.setItem(scope.key, JSON.stringify({ requestId, fingerprint }));
+            fresh = true;
           }
         } catch { throw new Error('Application form identity is unavailable.'); }
         state = 'submitting';
@@ -206,7 +212,13 @@ export function createDurableApplicationFormSubmission(compiled: Pick<ReturnType
           if (disposed) { state = 'uncertain'; return state; }
           scope.storage.removeItem(scope.key);
           state = 'confirmed';
-        } catch { state = 'uncertain'; }
+        } catch (error) {
+          if (fresh && error instanceof ApplicationBookingRejected && !disposed) {
+            try { scope.storage.removeItem(scope.key); } catch { state = 'uncertain'; throw error; }
+            state = 'idle'; throw error;
+          }
+          state = 'uncertain';
+        }
         return state;
       } finally { activeFormRequests.delete(scope.key); }
     },
