@@ -13547,7 +13547,7 @@ async function verifyOwnedCounterCatalog(input, query) {
     const seen = /* @__PURE__ */ new Set();
     for (const row of functions) {
       const key2 = `${row?.schema_name}.${row?.function_name}`, expected = manifest.find((item) => `${item.schema}.${item.name}` === key2);
-      if (!expected || seen.has(key2) || row.arguments !== expected.arguments || row.result !== expected.result || row.language !== expected.language || row.kind !== "f" || row.security_definer !== expected.securityDefiner || row.volatility !== "v" || row.source !== expected.source || row.owner_name !== "postgres" || JSON.stringify(row.configuration) !== '["search_path="]' || row.anon_execute !== false || row.authenticated_execute !== (expected.name !== "app_counter_write_guard")) return false;
+      if (!expected || seen.has(key2) || row.arguments !== expected.arguments || row.result !== expected.result || row.language !== expected.language || row.kind !== "f" || row.security_definer !== expected.securityDefiner || row.volatility !== "v" || row.source !== expected.source || row.owner_name !== "postgres" || !Array.isArray(row.configuration) || row.configuration.length !== 1 || !["search_path=", 'search_path=""'].includes(row.configuration[0]) || row.anon_execute !== false || row.authenticated_execute !== (expected.name !== "app_counter_write_guard")) return false;
       seen.add(key2);
     }
     const definitions = {

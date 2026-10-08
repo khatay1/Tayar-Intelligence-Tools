@@ -131,7 +131,7 @@ No provider setup consent or real customer-owned deployment was performed in thi
 
 ## Supported scope and remaining application work
 
-The existing runtime supports Auth, role-protected pages, create forms and bound data dashboards/editing views. It does not implement a complete clinical management system. Live calendars/availability, recurring scheduling, SMS/email, files, prescription dispatch and atomic inventory workflows require additional native runtime adapters and complete-flow tests. Generation must explicitly reject those requested features instead of substituting descriptive sections.
+The runtime is shared across project types: Auth, role-protected pages, create forms, bound data dashboards/editing views, related-record selectors, conflict-safe single-resource bookings and atomic single-record stock/quota/points adjustments. These are reusable capabilities for customer portals, resource management, membership tools and inventory applications. Full multi-product order/payment/reservation transactions, live calendars/availability, recurring scheduling, SMS/email and files still require additional runtime adapters and complete-flow tests. Generation must explicitly reject unsupported requested features instead of substituting descriptive sections.
 
 The existing Apex Dental publication has not been rewritten or republished. It needs a new complete application revision after the relevant adapters and live connection activation are ready.
 

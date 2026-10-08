@@ -117,6 +117,12 @@ select 'counter real database RPC, bounds, overwrite guard and replay passed' as
     });
     if (!valid) console.error('Counter fixture catalog diagnostics:', JSON.stringify(catalogRows));
     assert.equal(valid, true, 'Actual counter functions, private ledger and guards match strict catalog');
+    for (const configuration of [['search_path='], ['search_path=""'], ['search_path=public']]) {
+      assert.equal(await verify(app, async text => {
+        const rows = JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${text}) x;`));
+        return text.includes('from pg_proc') ? rows.map(value => ({ ...value, configuration })) : rows;
+      }), configuration[0] !== 'search_path=public', 'Only empty search paths are accepted');
+    }
     await query('alter table public.app_products disable trigger app_counter_guard;');
     assert.equal(await verify(app, async text => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${text}) x;`))), false);
     console.log('PASS actual PostgreSQL generic counters: competing deductions, idempotent concurrent retry, owner denial, direct-write/receipt denial and catalog drift');
