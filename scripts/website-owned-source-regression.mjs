@@ -114,6 +114,16 @@ try {
     counterSnapshot.application.tables[0].counter);
   assert.match(counterFiles.find(file => file.path === 'api/application.js').content, /adjustCounter/);
 
+  const transactionSnapshot = structuredClone(dataSnapshot), product = transactionSnapshot.application.tables[0];
+  product.fields.push({ id: 'record_qty', key: 'quantity', name: 'Quantity', type: 'number', required: true, defaultValue: 0 }); product.counter = { fieldId: 'record_qty', minimum: 0, integer: true };
+  transactionSnapshot.application.tables.push({ id: 'orders', key: 'orders', name: 'Orders', fields: [{ id: 'order_note', key: 'note', name: 'Note', type: 'text', required: true }], permissions: [{ operation: 'read', access: 'owner' }, { operation: 'create', access: 'owner' }], transaction: { itemTableId: product.id, lineTableId: 'order_lines', lineTransactionFieldId: 'line_order', lineItemFieldId: 'line_item', lineQuantityFieldId: 'line_quantity', counterDirection: 'decrement' } },
+    { id: 'order_lines', key: 'order_lines', name: 'Lines', fields: [{ id: 'line_order', key: 'order_id', name: 'Order', type: 'reference', required: true, referenceTableId: 'orders' }, { id: 'line_item', key: 'item_id', name: 'Item', type: 'reference', required: true, referenceTableId: product.id }, { id: 'line_quantity', key: 'quantity', name: 'Quantity', type: 'number', required: true }], permissions: [{ operation: 'read', access: 'owner' }] });
+  transactionSnapshot.pages[1].sections[0].applicationDataView = { tableId: 'orders', columns: ['order_note'], actions: ['transact'], pageSize: 10 };
+  const transactionFiles = await compile(transactionSnapshot, config), transactionSchema = transactionFiles.find(file => file.path === 'database/schema.sql').content;
+  assert.match(transactionSchema, /app_create_transaction_1/); assert.match(transactionSchema, /app_transaction_requests/); assert.match(transactionSchema, /order by "itemId"/);
+  assert.deepEqual(JSON.parse(transactionFiles.find(file => file.path === 'application-definition.json').content).tables[1].transaction, transactionSnapshot.application.tables[1].transaction);
+  assert.match(transactionFiles.find(file => file.path === 'api/application.js').content, /createTransaction/);
+
   const stripeSnapshot=structuredClone(snapshot);
   stripeSnapshot.pages[0].sections[0]=structuredClone(stripeSnapshot.pages[0].sections[0]);
   const checkout=stripeSnapshot.pages[0].sections[0].elements.find(element=>element.type==='button');

@@ -1,11 +1,12 @@
 import { parseApplicationCounterDelta } from './application-counter';
+import { parseApplicationTransactionLines } from './application-transaction';
 import { readApplicationDefinition } from './application-validation';
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationDataView, dataViewAllows, parseApplicationDataViewValues, type ApplicationDataViewBinding } from './application-data-view';
 import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
 
-type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter'>;
+type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction'>;
 const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
@@ -33,9 +34,9 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'adjust' ? 'update' : action, user, roles));
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'adjust' ? 'update' : action === 'transact' ? 'create' : action, user, roles));
   }
-  async function write(action: 'create' | 'update' | 'delete' | 'adjust', execute: () => Promise<unknown>) {
+  async function write(action: 'create' | 'update' | 'delete' | 'adjust' | 'transact', execute: () => Promise<unknown>) {
     if (writing) throw new Error('A record operation is already in progress.');
     writing = true;
     try {
@@ -79,6 +80,22 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid relationship response.');
       return { options: rows.slice(0, 20).map(row => ({ id: rowId(row.id), label: label && typeof row[label.key] === 'string' && row[label.key] ? row[label.key] as string : row.id as string })), hasNext: rows.length > 20, searchable: !!label };
     },
+    async transactionItemOptions(page = 0, query = '') {
+      const rule = compiled.table.transaction;
+      if (!rule || !Number.isSafeInteger(page) || page < 0 || page > 100_000 || typeof query !== 'string' || query.length > 200) throw new Error('Invalid transaction item query.');
+      const target = app.tables.find(table => table.id === rule.itemTableId)!;
+      const user = await identity(), roles = await runtime.auth.currentRoles(); await identity();
+      if (!dataViewAllows(target, 'read', user, roles)) throw new Error('Transaction items are not accessible.');
+      const label = target.fields.find(field => field.type === 'text');
+      if (query && !label) throw new Error('Transaction items have no searchable label.');
+      const rows = await runtime.list(target.id, { limit: 21, offset: page * 20,
+        sort: label ? { field: label.key, direction: 'asc' } : { field: 'id', direction: 'asc' },
+        filters: query && label ? [{ field: label.key, operator: 'ilike', value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [],
+      }) as unknown;
+      await identity();
+      if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid transaction item response.');
+      return { options: rows.slice(0, 20).map(row => ({ id: rowId(row.id), label: label && typeof row[label.key] === 'string' && row[label.key] ? row[label.key] as string : row.id as string })), hasNext: rows.length > 20, searchable: !!label };
+    },
     async create(input: Record<string, unknown>) {
       if (writing || disposed) throw new Error('A record operation is unavailable.');
       const values = parseApplicationDataViewValues(compiled.table, input, true);
@@ -107,6 +124,19 @@ export function createApplicationDataViewController(definition: ApplicationDefin
           createOnce: (_tableId, _payload, requestId) => runtime.adjustCounter(compiled.table.id, recordId, delta, requestId, owner!),
         }, { key: `${durableScope.keyPrefix}:adjust:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
         if (await submission.submit([]) !== 'confirmed') throw new Error('Counter outcome is uncertain. Keep the adjustment and retry.');
+      });
+    },
+    async transact(input: Record<string, unknown>, lines: unknown) {
+      const rule = compiled.table.transaction;
+      if (!rule || !durableScope || !runtime.createTransaction) throw new Error('Durable transaction is unavailable.');
+      const item = app.tables.find(table => table.id === rule.itemTableId)!;
+      const values = parseApplicationDataViewValues(compiled.table, input, true);
+      const parsed = parseApplicationTransactionLines(compiled.table, item, lines);
+      await write('transact', async () => {
+        submission = createDurableApplicationFormSubmission({ tableId: compiled.table.id, values: () => ({ attributes: values, lines: parsed }) }, {
+          createOnce: async (_tableId, _payload, requestId) => (await runtime.createTransaction(compiled.table.id, values, parsed, requestId, owner!)).status,
+        }, { key: `${durableScope.keyPrefix}:transaction:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
+        if (await submission.submit([]) !== 'confirmed') throw new Error('Transaction outcome is uncertain. Keep the same transaction and retry.');
       });
     },
     async remove(id: string) { await write('delete', () => runtime.remove(compiled.table.id, rowId(id), owner)); },

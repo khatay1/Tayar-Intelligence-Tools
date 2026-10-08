@@ -1,4 +1,5 @@
 import { ApplicationCounterRejected } from '../core/application-counter';
+import { ApplicationTransactionRejected } from '../core/application-transaction';
 import { createApplicationReferenceInput } from './application-reference-input';
 import { ApplicationBookingRejected } from '../core/application-booking';
 import type { Language } from '@/context/PreferencesContext';
@@ -8,9 +9,9 @@ import { createApplicationDataViewController } from '../core/application-data-vi
 import type { createApplicationDataRuntime } from '../core/application-data-runtime';
 
 const translations = {
-  en: { bounds: 'The change exceeds the allowed limits. Choose another amount.', adjust: 'Adjust quantity', delta: 'Change (+ / −)', relatedError: 'Could not load related records. Check access and try again.', conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
-  ar: { bounds: 'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.', adjust: 'تغيير الكمية', delta: 'التغيير (+ / −)', relatedError: 'تعذّر تحميل السجلات المرتبطة. تحقّق من صلاحية الوصول وحاول مجددًا.', conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
-  sv: { bounds: 'Ändringen överskrider tillåtna gränser. Välj ett annat antal.', adjust: 'Ändra antal', delta: 'Ändring (+ / −)', relatedError: 'Kunde inte läsa relaterade poster. Kontrollera åtkomst och försök igen.', conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
+  en: { unavailable: 'The transaction is unavailable. Check the selected items and access.', transact: 'Create transaction', addLine: 'Add item', item: 'Item', quantity: 'Quantity', bounds: 'The change exceeds the allowed limits. Choose another amount.', adjust: 'Adjust quantity', delta: 'Change (+ / −)', relatedError: 'Could not load related records. Check access and try again.', conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
+  ar: { unavailable: 'المعاملة غير متاحة. تحقّق من العناصر المحددة والصلاحيات.', transact: 'إنشاء معاملة', addLine: 'إضافة عنصر', item: 'العنصر', quantity: 'الكمية', bounds: 'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.', adjust: 'تغيير الكمية', delta: 'التغيير (+ / −)', relatedError: 'تعذّر تحميل السجلات المرتبطة. تحقّق من صلاحية الوصول وحاول مجددًا.', conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
+  sv: { unavailable: 'Transaktionen är inte tillgänglig. Kontrollera valda poster och åtkomst.', transact: 'Skapa transaktion', addLine: 'Lägg till post', item: 'Post', quantity: 'Antal', bounds: 'Ändringen överskrider tillåtna gränser. Välj ett annat antal.', adjust: 'Ändra antal', delta: 'Ändring (+ / −)', relatedError: 'Kunde inte läsa relaterade poster. Kontrollera åtkomst och försök igen.', conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
 };
 
 /** A native, isolated data component. All record values use textContent/value;
@@ -18,7 +19,8 @@ const translations = {
 export function mountApplicationDataView(host: HTMLElement, definition: ApplicationDefinition, binding: ApplicationDataViewBinding,
   runtime: ReturnType<typeof createApplicationDataRuntime>, language: Language, scope: { projectRef: string; projectId: string; pageId: string; sectionId: string }) {
   const copy = translations[language] ?? translations.en;
-  const failure = (error: unknown) => error instanceof ApplicationBookingRejected ? copy[error.reason] : error instanceof ApplicationCounterRejected ? copy.bounds : copy.failed;
+  const failure = (error: unknown) => error instanceof ApplicationBookingRejected ? copy[error.reason]
+    : error instanceof ApplicationCounterRejected ? copy.bounds : error instanceof ApplicationTransactionRejected ? copy[error.reason] : copy.failed;
   const controller = createApplicationDataViewController(definition, binding, runtime, () => crypto.randomUUID(), {
     keyPrefix: `tayar-app-form:${scope.projectRef}:${scope.projectId}:${scope.pageId}:data:${scope.sectionId}`,
     storage: { getItem: key => sessionStorage.getItem(key), setItem: (key, value) => sessionStorage.setItem(key, value), removeItem: key => sessionStorage.removeItem(key) }, crypto,
@@ -37,8 +39,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     const result = document.createElement('button'); result.type = 'button'; result.textContent = label; result.addEventListener('click', action); return result;
   };
   const add = button(copy.add, () => openEditor()); add.hidden = true;
+  const transact = button(copy.transact, () => openTransaction()); transact.hidden = true;
   const refresh = button(copy.refresh, () => { void load(); });
-  toolbar.append(add, refresh);
+  toolbar.append(add, transact, refresh);
   if (controller.search) {
     const searchForm = document.createElement('form');
     const search = document.createElement('input'); search.type = 'search'; search.maxLength = 200; search.placeholder = copy.search; search.setAttribute('aria-label', `${copy.search}: ${controller.search.name}`);
@@ -63,7 +66,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     for (const control of view.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('button,input,select,textarea')) control.disabled = value;
     for (const reference of references) reference.setDisabled(value);
   }
-  function clear() { stopEditor(); body.replaceChildren(); empty.hidden = true; add.hidden = true; editor.replaceChildren(); editor.hidden = true; previous.disabled = true; next.disabled = true; }
+  function clear() { stopEditor(); body.replaceChildren(); empty.hidden = true; add.hidden = true; transact.hidden = true; editor.replaceChildren(); editor.hidden = true; previous.disabled = true; next.disabled = true; }
   async function load() {
     if (disposed || busy) return;
     const current = ++sequence; setBusy(true); status.textContent = copy.loading;
@@ -71,7 +74,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       const actions = await controller.permissions();
       const result = await controller.load(page, query);
       if (disposed || current !== sequence) return;
-      clear(); add.hidden = !actions.includes('create'); actionsHeader.hidden = !actions.includes('update') && !actions.includes('delete') && !actions.includes('adjust');
+      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.includes('update') && !actions.includes('delete') && !actions.includes('adjust');
       for (const row of result.rows) {
         const tr = document.createElement('tr');
         for (const field of controller.columns) { const td = document.createElement('td'); td.textContent = display(row[field.key], field); tr.append(td); }
@@ -112,6 +115,44 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
         .catch((error: unknown) => { if (!disposed) { if (controller.closed()) clear(); else body.replaceChildren(); setBusy(false); status.textContent = failure(error); } });
     });
     editor.append(form); delta.focus();
+  }
+  function openTransaction() {
+    if (disposed || busy || !controller.table.transaction) return;
+    stopEditor(); editor.replaceChildren(); editor.hidden = false;
+    const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
+    for (const field of controller.table.fields) {
+      const label = document.createElement('label'); label.textContent = field.name;
+      let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+      if (field.type === 'reference') {
+        const reference = createApplicationReferenceInput(field, '', controller, copy, () => { clear(); status.textContent = copy.error; });
+        references.push(reference); input = reference.input; form.append(label, reference.controls); void reference.load();
+      } else if (field.type === 'enum' || field.type === 'boolean') {
+        const select = document.createElement('select'), options = field.type === 'boolean' ? [['', copy.unset], ['true', copy.yes], ['false', copy.no]] : [['', copy.unset], ...(field.options ?? []).map(value => [value, value])];
+        for (const [value, text] of options) { const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option); } input = select; label.append(input); form.append(label);
+      } else if (field.type === 'json') { input = document.createElement('textarea'); input.maxLength = 20_000; label.append(input); form.append(label); }
+      else { const text = document.createElement('input'); text.type = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'datetime' ? 'datetime-local' : 'text'; if (field.type === 'number' || field.type === 'datetime') text.step = 'any'; text.maxLength = 20_000; input = text; label.append(input); form.append(label); }
+      input.name = field.key; input.required = field.required && field.defaultValue === undefined; inputs.set(field.key, input);
+    }
+    const picker = document.createElement('fieldset'), search = document.createElement('input'), select = document.createElement('select'), quantity = document.createElement('input');
+    const itemLabel = document.createElement('label'), quantityLabel = document.createElement('label'), selected = document.createElement('div'); let itemPage = 0, itemQuery = '', hasNext = false;
+    search.type = 'search'; search.maxLength = 200; search.placeholder = copy.search; select.required = true; quantity.type = 'number'; quantity.required = true; quantity.min = '0'; quantity.step = 'any';
+    itemLabel.textContent = copy.item; itemLabel.append(select); quantityLabel.textContent = copy.quantity; quantityLabel.append(quantity);
+    const lines: Array<{ itemId: string; quantity: number; label: string }> = [];
+    const renderLines = () => { selected.replaceChildren(); for (const line of lines) { const row = document.createElement('p'); row.textContent = `${line.label}: ${line.quantity} `; row.append(button(copy.remove, () => { lines.splice(lines.indexOf(line), 1); renderLines(); })); selected.append(row); } };
+    const loadItems = async () => { const result = await controller.transactionItemOptions(itemPage, itemQuery); select.replaceChildren(); hasNext = result.hasNext; for (const option of result.options) { const node = document.createElement('option'); node.value = option.id; node.textContent = option.label; select.append(node); } itemPrevious.disabled = itemPage === 0; itemNext.disabled = !hasNext; };
+    const searchButton = button(copy.search, () => { itemQuery = search.value; itemPage = 0; void loadItems().catch(() => { status.textContent = copy.relatedError; }); });
+    const itemPrevious = button(copy.previous, () => { if (itemPage > 0) { itemPage--; void loadItems(); } });
+    const itemNext = button(copy.next, () => { if (hasNext) { itemPage++; void loadItems(); } });
+    const addItem = button(copy.addLine, () => { const amount = Number(quantity.value), option = select.selectedOptions[0]; if (!option || !Number.isFinite(amount) || amount <= 0 || lines.some(line => line.itemId === option.value)) { status.textContent = copy.failed; return; } lines.push({ itemId: option.value, quantity: amount, label: option.textContent ?? option.value }); quantity.value = ''; renderLines(); });
+    picker.append(search, searchButton, itemLabel, quantityLabel, addItem, itemPrevious, itemNext, selected); form.append(picker);
+    const save = document.createElement('button'); save.type = 'submit'; save.textContent = copy.save;
+    form.append(save, button(copy.cancel, () => { stopEditor(); editor.replaceChildren(); editor.hidden = true; transact.focus(); }));
+    form.addEventListener('submit', event => { event.preventDefault(); if (busy || disposed || !lines.length) return;
+      const values = Object.fromEntries([...inputs].map(([key, input]) => [key, input.value])); setBusy(true); status.textContent = copy.loading;
+      void controller.transact(values, lines.map(({ itemId, quantity: amount }) => ({ itemId, quantity: amount }))).then(() => { if (!disposed) { stopEditor(); editor.hidden = true; setBusy(false); status.textContent = copy.saved; void load(); } })
+        .catch((error: unknown) => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = failure(error); } });
+    });
+    editor.append(form); void loadItems().catch(() => { status.textContent = copy.relatedError; }); inputs.values().next().value?.focus();
   }
   function openEditor(row?: Record<string, unknown>) {
     if (disposed || busy) return;

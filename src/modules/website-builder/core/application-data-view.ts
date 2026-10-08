@@ -5,7 +5,7 @@ import { readApplicationDefinition } from './application-validation';
 export interface ApplicationDataViewBinding {
   tableId: string;
   columns: string[];
-  actions: Array<'create' | 'update' | 'delete' | 'adjust'>;
+  actions: Array<'create' | 'update' | 'delete' | 'adjust' | 'transact'>;
   pageSize: number;
   searchFieldId?: string;
 }
@@ -20,7 +20,7 @@ export function validateApplicationDataViewShape(value: unknown): value is Appli
     || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80
     || value.columns.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id))
     || new Set(value.columns).size !== value.columns.length
-    || !Array.isArray(value.actions) || value.actions.some(action => !['create', 'update', 'delete', 'adjust'].includes(String(action)))
+    || !Array.isArray(value.actions) || value.actions.some(action => !['create', 'update', 'delete', 'adjust', 'transact'].includes(String(action)))
     || new Set(value.actions).size !== value.actions.length
     || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50
     || (value.searchFieldId !== undefined && (typeof value.searchFieldId !== 'string' || !value.columns.includes(value.searchFieldId)))) return false;
@@ -33,8 +33,9 @@ export function compileApplicationDataView(definition: ApplicationDefinition, in
   const binding = structuredClone(input);
   const table = app.tables.find(table => table.id === binding.tableId);
   if (!table || !table.fields.length || !table.permissions.some(rule => rule.operation === 'read')
-    || binding.actions.some(action => !table.permissions.some(rule => rule.operation === (action === 'adjust' ? 'update' : action)))) throw new Error('Data view requires declared read and action permissions.');
+    || binding.actions.some(action => !table.permissions.some(rule => rule.operation === (action === 'adjust' ? 'update' : action === 'transact' ? 'create' : action)))) throw new Error('Data view requires declared read and action permissions.');
   if (binding.actions.includes('adjust') && !table.counter) throw new Error('Adjustment requires a native counter rule.');
+  if (binding.actions.includes('transact') && !table.transaction) throw new Error('Transaction creation requires a native transaction rule.');
   const columns = binding.columns.map(id => {
     const field = table.fields.find(field => field.id === id);
     if (!field) throw new Error('Data view column references a missing field.');
