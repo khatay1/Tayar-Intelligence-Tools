@@ -109,7 +109,13 @@ select 'counter real database RPC, bounds, overwrite guard and replay passed' as
     const replayId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
     const same = await Promise.all([1, 2].map(() => query(`${asUser(owner)} select public.app_adjust_counter_0('${row}',1,'${replayId}');`)));
     assert.ok(same.some(result => result.endsWith('already-adjusted'))); assert.equal(await query(`select quantity from public.app_products where id='${row}';`), '4');
-    const valid = await verify(app, async text => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${text}) x;`)));
+    const catalogRows = [];
+    const valid = await verify(app, async text => {
+      const rows = JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${text}) x;`));
+      catalogRows.push(rows);
+      return rows;
+    });
+    if (!valid) console.error('Counter fixture catalog diagnostics:', JSON.stringify(catalogRows));
     assert.equal(valid, true, 'Actual counter functions, private ledger and guards match strict catalog');
     await query('alter table public.app_products disable trigger app_counter_guard;');
     assert.equal(await verify(app, async text => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${text}) x;`))), false);
