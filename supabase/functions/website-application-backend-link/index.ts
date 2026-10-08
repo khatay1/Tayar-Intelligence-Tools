@@ -37,7 +37,7 @@ function getSecretKey() {
 }
 
 // src/modules/website-builder/core/application-model.ts
-var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100 };
+var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100, requirements: 100, requirementEvidence: 20 };
 var APPLICATION_SYSTEM_FIELDS = ["id", "owner_id", "created_at", "updated_at"];
 function createApplicationDefinition() {
   return { version: 1, tables: [], roles: [], auth: { enabled: false, signUpEnabled: false, emailVerificationRequired: true }, pageAccess: [] };
@@ -66,7 +66,7 @@ function validateApplicationDefinition(value, pageIds) {
     }
     return input;
   }
-  if (!shape(value, ["version", "tables", "roles", "auth", "pageAccess"], "application")) return issues;
+  if (!shape(value, ["version", "tables", "roles", "auth", "pageAccess", "requirements"], "application")) return issues;
   if (value.version !== 1) issue("application.version", "unsupported-version", "Unsupported application schema version. Keep the source project and use a compatible editor.");
   const tables = list(value.tables, APPLICATION_LIMITS.tables, "application.tables");
   const roles = list(value.roles, APPLICATION_LIMITS.roles, "application.roles");
@@ -210,6 +210,54 @@ function validateApplicationDefinition(value, pageIds) {
     else protectedPages.add(rule.pageId);
     access(rule, path, false);
   });
+  if (value.requirements !== void 0 && shape(value.requirements, ["version", "request", "items"], "application.requirements")) {
+    const manifest = value.requirements;
+    if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
+    if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
+    const requirementIds = /* @__PURE__ */ new Set();
+    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction"]);
+    list(manifest.items, APPLICATION_LIMITS.requirements, "application.requirements.items").forEach((item, index) => {
+      const path = `application.requirements.items[${index}]`;
+      if (!shape(item, ["id", "summary", "capability", "evidence"], path)) return;
+      if (!id(item.id) || requirementIds.has(String(item.id))) issue(`${path}.id`, "invalid-id", "Requirement IDs must be valid and unique.");
+      else requirementIds.add(String(item.id));
+      if (typeof item.summary !== "string" || !item.summary.trim() || item.summary.length > 300) issue(`${path}.summary`, "invalid-summary", "A requirement needs a concise summary.");
+      if (!capabilities.has(String(item.capability))) issue(`${path}.capability`, "invalid-capability", "Unsupported requirement capability.");
+      const evidence = list(item.evidence, APPLICATION_LIMITS.requirementEvidence, `${path}.evidence`);
+      if (!evidence.length) issue(`${path}.evidence`, "missing-evidence", "A completed requirement needs verified implementation evidence.");
+      evidence.forEach((entry, evidenceIndex) => {
+        const evidencePath = `${path}.evidence[${evidenceIndex}]`;
+        if (typeof entry !== "string" || entry.length > 260) {
+          issue(evidencePath, "invalid-evidence", "Invalid requirement evidence.");
+          return;
+        }
+        if (entry === "auth") {
+          if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
+          return;
+        }
+        const match = /^(page|form|view|booking|counter|transaction):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact))?$/.exec(entry);
+        if (!match) {
+          issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
+          return;
+        }
+        if (match[1] === "page") {
+          if (match[3] || pageIds && !pageIds.has(match[2])) issue(evidencePath, "missing-page", "Page evidence requires an existing page.");
+          return;
+        }
+        const table = tables.find((candidate) => object(candidate) && candidate.id === match[2]);
+        if (!object(table)) {
+          issue(evidencePath, "missing-table", "Requirement evidence requires an existing table.");
+          return;
+        }
+        if (match[1] === "booking" && !object(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
+        if (match[1] === "counter" && !object(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
+        if (match[1] === "transaction" && !object(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
+        if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
+        if (match[1] !== "view" && match[3]) issue(evidencePath, "unexpected-action", "Only data-view evidence can include an action.");
+      });
+    });
+    if (!Array.isArray(manifest.items) || !manifest.items.length) issue("application.requirements.items", "missing-requirements", "An application requirements manifest cannot be empty.");
+  }
   return issues;
 }
 function readApplicationDefinition(value, pageIds) {
