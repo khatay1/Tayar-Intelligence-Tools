@@ -708,9 +708,9 @@ Preferred JSON shape:
 }
 
 Rules:
-- Build 1-6 useful pages based on the request. Do not invent extra pages just to increase the count.
+- Build all useful pages needed by the request within the supplied limits.maxPages. Do not invent extra pages just to increase the count. If the complete request cannot fit, report the scope limitation in unsupportedFeatures instead of silently omitting requested pages or functionality.
 - Home should normally be the first page.
-- Each page should contain 3-8 relevant sections; Home is usually the richest page.
+- Each page should normally contain 3-8 relevant sections; include more when needed to fulfill the request, within limits.maxSectionsPerPage. Home is usually the richest page.
 - Keep section copy specific to the user's business, audience, location and goal.
 - Reuse a consistent visual direction across all pages.
 - Design with a restrained palette: one dominant surface family plus one accent color. Avoid rainbow sections.
@@ -725,6 +725,7 @@ Rules:
 - Use pricing only when it genuinely fits the business.
 - Navigation labels should be short and natural.
 - Internal button URLs MUST be page:<exact-slug> or #<existing-section-anchorId>. Never use root-relative /booking or /services. Set section.anchorId when using a custom anchor. Do not invent #login or #booking-form without a real target.
+- Omit buttonText and buttonUrl when a section has no useful action. Every navigation button needs a real destination. A contact form submit label can use buttonText without buttonUrl because it submits the bound form.
 - A request for booking, accounts, a patient/staff portal or saved application data is an application, not descriptive marketing pages. Return projectKind="application" and a complete application definition alongside pages. A plain business brochure remains projectKind="website".
 - ApplicationDefinition shape: {"version":1,"tables":[{"id":"appointments","key":"appointments","name":"Appointments","fields":[{"id":"appointment_date","key":"visit_date","name":"Visit date","type":"date","required":true}],"permissions":[{"operation":"read","access":"owner"},{"operation":"create","access":"owner"}]}],"roles":[{"id":"staff","name":"Staff"}],"auth":{"enabled":true,"signUpEnabled":true,"emailVerificationRequired":true},"pageAccess":[{"pageId":"booking","access":"authenticated"},{"pageId":"admin-portal","access":"role","roleId":"staff"}]}. Response pageAccess.pageId MUST be an exact page slug; the editor resolves it to the generated page ID.
 - Table/field keys are lowercase SQL-safe identifiers; IDs are globally unique. System fields id, owner_id, created_at and updated_at already exist. Never redefine them. Never include SQL, credentials, tokens, runtime rows or sample patient data. Public writes are forbidden. Sensitive records require owner or role permissions, not broad authenticated access.
@@ -1185,7 +1186,7 @@ Patch rules:
 
 Return ONLY the patch JSON object.`;
       }
-      return `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nReturn ONLY the JSON object.`;
+      return `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nGENERATION LIMITS:\n${JSON.stringify(input.limits || { maxPages: 6, maxSectionsPerPage: 80 })}\n\nReturn ONLY the JSON object.`;
     },
   },
   'ai-chat': {

@@ -2,6 +2,7 @@ import { prepareGeneratedApplication, normalizeGeneratedPageLinks } from './edit
 import type { ApplicationDefinition } from './application-model';
 import type { Language } from '@/context/PreferencesContext';
 import { createAIService } from '@/lib/ai/service';
+import { DEFAULT_EDITOR_PROJECT_LIMITS } from './editor-model';
 import type { User } from '@supabase/supabase-js';
 import type * as React from 'react';
 import { createElement,normalizeSection,SECTION_LABELS } from '../core/defaults';
@@ -144,9 +145,10 @@ export function createAIGenerationHandler({
     ].slice(-12));
 
     try {
+      const maxGeneratedPages = Math.max(1, Math.min(100, Math.floor(billingEntitlements.maxPages || 1)));
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
+        { action: 'generate', limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 16000, signal: abortController.signal },
       );
@@ -189,25 +191,35 @@ export function createAIGenerationHandler({
       const generatedTextColor = generatedSurfaceIsLight ? '#0f172a' : '#f8fafc';
       const generatedMutedTextColor = generatedSurfaceIsLight ? '#475569' : '#cbd5e1';
       const generatedAt = Date.now();
-      const maxGeneratedPages = Math.max(1, Math.min(6, billingEntitlements.maxPages || 1));
-      if ((generated.projectKind === 'application' || generated.application) && pageCandidates.length > maxGeneratedPages) throw new Error('This application exceeds the available page limit. Reduce the scope or page count; no partial application was applied.');
+      if (pageCandidates.length > maxGeneratedPages) throw new Error(`This website exceeds the available page limit (${maxGeneratedPages}). Reduce the scope or page count; no partial website was applied.`);
+      for (const page of pageCandidates) {
+        if (!page || !Array.isArray(page.sections) || page.sections.length === 0) throw new Error('AI returned an empty or invalid page. No incomplete website was applied.');
+        if (page.sections.length > DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage) throw new Error('AI returned too many sections on one page. No partial website was applied.');
+        if (page.sections.some(section => !section || !allowedTypes.has(section.type))) throw new Error('AI returned an unsupported section. No partial website was applied.');
+        if (page.sections.some(section => section.type !== 'footer' && section.type !== 'contact' && section.buttonText?.trim() && !section.buttonUrl?.trim())) throw new Error('AI returned a button without a destination. No incomplete website was applied.');
+      }
       const usedSlugs = new Set<string>();
 
-      let nextPages = pageCandidates.slice(0, maxGeneratedPages).map((page, pageIndex) => {
-        const normalizedSections = (page.sections || [])
-          .filter((section) => allowedTypes.has(section.type))
-          .slice(0, 8)
+      let nextPages = pageCandidates.map((page, pageIndex) => {
+        const normalizedSections = page.sections
           .map((section, sectionIndex) => normalizeSection({
             id: `${section.type}-ai-${generatedAt}-${pageIndex}-${sectionIndex}-${Math.random().toString(36).slice(2, 6)}`,
             type: section.type,
             title: section.title?.trim() || SECTION_LABELS[section.type],
             description: section.description?.trim() || '',
-            buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || 'Learn More'),
-            buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || '#contact'),
+            buttonText: section.type === 'footer' ? '' : (section.buttonText?.trim() || ''),
+            buttonUrl: section.type === 'footer' ? '' : (section.buttonUrl?.trim() || ''),
             background: validHex(section.background) ? section.background! : generatedPrimary,
             accent: validHex(section.accent) ? section.accent! : generatedAccent,
             anchorId: section.anchorId,
-            ...(section.type === 'contact' ? { formFields: section.formFields, applicationFormBinding: section.applicationFormBinding, formSuccessMessage: section.formSuccessMessage } : {}),
+            ...(section.type === 'contact' ? {
+              formFields: section.formFields,
+              applicationFormBinding: section.applicationFormBinding,
+              formSuccessMessage: section.formSuccessMessage,
+              formSuccessAction: section.formSuccessAction,
+              formRedirectUrl: section.formRedirectUrl,
+              formAutomations: section.formAutomations,
+            } : {}),
             image: section.image?.trim() || undefined,
             imagePrompt: section.imagePrompt?.trim() || undefined,
           }));
@@ -232,7 +244,7 @@ export function createAIGenerationHandler({
           sections: normalizedSections,
           showInNavigation: page.showInNavigation !== false,
         } satisfies WebsitePage;
-      }).filter((page) => page.sections.length > 0);
+      });
 
       if (nextPages.length === 0) {
         throw new Error(l('AI did not return usable pages or sections. Please try again.'));

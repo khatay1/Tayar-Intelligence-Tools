@@ -5,7 +5,8 @@ The published Apex Dental example exposed three distinct gaps: AI generation dro
 ## Behavior in this change
 
 - Generation accepts validated application definitions alongside native editable pages. Page access rules use response slugs and resolve to the actual retained page IDs.
-- Native contact forms retain their fields and application bindings; invalid mappings, unexpected configuration, public writes, unbound app forms, missing access-rule pages, application page-limit truncation and declared unsupported features abort before editor state or history changes.
+- Native contact forms retain their fields, application bindings and success/automation settings for validation; unsupported application redirects and enabled automations abort instead of being silently discarded. Invalid mappings, unexpected configuration, public writes, unbound app forms, missing access-rule pages and declared unsupported features abort before editor state or history changes.
+- Generation sends the actual subscription page allowance to the model (up to 100 pages), retains every generated page and section within native limits, and rejects over-limit, empty or unsupported plans atomically for both brochures and applications. The former six-page/eight-section truncation is removed. Missing optional actions no longer produce invented `Learn More` buttons pointing at nonexistent contact sections; explicit navigation buttons without destinations are rejected.
 - Appointment requests cannot be applied as auth-only descriptive pages without a bound form. Brochure sites remain supported.
 - Known root-relative AI routes become `page:<slug>` references. Missing project pages/anchors and routes escaping the project block publishing and independent source export. Page links preserve fragments.
 - Infrastructure readiness no longer treats connected, outdated-schema or deployment-failed records as ready.
