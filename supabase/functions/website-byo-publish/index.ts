@@ -9961,7 +9961,7 @@ begin
     then raise exception 'Application transaction unavailable'; end if;
   insert into private.app_transaction_requests(actor_id,request_id,table_name,record_id,attributes,items)
     values (actor,${inner}.request_id,${literal2(`app_${table.key}`)},parent_id,attrs,normalized)
-    on conflict on constraint app_transaction_requests_pkey do nothing returning request_id into claimed;
+    on conflict on constraint app_transaction_requests_pkey do nothing returning app_transaction_requests.request_id into claimed;
   if claimed is null then
     select * into strict prior from private.app_transaction_requests r where r.actor_id=actor and r.request_id=${inner}.request_id;
     if prior.table_name <> ${literal2(`app_${table.key}`)} or prior.attributes <> attrs or prior.items <> normalized then raise exception 'Application transaction request identity mismatch'; end if;
