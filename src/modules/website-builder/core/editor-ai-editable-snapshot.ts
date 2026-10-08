@@ -172,6 +172,7 @@ export function buildAIEditableSnapshotData({
         overlayOpacity: section.overlayOpacity,
         sectionRadius: section.sectionRadius,
         anchorId: section.anchorId,
+        applicationDataView: section.applicationDataView,
         layout: section.layout,
         layoutAlign: section.layoutAlign,
         contentWidth: section.contentWidth,

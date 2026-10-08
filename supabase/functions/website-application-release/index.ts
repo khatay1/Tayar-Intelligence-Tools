@@ -6521,6 +6521,9 @@ function localizeUi(text2, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Data is available after secure application publishing and sign-in.": "\u062A\u0638\u0647\u0631 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0639\u062F \u0646\u0634\u0631 \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0622\u0645\u0646 \u0648\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644.",
+  "Application data view": "\u0639\u0631\u0636 \u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u062A\u0637\u0628\u064A\u0642",
+  "Records load after secure application publishing and sign-in. Database permissions control every action.": "\u062A\u0638\u0647\u0631 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0628\u0639\u062F \u0646\u0634\u0631 \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0627\u0644\u0622\u0645\u0646 \u0648\u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644. \u062A\u062A\u062D\u0643\u0645 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0628\u0643\u0644 \u0625\u062C\u0631\u0627\u0621.",
   "Checking release\u2026": "\u062C\u0627\u0631\u064D \u0641\u062D\u0635 \u0627\u0644\u0625\u0635\u062F\u0627\u0631\u2026",
   "Publishing still requires the remaining runtime checks.": "\u0627\u0644\u0646\u0634\u0631 \u0645\u0627 \u0632\u0627\u0644 \u064A\u062A\u0637\u0644\u0628 \u0625\u0643\u0645\u0627\u0644 \u0627\u062E\u062A\u0628\u0627\u0631\u0627\u062A \u0627\u0644\u062A\u0634\u063A\u064A\u0644 \u0627\u0644\u0645\u062A\u0628\u0642\u064A\u0629.",
   "Private release status": "\u062D\u0627\u0644\u0629 \u0627\u0644\u0625\u0635\u062F\u0627\u0631 \u0627\u0644\u062E\u0627\u0635",
@@ -7047,6 +7050,9 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Data is available after secure application publishing and sign-in.": "Data visas efter s\xE4ker apppublicering och inloggning.",
+  "Application data view": "Appens datavy",
+  "Records load after secure application publishing and sign-in. Database permissions control every action.": "Poster visas efter s\xE4ker apppublicering och inloggning. Databasens beh\xF6righeter styr varje \xE5tg\xE4rd.",
   "Checking release\u2026": "Kontrollerar version\u2026",
   "Publishing still requires the remaining runtime checks.": "Publicering kr\xE4ver fortfarande de \xE5terst\xE5ende driftkontrollerna.",
   "Private release status": "Status f\xF6r privat publicering",
@@ -8410,6 +8416,9 @@ function sectionToHtml(section, homeSlug, leadCapture, language = "en") {
   const tr = (text2) => localizeUi2(text2, language);
   const html = (text2) => escapeHtml(tr(text2));
   const sectionId = escapeHtml(sectionDomId(section));
+  if (section.applicationDataView !== void 0) {
+    return `<section id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section" style="${sectionInlineCss(section)}"><div class="${sectionContainerClass(section)}">${sectionElementsToHtml(section, homeSlug, false, language)}<div data-tayar-data-view-id="${escapeHtml(section.id)}" role="region" aria-label="${escapeHtml(section.title)}"><p>${html("Data is available after secure application publishing and sign-in.")}</p></div></div></section>`;
+  }
   if (section.type === "contact") {
     const submitElement = (section.elements || []).find((element) => element.type === "button");
     const submitLabel = escapeHtml(submitElement?.content || section.buttonText || tr("Send Message"));
@@ -9922,6 +9931,42 @@ function compileApplicationCreateForm(definition, source, input) {
   };
 }
 
+// src/modules/website-builder/core/application-data-view.ts
+var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+function validateApplicationDataViewShape(value) {
+  if (!object2(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
+  return true;
+}
+function compileApplicationDataView(definition, input) {
+  const app = readApplicationDefinition(definition);
+  if (!app.auth.enabled || !validateApplicationDataViewShape(input)) throw new Error("Invalid application data view.");
+  const binding = structuredClone(input);
+  const table = app.tables.find((table2) => table2.id === binding.tableId);
+  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === action))) throw new Error("Data view requires declared read and action permissions.");
+  const columns = binding.columns.map((id2) => {
+    const field = table.fields.find((field2) => field2.id === id2);
+    if (!field) throw new Error("Data view column references a missing field.");
+    return field;
+  });
+  const search = columns.find((field) => field.id === binding.searchFieldId);
+  if (binding.searchFieldId && (!search || search.type !== "text")) throw new Error("Data view search requires a text column.");
+  return { binding, table, columns, search };
+}
+
+// src/modules/website-builder/core/application-published-data-views.ts
+function preparePublishedApplicationDataViews(definition, pageId, sections) {
+  if (!pageId || !Array.isArray(sections) || sections.length > 100) throw new Error("Invalid data view page.");
+  const seen = /* @__PURE__ */ new Set();
+  return sections.flatMap((section) => {
+    if (!section || !section.id || seen.has(section.id)) throw new Error("Invalid data view section identity.");
+    seen.add(section.id);
+    if (section.applicationDataView === void 0) return [];
+    if (section.type === "contact" || section.type === "footer") throw new Error("Data view requires a content section.");
+    const compiled = compileApplicationDataView(definition, section.applicationDataView);
+    return [{ pageId, sectionId: section.id, binding: compiled.binding }];
+  });
+}
+
 // src/modules/website-builder/services/websiteApplicationRenderService.ts
 var record3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var text = (value, fallback = "") => typeof value === "string" ? value : fallback;
@@ -9936,6 +9981,7 @@ async function renderWebsiteApplicationSnapshot(input) {
   const pages = snapshot.pages.map((page) => {
     if (!record3(page) || typeof page.id !== "string" || !page.id || typeof page.slug !== "string" || !Array.isArray(page.sections) || page.sections.length > 100 || page.sections.some((section) => !record3(section)) || page.language !== void 0 && !["en", "ar", "sv"].includes(String(page.language))) throw new Error("Invalid saved application page.");
     if (page.cmsTemplate) throw new Error("Private CMS route mapping is unavailable.");
+    preparePublishedApplicationDataViews(snapshot.application, page.id, page.sections);
     for (const section of page.sections) {
       if (section.applicationFormBinding === void 0) continue;
       compileApplicationCreateForm(snapshot.application, section, section.applicationFormBinding);
@@ -10072,7 +10118,7 @@ async function publishWebsiteApplicationRelease(input) {
     const backend = await verifyBackend();
     const hasBoundForm = Array.isArray(snapshot.pages) && snapshot.pages.some((page) => {
       if (!page || typeof page !== "object" || !Array.isArray(page.sections)) return false;
-      return page.sections.some((section) => !!section && typeof section === "object" && "applicationFormBinding" in section);
+      return page.sections.some((section) => !!section && typeof section === "object" && ("applicationFormBinding" in section || "applicationDataView" in section && Array.isArray(section.applicationDataView?.actions) && section.applicationDataView.actions.includes("create")));
     });
     if (hasBoundForm) {
       const reader = await createStoredApplicationRevisionReader({ platform, platformUrl, projectId, backend });

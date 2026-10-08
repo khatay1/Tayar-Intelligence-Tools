@@ -212,6 +212,7 @@ export function createAIGenerationHandler({
             background: validHex(section.background) ? section.background! : generatedPrimary,
             accent: validHex(section.accent) ? section.accent! : generatedAccent,
             anchorId: section.anchorId,
+            applicationDataView: section.applicationDataView,
             ...(section.type === 'contact' ? {
               formFields: section.formFields,
               applicationFormBinding: section.applicationFormBinding,

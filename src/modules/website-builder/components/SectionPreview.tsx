@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocalizer } from '@/lib/ui-localization';
+import { useLocalizer } from '@/lib/ui-localization-cms';
 import { Plus, Trash2, ChevronUp, ChevronDown, RotateCcw, Palette, Copy, Link, MousePointer2, Images } from 'lucide-react';
 import type { Device, WebsiteElement, WebsiteElementContainer, WebsiteElementType, WebsiteSection } from '../core/types';
 import { ELEMENT_LABELS, SECTION_LABELS, createDefaultContactFormFields } from '../core/defaults';
@@ -664,6 +664,10 @@ export function SectionPreview({
             </details>
           </div>
         )}
+        {section.applicationDataView && <div className="mt-5 rounded-2xl border border-white/20 bg-white/5 p-4 text-sm" data-testid="application-data-view-preview">
+          <strong>{l('Application data view')}</strong>
+          <p>{l('Records load after secure application publishing and sign-in. Database permissions control every action.')}</p>
+        </div>}
                 {section.type === 'contact' && (
           <div className={`mx-auto mt-5 grid w-full max-w-xl gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 ${compact ? 'text-xs' : 'text-sm'}`}>
             {(section.formFields ?? createDefaultContactFormFields()).map((field) => (

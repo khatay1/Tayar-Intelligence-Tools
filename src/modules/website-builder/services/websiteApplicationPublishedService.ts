@@ -12,6 +12,7 @@ import { createDedicatedApplicationRevisionReader } from './websiteApplicationBa
 import { assertDedicatedApplicationAuthSettings } from './websiteApplicationAuthSettingsService';
 import { serveWebsiteApplicationPage } from './websiteApplicationPageService';
 import { preparePublishedApplicationForms } from '../core/application-published-forms';
+import { preparePublishedApplicationDataViews } from '../core/application-published-data-views';
 import type { WebsiteSection } from '../core/types';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -131,7 +132,8 @@ export async function servePublishedWebsiteApplication(input: {
       if (!savedPage) throw new Error('Private page forms are unavailable.');
       const applicationForms = preparePublishedApplicationForms(definition, entry.pageId,
         Array.isArray(savedPage.sections) ? savedPage.sections : []);
-      response = await addApplicationPageBootstrap(response, { ...browserConfig(), definition, paths, pageId: entry.pageId, applicationForms });
+      response = await addApplicationPageBootstrap(response, { ...browserConfig(), definition, paths, pageId: entry.pageId, applicationForms,
+        applicationDataViews: preparePublishedApplicationDataViews(definition, entry.pageId, savedPage.sections ?? []) });
     }
     if (input.browserSession && new URL(request.url).origin === input.browserSession.applicationOrigin) {
       // Only the per-project isolated host may use its own localStorage/Auth SDK.

@@ -52,6 +52,25 @@ try {
   assert.equal(built.state.Pages[1].sections[0].formFields[0].name, 'visit_date');
   assert.deepEqual(built.checkpoints.at(-1)[1].application, built.state.Application);
   assert.match(built.state.AiMessages.at(-1).content, /No backend has been provisioned/);
+  const dataView = { tableId: 'appointments', columns: ['visit_date'], actions: ['update', 'delete'], pageSize: 10 };
+  const dashboardResponse = { ...response, application: { ...application, tables: [{ ...table, permissions: [...table.permissions, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] }] },
+    pages: [...response.pages, { name: 'Records', slug: 'records', sections: [{ type: 'features', title: 'My records', applicationDataView: dataView }] }] };
+  const dashboard = await run(dashboardResponse, 6, 'Build appointment booking and record management');
+  assert.equal(dashboard.state.AiStage, 'ready');
+  assert.deepEqual(dashboard.state.Pages[2].sections[0].applicationDataView, dataView);
+  assert.deepEqual(dashboard.checkpoints.at(-1)[1].pages[2].sections[0].applicationDataView, dataView);
+  for (const invalid of [
+    { ...dashboardResponse, application: undefined },
+    { ...dashboardResponse, pages: [...response.pages, { ...dashboardResponse.pages[2], sections: [{ type: 'features', applicationDataView: { ...dataView, credentials: 'forbidden' } }] }] },
+    { ...dashboardResponse, pages: [...response.pages, { ...dashboardResponse.pages[2], sections: [{ type: 'features', applicationDataView: { ...dataView, columns: ['missing'] } }] }] },
+  ]) {
+    const failed = await run(invalid, 6, 'Build record management');
+    assert.equal(failed.state.AiStage, 'error'); assert.equal(failed.state.Pages, undefined); assert.equal(failed.checkpoints.length, 0);
+  }
+  const fakeDashboard = await run(response, 6, 'Build record management');
+  assert.equal(fakeDashboard.state.AiStage, 'error'); assert.equal(fakeDashboard.state.Pages, undefined);
+  const fakeRecordBrochure = await run({ projectKind: 'website', pages: [response.pages[0]] }, 6, 'بدي إدارة السجلات');
+  assert.equal(fakeRecordBrochure.state.AiStage, 'error'); assert.equal(fakeRecordBrochure.state.Pages, undefined);
   for (const [json, limit] of [
     [{ ...response, application: undefined }, 6],
     [{ ...response, application: { ...application, secrets: { token: 'forbidden' } } }, 6],

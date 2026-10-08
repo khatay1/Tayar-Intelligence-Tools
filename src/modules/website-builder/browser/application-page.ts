@@ -5,10 +5,12 @@ import { applicationAuthCopy } from '../core/application-auth-copy';
 import { createApplicationNavigator } from '../core/application-navigation';
 import { compileApplicationCreateForm, createDurableApplicationFormSubmission } from '../core/application-form-runtime';
 import type { PublishedApplicationForm } from '../core/application-published-forms';
+import type { PublishedApplicationDataView } from '../core/application-published-data-views';
+import { mountApplicationDataView } from './application-data-view';
 
 const script = document.currentScript as HTMLScriptElement;
 const config = JSON.parse(script.dataset.application!) as (ApplicationAuthScreenConfig | OwnedApplicationAuthScreenConfig) &
-  { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[] };
+  { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[]; applicationDataViews?: PublishedApplicationDataView[] };
 const copy = applicationAuthCopy[config.language] ?? applicationAuthCopy.en;
 const formCopy = {
   en: { unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' },
@@ -41,6 +43,8 @@ try {
     synchronize: () => runtime.auth.prepareNavigation(), navigate: url => { if (!signingOut) window.location.assign(url); },
   });
   let disposed = false, signingOut = false;
+  const dataViewDisposers: Array<() => void> = [];
+  const stopDataViews = () => { dataViewDisposers.splice(0).forEach(dispose => dispose()); };
   const boundForms = new Map<HTMLFormElement, { controller: ReturnType<typeof createDurableApplicationFormSubmission>; userId: string }>();
   const submittingForms = new Set<HTMLFormElement>();
   const leadForms = Array.from(document.querySelectorAll<HTMLFormElement>('form[data-tayar-lead-form]'));
@@ -101,6 +105,19 @@ try {
     }
   };
   void prepareForms().catch(() => { stopForms(); leadForms.forEach(form => formStatus(form, formCopy.unavailable)); });
+  try {
+    const seen = new Set<string>();
+    for (const item of config.applicationDataViews ?? []) {
+      if (item.pageId !== config.pageId || seen.has(item.sectionId)) throw new Error('Application data view identity is invalid.');
+      seen.add(item.sectionId);
+      const matches = Array.from(document.querySelectorAll<HTMLElement>('[data-tayar-data-view-id]'))
+        .filter(host => host.dataset.tayarDataViewId === item.sectionId && host.closest('[data-tayar-section-id]')?.getAttribute('data-tayar-section-id') === item.sectionId);
+      if (matches.length !== 1) throw new Error('Application data view markup is unavailable.');
+      matches[0].replaceChildren();
+      dataViewDisposers.push(mountApplicationDataView(matches[0], config.definition, item.binding, runtime, config.language,
+        { projectRef: config.backend.projectRef, projectId: config.projectId, pageId: config.pageId, sectionId: item.sectionId }));
+    }
+  } catch { stopDataViews(); status.textContent = copy.unavailable; }
   const click = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || signingOut) return;
     const anchor = event.composedPath().find(item => item instanceof HTMLAnchorElement) as HTMLAnchorElement | undefined;
@@ -114,12 +131,12 @@ try {
   document.addEventListener('click', click);
   logout.addEventListener('click', () => {
     if (signingOut || disposed) return;
-    signingOut = true; stopForms(); logout.disabled = true; status.textContent = copy.loading;
+    signingOut = true; stopForms(); stopDataViews(); logout.disabled = true; status.textContent = copy.loading;
     void runtime.auth.signOut().then(() => { if (!disposed) window.location.replace(account.href); }).catch(() => {
       if (!disposed) { status.textContent = copy.error; logout.disabled = false; signingOut = false; }
     });
   });
-  const dispose = () => { if (disposed) return; disposed = true; stopForms(); navigator.dispose(); runtime.dispose(); document.removeEventListener('click', click); document.removeEventListener('submit', submitForm, true); };
+  const dispose = () => { if (disposed) return; disposed = true; stopForms(); stopDataViews(); navigator.dispose(); runtime.dispose(); document.removeEventListener('click', click); document.removeEventListener('submit', submitForm, true); };
   window.addEventListener('pagehide', dispose, { once: true });
   window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
   // Refresh cookie transport when opening a public page or after Auth refresh.

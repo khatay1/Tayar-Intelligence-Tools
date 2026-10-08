@@ -6,6 +6,13 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  'Application data view': 'عرض بيانات التطبيق',
+  'Records load after secure application publishing and sign-in. Database permissions control every action.': 'تظهر السجلات بعد نشر التطبيق الآمن وتسجيل الدخول. تتحكم صلاحيات قاعدة البيانات بكل إجراء.',
+  'Visible columns': 'الأعمدة الظاهرة', 'Allowed actions': 'الإجراءات المسموحة',
+  'Add record': 'إضافة سجل', 'Edit record': 'تعديل سجل', 'Delete record': 'حذف سجل',
+  'Search column': 'عمود البحث', 'Records per page': 'السجلات في الصفحة',
+  'Save data view': 'حفظ عرض البيانات', 'Remove data view': 'إزالة عرض البيانات',
+  'Select valid columns and actions permitted by the table.': 'اختر أعمدة صحيحة وإجراءات تسمح بها صلاحيات الجدول.',
   'Save the project before connecting your accounts.': 'احفظ المشروع قبل ربط حساباتك.',
   'Connect and verify your accounts before publishing.': 'اربط حساباتك وتحقق منها قبل النشر.',
   'Add application data and access settings before linking a backend.': 'أضف إعدادات بيانات التطبيق والدخول قبل ربط قاعدة البيانات.',
@@ -79,6 +86,13 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  'Application data view': 'Appens datavy',
+  'Records load after secure application publishing and sign-in. Database permissions control every action.': 'Poster visas efter säker apppublicering och inloggning. Databasens behörigheter styr varje åtgärd.',
+  'Visible columns': 'Synliga kolumner', 'Allowed actions': 'Tillåtna åtgärder',
+  'Add record': 'Lägg till post', 'Edit record': 'Redigera post', 'Delete record': 'Ta bort post',
+  'Search column': 'Sökkolumn', 'Records per page': 'Poster per sida',
+  'Save data view': 'Spara datavy', 'Remove data view': 'Ta bort datavy',
+  'Select valid columns and actions permitted by the table.': 'Välj giltiga kolumner och åtgärder som tabellen tillåter.',
   'Save the project before connecting your accounts.': 'Spara projektet innan du ansluter dina konton.',
   'Connect and verify your accounts before publishing.': 'Anslut och verifiera dina konton innan du publicerar.',
   'Add application data and access settings before linking a backend.': 'Lägg till appdata och åtkomstinställningar innan du ansluter en backend.',
