@@ -1,3 +1,4 @@
+import { ApplicationBookingRejected, applicationBookingDatabaseRejection, validateApplicationBookingValues } from './application-booking';
 import { createApplicationBrowserSessionBridge, createOwnedApplicationBrowserSessionBridge,
   type ApplicationBrowserSessionOptions } from './application-browser-session';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -259,6 +260,7 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       const target = table(tableId);
       const request = rowId(requestId).toLowerCase();
       const values = writable(target, input);
+      validateApplicationBookingValues(target, values);
       const token = await captureWriteToken(expectedUserId);
       const currentOwner = async () => {
         const identity = await client.auth.getUser();
@@ -270,10 +272,12 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       try { owner = await currentOwner(); }
       catch { throw new Error('Application submission identity is unavailable.'); }
       if (expectedUserId !== undefined && owner !== expectedUserId) throw new Error('Application write identity changed.');
+      let rejection: ApplicationBookingRejected | undefined;
       try {
         const query = client.from(`app_${target.key}`).insert({ ...values, owner_id: owner, _tayar_request_id: request });
         if (token) query.setHeader('Authorization', `Bearer ${token}`);
         const result = await query;
+        if (result.error) rejection = applicationBookingDatabaseRejection(target, result.error);
         if (!result.error) {
           try { if (await currentOwner() === owner) return 'created'; }
           catch { /* A changed/unavailable session makes the commit uncertain. */ }
@@ -292,6 +296,7 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
           })) return 'already-created';
         } catch { /* Unknown commit outcome remains uncertain. */ }
       }
+      if (rejection) throw rejection;
       throw new Error('Application submission outcome is uncertain.');
     },
     async update(tableId: string, id: string, input: Record<string, unknown>, expectedUserId?: string) {
@@ -299,7 +304,9 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       const token = await captureWriteToken(expectedUserId);
       const query = client.from(`app_${target.key}`).update(writable(target, input)).eq('id', rowId(id)).select('*').maybeSingle();
       if (token) query.setHeader('Authorization', `Bearer ${token}`);
-      const row = checked(await query);
+      const result = await query;
+      if (result.error) { const rejected = applicationBookingDatabaseRejection(target, result.error); if (rejected) throw rejected; }
+      const row = checked(result);
       if (!row) throw new Error('Record not found or update not permitted.');
       return row;
     },
@@ -308,7 +315,9 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       const token = await captureWriteToken(expectedUserId);
       const query = client.from(`app_${target.key}`).delete().eq('id', rowId(id)).select('id').maybeSingle();
       if (token) query.setHeader('Authorization', `Bearer ${token}`);
-      const row = checked(await query);
+      const result = await query;
+      if (result.error) { const rejected = applicationBookingDatabaseRejection(target, result.error); if (rejected) throw rejected; }
+      const row = checked(result);
       if (!row) throw new Error('Record not found or deletion not permitted.');
       return row;
     },

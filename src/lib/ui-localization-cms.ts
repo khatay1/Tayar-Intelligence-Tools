@@ -6,6 +6,17 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  "Booking conflict protection": "منع تعارض الحجوزات",
+  "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "لا يمكن حجز المورد نفسه بأوقات متداخلة. يُسمح بالأوقات المتجاورة ويمكن للحالات الملغاة تحرير الوقت.",
+  "Booking resource": "مورد الحجز",
+  "Booking start": "بداية الحجز",
+  "Booking end": "نهاية الحجز",
+  "Booking status": "حالة الحجز",
+  "Every booking blocks time": "كل حجز يحجز الوقت",
+  "States that block time": "الحالات التي تحجز الوقت",
+  "Save booking rule": "حفظ قاعدة الحجز",
+  "Remove booking rule": "إزالة قاعدة الحجز",
+
   'Application data view': 'عرض بيانات التطبيق',
   'Records load after secure application publishing and sign-in. Database permissions control every action.': 'تظهر السجلات بعد نشر التطبيق الآمن وتسجيل الدخول. تتحكم صلاحيات قاعدة البيانات بكل إجراء.',
   'Visible columns': 'الأعمدة الظاهرة', 'Allowed actions': 'الإجراءات المسموحة',
@@ -86,6 +97,17 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  "Booking conflict protection": "Skydd mot bokningskonflikter",
+  "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "En resurs kan inte ha överlappande bokningar. Angränsande tider tillåts. Avbokade tillstånd kan frigöra tiden.",
+  "Booking resource": "Bokningsresurs",
+  "Booking start": "Bokningens start",
+  "Booking end": "Bokningens slut",
+  "Booking status": "Bokningsstatus",
+  "Every booking blocks time": "Varje bokning blockerar tiden",
+  "States that block time": "Tillstånd som blockerar tiden",
+  "Save booking rule": "Spara bokningsregel",
+  "Remove booking rule": "Ta bort bokningsregel",
+
   'Application data view': 'Appens datavy',
   'Records load after secure application publishing and sign-in. Database permissions control every action.': 'Poster visas efter säker apppublicering och inloggning. Databasens behörigheter styr varje åtgärd.',
   'Visible columns': 'Synliga kolumner', 'Allowed actions': 'Tillåtna åtgärder',

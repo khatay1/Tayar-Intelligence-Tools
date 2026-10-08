@@ -32,9 +32,36 @@ clear the UI. Create requests persist only a scoped UUID and SHA-256 fingerprint
 in tab storage so an uncertain commit can be reconciled after a reload without
 duplicating a row. Submitted values and record caches are never persisted there.
 
-This supplies working generic record dashboards/editors. Atomic appointment
-conflicts, inventory reservations, file attachments and notification delivery
-still require dedicated business adapters; basic CRUD must not claim these.
+This supplies working generic record dashboards/editors. Inventory reservations,
+file attachments and notification delivery still require dedicated business
+adapters; basic CRUD must not claim these.
+
+## Conflict-safe resource bookings
+
+An optional native `table.booking` references a required UUID/resource field and
+required start/end datetime fields. Optional required enum status plus an explicit
+nonempty list of blocking states lets cancellation release a time. AI generation
+and the application data editor retain this rule; appointment requests require a
+real create form/view bound to a table with a booking rule, never plain CRUD.
+
+The isolated database compiler installs `btree_gist` in its existing extension
+namespace, a finite strictly increasing interval check and a GiST exclusion for
+half-open `[start,end)` intervals per resource. Adjacent bookings are allowed.
+Concurrent insert/update conflicts are enforced even when RLS hides other users'
+rows. Activation of a cancelled booking must pass the same constraint. Customer
+publish preflight requires the actual validated exclusion/check constraints and
+required typed columns, not just a saved schema revision. Additive migrations can
+introduce a new rule atomically; removing/changing an existing rule needs a
+reviewed data migration. Existing conflicting rows abort rather than being deleted.
+
+Native views provide local datetime controls. The runtime translates known
+conflict/interval rejections in English, Arabic and Swedish. A confirmed rejection
+on a freshly allocated request can be corrected; a replay after an uncertain
+outcome retains its UUID and cannot abandon an earlier possible commit. No
+runtime rows or resource samples enter snapshots. Resources currently use real
+UUIDs supplied by the site's operator; calendar grids, availability picking,
+recurrence, multi-resource booking and business-hours enforcement remain outside
+this adapter's scope.
 
 ## Ownership after handover
 
@@ -82,7 +109,7 @@ No provider setup consent or real customer-owned deployment was performed in thi
 
 ## Supported scope and remaining application work
 
-The existing runtime supports Auth, role-protected pages, create forms and bound data dashboards/editing views. It does not implement a complete clinical management system. Calendar conflict handling, SMS/email, files, prescription dispatch and atomic inventory workflows require additional native runtime adapters and complete-flow tests. Generation must explicitly reject those requested features instead of substituting descriptive sections.
+The existing runtime supports Auth, role-protected pages, create forms and bound data dashboards/editing views. It does not implement a complete clinical management system. Live calendars/availability, recurring scheduling, SMS/email, files, prescription dispatch and atomic inventory workflows require additional native runtime adapters and complete-flow tests. Generation must explicitly reject those requested features instead of substituting descriptive sections.
 
 The existing Apex Dental publication has not been rewritten or republished. It needs a new complete application revision after the relevant adapters and live connection activation are ready.
 

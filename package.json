@@ -69,6 +69,7 @@
     "smoke:media-privacy": "node scripts/website-media-privacy-regression.mjs && node scripts/published-site-storage-regression.mjs && node scripts/glob-security-regression.mjs",
     "smoke:website-builder:application-generation": "node scripts/website-application-generation-regression.mjs",
     "preflight:website-builder:deployment-inventory": "node scripts/website-infrastructure-deployment-inventory.mjs",
+    "smoke:website-builder:bookings": "node scripts/application-booking-regression.mjs",
     "smoke:website-builder:data-views": "node scripts/application-data-view-regression.mjs",
     "smoke:website-builder:data-views:browser": "node scripts/application-data-view-browser-regression.mjs"
   },

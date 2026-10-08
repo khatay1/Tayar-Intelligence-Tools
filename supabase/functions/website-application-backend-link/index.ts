@@ -96,7 +96,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -133,6 +133,24 @@ function validateApplicationDefinition(value, pageIds) {
         if (!validDefault) issue(`${fieldPath}.defaultValue`, "invalid-default", "The default must match the field type. Computed, relationship and structured defaults are not accepted.");
       }
     });
+    if (table.booking !== void 0) {
+      const bookingPath = `${path}.booking`;
+      if (shape(table.booking, ["resourceFieldId", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses"], bookingPath)) {
+        const rule = table.booking;
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
+        const find = (fieldId) => fields.find((field) => field.id === fieldId);
+        const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (!authEnabled || !id(rule.resourceFieldId) || !id(rule.startFieldId) || !id(rule.endFieldId) || (/* @__PURE__ */ new Set([rule.resourceFieldId, rule.startFieldId, rule.endFieldId])).size !== 3 || !resource?.required || !["uuid", "reference"].includes(String(resource.type)) || !start?.required || start.type !== "datetime" || !end?.required || end.type !== "datetime") {
+          issue(bookingPath, "invalid-booking", "Booking needs Auth, a required UUID/resource reference and two distinct required datetime fields.");
+        }
+        if (rule.statusFieldId !== void 0 || rule.blockingStatuses !== void 0) {
+          const status = find(rule.statusFieldId);
+          if (!id(rule.statusFieldId) || !status?.required || status.type !== "enum" || !Array.isArray(rule.blockingStatuses) || !rule.blockingStatuses.length || rule.blockingStatuses.length > 100 || new Set(rule.blockingStatuses).size !== rule.blockingStatuses.length || rule.blockingStatuses.some((value2) => typeof value2 !== "string" || !Array.isArray(status.options) || !status.options.includes(value2))) {
+            issue(bookingPath, "invalid-booking-status", "Blocking statuses must reference a required enum and declared unique values.");
+          }
+        }
+      }
+    }
     const permissionKeys = /* @__PURE__ */ new Set();
     list(table.permissions, APPLICATION_LIMITS.permissions, `${path}.permissions`).forEach((permission, index) => {
       const permissionPath = `${path}.permissions[${index}]`;

@@ -1,3 +1,4 @@
+import { ApplicationBookingRejected } from '../core/application-booking';
 import { createApplicationDataRuntime, createOwnedApplicationDataRuntime } from '../core/application-data-runtime';
 import type { ApplicationAuthScreenConfig, OwnedApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import type { ApplicationDefinition } from '../core/application-model';
@@ -13,10 +14,10 @@ const config = JSON.parse(script.dataset.application!) as (ApplicationAuthScreen
   { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[]; applicationDataViews?: PublishedApplicationDataView[] };
 const copy = applicationAuthCopy[config.language] ?? applicationAuthCopy.en;
 const formCopy = {
-  en: { unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' },
-  ar: { unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.' },
-  sv: { unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.' },
-}[config.language] ?? { unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' };
+  en: { conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' },
+  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.' },
+  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.' },
+}[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' };
 const account = new URL(config.returnPath, config.applicationOrigin);
 account.searchParams.set('applicationAuth', '1');
 // Keep account controls in a shadow root so authored styles do not accidentally
@@ -78,7 +79,7 @@ try {
           form.reset(); bound.controller.resetConfirmed();
           formStatus(form, form.dataset.successMessage || 'Saved.');
         } else formStatus(form, formCopy.uncertain);
-      } catch { if (!disposed && !signingOut) formStatus(form, form.dataset.errorMessage || formCopy.unavailable); }
+      } catch (error) { if (!disposed && !signingOut) formStatus(form, error instanceof ApplicationBookingRejected ? formCopy[error.reason] : form.dataset.errorMessage || formCopy.unavailable); }
       finally { submittingForms.delete(form); if (button && !disposed && !signingOut) button.disabled = false; }
     })();
   };

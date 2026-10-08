@@ -89,6 +89,21 @@ try {
   assert.equal(browserConfig.applicationDataViews[0].pageId, 'dashboard');
   assert.deepEqual(browserConfig.applicationDataViews[0].binding, dataSnapshot.pages[1].sections[0].applicationDataView);
 
+  const bookingSnapshot = structuredClone(dataSnapshot);
+  bookingSnapshot.application.tables[0].fields.push(
+    { id: 'booking_resource', key: 'resource_id', name: 'Resource', type: 'uuid', required: true },
+    { id: 'booking_start', key: 'starts_at', name: 'Start', type: 'datetime', required: true },
+    { id: 'booking_end', key: 'ends_at', name: 'End', type: 'datetime', required: true });
+  bookingSnapshot.application.tables[0].booking = { resourceFieldId: 'booking_resource', startFieldId: 'booking_start', endFieldId: 'booking_end' };
+  bookingSnapshot.pages[1].sections[0].applicationDataView.columns.push('booking_resource', 'booking_start', 'booking_end');
+  const bookingFiles = await compile(bookingSnapshot, config);
+  const bookingSchema = bookingFiles.find(file => file.path === 'database/schema.sql').content;
+  assert.match(bookingSchema, /create extension if not exists btree_gist/);
+  assert.match(bookingSchema, /app_booking_overlap_0/); assert.match(bookingSchema, /app_booking_interval_0/);
+  assert.deepEqual(JSON.parse(bookingFiles.find(file => file.path === 'application-definition.json').content).tables[0].booking,
+    bookingSnapshot.application.tables[0].booking);
+  assert.match(bookingFiles.find(file => file.path === 'api/application.js').content, /already booked/);
+
   const stripeSnapshot=structuredClone(snapshot);
   stripeSnapshot.pages[0].sections[0]=structuredClone(stripeSnapshot.pages[0].sections[0]);
   const checkout=stripeSnapshot.pages[0].sections[0].elements.find(element=>element.type==='button');

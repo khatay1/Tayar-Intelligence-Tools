@@ -1,4 +1,5 @@
 import type { ApplicationDataOperation, ApplicationDefinition, ApplicationField, ApplicationTable } from './application-model';
+import { validateApplicationBookingValues } from './application-booking';
 import { readApplicationDefinition } from './application-validation';
 
 export interface ApplicationDataViewBinding {
@@ -62,6 +63,7 @@ export function parseApplicationDataViewValues(table: ApplicationTable, input: R
     }
     values[field.key] = parseValue(field, value);
   }
+  validateApplicationBookingValues(table, values);
   return values;
 }
 

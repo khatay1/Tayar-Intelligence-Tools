@@ -81,6 +81,45 @@ export function applicationSecurityPolicies(input: ApplicationDefinition) {
     }));
 }
 
+/** GiST exclusion checks all rows, including rows hidden from the caller by RLS.
+ * It serializes competing inserts/updates without privileged browser actions. */
+function bookingInfrastructure(app: ApplicationDefinition): string[] {
+  return app.tables.some(table => table.booking) ? [
+    'create schema if not exists extensions;',
+    'create extension if not exists btree_gist with schema extensions;',
+  ] : [];
+}
+
+export function applicationBookingConstraintManifest(input: ApplicationDefinition) {
+  const app = readApplicationDefinition(input);
+  return app.tables.flatMap((table, index) => {
+    if (!table.booking) return [];
+    const field = (id: string) => table.fields.find(field => field.id === id)!.key;
+    const rule = table.booking, start = field(rule.startFieldId), end = field(rule.endFieldId);
+    const status = rule.statusFieldId ? field(rule.statusFieldId) : undefined;
+    return [{ table: tableName(table), intervalName: `app_booking_interval_${index}`, overlapName: `app_booking_overlap_${index}`,
+      resource: field(rule.resourceFieldId), start, end, status, blockingStatuses: rule.blockingStatuses }];
+  });
+}
+
+function bookingConstraints(app: ApplicationDefinition, index: number): string[] {
+  const rule = applicationBookingConstraintManifest(app).find(rule => rule.table === tableName(app.tables[index]));
+  if (!rule) return [];
+  const name = `public.${sqlName(rule.table)}`;
+  const range = `tstzrange(${sqlName(rule.start)}, ${sqlName(rule.end)}, '[)')`;
+  const where = rule.status ? ` where (${sqlName(rule.status)} in (${rule.blockingStatuses!.map(literal).join(', ')}))` : '';
+  // Resolve the installed extension's namespace; never relocate customer extensions.
+  const exclusion = `alter table ${name} add constraint ${sqlName(rule.overlapName)} exclude using gist (${sqlName(rule.resource)} %I.gist_uuid_ops with =, ${range} with &&)${where};`;
+  return [
+    `alter table ${name} add constraint ${sqlName(rule.intervalName)} check (isfinite(${sqlName(rule.start)}) and isfinite(${sqlName(rule.end)}) and ${sqlName(rule.start)} < ${sqlName(rule.end)});`,
+    `do $booking$ declare extension_schema text; begin
+  select n.nspname into strict extension_schema from pg_catalog.pg_extension e
+    join pg_catalog.pg_namespace n on n.oid = e.extnamespace where e.extname = 'btree_gist';
+  execute format(${literal(exclusion)}, extension_schema);
+end $booking$;`,
+  ];
+}
+
 function roleInfrastructure(): string[] {
   return [
     'grant usage on schema private to authenticated;',
@@ -254,6 +293,7 @@ $$;`,
 export function compileInitialApplicationSchema(input: ApplicationDefinition): string[] {
   const app = readApplicationDefinition(input);
   const statements: string[] = [];
+  statements.push(...bookingInfrastructure(app));
   statements.push('create schema private;');
   statements.push('revoke all on schema private from public;');
   statements.push('create table private.app_schema_revisions (id boolean primary key default true check (id), definition jsonb not null);');
@@ -293,6 +333,7 @@ end $$;`);
     statements.push(referenceConstraint(app, tableIndex, fieldIndex, field));
   }
   for (const [tableIndex, table] of app.tables.entries()) {
+    statements.push(...bookingConstraints(app, tableIndex));
     statements.push(...policies(table, tableIndex));
   }
   return statements;
@@ -313,6 +354,9 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
     return !updated || table.id !== updated.id || table.key !== updated.key || table.name !== updated.name || table.fields.length > updated.fields.length
       || table.fields.some((field, fieldIndex) => JSON.stringify(field) !== JSON.stringify(updated.fields[fieldIndex]));
   })) throw new Error('Removing, reordering or changing existing tables and fields requires a separately reviewed data migration.');
+  if (before.tables.some((table, index) => table.booking && JSON.stringify(table.booking) !== JSON.stringify(after.tables[index].booking))) {
+    throw new Error('Removing or changing booking rules requires a separately reviewed data migration.');
+  }
   if (JSON.stringify(before) === JSON.stringify(after)) return [];
 
   const statements: string[] = [
@@ -323,6 +367,7 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
   end if;
 end $revision$;`,
   ];
+  statements.push(...bookingInfrastructure(after));
   statements.push(...revisionReadInfrastructure());
   if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
   if (after.tables.length > before.tables.length) statements.push(...formRequestFunction());
@@ -369,6 +414,7 @@ end $form_ledger$;`);
   }
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];
+    if (!old?.booking && table.booking) statements.push(...bookingConstraints(after, index));
     if (old && JSON.stringify(old.permissions) === JSON.stringify(table.permissions)) continue;
     if (old) {
       // Revoke before creating replacement policies; a removed rule cannot retain a stale grant.
