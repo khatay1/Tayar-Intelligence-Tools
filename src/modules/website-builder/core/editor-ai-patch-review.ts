@@ -11,6 +11,13 @@ export interface AIWebsiteGeneration {
   projectKind?: 'website' | 'application';
   application?: import('./application-model').ApplicationDefinition;
   unsupportedFeatures?: string[];
+  requirements?: Array<{
+    id: string;
+    summary: string;
+    capability: 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction';
+    /** page evidence uses the generated slug; other evidence uses table IDs. */
+    evidence: string[];
+  }>;
   siteName?: string;
   summary?: string;
   style?: {

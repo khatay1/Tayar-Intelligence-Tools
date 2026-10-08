@@ -37,7 +37,7 @@ function getSecretKey() {
 }
 
 // src/modules/website-builder/core/application-model.ts
-var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100 };
+var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100, requirements: 100, requirementEvidence: 20 };
 var APPLICATION_SYSTEM_FIELDS = ["id", "owner_id", "created_at", "updated_at"];
 function createApplicationDefinition() {
   return { version: 1, tables: [], roles: [], auth: { enabled: false, signUpEnabled: false, emailVerificationRequired: true }, pageAccess: [] };
@@ -66,7 +66,7 @@ function validateApplicationDefinition(value, pageIds) {
     }
     return input;
   }
-  if (!shape(value, ["version", "tables", "roles", "auth", "pageAccess"], "application")) return issues;
+  if (!shape(value, ["version", "tables", "roles", "auth", "pageAccess", "requirements"], "application")) return issues;
   if (value.version !== 1) issue("application.version", "unsupported-version", "Unsupported application schema version. Keep the source project and use a compatible editor.");
   const tables = list(value.tables, APPLICATION_LIMITS.tables, "application.tables");
   const roles = list(value.roles, APPLICATION_LIMITS.roles, "application.roles");
@@ -210,6 +210,54 @@ function validateApplicationDefinition(value, pageIds) {
     else protectedPages.add(rule.pageId);
     access(rule, path, false);
   });
+  if (value.requirements !== void 0 && shape(value.requirements, ["version", "request", "items"], "application.requirements")) {
+    const manifest = value.requirements;
+    if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
+    if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
+    const requirementIds = /* @__PURE__ */ new Set();
+    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction"]);
+    list(manifest.items, APPLICATION_LIMITS.requirements, "application.requirements.items").forEach((item, index) => {
+      const path = `application.requirements.items[${index}]`;
+      if (!shape(item, ["id", "summary", "capability", "evidence"], path)) return;
+      if (!id(item.id) || requirementIds.has(String(item.id))) issue(`${path}.id`, "invalid-id", "Requirement IDs must be valid and unique.");
+      else requirementIds.add(String(item.id));
+      if (typeof item.summary !== "string" || !item.summary.trim() || item.summary.length > 300) issue(`${path}.summary`, "invalid-summary", "A requirement needs a concise summary.");
+      if (!capabilities.has(String(item.capability))) issue(`${path}.capability`, "invalid-capability", "Unsupported requirement capability.");
+      const evidence = list(item.evidence, APPLICATION_LIMITS.requirementEvidence, `${path}.evidence`);
+      if (!evidence.length) issue(`${path}.evidence`, "missing-evidence", "A completed requirement needs verified implementation evidence.");
+      evidence.forEach((entry, evidenceIndex) => {
+        const evidencePath = `${path}.evidence[${evidenceIndex}]`;
+        if (typeof entry !== "string" || entry.length > 260) {
+          issue(evidencePath, "invalid-evidence", "Invalid requirement evidence.");
+          return;
+        }
+        if (entry === "auth") {
+          if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
+          return;
+        }
+        const match = /^(page|form|view|booking|counter|transaction):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact))?$/.exec(entry);
+        if (!match) {
+          issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
+          return;
+        }
+        if (match[1] === "page") {
+          if (match[3] || pageIds && !pageIds.has(match[2])) issue(evidencePath, "missing-page", "Page evidence requires an existing page.");
+          return;
+        }
+        const table = tables.find((candidate) => object(candidate) && candidate.id === match[2]);
+        if (!object(table)) {
+          issue(evidencePath, "missing-table", "Requirement evidence requires an existing table.");
+          return;
+        }
+        if (match[1] === "booking" && !object(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
+        if (match[1] === "counter" && !object(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
+        if (match[1] === "transaction" && !object(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
+        if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
+        if (match[1] !== "view" && match[3]) issue(evidencePath, "unexpected-action", "Only data-view evidence can include an action.");
+      });
+    });
+    if (!Array.isArray(manifest.items) || !manifest.items.length) issue("application.requirements.items", "missing-requirements", "An application requirements manifest cannot be empty.");
+  }
   return issues;
 }
 function readApplicationDefinition(value, pageIds) {
@@ -1349,6 +1397,8 @@ var ar = {
   "Launch readiness": "\u062C\u0627\u0647\u0632\u064A\u0629 \u0627\u0644\u0625\u0637\u0644\u0627\u0642",
   "Client approval fingerprint": "\u0628\u0635\u0645\u0629 \u0645\u0648\u0627\u0641\u0642\u0629 \u0627\u0644\u0639\u0645\u064A\u0644",
   "Approve current build": "\u0627\u0639\u062A\u0645\u0627\u062F \u0627\u0644\u0628\u0646\u0627\u0621 \u0627\u0644\u062D\u0627\u0644\u064A",
+  "Approve the current build before marking it delivered.": "\u0627\u0639\u062A\u0645\u062F \u0627\u0644\u0628\u0646\u0627\u0621 \u0627\u0644\u062D\u0627\u0644\u064A \u0642\u0628\u0644 \u0648\u0636\u0639 \u0639\u0644\u0627\u0645\u0629 \u062A\u0645 \u0627\u0644\u062A\u0633\u0644\u064A\u0645.",
+  "Application requirements are incomplete. Restore every required page, form and action before approval.": "\u0645\u062A\u0637\u0644\u0628\u0627\u062A \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u063A\u064A\u0631 \u0645\u0643\u062A\u0645\u0644\u0629. \u0623\u0639\u062F \u0643\u0644 \u0635\u0641\u062D\u0629 \u0648\u0646\u0645\u0648\u0630\u062C \u0648\u0625\u062C\u0631\u0627\u0621 \u0645\u0637\u0644\u0648\u0628 \u0642\u0628\u0644 \u0627\u0644\u0627\u0639\u062A\u0645\u0627\u062F.",
   "Clear approval": "\u0625\u0644\u063A\u0627\u0621 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629",
   "Mark delivered": "\u0648\u0636\u0639 \u0639\u0644\u0627\u0645\u0629 \u062A\u0645 \u0627\u0644\u062A\u0633\u0644\u064A\u0645",
   "Download client handoff ZIP": "\u062A\u0646\u0632\u064A\u0644 \u062D\u0632\u0645\u0629 \u062A\u0633\u0644\u064A\u0645 \u0627\u0644\u0639\u0645\u064A\u0644 ZIP",
@@ -4277,6 +4327,8 @@ var sv = {
   "Launch readiness": "Lanseringsberedskap",
   "Client approval fingerprint": "Kundgodk\xE4nnandets fingeravtryck",
   "Approve current build": "Godk\xE4nn aktuell version",
+  "Approve the current build before marking it delivered.": "Godk\xE4nn den aktuella versionen innan du markerar den som levererad.",
+  "Application requirements are incomplete. Restore every required page, form and action before approval.": "Applikationskraven \xE4r ofullst\xE4ndiga. \xC5terst\xE4ll varje obligatorisk sida, formul\xE4r och \xE5tg\xE4rd f\xF6re godk\xE4nnande.",
   "Clear approval": "Rensa godk\xE4nnande",
   "Mark delivered": "Markera levererad",
   "Download client handoff ZIP": "Ladda ner kundleverans-ZIP",

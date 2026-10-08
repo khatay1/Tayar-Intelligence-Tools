@@ -3287,7 +3287,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
   const { approveForDelivery, clearDeliveryApproval, markProjectDelivered, buildDeliveryReport, exportDeliveryReport } = createDeliveryActions({
-    deliveryConfig, approvalCurrent, siteName, getLaunchReadiness: () => launchReadiness, siteAudit,
+    application, pages: getCurrentPages(), deliveryConfig, approvalCurrent, siteName, getLaunchReadiness: () => launchReadiness, siteAudit,
     publishedUrl, previewUrl, deliveryUsage, setDeliveryConfig, setSaved,
     buildDeliveryFingerprint, requireBillingFeature, l,
   });
