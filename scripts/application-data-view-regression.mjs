@@ -65,6 +65,8 @@ try {
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' };
   let userId = owner, roles = [], rows = [], calls = [], insertCount = 0, uncertain = false, revealUncertain = true, switchAfterList = false;
   const token = `a.${Buffer.from(JSON.stringify({ sub: owner, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.signature`;
+  const relatedRows = Array.from({ length: 25 }, (_, index) => ({ id: `${String(index).padStart(8, '0')}-aaaa-4aaa-8aaa-aaaaaaaaaaaa`, name: `Resource ${index}`, secretNote: 'must-not-leave-reference-options' }));
+  let switchAfterReference = false;
   globalThis.fetch = async (resource, init) => {
     const url = new URL(resource instanceof Request ? resource.url : String(resource));
     assert.equal(url.origin, backend.url, 'All SDK requests must use the isolated customer backend');
@@ -72,6 +74,12 @@ try {
     if (url.pathname === '/auth/v1/token') return Response.json({ access_token: token, refresh_token: 'refresh-fixture', token_type: 'bearer', expires_in: 3600, user: { id: userId, is_anonymous: false } });
     if (url.pathname === '/auth/v1/user') return Response.json({ id: userId, is_anonymous: false });
     if (url.pathname === '/rest/v1/rpc/app_my_roles') return Response.json(roles);
+    if (url.pathname === '/rest/v1/app_resources') {
+      const filtered = url.searchParams.has('name') ? relatedRows.filter(row => row.name === 'Resource 24') : relatedRows;
+      const result = filtered.slice(Number(url.searchParams.get('offset') ?? 0), Number(url.searchParams.get('offset') ?? 0) + Number(url.searchParams.get('limit') ?? 100));
+      if (switchAfterReference) userId = other;
+      return Response.json(result);
+    }
     assert.equal(url.pathname, '/rest/v1/app_records');
     if (init?.method === 'POST') {
       const values = JSON.parse(init.body); insertCount++;
@@ -132,5 +140,33 @@ try {
     const beforeWrites = insertCount; await assert.rejects(failedStorage.create(input), /identity is unavailable/);
     assert.equal(insertCount, beforeWrites, 'No create request is sent when durable request identity cannot be saved'); failedStorage.dispose();
   } finally { runtime.dispose(); }
+  userId = owner; roles = [];
+  const relatedApp = structuredClone(app);
+  relatedApp.tables[0].fields.push({ id: 'record_resource', key: 'resource_id', name: 'Resource', type: 'reference', required: true, referenceTableId: 'resources' });
+  relatedApp.tables.push({ id: 'resources', key: 'resources', name: 'Resources', fields: [{ id: 'resource_name', key: 'name', name: 'Name', type: 'text', required: true }], permissions: [{ operation: 'read', access: 'role', roleId: 'admin' }] });
+  const noRead = structuredClone(relatedApp); noRead.tables[1].permissions = [];
+  assert.throws(() => compileApplicationDataView(noRead, binding), /related table/);
+  const relatedRuntime = createOwnedApplicationDataRuntime(relatedApp, backend, backend.projectRef);
+  try {
+    await relatedRuntime.auth.signIn('owner@example.com', 'fixture-password');
+    const controller = createApplicationDataViewController(relatedApp, binding, relatedRuntime, () => recordId);
+    const beforeDenied = calls.length;
+    await assert.rejects(controller.referenceOptions('record_resource'), /not accessible/);
+    assert.equal(calls.slice(beforeDenied).filter(call => call.url.pathname === '/rest/v1/app_resources').length, 0);
+    roles = ['admin']; const options = await controller.referenceOptions('record_resource');
+    assert.equal(options.options.length, 20); assert.equal(options.hasNext, true); assert.equal(options.searchable, true);
+    assert.deepEqual(Object.keys(options.options[0]), ['id', 'label']); assert.doesNotMatch(JSON.stringify(options), /secretNote|must-not-leave/);
+    assert.equal((await controller.referenceOptions('record_resource', 1)).options.length, 5);
+    await controller.referenceOptions('record_resource', 0, '%_');
+    const relatedQuery = calls.findLast(call => call.url.pathname === '/rest/v1/app_resources').url;
+    assert.equal(relatedQuery.searchParams.get('name'), 'ilike.%\\%\\_%');
+    assert.equal(relatedQuery.searchParams.get('order'), 'name.asc,id.asc');
+    await assert.rejects(controller.referenceOptions('record_name'), /Unknown relationship/);
+    await assert.rejects(controller.referenceOptions('record_resource', -1), /Invalid relationship/);
+    relatedApp.tables[1].fields[0].key = 'tampered';
+    assert.equal((await controller.referenceOptions('record_resource')).options[0].label, 'Resource 0', 'Controller captures immutable relationship metadata');
+    switchAfterReference = true; await assert.rejects(controller.referenceOptions('record_resource'), /identity changed/);
+    assert.equal(controller.closed(), true); controller.dispose();
+  } finally { relatedRuntime.dispose(); }
   console.log('PASS data views: validated native bindings/rendering, actual isolated SDK CRUD, role denial, escaped search/pagination, uncertain-submit retry and stale-user refusal');
 } finally { globalThis.fetch = originalFetch; await rm(dir, { recursive: true, force: true }); }

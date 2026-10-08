@@ -243,7 +243,9 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
           case 'ilike': query = query.ilike(filter.field, String(filter.value)); break;
         }
       }
-      return checked(await query.order(sort.field, { ascending: sort.direction === 'asc' }).range(offset, offset + limit - 1));
+      query = query.order(sort.field, { ascending: sort.direction === 'asc' });
+      if (sort.field !== 'id') query = query.order('id', { ascending: true });
+      return checked(await query.range(offset, offset + limit - 1));
     },
     async get(tableId: string, id: string) {
       const target = table(tableId);

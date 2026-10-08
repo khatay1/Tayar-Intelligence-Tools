@@ -1,3 +1,4 @@
+import { createApplicationReferenceInput } from './application-reference-input';
 import { ApplicationBookingRejected } from '../core/application-booking';
 import type { Language } from '@/context/PreferencesContext';
 import type { ApplicationDefinition, ApplicationField } from '../core/application-model';
@@ -6,9 +7,9 @@ import { createApplicationDataViewController } from '../core/application-data-vi
 import type { createApplicationDataRuntime } from '../core/application-data-runtime';
 
 const translations = {
-  en: { conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
-  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
-  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
+  en: { relatedError: 'Could not load related records. Check access and try again.', conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
+  ar: { relatedError: 'تعذّر تحميل السجلات المرتبطة. تحقّق من صلاحية الوصول وحاول مجددًا.', conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
+  sv: { relatedError: 'Kunde inte läsa relaterade poster. Kontrollera åtkomst och försök igen.', conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
 };
 
 /** A native, isolated data component. All record values use textContent/value;
@@ -23,6 +24,8 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   });
   const root = host.attachShadow({ mode: 'open' });
   let disposed = false, busy = false, sequence = 0, page = 0, query = '';
+  let references: Array<ReturnType<typeof createApplicationReferenceInput>> = [];
+  function stopEditor() { for (const reference of references) reference.dispose(); references = []; }
   const style = document.createElement('style');
   style.textContent = ':host{display:block;font:15px/1.5 system-ui,sans-serif;color:#0f172a}*{box-sizing:border-box}.view{background:#fff;border:1px solid #cbd5e1;border-radius:14px;padding:20px}.toolbar,.pager{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:start;padding:10px;border-bottom:1px solid #e2e8f0;white-space:pre-wrap;overflow-wrap:anywhere;max-width:360px}th{background:#f1f5f9}button,input,select,textarea{font:inherit}button{border:1px solid #64748b;border-radius:8px;padding:8px 12px;background:#f8fafc;color:#0f172a;cursor:pointer}button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #2563eb;outline-offset:2px}.danger{color:#b91c1c}label{display:grid;gap:5px;margin:12px 0}input,select,textarea{width:100%;padding:9px;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#0f172a}textarea{min-height:100px}.editor{border:1px solid #94a3b8;padding:16px;border-radius:10px;margin:16px 0}h3{margin:0}p{overflow-wrap:anywhere}[hidden]{display:none!important}';
   const view = document.createElement('div'); view.className = 'view'; view.dir = language === 'ar' ? 'rtl' : 'ltr';
@@ -57,8 +60,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   function setBusy(value: boolean) {
     busy = value; view.setAttribute('aria-busy', String(value));
     for (const control of view.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('button,input,select,textarea')) control.disabled = value;
+    for (const reference of references) reference.setDisabled(value);
   }
-  function clear() { body.replaceChildren(); empty.hidden = true; add.hidden = true; editor.replaceChildren(); editor.hidden = true; previous.disabled = true; next.disabled = true; }
+  function clear() { stopEditor(); body.replaceChildren(); empty.hidden = true; add.hidden = true; editor.replaceChildren(); editor.hidden = true; previous.disabled = true; next.disabled = true; }
   async function load() {
     if (disposed || busy) return;
     const current = ++sequence; setBusy(true); status.textContent = copy.loading;
@@ -93,12 +97,16 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   }
   function openEditor(row?: Record<string, unknown>) {
     if (disposed || busy) return;
-    editor.replaceChildren(); editor.hidden = false;
+    stopEditor(); editor.replaceChildren(); editor.hidden = false;
     const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
     for (const field of controller.table.fields) {
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-      if (field.type === 'enum' || field.type === 'boolean') {
+      let reference: ReturnType<typeof createApplicationReferenceInput> | undefined;
+      if (field.type === 'reference') {
+        reference = createApplicationReferenceInput(field, typeof row?.[field.key] === 'string' ? row[field.key] as string : '', controller, copy, () => { clear(); status.textContent = copy.error; });
+        references.push(reference); input = reference.input;
+      } else if (field.type === 'enum' || field.type === 'boolean') {
         const select = document.createElement('select');
         const options = field.type === 'boolean' ? [['', copy.unset], ['true', copy.yes], ['false', copy.no]] : [['', copy.unset], ...(field.options ?? []).map(value => [value, value])];
         for (const [value, text] of options) { const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option); } input = select;
@@ -112,17 +120,17 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
           if (Number.isFinite(date.getTime())) input.value = new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, -1);
         } else input.value = field.type === 'json' ? JSON.stringify(value) : String(value);
       }
-      label.append(input); form.append(label); inputs.set(field.key, input);
+      label.append(input); form.append(label); if (reference) form.append(reference.controls); inputs.set(field.key, input);
     }
     const save = document.createElement('button'); save.type = 'submit'; save.textContent = copy.save;
-    const cancel = button(copy.cancel, () => { editor.replaceChildren(); editor.hidden = true; add.focus(); }); form.append(save, cancel);
+    const cancel = button(copy.cancel, () => { stopEditor(); editor.replaceChildren(); editor.hidden = true; add.focus(); }); form.append(save, cancel);
     form.addEventListener('submit', event => {
       event.preventDefault(); if (busy || disposed) return;
       const values = Object.fromEntries([...inputs].map(([key, input]) => [key, input.value])); setBusy(true); status.textContent = copy.loading;
       const operation = row ? controller.update(String(row.id), values) : controller.create(values);
-      void operation.then(() => { if (!disposed) { editor.hidden = true; setBusy(false); status.textContent = copy.saved; void load(); } }).catch((error: unknown) => { if (!disposed) { if (controller.closed()) clear(); else body.replaceChildren(); setBusy(false); status.textContent = failure(error); } });
+      void operation.then(() => { if (!disposed) { stopEditor(); editor.hidden = true; setBusy(false); status.textContent = copy.saved; void load(); } }).catch((error: unknown) => { if (!disposed) { if (controller.closed()) clear(); else body.replaceChildren(); setBusy(false); status.textContent = failure(error); } });
     });
-    editor.append(form); inputs.values().next().value?.focus();
+    editor.append(form); for (const reference of references) void reference.load(); inputs.values().next().value?.focus();
   }
   void load();
   return () => { disposed = true; sequence++; controller.dispose(); clear(); root.replaceChildren(); };

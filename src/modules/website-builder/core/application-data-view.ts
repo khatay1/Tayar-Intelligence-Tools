@@ -39,6 +39,12 @@ export function compileApplicationDataView(definition: ApplicationDefinition, in
     if (!field) throw new Error('Data view column references a missing field.');
     return field;
   });
+  if (binding.actions.some(action => action === 'create' || action === 'update')) {
+    for (const field of table.fields.filter(field => field.type === 'reference')) {
+      const related = app.tables.find(table => table.id === field.referenceTableId);
+      if (!related?.permissions.some(rule => rule.operation === 'read')) throw new Error('Editable relationships require declared read access to the related table.');
+    }
+  }
   const search = columns.find(field => field.id === binding.searchFieldId);
   if (binding.searchFieldId && (!search || search.type !== 'text')) throw new Error('Data view search requires a text column.');
   return { binding, table, columns, search };
