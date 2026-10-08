@@ -58,8 +58,11 @@ Native views provide local datetime controls. The runtime translates known
 conflict/interval rejections in English, Arabic and Swedish. A confirmed rejection
 on a freshly allocated request can be corrected; a replay after an uncertain
 outcome retains its UUID and cannot abandon an earlier possible commit. No
-runtime rows or resource samples enter snapshots. Resources currently use real
-UUIDs supplied by the site's operator; calendar grids, availability picking,
+runtime rows or resource samples enter snapshots. Reference fields now use actual related-record selectors with names, search and
+20-record pagination. They read only through the target table's declared access
+and RLS, verify identity after responses, retain an existing out-of-page ID and
+render labels as text. Choices and related rows are never cached in snapshots.
+UUID-only fields still accept real operator-supplied IDs. Calendar grids, availability picking,
 recurrence, multi-resource booking and business-hours enforcement remain outside
 this adapter's scope.
 

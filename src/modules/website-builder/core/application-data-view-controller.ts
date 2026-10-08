@@ -1,3 +1,4 @@
+import { readApplicationDefinition } from './application-validation';
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationDataView, dataViewAllows, parseApplicationDataViewValues, type ApplicationDataViewBinding } from './application-data-view';
 import type { createApplicationDataRuntime } from './application-data-runtime';
@@ -15,7 +16,8 @@ export function createApplicationDataViewController(definition: ApplicationDefin
   runtime: Runtime, randomUUID: () => string, durableScope?: {
     keyPrefix: string; storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>; crypto: Pick<Crypto, 'randomUUID' | 'subtle'>;
   }) {
-  const compiled = compileApplicationDataView(definition, binding);
+  const app = readApplicationDefinition(definition);
+  const compiled = compileApplicationDataView(app, binding);
   let owner: string | undefined, disposed = false, writing = false;
   let pending: { fingerprint: string; requestId: string } | undefined;
   let submission: ReturnType<typeof createDurableApplicationFormSubmission> | undefined;
@@ -57,6 +59,24 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       await identity();
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid data view response.');
       return { rows: rows.slice(0, compiled.binding.pageSize) as Record<string, unknown>[], hasNext: rows.length > compiled.binding.pageSize };
+    },
+    async referenceOptions(fieldId: string, page = 0, query = '') {
+      if (!Number.isSafeInteger(page) || page < 0 || page > 100_000 || typeof query !== 'string' || query.length > 200) throw new Error('Invalid relationship query.');
+      const field = compiled.table.fields.find(field => field.id === fieldId);
+      const target = field?.type === 'reference' ? app.tables.find(table => table.id === field.referenceTableId) : undefined;
+      if (!target) throw new Error('Unknown relationship.');
+      const user = await identity(), roles = await runtime.auth.currentRoles();
+      await identity();
+      if (!dataViewAllows(target, 'read', user, roles)) throw new Error('Related records are not accessible.');
+      const label = target.fields.find(field => field.type === 'text');
+      if (query && !label) throw new Error('This relationship has no searchable label.');
+      const rows = await runtime.list(target.id, { limit: 21, offset: page * 20,
+        sort: label ? { field: label.key, direction: 'asc' } : { field: 'id', direction: 'asc' },
+        filters: query && label ? [{ field: label.key, operator: 'ilike', value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [],
+      }) as unknown;
+      await identity();
+      if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid relationship response.');
+      return { options: rows.slice(0, 20).map(row => ({ id: rowId(row.id), label: label && typeof row[label.key] === 'string' && row[label.key] ? row[label.key] as string : row.id as string })), hasNext: rows.length > 20, searchable: !!label };
     },
     async create(input: Record<string, unknown>) {
       if (writing || disposed) throw new Error('A record operation is unavailable.');
