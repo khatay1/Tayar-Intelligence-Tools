@@ -96,7 +96,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -149,6 +149,17 @@ function validateApplicationDefinition(value, pageIds) {
             issue(bookingPath, "invalid-booking-status", "Blocking statuses must reference a required enum and declared unique values.");
           }
         }
+      }
+    }
+    if (table.counter !== void 0) {
+      const counterPath = `${path}.counter`;
+      if (shape(table.counter, ["fieldId", "minimum", "maximum", "integer"], counterPath)) {
+        const rule = table.counter;
+        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object(field2) && field2.id === rule.fieldId) : void 0;
+        if (!authEnabled || !id(rule.fieldId) || !object(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
+          issue(counterPath, "invalid-counter", "A counter needs Auth, a required numeric field defaulting to its finite minimum, and valid optional bounds.");
+        }
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
       }
     }
     const permissionKeys = /* @__PURE__ */ new Set();
@@ -6556,6 +6567,16 @@ function localizeUi(text2, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Atomic quantity adjustments": "\u062A\u063A\u064A\u064A\u0631\u0627\u062A \u0643\u0645\u064A\u0629 \u0630\u0631\u0651\u064A\u0629",
+  "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "\u0644\u0644\u0645\u062E\u0632\u0648\u0646 \u0648\u0627\u0644\u062D\u0635\u0635 \u0648\u0627\u0644\u0646\u0642\u0627\u0637. \u062A\u0628\u062F\u0623 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0639\u0646\u062F \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u062F\u0646\u0649 \u0648\u062A\u064F\u063A\u064A\u0651\u0631 \u0627\u0644\u0643\u0645\u064A\u0629 \u0628\u0625\u062C\u0631\u0627\u0621 \u0645\u062D\u0645\u064A.",
+  "Quantity field": "\u062D\u0642\u0644 \u0627\u0644\u0643\u0645\u064A\u0629",
+  "Minimum quantity": "\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u062F\u0646\u0649 \u0644\u0644\u0643\u0645\u064A\u0629",
+  "Maximum quantity (optional)": "\u0627\u0644\u062D\u062F \u0627\u0644\u0623\u0639\u0644\u0649 \u0644\u0644\u0643\u0645\u064A\u0629 (\u0627\u062E\u062A\u064A\u0627\u0631\u064A)",
+  "Whole numbers only": "\u0623\u0639\u062F\u0627\u062F \u0635\u062D\u064A\u062D\u0629 \u0641\u0642\u0637",
+  "Set the quantity field default to the minimum before saving.": "\u0627\u062C\u0639\u0644 \u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0627\u0641\u062A\u0631\u0627\u0636\u064A\u0629 \u0644\u062D\u0642\u0644 \u0627\u0644\u0643\u0645\u064A\u0629 \u0645\u0633\u0627\u0648\u064A\u0629 \u0644\u0644\u062D\u062F \u0627\u0644\u0623\u062F\u0646\u0649 \u0642\u0628\u0644 \u0627\u0644\u062D\u0641\u0638.",
+  "Save quantity rule": "\u062D\u0641\u0638 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0643\u0645\u064A\u0629",
+  "Remove quantity rule": "\u0625\u0632\u0627\u0644\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0643\u0645\u064A\u0629",
+  "Adjust quantity": "\u062A\u063A\u064A\u064A\u0631 \u0627\u0644\u0643\u0645\u064A\u0629",
   "Booking conflict protection": "\u0645\u0646\u0639 \u062A\u0639\u0627\u0631\u0636 \u0627\u0644\u062D\u062C\u0648\u0632\u0627\u062A",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u062C\u0632 \u0627\u0644\u0645\u0648\u0631\u062F \u0646\u0641\u0633\u0647 \u0628\u0623\u0648\u0642\u0627\u062A \u0645\u062A\u062F\u0627\u062E\u0644\u0629. \u064A\u064F\u0633\u0645\u062D \u0628\u0627\u0644\u0623\u0648\u0642\u0627\u062A \u0627\u0644\u0645\u062A\u062C\u0627\u0648\u0631\u0629 \u0648\u064A\u0645\u0643\u0646 \u0644\u0644\u062D\u0627\u0644\u0627\u062A \u0627\u0644\u0645\u0644\u063A\u0627\u0629 \u062A\u062D\u0631\u064A\u0631 \u0627\u0644\u0648\u0642\u062A.",
   "Booking resource": "\u0645\u0648\u0631\u062F \u0627\u0644\u062D\u062C\u0632",
@@ -7095,6 +7116,16 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Atomic quantity adjustments": "Atom\xE4ra m\xE4ngd\xE4ndringar",
+  "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "F\xF6r lager, kvoter och po\xE4ng. Nya poster b\xF6rjar vid minimum; \xE4ndringar anv\xE4nder en skyddad justering.",
+  "Quantity field": "M\xE4ngdf\xE4lt",
+  "Minimum quantity": "Minsta m\xE4ngd",
+  "Maximum quantity (optional)": "St\xF6rsta m\xE4ngd (valfritt)",
+  "Whole numbers only": "Endast heltal",
+  "Set the quantity field default to the minimum before saving.": "S\xE4tt m\xE4ngdf\xE4ltets standardv\xE4rde till minimum innan du sparar.",
+  "Save quantity rule": "Spara m\xE4ngdregel",
+  "Remove quantity rule": "Ta bort m\xE4ngdregel",
+  "Adjust quantity": "\xC4ndra antal",
   "Booking conflict protection": "Skydd mot bokningskonflikter",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "En resurs kan inte ha \xF6verlappande bokningar. Angr\xE4nsande tider till\xE5ts. Avbokade tillst\xE5nd kan frig\xF6ra tiden.",
   "Booking resource": "Bokningsresurs",
@@ -9992,7 +10023,7 @@ function compileApplicationCreateForm(definition, source, input) {
 // src/modules/website-builder/core/application-data-view.ts
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateApplicationDataViewShape(value) {
-  if (!object2(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
+  if (!object2(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
   return true;
 }
 function compileApplicationDataView(definition, input) {
@@ -10000,7 +10031,8 @@ function compileApplicationDataView(definition, input) {
   if (!app.auth.enabled || !validateApplicationDataViewShape(input)) throw new Error("Invalid application data view.");
   const binding = structuredClone(input);
   const table = app.tables.find((table2) => table2.id === binding.tableId);
-  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === action))) throw new Error("Data view requires declared read and action permissions.");
+  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (action === "adjust" ? "update" : action)))) throw new Error("Data view requires declared read and action permissions.");
+  if (binding.actions.includes("adjust") && !table.counter) throw new Error("Adjustment requires a native counter rule.");
   const columns = binding.columns.map((id2) => {
     const field = table.fields.find((field2) => field2.id === id2);
     if (!field) throw new Error("Data view column references a missing field.");

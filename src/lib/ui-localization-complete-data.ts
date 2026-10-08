@@ -4,6 +4,17 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  "Atomic quantity adjustments": "تغييرات كمية ذرّية",
+  "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "للمخزون والحصص والنقاط. تبدأ السجلات عند الحد الأدنى وتُغيّر الكمية بإجراء محمي.",
+  "Quantity field": "حقل الكمية",
+  "Minimum quantity": "الحد الأدنى للكمية",
+  "Maximum quantity (optional)": "الحد الأعلى للكمية (اختياري)",
+  "Whole numbers only": "أعداد صحيحة فقط",
+  "Set the quantity field default to the minimum before saving.": "اجعل القيمة الافتراضية لحقل الكمية مساوية للحد الأدنى قبل الحفظ.",
+  "Save quantity rule": "حفظ قاعدة الكمية",
+  "Remove quantity rule": "إزالة قاعدة الكمية",
+  "Adjust quantity": "تغيير الكمية",
+
   "Booking conflict protection": "منع تعارض الحجوزات",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "لا يمكن حجز المورد نفسه بأوقات متداخلة. يُسمح بالأوقات المتجاورة ويمكن للحالات الملغاة تحرير الوقت.",
   "Booking resource": "مورد الحجز",
@@ -547,6 +558,17 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  "Atomic quantity adjustments": "Atomära mängdändringar",
+  "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "För lager, kvoter och poäng. Nya poster börjar vid minimum; ändringar använder en skyddad justering.",
+  "Quantity field": "Mängdfält",
+  "Minimum quantity": "Minsta mängd",
+  "Maximum quantity (optional)": "Största mängd (valfritt)",
+  "Whole numbers only": "Endast heltal",
+  "Set the quantity field default to the minimum before saving.": "Sätt mängdfältets standardvärde till minimum innan du sparar.",
+  "Save quantity rule": "Spara mängdregel",
+  "Remove quantity rule": "Ta bort mängdregel",
+  "Adjust quantity": "Ändra antal",
+
   "Booking conflict protection": "Skydd mot bokningskonflikter",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "En resurs kan inte ha överlappande bokningar. Angränsande tider tillåts. Avbokade tillstånd kan frigöra tiden.",
   "Booking resource": "Bokningsresurs",

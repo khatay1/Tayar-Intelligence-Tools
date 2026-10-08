@@ -1,10 +1,11 @@
+import { parseApplicationCounterDelta } from './application-counter';
 import { readApplicationDefinition } from './application-validation';
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationDataView, dataViewAllows, parseApplicationDataViewValues, type ApplicationDataViewBinding } from './application-data-view';
 import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
 
-type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove'>;
+type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter'>;
 const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
@@ -32,9 +33,9 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action, user, roles));
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'adjust' ? 'update' : action, user, roles));
   }
-  async function write(action: 'create' | 'update' | 'delete', execute: () => Promise<unknown>) {
+  async function write(action: 'create' | 'update' | 'delete' | 'adjust', execute: () => Promise<unknown>) {
     if (writing) throw new Error('A record operation is already in progress.');
     writing = true;
     try {
@@ -97,6 +98,16 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     async update(id: string, input: Record<string, unknown>) {
       const values = parseApplicationDataViewValues(compiled.table, input, false);
       await write('update', () => runtime.update(compiled.table.id, rowId(id), values, owner));
+    },
+    async adjust(id: string, input: unknown) {
+      const recordId = rowId(id), delta = parseApplicationCounterDelta(compiled.table, input);
+      if (!durableScope || !runtime.adjustCounter) throw new Error('Durable adjustment is unavailable.');
+      await write('adjust', async () => {
+        submission = createDurableApplicationFormSubmission({ tableId: compiled.table.id, values: () => ({ recordId, delta }) }, {
+          createOnce: (_tableId, _payload, requestId) => runtime.adjustCounter(compiled.table.id, recordId, delta, requestId, owner!),
+        }, { key: `${durableScope.keyPrefix}:adjust:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
+        if (await submission.submit([]) !== 'confirmed') throw new Error('Counter outcome is uncertain. Keep the adjustment and retry.');
+      });
     },
     async remove(id: string) { await write('delete', () => runtime.remove(compiled.table.id, rowId(id), owner)); },
   };

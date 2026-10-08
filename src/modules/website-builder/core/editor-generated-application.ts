@@ -16,9 +16,10 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
     throw new Error('AI returned invalid application requirements.');
   }
   if (generated.unsupportedFeatures?.length) throw new Error(`This request needs additional application features before it can be built: ${generated.unsupportedFeatures.join('; ')}. No incomplete application was applied.`);
+  const counterRequested = /\b(?:stock (?:adjustments?|management)|inventory management|quota management|points system)\b|(?:إدارة المخزون|تعديل المخزون|إدارة الحصص|نظام النقاط)/iu.test(prompt);
   const requested = /\b(?:patient portal|staff portal|admin portal|sign[ -]?in|log[ -]?in|authentication|database|book(?:ing)? appointments?|appointment booking|data dashboard|record management|crud|data editor)\b|(?:حجز المواعيد|حجز موعد|تسجيل الدخول|قاعدة بيانات|بوابة المرضى|بوابة الموظفين|إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt);
   if (generated.application === undefined) {
-    if (generated.projectKind === 'application' || requested || bookingRequest(prompt) || pages.some(page => page.sections.some(section => section.applicationFormBinding || section.applicationDataView))) {
+    if (generated.projectKind === 'application' || requested || counterRequested || bookingRequest(prompt) || pages.some(page => page.sections.some(section => section.applicationFormBinding || section.applicationDataView))) {
       throw new Error('This request needs a real application definition and bound forms. AI returned only pages; no incomplete application was applied.');
     }
     return undefined;
@@ -33,11 +34,13 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
   if (!definition.auth.enabled && !definition.tables.length) throw new Error('AI returned an empty application instead of the requested functionality.');
   let dataViews = 0;
   let bookingCreates = 0;
+  let counterViews = 0;
   for (const page of pages) for (const section of page.sections) {
     if (section.applicationDataView !== undefined) {
       if (section.type === 'contact' || section.type === 'footer') throw new Error('Data views require a content section.');
       const view = compileApplicationDataView(definition, section.applicationDataView);
       if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
+      if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       dataViews++;
     }
     if (section.type === 'contact' && !section.applicationFormBinding) throw new Error('Every form in a customer-owned application must be bound to its application data.');
@@ -55,6 +58,7 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
   }
   if (bookingRequest(prompt) && !bookingCreates) throw new Error('Appointment booking requires a bound create form or data view with a database booking rule; ordinary records cannot replace conflict-safe booking.');
   if (/\b(?:data dashboard|record management|crud|data editor)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt) && !dataViews) throw new Error('Record management requires a bound data view; descriptive pages cannot replace it.');
+  if (counterRequested && !counterViews) throw new Error('Quantity management requires a bound adjustment view and a native counter rule.');
   return definition;
 }
 

@@ -1,3 +1,4 @@
+import { applicationCounterInfrastructure, compileApplicationCounterSchema } from './application-counter-sql';
 import type { ApplicationDefinition, ApplicationField, ApplicationPermission, ApplicationTable } from './application-model';
 import { readApplicationDefinition } from './application-validation';
 
@@ -301,6 +302,7 @@ export function compileInitialApplicationSchema(input: ApplicationDefinition): s
   statements.push(`insert into private.app_schema_revisions (id, definition) values (true, ${literal(JSON.stringify(app))}::jsonb);`);
   statements.push(...revisionReadInfrastructure());
   statements.push(...formRequestLedger(), ...formRequestFunction(), ...formRequestCapability());
+  if (app.tables.some(table => table.counter)) statements.push(...applicationCounterInfrastructure());
   statements.push(`create function public.app_guard_audit_fields() returns trigger language plpgsql set search_path = '' as $$
 begin
   if new.id is distinct from old.id or new.owner_id is distinct from old.owner_id or new.created_at is distinct from old.created_at then
@@ -334,6 +336,7 @@ end $$;`);
   }
   for (const [tableIndex, table] of app.tables.entries()) {
     statements.push(...bookingConstraints(app, tableIndex));
+    statements.push(...compileApplicationCounterSchema(app, tableIndex));
     statements.push(...policies(table, tableIndex));
   }
   return statements;
@@ -357,6 +360,7 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
   if (before.tables.some((table, index) => table.booking && JSON.stringify(table.booking) !== JSON.stringify(after.tables[index].booking))) {
     throw new Error('Removing or changing booking rules requires a separately reviewed data migration.');
   }
+  if (before.tables.some((table, index) => table.counter && JSON.stringify(table.counter) !== JSON.stringify(after.tables[index].counter))) throw new Error('Removing or changing counter rules requires a separately reviewed data migration.');
   if (JSON.stringify(before) === JSON.stringify(after)) return [];
 
   const statements: string[] = [
@@ -368,6 +372,7 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
 end $revision$;`,
   ];
   statements.push(...bookingInfrastructure(after));
+  if (after.tables.some(table => table.counter)) statements.push(...applicationCounterInfrastructure());
   statements.push(...revisionReadInfrastructure());
   if (!before.roles.length && after.roles.length) statements.push(...roleInfrastructure());
   if (after.tables.length > before.tables.length) statements.push(...formRequestFunction());
@@ -414,6 +419,8 @@ end $form_ledger$;`);
   }
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];
+    if (!old?.counter && table.counter) statements.push(...compileApplicationCounterSchema(after, index));
+    else if (old?.counter && JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)) statements.push(...compileApplicationCounterSchema(after, index, true));
     if (!old?.booking && table.booking) statements.push(...bookingConstraints(after, index));
     if (old && JSON.stringify(old.permissions) === JSON.stringify(table.permissions)) continue;
     if (old) {

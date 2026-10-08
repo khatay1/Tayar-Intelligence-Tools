@@ -104,6 +104,16 @@ try {
     bookingSnapshot.application.tables[0].booking);
   assert.match(bookingFiles.find(file => file.path === 'api/application.js').content, /already booked/);
 
+  const counterSnapshot = structuredClone(dataSnapshot);
+  counterSnapshot.application.tables[0].fields.push({ id: 'record_qty', key: 'quantity', name: 'Quantity', type: 'number', required: true, defaultValue: 0 });
+  counterSnapshot.application.tables[0].counter = { fieldId: 'record_qty', minimum: 0, integer: true };
+  counterSnapshot.pages[1].sections[0].applicationDataView.columns.push('record_qty'); counterSnapshot.pages[1].sections[0].applicationDataView.actions.push('adjust');
+  const counterFiles = await compile(counterSnapshot, config), counterSchema = counterFiles.find(file => file.path === 'database/schema.sql').content;
+  assert.match(counterSchema, /app_adjust_counter_0/); assert.match(counterSchema, /app_counter_guard/); assert.match(counterSchema, /for update/);
+  assert.deepEqual(JSON.parse(counterFiles.find(file => file.path === 'application-definition.json').content).tables[0].counter,
+    counterSnapshot.application.tables[0].counter);
+  assert.match(counterFiles.find(file => file.path === 'api/application.js').content, /adjustCounter/);
+
   const stripeSnapshot=structuredClone(snapshot);
   stripeSnapshot.pages[0].sections[0]=structuredClone(stripeSnapshot.pages[0].sections[0]);
   const checkout=stripeSnapshot.pages[0].sections[0].elements.find(element=>element.type==='button');
