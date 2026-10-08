@@ -61,6 +61,8 @@ try {
     [response, 1],
     [{ ...response, pages: [response.pages[0], { ...response.pages[1], sections: [{ ...response.pages[1].sections[0], formFields: [{ ...response.pages[1].sections[0].formFields[0], credentials: 'forbidden' }] }] }] }, 6],
     [{ ...response, pages: [response.pages[0], { ...response.pages[1], sections: [{ type: 'contact' }] }] }, 6],
+    [{ ...response, pages: [response.pages[0], { ...response.pages[1], sections: [{ ...response.pages[1].sections[0], formSuccessAction: 'redirect', formRedirectUrl: '/thanks' }] }] }, 6],
+    [{ ...response, pages: [response.pages[0], { ...response.pages[1], sections: [{ ...response.pages[1].sections[0], formAutomations: [{ enabled: true }] }] }] }, 6],
   ]) {
     const failed = await run(json, limit);
     assert.equal(failed.state.AiStage, 'error');
@@ -71,6 +73,35 @@ try {
   const brochure = await run({ projectKind: 'website', pages: [{ name: 'Home', slug: 'home', sections: [{ type: 'hero', buttonText: 'Explore', buttonUrl: '#hero' }] }] }, 6, 'Build a dental practice brochure');
   assert.equal(brochure.state.AiStage, 'ready');
   assert.equal(brochure.state.Application, undefined);
+  const completeBrochure = { projectKind: 'website', pages: Array.from({ length: 7 }, (_, index) => ({
+    name: `Page ${index + 1}`, slug: `page-${index + 1}`,
+    sections: Array.from({ length: 9 }, (_, sectionIndex) => ({ type: 'about', title: `Content ${index}-${sectionIndex}` })),
+  })) };
+  const complete = await run(completeBrochure, 25, 'Build a complete business website');
+  assert.equal(complete.state.AiStage, 'ready');
+  assert.equal(complete.state.Pages.length, 7, 'Generation must honor entitlements beyond six pages');
+  assert.equal(complete.state.Pages[6].sections.length, 9, 'Generation must retain sections beyond eight');
+  assert.equal(complete.state.Pages[6].sections[8].title, 'Content 6-8');
+  assert.equal(complete.state.Pages[0].sections[0].buttonText, '', 'Do not invent a CTA');
+  assert.equal(complete.state.Pages[0].sections[0].buttonUrl, '', 'Do not invent a missing contact target');
+  assert.equal(complete.state.Pages[0].sections[0].elements.some(element => element.type === 'button'), false);
+  await build({ entryPoints: ['src/lib/ai/prompts.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: join(dir, 'prompts.cjs'), alias: { '@': resolve('src') } });
+  const { promptManager } = require(join(dir, 'prompts.cjs'));
+  const messages = promptManager.buildMessages('website-builder', { action: 'generate', prompt: 'Build seven pages', limits: { maxPages: 25, maxSectionsPerPage: 80 } });
+  assert.match(messages.at(-1).content, /"maxPages":25/, 'Model must receive the real page allowance');
+  for (const json of [
+    completeBrochure,
+    { projectKind: 'website', pages: [completeBrochure.pages[0], { name: 'Missing', sections: [] }] },
+    { projectKind: 'website', pages: [{ sections: [{ type: 'unsupported-widget' }, { type: 'hero' }] }] },
+    { projectKind: 'website', pages: [{ sections: Array.from({ length: 81 }, () => ({ type: 'about' })) }] },
+    { projectKind: 'website', pages: [{ sections: [{ type: 'hero', buttonText: 'Open portal' }] }] },
+    { projectKind: 'website', pages: [{ sections: null }] },
+  ]) {
+    const failed = await run(json, 6, 'Build a business website');
+    assert.equal(failed.state.AiStage, 'error');
+    assert.equal(failed.state.Pages, undefined, 'Incomplete brochure must not replace the current site');
+    assert.equal(failed.checkpoints.length, 0);
+  }
   await build({ entryPoints: ['src/modules/website-builder/core/website-project-links.ts', 'src/modules/website-builder/core/website-builder-rendering.ts'], bundle: true,
     platform: 'node', format: 'cjs', outdir: dir, alias: { '@': resolve('src') }, define: { 'import.meta.env': '{}' } });
   const { websiteProjectLinkIssues } = require(join(dir, 'website-project-links.js'));
@@ -86,5 +117,5 @@ try {
   assert.equal(websiteProjectLinkIssues(pages)[0].code, 'LINK_ANCHOR_MISSING');
   pages[0].sections[0].buttonUrl = '/booking';
   assert.equal(websiteProjectLinkIssues(pages)[0].code, 'LINK_ESCAPES_PROJECT');
-  console.log('PASS real generation handler: native application/forms/links/history, rejects fake portals, secrets, public writes, missing pages and unsupported features atomically');
+  console.log('PASS real generation handler: complete pages/sections without invented CTAs; native application/forms/links/history; invalid plans rejected atomically');
 } finally { delete globalThis.window; delete globalThis.__generationResponse; await rm(dir, { recursive: true, force: true }); }
