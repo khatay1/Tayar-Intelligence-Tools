@@ -31,7 +31,7 @@
     "smoke:production": "node scripts/production-hardening-smoke.mjs",
     "smoke:published-runtime": "node scripts/published-site-runtime-smoke.mjs",
     "smoke:mobile-store": "node scripts/mobile-store-readiness-smoke.mjs",
-    "smoke:code-assistant": "node scripts/code-assistant-registry-smoke.mjs",
+    "smoke:code-assistant": "node scripts/code-assistant-registry-smoke.mjs && node scripts/code-assistant-patch-verification-regression.mjs",
     "smoke:recovery-regression": "node scripts/recovery-regression-smoke.mjs && node scripts/password-update-regression.mjs",
     "health:code-assistant-registry": "node scripts/code-assistant-registry-health.mjs",
     "templates:r2:plan": "node scripts/template-library-r2-migrate.mjs",

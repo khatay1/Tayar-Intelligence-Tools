@@ -24,6 +24,7 @@ import { buildControlledPackageEdit } from './package-editor';
 import { auditFixableFindings, runProjectUIAudit, UIAuditReport, validateAuditFixPlan } from './ui-audit';
 import { PAGE_PRESETS, PAGE_THEME_PRESETS, PageKind, PageThemeId, composePageAnchors, getPagePreset, getPageTheme, pageAnchorMetadata, validatePageComposerPlan } from './page-composer';
 import { COMPONENT_KIT_PRESETS, ComponentKitPresetId, MAX_KIT_ITEMS, analyzeComponentKit, kitMetadata, presetKitItems, validateComponentKitPlan } from './component-kit';
+import { patchVerificationRepairPayload, verifyCodePatchPlan } from './patch-verification';
 import { UIComponentCategory, UIComponentRecord } from './types';
 
 const AI_CONSTRAINTS = [
@@ -359,6 +360,10 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     () => patchPlan ? buildPatchPreviews(projectContext, patchPlan) : [],
     [patchPlan, projectContext],
   );
+  const patchVerification = useMemo(
+    () => patchPlan && projectContext ? verifyCodePatchPlan(projectContext, patchPlan) : null,
+    [patchPlan, projectContext],
+  );
   const patchDependencyChecks = useMemo(
     () => patchPlan ? checkProjectDependencies(projectContext, patchPlan.dependenciesToInstall) : [],
     [projectContext, patchPlan],
@@ -402,6 +407,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
     ...(controlledPackageEdit?.operation && unresolvedPatchDependencies.length && !packageEditConfirmed ? ['Review and confirm the controlled package.json dependency edit, or use the install command instead.'] : []),
     ...(unresolvedPatchRegistryDependencies.length ? [`Resolve registry dependencies first: ${unresolvedPatchRegistryDependencies.join(', ')}`] : []),
     ...(blindReplacePaths.length ? [`Patch tries to replace files that were missing or truncated in the AI project snapshot: ${blindReplacePaths.join(', ')}`] : []),
+    ...(patchVerification && !patchVerification.ok ? [`Patch verification found ${patchVerification.errors} blocking error${patchVerification.errors === 1 ? '' : 's'}.`] : []),
   ];
 
   useEffect(() => {
@@ -790,11 +796,41 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
         { temperature: 0.15, maxTokens: 8192 },
       );
       if (!response.json) throw new Error(l('AI did not return a structured feature patch plan.'));
-      const plan = validatePatchPlan(response.json);
+      let plan = validatePatchPlan(response.json);
       validateFeaturePatchPlan(projectContext, plan);
+      let verification = verifyCodePatchPlan(projectContext, plan);
+      let meta = { model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut };
+      if (!verification.ok) {
+        const repair = await aiService.completeJSON<unknown>(
+          {
+            action: 'repair-code-patch',
+            instruction: featureInstruction.trim() || featurePreset.defaultGoal,
+            project: summarizeProjectForAI(projectContext),
+            failedPlan: plan,
+            diagnostics: patchVerificationRepairPayload(verification),
+            constraints: activeConstraintInstructions,
+          },
+          [],
+          { temperature: 0.05, maxTokens: 8192 },
+        );
+        if (!repair.json) throw new Error(l('AI did not return a structured feature patch plan.'));
+        const repairedPlan = validatePatchPlan(repair.json);
+        validateFeaturePatchPlan(projectContext, repairedPlan);
+        const repairedVerification = verifyCodePatchPlan(projectContext, repairedPlan);
+        if (!repairedVerification.ok) {
+          throw new Error(`Feature patch still has ${repairedVerification.errors} blocking verification error${repairedVerification.errors === 1 ? '' : 's'} after one repair attempt.`);
+        }
+        plan = repairedPlan;
+        verification = repairedVerification;
+        meta = {
+          model: repair.model,
+          tokensIn: response.tokensIn + repair.tokensIn,
+          tokensOut: response.tokensOut + repair.tokensOut,
+        };
+      }
       setPatchPlan(plan);
       setPatchOwnerId(`feature:${featureKind}`);
-      setAiMeta({ model: response.model, tokensIn: response.tokensIn, tokensOut: response.tokensOut });
+      setAiMeta(meta);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : l('Unable to generate a safe feature pack.'));
     } finally {
@@ -1239,6 +1275,7 @@ export default function CodeAssistantTool({ darkMode, projectId }: { darkMode: b
                     <div className="rounded-lg border border-white/10 p-3"><div className="text-[10px] uppercase tracking-wider opacity-40">{l('NPM to install')}</div><div className="mt-1 text-xs">{patchPlan.dependenciesToInstall.join(', ') || 'None'}</div></div>
                     <div className="rounded-lg border border-white/10 p-3"><div className="text-[10px] uppercase tracking-wider opacity-40">{l('Registry dependencies')}</div><div className="mt-1 text-xs">{patchPlan.registryDependencies.join(', ') || 'None'}</div></div>
                   </div>}
+                  {patchVerification && <div className={`rounded-xl border p-4 ${patchVerification.ok ? 'border-emerald-400/20 bg-emerald-500/5' : 'border-red-400/20 bg-red-500/5'}`}><div className="flex flex-wrap items-center justify-between gap-2"><div className={`flex items-center gap-2 text-sm font-semibold ${patchVerification.ok ? 'text-emerald-300' : 'text-red-300'}`}><ShieldCheck className="h-4 w-4" />Patch verification {patchVerification.ok ? l('Verified') : 'blocked'}</div><div className="text-[10px] opacity-55">{patchVerification.errors} errors · {patchVerification.warnings} warnings</div></div>{patchVerification.diagnostics.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-4 text-[11px] leading-5 opacity-70">{patchVerification.diagnostics.slice(0, 12).map((diagnostic) => <li key={`${diagnostic.code}:${diagnostic.path}:${diagnostic.message}`}><span className={diagnostic.severity === 'error' ? 'text-red-300' : 'text-amber-300'}>{diagnostic.path}</span>: {diagnostic.message}</li>)}</ul>}<p className="mt-3 text-[10px] leading-4 opacity-45">Checks generated imports, declared packages, preserved exports and unfinished-code markers before Safe Apply. Full feature generation gets at most one automatic repair attempt.</p></div>}
                   {featurePreview && <div className="rounded-xl border border-cyan-400/15 bg-cyan-500/5 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2 text-sm font-semibold"><Layers3 className="h-4 w-4 text-cyan-300" />{l('Feature Pack Preview')}</div><button onClick={onRunFeaturePreview} className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/20 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-200"><Eye className="h-3 w-3" />{l('Preview primary file')}</button></div><div className="mt-3 grid gap-2 sm:grid-cols-4"><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">{l('Files')}</div><div className="mt-1 text-sm font-semibold">{featurePreview.files.length}</div></div><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">{l('Create')}</div><div className="mt-1 text-sm font-semibold">{featurePreview.creates}</div></div><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">{l('Replace')}</div><div className="mt-1 text-sm font-semibold">{featurePreview.replaces}</div></div><div className="rounded-lg border border-white/10 p-2"><div className="text-[9px] uppercase opacity-40">{l('Primary')}</div><div className="mt-1 truncate text-[10px] font-semibold">{featurePreview.primaryPath || l('Not detected')}</div></div></div>{featurePreview.routeHints.length > 0 && <div className="mt-3 flex flex-wrap gap-1">{featurePreview.routeHints.map((route) => <span key={route} className="rounded-full bg-white/5 px-2 py-1 text-[10px]">{route}</span>)}</div>}<div className="mt-3 grid gap-1.5 sm:grid-cols-2">{featurePreview.files.map((file) => <div key={file.path} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-2.5 py-2 text-[10px]"><span className="truncate">{file.path}</span><span className="shrink-0 opacity-45">{file.mode} · {file.role}</span></div>)}</div>{featurePreviewDoc && <iframe title={l('Feature primary isolated preview')} sandbox="allow-scripts" srcDoc={featurePreviewDoc} className="mt-3 h-[360px] w-full rounded-xl border border-white/10 bg-[#090917]" />}{featurePreviewReason && <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2 text-[10px] leading-4 text-amber-300">{l(featurePreviewReason)}</div>}</div>}
                   {controlledPackageEdit && patchPlan.dependenciesToInstall.length > 0 && <div className="rounded-xl border border-amber-400/15 bg-amber-500/5 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><PackageCheck className="h-4 w-4 text-amber-300" />{l('Controlled Dependency Editor')}</div><p className="mt-2 text-[11px] leading-5 opacity-55">AI cannot write package.json. Tayar proposes dependency additions deterministically and revalidates them against the current package.json during Apply.</p>{controlledPackageEdit.additions.length > 0 && <pre className="mt-3 overflow-auto rounded-lg bg-black/30 p-3 text-[11px] leading-5 text-emerald-300"><code>{controlledPackageEdit.preview}</code></pre>}{controlledPackageEdit.unresolved.length > 0 && <div className="mt-3 rounded-lg border border-amber-500/20 p-2 text-[10px] text-amber-300">No explicit safe version/spec available for: {controlledPackageEdit.unresolved.join(', ')}. These remain Apply blockers.</div>}{controlledPackageEdit.warnings.length > 0 && <div className="mt-3 text-[10px] leading-4 text-amber-200/70">{controlledPackageEdit.warnings.join(' · ')}</div>}{patchInstallCommand && <button onClick={() => void copyText(patchInstallCommand)} className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-amber-400/20 px-2.5 py-1.5 text-[10px] text-amber-200"><Copy className="h-3 w-3" /> Copy {projectContext?.packageManager} install command</button>}{controlledPackageEdit.operation && <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs"><input type="checkbox" checked={packageEditConfirmed} onChange={(event) => setPackageEditConfirmed(event.target.checked)} className="mt-0.5" /><span>Include this reviewed package.json dependency-only edit with the patch. No install command or lockfile write will run automatically.</span></label>}</div>}
                   {patchPlan.warnings.length > 0 && <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-300">{patchPlan.warnings.join(' · ')}</div>}
