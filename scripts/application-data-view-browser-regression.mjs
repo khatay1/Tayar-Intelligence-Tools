@@ -20,6 +20,7 @@ try {
   const fixture = `import { mountApplicationDataView } from './src/modules/website-builder/browser/application-data-view';
 import { ApplicationBookingRejected } from './src/modules/website-builder/core/application-booking';
 import { ApplicationCounterRejected } from './src/modules/website-builder/core/application-counter';
+import { ApplicationTransactionRejected } from './src/modules/website-builder/core/application-transaction';
 const check=(value,message)=>{if(!value)throw Error(message)};
 const wait=async fn=>{for(let n=0;n<400;n++){if(fn())return;await new Promise(resolve=>setTimeout(resolve,10))}throw Error('Timed out')};
 const owner='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -100,11 +101,30 @@ async function run(){
   check(quantity===10&&adjustments===0&&counterRoot.querySelector('[role=status]').textContent===boundsCopy,'rejected underflow has localized message');
   counterForm.elements.adjustment.value='-3';counterForm.requestSubmit();await counterIdle();check(quantity===7&&adjustments===1,'corrected generic stock adjustment persists');
   stopCounter();counterHost.remove();
+  const transactionProducts={id:'transaction_products',key:'transaction_products',name:'Products',fields:[{id:'transaction_name',key:'name',name:'Name',type:'text',required:true},{id:'transaction_stock',key:'quantity',name:'Stock',type:'number',required:true,defaultValue:0}],permissions:[{operation:'read',access:'authenticated'},{operation:'update',access:'authenticated'}],counter:{fieldId:'transaction_stock',minimum:0,maximum:100,integer:true}};
+  const transactionOrders={id:'transaction_orders',key:'transaction_orders',name:'Orders',fields:[{id:'transaction_note',key:'note',name:'Note',type:'text',required:true}],permissions:[{operation:'read',access:'owner'},{operation:'create',access:'owner'}],transaction:{itemTableId:'transaction_products',lineTableId:'transaction_lines',lineTransactionFieldId:'transaction_line_order',lineItemFieldId:'transaction_line_item',lineQuantityFieldId:'transaction_line_quantity',counterDirection:'decrement'}};
+  const transactionLines={id:'transaction_lines',key:'transaction_lines',name:'Lines',fields:[{id:'transaction_line_order',key:'order_id',name:'Order',type:'reference',required:true,referenceTableId:'transaction_orders'},{id:'transaction_line_item',key:'product_id',name:'Product',type:'reference',required:true,referenceTableId:'transaction_products'},{id:'transaction_line_quantity',key:'quantity',name:'Quantity',type:'number',required:true}],permissions:[{operation:'read',access:'owner'}]};
+  const transactionApp={...app,roles:[],tables:[transactionProducts,transactionOrders,transactionLines]};
+  let transactionRows=[],transactionCalls=0;const transactionItems=[{id:ids[0],name:'Product A',quantity:5},{id:ids[1],name:'<img src=x onerror="window.transactionXss=true">',quantity:4}],transactionReceipts=new Map();
+  const transactionRuntime={auth:{currentUser:async()=>({id:owner,is_anonymous:false}),currentRoles:async()=>[]},list:async(tableId,options)=>tableId==='transaction_products'?transactionItems.slice(options.offset,options.offset+options.limit):transactionRows,
+    createTransaction:async(_table,values,lines,requestId)=>{transactionCalls++;if(transactionReceipts.has(requestId))return transactionReceipts.get(requestId);if(lines.some(line=>transactionItems.find(item=>item.id===line.itemId).quantity<line.quantity))throw new ApplicationTransactionRejected('bounds');for(const line of lines)transactionItems.find(item=>item.id===line.itemId).quantity-=line.quantity;const result={status:'created',id:crypto.randomUUID()};transactionReceipts.set(requestId,{...result,status:'already-created'});transactionRows.push({...values,id:result.id});return result},createOnce:async()=>{},update:async()=>{},remove:async()=>{},adjustCounter:async()=>{}};
+  const transactionHost=document.createElement('div');document.body.append(transactionHost);const stopTransaction=mountApplicationDataView(transactionHost,transactionApp,{tableId:'transaction_orders',columns:['transaction_note'],actions:['transact'],pageSize:10},transactionRuntime,language,{projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'orders',sectionId:'transactions'});
+  const transactionRoot=transactionHost.shadowRoot,transactionIdle=()=>wait(()=>transactionRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const transactionCopy={en:{open:'Create transaction',add:'Add item'},ar:{open:'إنشاء معاملة',add:'إضافة عنصر'},sv:{open:'Skapa transaktion',add:'Lägg till post'}}[language];
+  const transactionButton=text=>[...transactionRoot.querySelectorAll('button')].find(button=>button.textContent===text&&!button.hidden&&!button.disabled);
+  await transactionIdle();transactionButton(transactionCopy.open).click();let transactionForm=transactionRoot.querySelector('.editor form');await wait(()=>transactionForm.querySelector('fieldset select').options.length===2);
+  check(!transactionRoot.querySelector('.editor img')&&!window.transactionXss,'transaction item labels render as text');transactionForm.elements.note.value='Order one';
+  const itemSelect=transactionForm.querySelector('fieldset select'),itemQuantity=transactionForm.querySelector('fieldset input[type=number]');itemSelect.value=ids[0];itemQuantity.value='2';transactionButton(transactionCopy.add).click();check(transactionForm.checkValidity(),'staged line inputs do not block transaction submission');transactionForm.requestSubmit();await transactionIdle();
+  check(transactionCalls===1&&transactionItems[0].quantity===3&&transactionRows.length===1,'multi-item transaction persists atomically');
+  transactionButton(transactionCopy.open).click();transactionForm=transactionRoot.querySelector('.editor form');await wait(()=>transactionForm.querySelector('fieldset select').options.length===2);transactionForm.elements.note.value='Too much';transactionForm.querySelector('fieldset select').value=ids[1];transactionForm.querySelector('fieldset input[type=number]').value='9';transactionButton(transactionCopy.add).click();transactionForm.requestSubmit();await transactionIdle();
+  const transactionBounds={en:'The change exceeds the allowed limits. Choose another amount.',ar:'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.',sv:'Ändringen överskrider tillåtna gränser. Välj ett annat antal.'}[language];
+  check(transactionCalls===2&&transactionItems[1].quantity===4&&transactionRows.length===1&&transactionRoot.querySelector('[role=status]').textContent===transactionBounds,'multi-item underflow rolls back with localized message');
+  stopTransaction();transactionHost.remove();
 
 
  }
 }
-run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / reference selectors / generic counters / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
+run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / reference selectors / generic counters / atomic transactions / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'data-view-fixture.ts' }, bundle: true, write: false,
     platform: 'browser', format: 'iife', target: 'es2020', alias: { '@': resolve('src') } });
   const html = '<!doctype html><html><body><p id="result">RUNNING</p><script src="/fixture.js"></script></body></html>';

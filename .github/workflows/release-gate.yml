@@ -77,9 +77,21 @@ jobs:
         run: |
           timeout 45s node scripts/application-booking-regression.mjs --postgres
           timeout 45s node scripts/application-counter-regression.mjs --postgres
+          timeout 45s node scripts/application-transaction-regression.mjs --postgres
 
       - name: Application data view browser regression
-        run: timeout 40s npm run smoke:website-builder:data-views:browser
+        id: data-view-browser
+        run: |
+          set -o pipefail
+          timeout 40s npm run smoke:website-builder:data-views:browser 2>&1 | tee /tmp/tayar-data-view-browser.log
+
+      - name: Preserve data view browser failure
+        if: failure() && steps.data-view-browser.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: data-view-browser-failure
+          path: /tmp/tayar-data-view-browser.log
+          retention-days: 3
 
       - name: Production build
         run: npm run build

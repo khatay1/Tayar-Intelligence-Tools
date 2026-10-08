@@ -1,4 +1,5 @@
 import { ApplicationCounterRejected, parseApplicationCounterDelta } from './application-counter';
+import { ApplicationTransactionRejected, parseApplicationTransactionLines } from './application-transaction';
 import { ApplicationBookingRejected, applicationBookingDatabaseRejection, validateApplicationBookingValues } from './application-booking';
 import { createApplicationBrowserSessionBridge, createOwnedApplicationBrowserSessionBridge,
   type ApplicationBrowserSessionOptions } from './application-browser-session';
@@ -325,6 +326,25 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       const current = await client.auth.getUser();
       if (current.error || current.data.user?.id !== expectedUserId) throw new Error('Counter outcome is uncertain.');
       return result === 'adjusted' ? 'created' : 'already-created';
+    },
+    async createTransaction(tableId: string, input: Record<string, unknown>, lines: unknown, requestId: string, expectedUserId: string) {
+      const target = table(tableId), rule = target.transaction;
+      if (!rule) throw new Error('Unknown application transaction.');
+      const itemTable = table(rule.itemTableId), parsed = parseApplicationTransactionLines(target, itemTable, lines);
+      const attributes = writable(target, input), index = app.tables.findIndex(candidate => candidate.id === target.id);
+      const token = await captureWriteToken(expectedUserId);
+      const query = client.rpc(`app_create_transaction_${index}`, { attrs: attributes, lines: parsed, request_id: rowId(requestId) });
+      if (token) query.setHeader('Authorization', `Bearer ${token}`);
+      const response = await query;
+      if (response.error?.code === 'P0001' && response.error.message === 'Application transaction exceeds allowed bounds') throw new ApplicationTransactionRejected('bounds');
+      if (response.error?.code === 'P0001' && response.error.message === 'Application transaction unavailable') throw new ApplicationTransactionRejected('unavailable');
+      const result = checked(response) as unknown;
+      if (!result || typeof result !== 'object' || Array.isArray(result) || Object.keys(result).sort().join(',') !== 'id,status') throw new Error('Transaction outcome is uncertain.');
+      const row = result as { id?: unknown; status?: unknown };
+      if (typeof row.id !== 'string' || !['created', 'already-created'].includes(String(row.status))) throw new Error('Transaction outcome is uncertain.');
+      const current = await client.auth.getUser();
+      if (current.error || current.data.user?.id !== expectedUserId) throw new Error('Transaction outcome is uncertain.');
+      return { id: rowId(row.id), status: row.status as 'created' | 'already-created' };
     },
     async remove(tableId: string, id: string, expectedUserId?: string) {
       const target = table(tableId);

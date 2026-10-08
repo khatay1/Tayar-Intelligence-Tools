@@ -96,7 +96,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -162,6 +162,26 @@ function validateApplicationDefinition(value, pageIds) {
         if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
       }
     }
+    if (table.transaction !== void 0) {
+      const transactionPath = `${path}.transaction`;
+      if (shape(table.transaction, ["itemTableId", "lineTableId", "lineTransactionFieldId", "lineItemFieldId", "lineQuantityFieldId", "counterDirection"], transactionPath)) {
+        const rule = table.transaction;
+        const itemTable = tables.find((candidate) => object(candidate) && candidate.id === rule.itemTableId);
+        const lineTable = tables.find((candidate) => object(candidate) && candidate.id === rule.lineTableId);
+        const lineFields = object(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object) : [];
+        const transactionField = lineFields.find((field) => field.id === rule.lineTransactionFieldId);
+        const itemField = lineFields.find((field) => field.id === rule.lineItemFieldId);
+        const quantityField = lineFields.find((field) => field.id === rule.lineQuantityFieldId);
+        const distinct = /* @__PURE__ */ new Set([rule.lineTransactionFieldId, rule.lineItemFieldId, rule.lineQuantityFieldId]);
+        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object(itemTable) || !object(itemTable.counter) || !object(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
+          issue(transactionPath, "invalid-transaction", "A transaction needs Auth, a counter item table and a separate line table with required parent, item and numeric quantity fields.");
+        }
+        const has = (candidate, operation) => object(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object(permission) && permission.operation === operation);
+        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object(permission) && permission.operation !== "read")) {
+          issue(transactionPath, "transaction-permissions", "Transactions require parent read/create, item read/update and read-only line permissions.");
+        }
+      }
+    }
     const permissionKeys = /* @__PURE__ */ new Set();
     list(table.permissions, APPLICATION_LIMITS.permissions, `${path}.permissions`).forEach((permission, index) => {
       const permissionPath = `${path}.permissions[${index}]`;
@@ -174,6 +194,13 @@ function validateApplicationDefinition(value, pageIds) {
       permissionKeys.add(key);
     });
     if (Array.isArray(table.permissions) && table.permissions.some((p) => object(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
+  });
+  const lineTables = /* @__PURE__ */ new Set();
+  tables.forEach((table, index) => {
+    if (!object(table) || !object(table.transaction)) return;
+    const line = String(table.transaction.lineTableId);
+    if (lineTables.has(line)) issue(`application.tables[${index}].transaction.lineTableId`, "duplicate-transaction-line-table", "A line table can belong to only one native transaction.");
+    lineTables.add(line);
   });
   const protectedPages = /* @__PURE__ */ new Set();
   list(value.pageAccess, APPLICATION_LIMITS.pageAccess, "application.pageAccess").forEach((rule, index) => {
@@ -6577,6 +6604,19 @@ var arSupplement = {
   "Save quantity rule": "\u062D\u0641\u0638 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0643\u0645\u064A\u0629",
   "Remove quantity rule": "\u0625\u0632\u0627\u0644\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0643\u0645\u064A\u0629",
   "Adjust quantity": "\u062A\u063A\u064A\u064A\u0631 \u0627\u0644\u0643\u0645\u064A\u0629",
+  "Atomic multi-item transaction": "\u0645\u0639\u0627\u0645\u0644\u0629 \u0630\u0631\u0651\u064A\u0629 \u0645\u062A\u0639\u062F\u062F\u0629 \u0627\u0644\u0639\u0646\u0627\u0635\u0631",
+  "Create one parent record and its line items while updating every selected quantity in one protected operation.": "\u0623\u0646\u0634\u0626 \u0633\u062C\u0644\u0627\u064B \u0631\u0626\u064A\u0633\u064A\u0627\u064B \u0648\u0628\u0646\u0648\u062F\u0647 \u0645\u0639 \u062A\u062D\u062F\u064A\u062B \u0643\u0644 \u0627\u0644\u0643\u0645\u064A\u0627\u062A \u0627\u0644\u0645\u062D\u062F\u062F\u0629 \u0636\u0645\u0646 \u0639\u0645\u0644\u064A\u0629 \u0645\u062D\u0645\u064A\u0629 \u0648\u0627\u062D\u062F\u0629.",
+  "Item table": "\u062C\u062F\u0648\u0644 \u0627\u0644\u0639\u0646\u0627\u0635\u0631",
+  "Line table": "\u062C\u062F\u0648\u0644 \u0627\u0644\u0628\u0646\u0648\u062F",
+  "Parent reference field": "\u062D\u0642\u0644 \u0645\u0631\u062C\u0639 \u0627\u0644\u0633\u062C\u0644 \u0627\u0644\u0631\u0626\u064A\u0633\u064A",
+  "Item reference field": "\u062D\u0642\u0644 \u0645\u0631\u062C\u0639 \u0627\u0644\u0639\u0646\u0635\u0631",
+  "Line quantity field": "\u062D\u0642\u0644 \u0643\u0645\u064A\u0629 \u0627\u0644\u0628\u0646\u062F",
+  "Quantity direction": "\u0627\u062A\u062C\u0627\u0647 \u0627\u0644\u0643\u0645\u064A\u0629",
+  "Decrease": "\u0625\u0646\u0642\u0627\u0635",
+  "Increase": "\u0632\u064A\u0627\u062F\u0629",
+  "Save transaction rule": "\u062D\u0641\u0638 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629",
+  "Remove transaction rule": "\u0625\u0632\u0627\u0644\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629",
+  "Create transaction": "\u0625\u0646\u0634\u0627\u0621 \u0645\u0639\u0627\u0645\u0644\u0629",
   "Booking conflict protection": "\u0645\u0646\u0639 \u062A\u0639\u0627\u0631\u0636 \u0627\u0644\u062D\u062C\u0648\u0632\u0627\u062A",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u062C\u0632 \u0627\u0644\u0645\u0648\u0631\u062F \u0646\u0641\u0633\u0647 \u0628\u0623\u0648\u0642\u0627\u062A \u0645\u062A\u062F\u0627\u062E\u0644\u0629. \u064A\u064F\u0633\u0645\u062D \u0628\u0627\u0644\u0623\u0648\u0642\u0627\u062A \u0627\u0644\u0645\u062A\u062C\u0627\u0648\u0631\u0629 \u0648\u064A\u0645\u0643\u0646 \u0644\u0644\u062D\u0627\u0644\u0627\u062A \u0627\u0644\u0645\u0644\u063A\u0627\u0629 \u062A\u062D\u0631\u064A\u0631 \u0627\u0644\u0648\u0642\u062A.",
   "Booking resource": "\u0645\u0648\u0631\u062F \u0627\u0644\u062D\u062C\u0632",
@@ -7126,6 +7166,19 @@ var svSupplement = {
   "Save quantity rule": "Spara m\xE4ngdregel",
   "Remove quantity rule": "Ta bort m\xE4ngdregel",
   "Adjust quantity": "\xC4ndra antal",
+  "Atomic multi-item transaction": "Atom\xE4r transaktion med flera poster",
+  "Create one parent record and its line items while updating every selected quantity in one protected operation.": "Skapa en huvudpost och dess rader medan alla valda antal uppdateras i en skyddad operation.",
+  "Item table": "Posttabell",
+  "Line table": "Radtabell",
+  "Parent reference field": "Referensf\xE4lt till huvudpost",
+  "Item reference field": "Referensf\xE4lt till post",
+  "Line quantity field": "Radens antalsf\xE4lt",
+  "Quantity direction": "Antalsriktning",
+  "Decrease": "Minska",
+  "Increase": "\xD6ka",
+  "Save transaction rule": "Spara transaktionsregel",
+  "Remove transaction rule": "Ta bort transaktionsregel",
+  "Create transaction": "Skapa transaktion",
   "Booking conflict protection": "Skydd mot bokningskonflikter",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "En resurs kan inte ha \xF6verlappande bokningar. Angr\xE4nsande tider till\xE5ts. Avbokade tillst\xE5nd kan frig\xF6ra tiden.",
   "Booking resource": "Bokningsresurs",
@@ -10023,7 +10076,7 @@ function compileApplicationCreateForm(definition, source, input) {
 // src/modules/website-builder/core/application-data-view.ts
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateApplicationDataViewShape(value) {
-  if (!object2(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
+  if (!object2(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
   return true;
 }
 function compileApplicationDataView(definition, input) {
@@ -10031,8 +10084,9 @@ function compileApplicationDataView(definition, input) {
   if (!app.auth.enabled || !validateApplicationDataViewShape(input)) throw new Error("Invalid application data view.");
   const binding = structuredClone(input);
   const table = app.tables.find((table2) => table2.id === binding.tableId);
-  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (action === "adjust" ? "update" : action)))) throw new Error("Data view requires declared read and action permissions.");
+  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (action === "adjust" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
   if (binding.actions.includes("adjust") && !table.counter) throw new Error("Adjustment requires a native counter rule.");
+  if (binding.actions.includes("transact") && !table.transaction) throw new Error("Transaction creation requires a native transaction rule.");
   const columns = binding.columns.map((id2) => {
     const field = table.fields.find((field2) => field2.id === id2);
     if (!field) throw new Error("Data view column references a missing field.");

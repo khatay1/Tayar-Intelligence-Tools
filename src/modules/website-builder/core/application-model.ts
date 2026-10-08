@@ -27,6 +27,16 @@ export interface ApplicationBookingRule {
   blockingStatuses?: string[];
 }
 export interface ApplicationCounterRule { fieldId: string; minimum: number; maximum?: number; integer: boolean }
+/** Creates one parent record and one or more line records while changing every
+ * referenced counter in the same database transaction. */
+export interface ApplicationTransactionRule {
+  itemTableId: string;
+  lineTableId: string;
+  lineTransactionFieldId: string;
+  lineItemFieldId: string;
+  lineQuantityFieldId: string;
+  counterDirection: 'decrement' | 'increment';
+}
 export interface ApplicationTable {
   id: string;
   key: string;
@@ -35,6 +45,7 @@ export interface ApplicationTable {
   permissions: ApplicationPermission[];
   booking?: ApplicationBookingRule;
   counter?: ApplicationCounterRule;
+  transaction?: ApplicationTransactionRule;
 }
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {

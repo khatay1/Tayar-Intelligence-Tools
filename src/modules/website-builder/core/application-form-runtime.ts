@@ -1,4 +1,5 @@
 import { ApplicationCounterRejected } from './application-counter';
+import { ApplicationTransactionRejected } from './application-transaction';
 import { ApplicationBookingRejected, validateApplicationBookingValues } from './application-booking';
 import type { ApplicationDefinition, ApplicationField } from './application-model';
 import { readApplicationDefinition } from './application-validation';
@@ -214,7 +215,7 @@ export function createDurableApplicationFormSubmission(compiled: Pick<ReturnType
           scope.storage.removeItem(scope.key);
           state = 'confirmed';
         } catch (error) {
-          if (fresh && (error instanceof ApplicationBookingRejected || error instanceof ApplicationCounterRejected) && !disposed) {
+          if (fresh && (error instanceof ApplicationBookingRejected || error instanceof ApplicationCounterRejected || error instanceof ApplicationTransactionRejected) && !disposed) {
             try { scope.storage.removeItem(scope.key); } catch { state = 'uncertain'; throw error; }
             state = 'idle'; throw error;
           }

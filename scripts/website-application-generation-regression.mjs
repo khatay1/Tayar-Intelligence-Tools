@@ -94,6 +94,14 @@ try {
   assert.deepEqual(inventory.state.Application.tables[0].counter, inventoryTable.counter);
   const fakeInventory = await run(dashboardResponse, 6, 'Build inventory management');
   assert.equal(fakeInventory.state.AiStage, 'error'); assert.equal(fakeInventory.state.Pages, undefined); assert.equal(fakeInventory.checkpoints.length, 0);
+  const orderTable = { id: 'orders', key: 'orders', name: 'Orders', fields: [{ id: 'order_note', key: 'note', name: 'Note', type: 'text', required: true }], permissions: [{ operation: 'read', access: 'owner' }, { operation: 'create', access: 'owner' }], transaction: { itemTableId: 'stock_items', lineTableId: 'order_lines', lineTransactionFieldId: 'order_line_order', lineItemFieldId: 'order_line_item', lineQuantityFieldId: 'order_line_quantity', counterDirection: 'decrement' } };
+  const lineTable = { id: 'order_lines', key: 'order_lines', name: 'Order lines', fields: [
+    { id: 'order_line_order', key: 'order_id', name: 'Order', type: 'reference', required: true, referenceTableId: 'orders' },
+    { id: 'order_line_item', key: 'item_id', name: 'Item', type: 'reference', required: true, referenceTableId: 'stock_items' },
+    { id: 'order_line_quantity', key: 'quantity', name: 'Quantity', type: 'number', required: true }], permissions: [{ operation: 'read', access: 'owner' }] };
+  const orderResponse = { projectKind: 'application', application: { ...application, pageAccess: [], tables: [inventoryTable, orderTable, lineTable] }, pages: [{ name: 'Orders', slug: 'orders', sections: [{ type: 'features', applicationDataView: { tableId: 'orders', columns: ['order_note'], actions: ['transact'], pageSize: 10 } }] }] };
+  const orders = await run(orderResponse, 6, 'بدي إدارة الطلبات'); assert.equal(orders.state.AiStage, 'ready'); assert.deepEqual(orders.state.Application.tables[1].transaction, orderTable.transaction);
+  const fakeOrders = await run(dashboardResponse, 6, 'Build order management'); assert.equal(fakeOrders.state.AiStage, 'error'); assert.equal(fakeOrders.state.Pages, undefined);
   const fakeDashboard = await run(response, 6, 'Build record management');
   assert.equal(fakeDashboard.state.AiStage, 'error'); assert.equal(fakeDashboard.state.Pages, undefined);
   const fakeRecordBrochure = await run({ projectKind: 'website', pages: [response.pages[0]] }, 6, 'بدي إدارة السجلات');

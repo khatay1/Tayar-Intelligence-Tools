@@ -96,7 +96,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -162,6 +162,26 @@ function validateApplicationDefinition(value, pageIds) {
         if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
       }
     }
+    if (table.transaction !== void 0) {
+      const transactionPath = `${path}.transaction`;
+      if (shape(table.transaction, ["itemTableId", "lineTableId", "lineTransactionFieldId", "lineItemFieldId", "lineQuantityFieldId", "counterDirection"], transactionPath)) {
+        const rule = table.transaction;
+        const itemTable = tables.find((candidate) => object(candidate) && candidate.id === rule.itemTableId);
+        const lineTable = tables.find((candidate) => object(candidate) && candidate.id === rule.lineTableId);
+        const lineFields = object(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object) : [];
+        const transactionField = lineFields.find((field) => field.id === rule.lineTransactionFieldId);
+        const itemField = lineFields.find((field) => field.id === rule.lineItemFieldId);
+        const quantityField = lineFields.find((field) => field.id === rule.lineQuantityFieldId);
+        const distinct = /* @__PURE__ */ new Set([rule.lineTransactionFieldId, rule.lineItemFieldId, rule.lineQuantityFieldId]);
+        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object(itemTable) || !object(itemTable.counter) || !object(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
+          issue(transactionPath, "invalid-transaction", "A transaction needs Auth, a counter item table and a separate line table with required parent, item and numeric quantity fields.");
+        }
+        const has = (candidate, operation) => object(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object(permission) && permission.operation === operation);
+        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object(permission) && permission.operation !== "read")) {
+          issue(transactionPath, "transaction-permissions", "Transactions require parent read/create, item read/update and read-only line permissions.");
+        }
+      }
+    }
     const permissionKeys = /* @__PURE__ */ new Set();
     list(table.permissions, APPLICATION_LIMITS.permissions, `${path}.permissions`).forEach((permission, index) => {
       const permissionPath = `${path}.permissions[${index}]`;
@@ -174,6 +194,13 @@ function validateApplicationDefinition(value, pageIds) {
       permissionKeys.add(key);
     });
     if (Array.isArray(table.permissions) && table.permissions.some((p) => object(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
+  });
+  const lineTables = /* @__PURE__ */ new Set();
+  tables.forEach((table, index) => {
+    if (!object(table) || !object(table.transaction)) return;
+    const line = String(table.transaction.lineTableId);
+    if (lineTables.has(line)) issue(`application.tables[${index}].transaction.lineTableId`, "duplicate-transaction-line-table", "A line table can belong to only one native transaction.");
+    lineTables.add(line);
   });
   const protectedPages = /* @__PURE__ */ new Set();
   list(value.pageAccess, APPLICATION_LIMITS.pageAccess, "application.pageAccess").forEach((rule, index) => {
