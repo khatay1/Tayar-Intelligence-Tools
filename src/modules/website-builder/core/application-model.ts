@@ -53,15 +53,29 @@ export interface ApplicationPageAccess {
   access: Exclude<ApplicationAccess, 'owner'>;
   roleId?: string;
 }
+export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction';
+export interface ApplicationRequirement {
+  id: string;
+  summary: string;
+  capability: ApplicationRequirementCapability;
+  /** Verified references such as auth, page:<id>, form:<table>, view:<table>:<action>. */
+  evidence: string[];
+}
+export interface ApplicationRequirementManifest {
+  version: 1;
+  request: string;
+  items: ApplicationRequirement[];
+}
 export interface ApplicationDefinition {
   version: 1;
   tables: ApplicationTable[];
   roles: ApplicationRole[];
   auth: { enabled: boolean; signUpEnabled: boolean; emailVerificationRequired: boolean };
   pageAccess: ApplicationPageAccess[];
+  requirements?: ApplicationRequirementManifest;
 }
 
-export const APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100 } as const;
+export const APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100, requirements: 100, requirementEvidence: 20 } as const;
 export const APPLICATION_SYSTEM_FIELDS = ['id', 'owner_id', 'created_at', 'updated_at'] as const;
 export function createApplicationDefinition(): ApplicationDefinition {
   return { version: 1, tables: [], roles: [], auth: { enabled: false, signUpEnabled: false, emailVerificationRequired: true }, pageAccess: [] };

@@ -33,10 +33,16 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
   });
   const definition = readApplicationDefinition(raw, new Set(pages.map(page => page.id)));
   if (!definition.auth.enabled && !definition.tables.length) throw new Error('AI returned an empty application instead of the requested functionality.');
+  if (!Array.isArray(generated.requirements) || !generated.requirements.length || generated.requirements.length > 100) {
+    throw new Error('AI did not return a complete requirements manifest. No unverifiable application was applied.');
+  }
   let dataViews = 0;
   let bookingCreates = 0;
   let counterViews = 0;
   let transactionViews = 0;
+  const evidence = new Set<string>();
+  if (definition.auth.enabled) evidence.add('auth');
+  for (const page of pages) evidence.add(`page:${page.slug}`);
   for (const page of pages) for (const section of page.sections) {
     if (section.applicationDataView !== undefined) {
       if (section.type === 'contact' || section.type === 'footer') throw new Error('Data views require a content section.');
@@ -44,6 +50,10 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
       if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
       if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       if (view.table.transaction && view.binding.actions.includes('transact')) transactionViews++;
+      for (const action of view.binding.actions) evidence.add(`view:${view.table.id}:${action}`);
+      if (view.table.booking && view.binding.actions.includes('create')) evidence.add(`booking:${view.table.id}`);
+      if (view.table.counter && view.binding.actions.includes('adjust')) evidence.add(`counter:${view.table.id}`);
+      if (view.table.transaction && view.binding.actions.includes('transact')) evidence.add(`transaction:${view.table.id}`);
       dataViews++;
     }
     if (section.type === 'contact' && !section.applicationFormBinding) throw new Error('Every form in a customer-owned application must be bound to its application data.');
@@ -56,14 +66,45 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
         if (Object.keys(field).some(key => !['id', 'name', 'label', 'type', 'required', 'options', 'placeholder', 'validation'].includes(key))) throw new Error('AI returned unsupported form configuration.');
       }
       compileApplicationCreateForm(definition, section, section.applicationFormBinding);
+      evidence.add(`form:${section.applicationFormBinding.tableId}`);
       if (definition.tables.find(table => table.id === section.applicationFormBinding!.tableId)?.booking) bookingCreates++;
+      if (definition.tables.find(table => table.id === section.applicationFormBinding!.tableId)?.booking) evidence.add(`booking:${section.applicationFormBinding.tableId}`);
     }
   }
   if (bookingRequest(prompt) && !bookingCreates) throw new Error('Appointment booking requires a bound create form or data view with a database booking rule; ordinary records cannot replace conflict-safe booking.');
   if (/\b(?:data dashboard|record management|crud|data editor)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt) && !dataViews) throw new Error('Record management requires a bound data view; descriptive pages cannot replace it.');
   if (counterRequested && !counterViews) throw new Error('Quantity management requires a bound adjustment view and a native counter rule.');
   if (transactionRequested && !transactionViews) throw new Error('Multi-item transactions require a bound transaction view and native parent, line and counter rules.');
-  return definition;
+  const requirementIds = new Set<string>();
+  const allowedCapabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction']);
+  const capabilityEvidence: Record<string, string> = { page: 'page:', auth: 'auth', form: 'form:', records: 'view:', booking: 'booking:', counter: 'counter:', transaction: 'transaction:' };
+  const items = generated.requirements.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)
+      || Object.keys(item).some(key => !['id', 'summary', 'capability', 'evidence'].includes(key))
+      || typeof item.id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(item.id) || requirementIds.has(item.id)
+      || typeof item.summary !== 'string' || !item.summary.trim() || item.summary.length > 300
+      || !allowedCapabilities.has(String(item.capability))
+      || !Array.isArray(item.evidence) || !item.evidence.length || item.evidence.length > 20
+      || item.evidence.some(entry => typeof entry !== 'string' || !evidence.has(entry))) {
+      throw new Error(`Requirement ${index + 1} is incomplete or cites functionality that was not generated. No incomplete application was applied.`);
+    }
+    const expected = capabilityEvidence[item.capability];
+    if (!item.evidence.some(entry => expected === 'auth' ? entry === expected : entry.startsWith(expected))) {
+      throw new Error(`Requirement ${item.id} has no evidence for its declared capability. No incomplete application was applied.`);
+    }
+    requirementIds.add(item.id);
+    return {
+      id: item.id,
+      summary: item.summary.trim(),
+      capability: item.capability,
+      evidence: item.evidence.map(entry => {
+        if (!entry.startsWith('page:')) return entry;
+        const page = pages.find(candidate => candidate.slug === entry.slice(5));
+        return `page:${page!.id}`;
+      }),
+    };
+  });
+  return readApplicationDefinition({ ...definition, requirements: { version: 1, request: prompt.slice(0, 4000), items } }, new Set(pages.map(page => page.id)));
 }
 
 /** Root-relative AI paths previously escaped /site/owner/project entirely.
