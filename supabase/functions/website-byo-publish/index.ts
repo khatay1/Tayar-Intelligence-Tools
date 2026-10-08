@@ -13821,7 +13821,8 @@ async function verifyOwnedTransactionCatalog(input, query) {
       const field2 = rows[0].fields[quantity.key];
       if (!object7(field2) || field2.required !== true || field2.type !== "numeric" || typeof rows[0].definition !== "string") return false;
       const definition = rows[0].definition;
-      if (!definition.includes(`${quantity.key} > (0)::numeric`) || !definition.includes(`${quantity.key} <= (1000000000000)::numeric`) || !definition.includes("'NaN'::numeric") || !definition.includes("'Infinity'::numeric") || !definition.includes("'-Infinity'::numeric") || item.counter.integer && !definition.includes(`trunc(${quantity.key})`)) return false;
+      const normalized = definition.replace(/::(?:bigint|numeric)/g, "").replace(/["'()\s]/g, "");
+      if (!normalized.includes(`${quantity.key}>0`) || !normalized.includes(`${quantity.key}<=1000000000000`) || !normalized.includes("NaN") || !normalized.includes("Infinity") || !normalized.includes("-Infinity") || item.counter.integer && !normalized.includes(`trunc${quantity.key}`)) return false;
     }
     return seen.size === manifest.length;
   } catch {
