@@ -98,10 +98,13 @@ async function providerJson(response: Response): Promise<unknown> {
  * There is deliberately no fallback sender, credential, payload or idempotency key. */
 export async function deliverOwnedEmail(input: OwnedEmailWorkerInput): Promise<
   { status: 'unavailable' | 'idle' | 'uncertain' } | (OwnedEmailOutcome & { attempt: number })> {
+  // Snapshot primitive scope/credential values before the first await. Configuration
+  // rotation during a claim must not fingerprint one key and send with another.
+  input = { ...input };
   if (typeof window !== 'undefined' || !uuid.test(input.jobId) || !uuid.test(input.projectId)
     || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(input.connectionId)
     || !['preview', 'staging', 'production'].includes(input.environment) || !isOwnedEmailAddress(input.from)
-    || !/^re_[A-Za-z0-9_-]{16,200}$/.test(input.apiKey)) return { status: 'unavailable' };
+    || typeof input.apiKey !== 'string' || !/^re_[A-Za-z0-9_-]{16,200}$/.test(input.apiKey)) return { status: 'unavailable' };
   const leaseId = crypto.randomUUID();
   let claim: OwnedEmailClaim | null;
   try {

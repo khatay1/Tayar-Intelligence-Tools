@@ -17,7 +17,8 @@ export function validateOwnedEmailWorkerScope(input: {
   const ids = new Set<string>();
   for (const connection of input.connections) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection.id) || ids.has(connection.id)
-      || !isOwnedEmailAddress(connection.from) || !/^re_[A-Za-z0-9_-]{16,200}$/.test(connection.apiKey)) throw new Error('Email worker scope unavailable.');
+      || !isOwnedEmailAddress(connection.from) || typeof connection.apiKey !== 'string'
+      || !/^re_[A-Za-z0-9_-]{16,200}$/.test(connection.apiKey)) throw new Error('Email worker scope unavailable.');
     ids.add(connection.id);
   }
 }
@@ -30,6 +31,7 @@ export async function drainOwnedEmailQueue(input: {
   /** Injectable monotonic clock for budget tests, separate from retry timestamps. */
   monotonicNow?: () => number;
 }): Promise<OwnedEmailBatchCounts> {
+  input = { ...input, connections: input.connections.map(connection => ({ ...connection })) };
   validateOwnedEmailWorkerScope(input);
   const started = (input.monotonicNow ?? (() => performance.now()))();
   const elapsed = () => (input.monotonicNow ?? (() => performance.now()))() - started;

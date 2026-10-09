@@ -109,6 +109,16 @@ try {
   store = memoryStore(); const originalClaim = store.claim;
   store.claim = async args => ({ ...await originalClaim(args), leaseExpiresAt: new Date(clock + 1000).toISOString() });
   assert.equal((await deliver({ ...input(store), fetcher: () => assert.fail('Expiring lease must not send') })).status, 'unavailable');
+  store = memoryStore(); const fixedScopeClaim = store.claim, mutableDelivery = input(store);
+  store.claim = async args => {
+    mutableDelivery.apiKey = 're_rotated_during_claim_fixture'; mutableDelivery.projectId = receipt;
+    return fixedScopeClaim(args);
+  };
+  mutableDelivery.fetcher = async (_, request) => {
+    assert.equal(request.headers.Authorization, `Bearer ${credential}`);
+    assert.ok(request.headers['Idempotency-Key'].includes(project)); return Response.json({ id: receipt });
+  };
+  assert.equal((await deliver(mutableDelivery)).status, 'accepted', 'Async configuration changes cannot replace the claimed credential or scope');
 
   // Durable event IDs pass through the shared boundary; browser mail fields are ignored.
   const ref = `secret://website/${project}/mail/apiKey/production`;

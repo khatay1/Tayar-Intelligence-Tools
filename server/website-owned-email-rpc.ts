@@ -38,6 +38,7 @@ async function readReply(response: Response): Promise<unknown> {
 export function createOwnedEmailRpcClient(input: {
   backend: ApplicationPublicBackend; expectedProjectRef: string; secretKey: string; fetcher?: typeof fetch;
 }): OwnedEmailRpcClient {
+  input = { ...input, backend: { ...input.backend } };
   if (typeof window !== 'undefined') throw new Error('Server-only email client.');
   validateOwnedApplicationPublicBackend(input.backend, input.expectedProjectRef);
   const backendOrigin = new URL(input.backend.url).origin;

@@ -18,6 +18,7 @@ export function createOwnedEmailEventDispatcher(input: {
   } | null>;
   fetcher?: typeof fetch;
 }) {
+  input = { ...input };
   return async (connection: EditorIntegrationConnection, event: EditorIntegrationEventEnvelope): Promise<EditorIntegrationDelivery> => {
     const base = { eventId: event.id, connectionId: connection.id, attempt: 0 };
     try {
