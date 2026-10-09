@@ -1,5 +1,6 @@
 /** Editable application definitions only. Rows, users, role assignments and secrets live on the server. */
 export type ApplicationFieldType = 'text' | 'number' | 'boolean' | 'date' | 'datetime' | 'uuid' | 'json' | 'enum' | 'reference';
+export interface ApplicationFormula { operation: 'sum' | 'subtract' | 'multiply'; fieldIds: string[] }
 export interface ApplicationField {
   id: string;
   key: string;
@@ -11,6 +12,9 @@ export interface ApplicationField {
   defaultValue?: string | number | boolean | null;
   options?: string[];
   referenceTableId?: string;
+  /** Server-computed numeric value. Formula sources must be ordinary required
+   * numeric fields so callers can never submit or overwrite the result. */
+  formula?: ApplicationFormula;
 }
 export type ApplicationDataOperation = 'read' | 'create' | 'update' | 'delete';
 export type ApplicationAccess = 'public' | 'authenticated' | 'owner' | 'role';
@@ -68,7 +72,7 @@ export interface ApplicationPageAccess {
   access: Exclude<ApplicationAccess, 'owner'>;
   roleId?: string;
 }
-export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow';
+export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow' | 'formula';
 export interface ApplicationRequirement {
   id: string;
   summary: string;

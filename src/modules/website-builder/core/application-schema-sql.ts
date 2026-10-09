@@ -23,10 +23,15 @@ function condition(rule: ApplicationPermission): string {
   }
 }
 
-function column(field: ApplicationField): string {
+function column(field: ApplicationField, table?: ApplicationTable): string {
   const parts = [sqlName(field.key), fieldType(field)];
+  if (field.formula) {
+    const source = (id: string) => sqlName(table!.fields.find(candidate => candidate.id === id)!.key);
+    const operator = { sum: ' + ', subtract: ' - ', multiply: ' * ' }[field.formula.operation];
+    parts.push(`generated always as ((${field.formula.fieldIds.map(source).join(operator)})) stored`);
+  }
   if (field.required) parts.push('not null');
-  if (field.defaultValue !== undefined && field.defaultValue !== null) {
+  if (!field.formula && field.defaultValue !== undefined && field.defaultValue !== null) {
     parts.push(`default ${typeof field.defaultValue === 'string' ? literal(field.defaultValue) : String(field.defaultValue)}`);
   }
   if (field.type === 'enum') parts.push(`check (${sqlName(field.key)} in (${field.options!.map(literal).join(', ')}))`);
@@ -318,7 +323,7 @@ end $$;`);
   if (app.roles.length) statements.push(...roleInfrastructure());
   for (const [tableIndex, table] of app.tables.entries()) {
     const name = `public.${sqlName(tableName(table))}`;
-    const fields = table.fields.map(column);
+    const fields = [...table.fields.filter(field => !field.formula), ...table.fields.filter(field => field.formula)].map(field => column(field, table));
     statements.push(`create table ${name} (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id),
@@ -390,7 +395,7 @@ end $revision$;`,
     const old = before.tables[index];
     const name = `public.${sqlName(tableName(table))}`;
     if (!old) {
-      const fields = table.fields.map(column);
+      const fields = [...table.fields.filter(field => !field.formula), ...table.fields.filter(field => field.formula)].map(field => column(field, table));
       statements.push(`create table ${name} (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id),
@@ -411,11 +416,13 @@ end $revision$;`,
   end if;
 end $form_ledger$;`);
     }
-    for (let fieldIndexValue = old?.fields.length ?? 0; fieldIndexValue < table.fields.length; fieldIndexValue++) {
+    const addedFieldIndexes = Array.from({ length: table.fields.length - (old?.fields.length ?? 0) }, (_, offset) => offset + (old?.fields.length ?? 0))
+      .sort((left, right) => Number(!!table.fields[left].formula) - Number(!!table.fields[right].formula));
+    for (const fieldIndexValue of addedFieldIndexes) {
       const field = table.fields[fieldIndexValue];
       if (old) {
-        if (field.required && field.defaultValue === undefined) throw new Error(`Required field ${table.key}.${field.key} needs a default or a reviewed backfill.`);
-        statements.push(`alter table ${name} add column ${column(field)};`);
+        if (field.required && field.defaultValue === undefined && !field.formula) throw new Error(`Required field ${table.key}.${field.key} needs a default or a reviewed backfill.`);
+        statements.push(`alter table ${name} add column ${column(field, table)};`);
       }
       statements.push(...fieldIndex(index, fieldIndexValue, table, field));
     }

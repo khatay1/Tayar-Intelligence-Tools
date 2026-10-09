@@ -61,10 +61,10 @@ export function dataViewAllows(table: ApplicationTable, operation: ApplicationDa
 }
 
 export function parseApplicationDataViewValues(table: ApplicationTable, input: Record<string, unknown>, creating: boolean) {
-  if (!object(input) || Object.keys(input).some(key => !table.fields.some(field => field.key === key && field.id !== table.workflow?.fieldId))) throw new Error('Unknown record field.');
+  if (!object(input) || Object.keys(input).some(key => !table.fields.some(field => field.key === key && field.id !== table.workflow?.fieldId && !field.formula))) throw new Error('Unknown record field.');
   const values: Record<string, unknown> = {};
   for (const field of table.fields) {
-    if (table.workflow?.fieldId === field.id) continue;
+    if (table.workflow?.fieldId === field.id || field.formula) continue;
     const value = input[field.key];
     if (value === undefined || value === '' || value === null) {
       if (creating && field.defaultValue !== undefined) continue;

@@ -115,7 +115,7 @@ function validateApplicationDefinition(value, pageIds) {
     const keys = new Set(APPLICATION_SYSTEM_FIELDS);
     list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field, fieldIndex) => {
       const fieldPath = `${path}.fields[${fieldIndex}]`;
-      if (!shape(field, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId"], fieldPath)) return;
+      if (!shape(field, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId", "formula"], fieldPath)) return;
       identity(field.id, `${fieldPath}.id`);
       if (!identifier(field.key) || keys.has(field.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
       else keys.add(field.key);
@@ -124,6 +124,12 @@ function validateApplicationDefinition(value, pageIds) {
       if (typeof field.required !== "boolean" || ["unique", "indexed"].some((key) => field[key] !== void 0 && typeof field[key] !== "boolean")) issue(fieldPath, "invalid-boolean", "Field constraint flags must be booleans.");
       if (field.type === "reference" && !tableIds.has(String(field.referenceTableId))) issue(fieldPath, "missing-table", "A relationship requires an existing target table.");
       if (field.type !== "reference" && field.referenceTableId !== void 0) issue(fieldPath, "unexpected-reference", "Only reference fields can target a table.");
+      if (field.formula !== void 0) {
+        const formulaPath = `${fieldPath}.formula`, formula = field.formula;
+        if (!shape(formula, ["operation", "fieldIds"], formulaPath) || field.type !== "number" || field.required !== true || field.defaultValue !== void 0 || !["sum", "subtract", "multiply"].includes(String(formula.operation)) || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20 || formula.operation !== "sum" && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length || formula.fieldIds.some((sourceId) => sourceId === field.id || !table.fields.some((source) => object(source) && source.id === sourceId && source.type === "number" && source.required === true && source.formula === void 0))) {
+          issue(formulaPath, "invalid-formula", "A formula needs a required numeric result and 2\u201320 distinct required numeric source fields.");
+        }
+      }
       if (field.type === "enum") {
         if (!Array.isArray(field.options) || field.options.length < 1 || field.options.length > 100 || field.options.some((item) => typeof item !== "string" || !item || item.length > 200) || new Set(field.options).size !== field.options.length) issue(fieldPath, "invalid-options", "An enum requires 1\u2013100 unique nonempty options.");
       } else if (field.options !== void 0) issue(fieldPath, "unexpected-options", "Only enum fields can define options.");
@@ -246,7 +252,7 @@ function validateApplicationDefinition(value, pageIds) {
     if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
     if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
     const requirementIds = /* @__PURE__ */ new Set();
-    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow"]);
+    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula"]);
     list(manifest.items, APPLICATION_LIMITS.requirements, "application.requirements.items").forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ["id", "summary", "capability", "evidence"], path)) return;
@@ -266,7 +272,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
           return;
         }
-        const match = /^(page|form|view|booking|counter|transaction|workflow):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
         if (!match) {
           issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
           return;
@@ -284,6 +290,7 @@ function validateApplicationDefinition(value, pageIds) {
         if (match[1] === "counter" && !object(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
         if (match[1] === "transaction" && !object(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
         if (match[1] === "workflow" && !object(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
+        if (match[1] === "formula" && !table.fields.some((field) => object(field) && object(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
         if (match[1] !== "view" && match[3]) issue(evidencePath, "unexpected-action", "Only data-view evidence can include an action.");
       });
