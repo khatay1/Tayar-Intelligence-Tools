@@ -7,7 +7,7 @@ import { compileApplicationDataView, dataViewAllows, parseApplicationDataViewVal
 import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
 
-type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'>;
+type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { files?: ReturnType<typeof createApplicationDataRuntime>['files'] };
 const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
@@ -35,13 +35,18 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles));
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles));
   }
-  async function write(action: 'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition', execute: () => Promise<unknown>) {
+  async function fileWritesAllowed() {
+    const user = await identity(), roles = await runtime.auth.currentRoles(); await identity();
+    return dataViewAllows(compiled.table, 'update', user, roles);
+  }
+  async function write(action: 'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition' | 'attachments', execute: () => Promise<unknown>) {
     if (writing) throw new Error('A record operation is already in progress.');
     writing = true;
     try {
       if (!(await permissions()).includes(action)) throw new Error('Record operation is not permitted.');
+      if (action === 'attachments' && !(await fileWritesAllowed())) throw new Error('Attachment writes are not permitted.');
       await execute(); await identity();
     } finally { writing = false; }
   }
@@ -153,6 +158,31 @@ export function createApplicationDataViewController(definition: ApplicationDefin
           createOnce: async (_tableId, _payload, requestId) => (await runtime.createTransaction(compiled.table.id, values, parsed, requestId, owner!)).status,
         }, { key: `${durableScope.keyPrefix}:transaction:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
         if (await submission.submit([]) !== 'confirmed') throw new Error('Transaction outcome is uncertain. Keep the same transaction and retry.');
+      });
+    },
+    fileWritesAllowed,
+    async listFiles(id: string, page = 0) {
+      await permissions();
+      if (!compiled.binding.actions.includes('attachments') || !runtime.files) throw new Error('Attachments are unavailable.');
+      const result = await runtime.files.list(compiled.table.id, rowId(id).toLowerCase(), owner!, page);
+      await identity(); return result;
+    },
+    async downloadFile(id: string, fileId: string) {
+      await permissions();
+      if (!compiled.binding.actions.includes('attachments') || !runtime.files) throw new Error('Attachments are unavailable.');
+      const result = await runtime.files.download(compiled.table.id, rowId(id).toLowerCase(), fileId, owner!);
+      await identity(); return result;
+    },
+    async uploadFile(id: string, fileId: string, file: Blob) {
+      await write('attachments', async () => {
+        if (!runtime.files) throw new Error('Attachments are unavailable.');
+        await runtime.files.upload(compiled.table.id, rowId(id).toLowerCase(), fileId, file, owner!);
+      });
+    },
+    async removeFile(id: string, fileId: string) {
+      await write('attachments', async () => {
+        if (!runtime.files) throw new Error('Attachments are unavailable.');
+        await runtime.files.remove(compiled.table.id, rowId(id).toLowerCase(), fileId, owner!);
       });
     },
     async remove(id: string) { await write('delete', () => runtime.remove(compiled.table.id, rowId(id), owner)); },

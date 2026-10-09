@@ -1,3 +1,4 @@
+import { APPLICATION_FILE_TYPES, APPLICATION_FILE_MAX_BYTES } from './application-files';
 import { APPLICATION_LIMITS, APPLICATION_SYSTEM_FIELDS, createApplicationDefinition, type ApplicationDefinition } from './application-model';
 
 export interface ApplicationIssue { path: string; code: string; message: string }
@@ -45,7 +46,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'workflow'], path)) return;
+    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'workflow', 'attachments'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
@@ -121,6 +122,18 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
           }
         }
       }
+    }
+    if (table.attachments !== undefined) {
+      const filePath = `${path}.attachments`, rule = table.attachments;
+      if (!shape(rule, ['maxBytes', 'mimeTypes'], filePath) || !authEnabled || !Number.isSafeInteger(rule.maxBytes)
+        || Number(rule.maxBytes) < 1 || Number(rule.maxBytes) > APPLICATION_FILE_MAX_BYTES
+        || !Array.isArray(rule.mimeTypes) || !rule.mimeTypes.length || rule.mimeTypes.length > APPLICATION_FILE_TYPES.length
+        || new Set(rule.mimeTypes).size !== rule.mimeTypes.length
+        || rule.mimeTypes.some(type => !APPLICATION_FILE_TYPES.includes(type as typeof APPLICATION_FILE_TYPES[number]))) {
+        issue(filePath, 'invalid-files', 'Attachments need Auth, a size limit up to 25 MiB and declared download-safe MIME types.');
+      }
+      if (!Array.isArray(table.permissions) || !table.permissions.some(rule => object(rule) && rule.operation === 'read')
+        || !table.permissions.some(rule => object(rule) && rule.operation === 'update')) issue(filePath, 'files-permissions', 'Attachments require read and update permissions.');
     }
     if (table.counter !== undefined) {
       const counterPath = `${path}.counter`;
@@ -234,7 +247,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     if (manifest.version !== 1) issue('application.requirements.version', 'unsupported-version', 'Unsupported requirements manifest version.');
     if (typeof manifest.request !== 'string' || !manifest.request.trim() || manifest.request.length > 4000) issue('application.requirements.request', 'invalid-request', 'Requirements need the original nonempty request.');
     const requirementIds = new Set<string>();
-    const capabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction', 'workflow', 'formula']);
+    const capabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction', 'workflow', 'formula', 'files']);
     list(manifest.items, APPLICATION_LIMITS.requirements, 'application.requirements.items').forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ['id', 'summary', 'capability', 'evidence'], path)) return;
@@ -248,7 +261,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const evidencePath = `${path}.evidence[${evidenceIndex}]`;
         if (typeof entry !== 'string' || entry.length > 260) { issue(evidencePath, 'invalid-evidence', 'Invalid requirement evidence.'); return; }
         if (entry === 'auth') { if (!authEnabled) issue(evidencePath, 'missing-auth', 'Auth evidence requires enabled authentication.'); return; }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments))?$/.exec(entry);
         if (!match) { issue(evidencePath, 'invalid-evidence', 'Evidence must reference a supported page, table or action.'); return; }
         if (match[1] === 'page') { if (match[3] || (pageIds && !pageIds.has(match[2]))) issue(evidencePath, 'missing-page', 'Page evidence requires an existing page.'); return; }
         const table = tables.find(candidate => object(candidate) && candidate.id === match[2]);
@@ -256,6 +269,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (match[1] === 'booking' && !object(table.booking)) issue(evidencePath, 'missing-booking', 'Booking evidence requires a native booking rule.');
         if (match[1] === 'counter' && !object(table.counter)) issue(evidencePath, 'missing-counter', 'Counter evidence requires a native counter rule.');
         if (match[1] === 'transaction' && !object(table.transaction)) issue(evidencePath, 'missing-transaction', 'Transaction evidence requires a native transaction rule.');
+        if (match[1] === 'files' && !object(table.attachments)) issue(evidencePath, 'missing-files', 'Files evidence requires an attachment rule.');
         if (match[1] === 'workflow' && !object(table.workflow)) issue(evidencePath, 'missing-workflow', 'Workflow evidence requires a native workflow rule.');
         if (match[1] === 'formula' && !(table.fields as unknown[]).some(field => object(field) && object(field.formula))) issue(evidencePath, 'missing-formula', 'Formula evidence requires a server-computed field.');
         if (match[1] === 'view' && !match[3]) issue(evidencePath, 'missing-action', 'Data-view evidence requires an action.');

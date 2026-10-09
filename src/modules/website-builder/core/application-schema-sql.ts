@@ -1,3 +1,4 @@
+import { compileApplicationFilesSchema } from './application-files-sql';
 import { applicationCounterInfrastructure, compileApplicationCounterSchema } from './application-counter-sql';
 import { applicationTransactionInfrastructure, compileApplicationTransactionSchema } from './application-transaction-sql';
 import { applicationWorkflowInfrastructure, compileApplicationWorkflowSchema } from './application-workflow-sql';
@@ -349,6 +350,7 @@ end $$;`);
     statements.push(...compileApplicationTransactionSchema(app, tableIndex));
     statements.push(...compileApplicationWorkflowSchema(app, tableIndex));
     statements.push(...policies(table, tableIndex));
+    statements.push(...compileApplicationFilesSchema(app, tableIndex));
   }
   return statements;
 }
@@ -373,6 +375,7 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
   }
   if (before.tables.some((table, index) => table.counter && JSON.stringify(table.counter) !== JSON.stringify(after.tables[index].counter))) throw new Error('Removing or changing counter rules requires a separately reviewed data migration.');
   if (before.tables.some((table, index) => table.transaction && JSON.stringify(table.transaction) !== JSON.stringify(after.tables[index].transaction))) throw new Error('Removing or changing transaction rules requires a separately reviewed data migration.');
+  if (before.tables.some((table, index) => table.attachments && JSON.stringify(table.attachments) !== JSON.stringify(after.tables[index].attachments))) throw new Error('Removing or changing attachment rules requires a separately reviewed storage migration.');
   if (before.tables.some((table, index) => table.workflow && JSON.stringify(table.workflow) !== JSON.stringify(after.tables[index].workflow))) throw new Error('Removing or changing workflow rules requires a separately reviewed data migration.');
   if (JSON.stringify(before) === JSON.stringify(after)) return [];
 
@@ -436,6 +439,8 @@ end $form_ledger$;`);
   }
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];
+    if (!old?.attachments && table.attachments) statements.push(...compileApplicationFilesSchema(after, index));
+    else if (old?.attachments && JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)) statements.push(...compileApplicationFilesSchema(after, index, true));
     if (!old?.counter && table.counter) statements.push(...compileApplicationCounterSchema(after, index));
     else if (old?.counter && JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)) statements.push(...compileApplicationCounterSchema(after, index, true));
     if (!old?.booking && table.booking) statements.push(...bookingConstraints(after, index));

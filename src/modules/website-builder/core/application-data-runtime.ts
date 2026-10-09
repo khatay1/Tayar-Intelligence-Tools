@@ -1,3 +1,4 @@
+import { createApplicationFilesRuntime } from './application-files-runtime';
 import { ApplicationCounterRejected, parseApplicationCounterDelta } from './application-counter';
 import { ApplicationTransactionRejected, parseApplicationTransactionLines } from './application-transaction';
 import { ApplicationBookingRejected, applicationBookingDatabaseRejection, validateApplicationBookingValues } from './application-booking';
@@ -114,7 +115,7 @@ function sameRequestField(type: ApplicationTable['fields'][number]['type'], subm
 /** Client operations always target the dedicated app project; PostgreSQL RLS is the authority. */
 export function createApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, platformUrl: string, browserSession?: ApplicationBrowserSessionOptions) {
   const client = createIsolatedApplicationClient(config, platformUrl);
-  return buildApplicationDataRuntime(definition, client,
+  return buildApplicationDataRuntime(definition, config, client,
     browserSession ? createApplicationBrowserSessionBridge(client, browserSession) : null);
 }
 
@@ -123,13 +124,14 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
 export function createOwnedApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend,
   expectedProjectRef: string, browserSession?: { projectId: string; applicationOrigin: string }) {
   const client = createOwnedApplicationClient(config, expectedProjectRef);
-  return buildApplicationDataRuntime(definition, client,
+  return buildApplicationDataRuntime(definition, config, client,
     browserSession ? createOwnedApplicationBrowserSessionBridge(client, browserSession) : null);
 }
 
-function buildApplicationDataRuntime(definition: ApplicationDefinition, client: SupabaseClient,
+function buildApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, client: SupabaseClient,
   sessionBridge: ReturnType<typeof createApplicationBrowserSessionBridge> | null) {
   const app = readApplicationDefinition(definition);
+  let disposed = false;
   const table = (id: string) => {
     const found = app.tables.find(item => item.id === id);
     if (!found) throw new Error('Unknown application table.');
@@ -150,7 +152,8 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
     return token;
   };
   return {
-    dispose() { sessionBridge?.dispose(); void client.auth.stopAutoRefresh().catch(() => {}); },
+    files: createApplicationFilesRuntime(config, client, table, captureWriteToken, () => disposed),
+    dispose() { disposed = true; sessionBridge?.dispose(); void client.auth.stopAutoRefresh().catch(() => {}); },
     auth: {
       async prepareNavigation() { await sessionBridge?.synchronize(); },
       async signUp(email: string, password: string) {

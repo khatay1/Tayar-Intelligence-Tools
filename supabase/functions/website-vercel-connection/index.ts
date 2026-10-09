@@ -2,7 +2,7 @@
 /* eslint-disable no-var, @typescript-eslint/no-unused-vars -- Generated bundle. */
 
 // server/website-vercel-connection-edge.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4";
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.57.4";
 
 // src/modules/website-builder/services/trustedServerRuntime.ts
 function isUntrustedBrowserRuntime() {
@@ -374,8 +374,14 @@ function publicInfrastructureConnection(value) {
   };
 }
 
-// src/modules/website-builder/core/application-data-runtime.ts
+// src/modules/website-builder/core/application-files-runtime.ts
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+
+// src/modules/website-builder/core/application-files.ts
+var APPLICATION_FILE_MAX_BYTES = 25 * 1024 * 1024;
+
+// src/modules/website-builder/core/application-data-runtime.ts
+import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4";
 function projectRef(url) {
   const parsed = new URL(url);
   const match = /^([a-z0-9]{20})\.supabase\.co$/.exec(parsed.hostname);
@@ -1224,7 +1230,7 @@ function createWebsiteVercelConnectionEdge(input) {
     const githubClientId = optional(input.environment, keys.githubClient, 100);
     const githubClientSecret = optional(input.environment, keys.githubSecret, 4096);
     if (integrationSlug && !slug.test(integrationSlug) || clientId && !provider2.test(clientId) || clientSecret && (clientSecret.length < 20 || /[\r\n]/.test(clientSecret)) || platformAccountId && !provider2.test(platformAccountId) || githubClientId && !githubClient.test(githubClientId) || githubClientSecret && (githubClientSecret.length < 20 || /[\r\n]/.test(githubClientSecret))) throw new Error();
-    const factory = input.clientFactory ?? createClient2;
+    const factory = input.clientFactory ?? createClient3;
     const options = {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       ...input.fetcher ? { global: { fetch: input.fetcher } } : {}

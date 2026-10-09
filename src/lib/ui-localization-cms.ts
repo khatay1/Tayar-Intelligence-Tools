@@ -6,6 +6,11 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  "Record attachments": "مرفقات السجل",
+  "Private files follow record permissions. Downloads require sign-in; uploads and deletion require update access.": "تتبع الملفات الخاصة صلاحيات السجل. يتطلب التنزيل تسجيل الدخول، ويتطلب الرفع والحذف صلاحية التعديل.",
+  "Maximum file size (MiB)": "أقصى حجم للملف (MiB)",
+  "Save attachment rule": "حفظ قاعدة المرفقات",
+  "Remove attachment rule": "إزالة قاعدة المرفقات",
   "Atomic quantity adjustments": "تغييرات كمية ذرّية",
   "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "للمخزون والحصص والنقاط. تبدأ السجلات عند الحد الأدنى وتُغيّر الكمية بإجراء محمي.",
   "Quantity field": "حقل الكمية",
@@ -116,6 +121,11 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  "Record attachments": "Postbilagor",
+  "Private files follow record permissions. Downloads require sign-in; uploads and deletion require update access.": "Privata filer följer postens behörigheter. Nedladdning kräver inloggning; uppladdning och borttagning kräver ändringsåtkomst.",
+  "Maximum file size (MiB)": "Maximal filstorlek (MiB)",
+  "Save attachment rule": "Spara bilageregel",
+  "Remove attachment rule": "Ta bort bilageregel",
   "Atomic quantity adjustments": "Atomära mängdändringar",
   "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "För lager, kvoter och poäng. Nya poster börjar vid minimum; ändringar använder en skyddad justering.",
   "Quantity field": "Mängdfält",
