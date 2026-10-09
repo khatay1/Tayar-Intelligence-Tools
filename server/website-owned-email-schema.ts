@@ -10,6 +10,7 @@ create schema if not exists private;
 create table private.app_email_jobs (
  id uuid primary key,
  project_id uuid not null check (project_id = '${projectId}'::uuid),
+ connection_id text not null check (connection_id ~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$'),
  user_id uuid not null references auth.users(id) on delete cascade,
  environment text not null check (environment in ('preview','staging','production')),
  sender text not null check (length(sender) between 3 and 254),
@@ -29,34 +30,34 @@ create table private.app_email_jobs (
 );
 alter table private.app_email_jobs enable row level security;
 revoke all on private.app_email_jobs from public,anon,authenticated,service_role;
-create index app_email_jobs_due on private.app_email_jobs(next_attempt_at) where status in ('pending','sending');
+create index app_email_jobs_due on private.app_email_jobs(project_id,environment,connection_id,next_attempt_at,id) where status in ('pending','sending');
 
-create function private.app_email_enqueue(p_id uuid,p_user_id uuid,p_environment text,p_from text,p_subject text,p_text text)
+create function private.app_email_enqueue(p_id uuid,p_connection_id text,p_user_id uuid,p_environment text,p_from text,p_subject text,p_text text)
 returns boolean language plpgsql security definer set search_path = '' as $queue$
 declare recipient_email text; existing private.app_email_jobs;
 begin
- if p_id is null or p_user_id is null or p_environment is null or p_from is null or p_subject is null or p_text is null
+ if p_id is null or p_connection_id is null or p_connection_id !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$' or p_user_id is null or p_environment is null or p_from is null or p_subject is null or p_text is null
   or p_environment not in ('preview','staging','production') or p_from ~ '[[:cntrl:]]'
   or p_from !~ '^[^ @<>]+@[^ @<>]+[.][^ @<>]+$' then raise exception 'Invalid email queue input'; end if;
  select email into recipient_email from auth.users where id=p_user_id and email_confirmed_at is not null
   and not coalesce(is_anonymous,false) and (banned_until is null or banned_until <= clock_timestamp());
  if recipient_email is null then raise exception 'Verified recipient required'; end if;
- insert into private.app_email_jobs(id,project_id,user_id,environment,sender,recipient,subject,body)
- values(p_id,'${projectId}',p_user_id,p_environment,p_from,recipient_email,p_subject,p_text) on conflict(id) do nothing;
+ insert into private.app_email_jobs(id,project_id,connection_id,user_id,environment,sender,recipient,subject,body)
+ values(p_id,'${projectId}',p_connection_id,p_user_id,p_environment,p_from,recipient_email,p_subject,p_text) on conflict(id) do nothing;
  select * into existing from private.app_email_jobs where id=p_id;
- if existing.project_id <> '${projectId}'::uuid or existing.user_id <> p_user_id or existing.environment <> p_environment
+ if existing.project_id <> '${projectId}'::uuid or existing.connection_id <> p_connection_id or existing.user_id <> p_user_id or existing.environment <> p_environment
   or existing.sender <> p_from or existing.recipient <> recipient_email or existing.subject <> p_subject or existing.body <> p_text
  then raise exception 'Email identity conflict'; end if;
  return true;
 end $queue$;
 
-create function private.app_email_claim(p_id uuid,p_project_id uuid,p_environment text,p_fingerprint text,p_from text,p_lease_id uuid)
+create function private.app_email_claim(p_id uuid,p_project_id uuid,p_environment text,p_connection_id text,p_fingerprint text,p_from text,p_lease_id uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $queue$
 declare job private.app_email_jobs; observed timestamptz := clock_timestamp();
 begin
  if p_id is null or p_project_id is distinct from '${projectId}'::uuid or p_environment is null
-  or p_fingerprint is null or p_fingerprint !~ '^[0-9a-f]{64}$' or p_from is null or p_lease_id is null then return null; end if;
- select * into job from private.app_email_jobs where id=p_id and project_id=p_project_id and environment=p_environment
+  or p_connection_id is null or p_fingerprint is null or p_fingerprint !~ '^[0-9a-f]{64}$' or p_from is null or p_lease_id is null then return null; end if;
+ select * into job from private.app_email_jobs where id=p_id and project_id=p_project_id and environment=p_environment and connection_id=p_connection_id
   for update skip locked;
  if not found or job.status not in ('pending','sending') or job.next_attempt_at > observed
   or (job.lease_expires_at is not null and job.lease_expires_at > observed) then return null; end if;
@@ -76,7 +77,7 @@ begin
  update private.app_email_jobs set status='sending',attempt=attempt+1,credential_fingerprint=p_fingerprint,
   first_attempt_at=coalesce(first_attempt_at,observed),lease_id=p_lease_id,lease_expires_at=observed+interval '90 seconds'
   where id=p_id returning * into job;
- return jsonb_build_object('job',jsonb_build_object('id',job.id,'projectId',job.project_id,'environment',job.environment,
+ return jsonb_build_object('job',jsonb_build_object('id',job.id,'projectId',job.project_id,'connectionId',job.connection_id,'environment',job.environment,
   'from',job.sender,'to',job.recipient,'subject',job.subject,'text',job.body),
   'leaseId',job.lease_id,'attempt',job.attempt,'firstAttemptAt',job.first_attempt_at,'leaseExpiresAt',job.lease_expires_at);
 end $queue$;
@@ -108,20 +109,36 @@ begin
  return true;
 end $queue$;
 
-create function public.app_email_enqueue(p_id uuid,p_user_id uuid,p_environment text,p_from text,p_subject text,p_text text)
+create function private.app_email_due(p_project_id uuid,p_environment text,p_connection_id text,p_limit integer)
+returns jsonb language sql security definer set search_path = '' as $queue$
+ select coalesce(jsonb_agg(due.id),'[]'::jsonb) from (
+  select id from private.app_email_jobs
+  where p_project_id='${projectId}'::uuid and project_id=p_project_id and environment=p_environment
+   and connection_id=p_connection_id and status in ('pending','sending') and next_attempt_at <= clock_timestamp()
+   and (lease_expires_at is null or lease_expires_at <= clock_timestamp())
+   and p_limit between 1 and 20
+  order by next_attempt_at,id limit least(greatest(coalesce(p_limit,0),0),20)
+ ) due;
+$queue$;
+
+create function public.app_email_enqueue(p_id uuid,p_connection_id text,p_user_id uuid,p_environment text,p_from text,p_subject text,p_text text)
 returns boolean language sql security invoker set search_path = '' as $queue$
- select private.app_email_enqueue(p_id,p_user_id,p_environment,p_from,p_subject,p_text); $queue$;
-create function public.app_email_claim(p_id uuid,p_project_id uuid,p_environment text,p_fingerprint text,p_from text,p_lease_id uuid)
+ select private.app_email_enqueue(p_id,p_connection_id,p_user_id,p_environment,p_from,p_subject,p_text); $queue$;
+create function public.app_email_claim(p_id uuid,p_project_id uuid,p_environment text,p_connection_id text,p_fingerprint text,p_from text,p_lease_id uuid)
 returns jsonb language sql security invoker set search_path = '' as $queue$
- select private.app_email_claim(p_id,p_project_id,p_environment,p_fingerprint,p_from,p_lease_id); $queue$;
+ select private.app_email_claim(p_id,p_project_id,p_environment,p_connection_id,p_fingerprint,p_from,p_lease_id); $queue$;
 create function public.app_email_finish(p_id uuid,p_lease_id uuid,p_outcome jsonb)
 returns boolean language sql security invoker set search_path = '' as $queue$
  select private.app_email_finish(p_id,p_lease_id,p_outcome); $queue$;
+create function public.app_email_due(p_project_id uuid,p_environment text,p_connection_id text,p_limit integer)
+returns jsonb language sql security invoker set search_path = '' as $queue$
+ select private.app_email_due(p_project_id,p_environment,p_connection_id,p_limit); $queue$;
 grant usage on schema private to service_role;
 ${['private','public'].flatMap(schema => [
-  ['app_email_enqueue', 'uuid,uuid,text,text,text,text'],
-  ['app_email_claim', 'uuid,uuid,text,text,text,uuid'],
+  ['app_email_enqueue', 'uuid,text,uuid,text,text,text,text'],
+  ['app_email_claim', 'uuid,uuid,text,text,text,text,uuid'],
   ['app_email_finish', 'uuid,uuid,jsonb'],
+  ['app_email_due', 'uuid,text,text,integer'],
 ].map(([name, args]) => `revoke all on function ${schema}.${name}(${args}) from public,anon,authenticated;
 grant execute on function ${schema}.${name}(${args}) to service_role;`)).join('\n')}
 commit;

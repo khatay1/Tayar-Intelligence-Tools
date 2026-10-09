@@ -46,9 +46,9 @@ export function createOwnedEmailEventDispatcher(input: {
       digest[6] = (digest[6] & 15) | 0x80; digest[8] = (digest[8] & 63) | 0x80;
       const hex = Array.from(digest.slice(0, 16), byte => byte.toString(16).padStart(2, '0')).join('');
       const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-      await enqueueOwnedEmail(input.client, { id, environment: input.environment, from: input.from,
+      await enqueueOwnedEmail(input.client, { id, connectionId: input.connectionId, environment: input.environment, from: input.from,
         recipientUserId: template.recipientUserId, subject: template.subject, text: template.text });
-      const result = await deliverOwnedEmail({ jobId: id, projectId: input.projectId, environment: input.environment,
+      const result = await deliverOwnedEmail({ jobId: id, projectId: input.projectId, connectionId: input.connectionId, environment: input.environment,
         from: input.from, apiKey: key, store: createOwnedEmailStore(input.client), fetcher: input.fetcher });
       if (result.status === 'accepted') return { ...base, attempt: result.attempt, status: 'accepted', providerId: result.providerId };
       if (result.status === 'review') return { ...base, attempt: result.attempt, status: 'review', error: result.code };

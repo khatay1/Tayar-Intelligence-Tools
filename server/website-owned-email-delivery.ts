@@ -2,6 +2,7 @@
 export interface OwnedEmailJob {
   id: string;
   projectId: string;
+  connectionId: string;
   environment: 'preview' | 'staging' | 'production';
   from: string;
   to: string;
@@ -27,7 +28,7 @@ export interface OwnedEmailStore {
    * Return null for an active lease, terminal job, delayed retry or changed binding.
    * A changed binding must transition to review, never reset the idempotency window. */
   claim(input: { jobId: string; projectId: string; environment: OwnedEmailJob['environment'];
-    credentialFingerprint: string; from: string; leaseId: string }): Promise<OwnedEmailClaim | null>;
+    connectionId: string; credentialFingerprint: string; from: string; leaseId: string }): Promise<OwnedEmailClaim | null>;
   /** Compare lease AND its expiry before writing; return false for a superseded lease. */
   finish(input: { jobId: string; leaseId: string; outcome: OwnedEmailOutcome }): Promise<boolean>;
 }
@@ -35,6 +36,7 @@ export interface OwnedEmailStore {
 export interface OwnedEmailWorkerInput {
   jobId: string;
   projectId: string;
+  connectionId: string;
   environment: OwnedEmailJob['environment'];
   from: string;
   apiKey: string;
@@ -54,7 +56,7 @@ export function isOwnedEmailAddress(value: unknown): value is string {
 }
 
 function validJob(job: OwnedEmailJob, input: OwnedEmailWorkerInput) {
-  return job.id === input.jobId && job.projectId === input.projectId && job.environment === input.environment
+  return job.id === input.jobId && job.projectId === input.projectId && job.connectionId === input.connectionId && job.environment === input.environment
     && job.from === input.from && isOwnedEmailAddress(job.from) && isOwnedEmailAddress(job.to)
     && typeof job.subject === 'string' && job.subject.trim().length > 0 && job.subject.length <= 200
     && !Array.from(job.subject).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
@@ -97,13 +99,14 @@ async function providerJson(response: Response): Promise<unknown> {
 export async function deliverOwnedEmail(input: OwnedEmailWorkerInput): Promise<
   { status: 'unavailable' | 'idle' | 'uncertain' } | (OwnedEmailOutcome & { attempt: number })> {
   if (typeof window !== 'undefined' || !uuid.test(input.jobId) || !uuid.test(input.projectId)
+    || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(input.connectionId)
     || !['preview', 'staging', 'production'].includes(input.environment) || !isOwnedEmailAddress(input.from)
     || !/^re_[A-Za-z0-9_-]{16,200}$/.test(input.apiKey)) return { status: 'unavailable' };
   const leaseId = crypto.randomUUID();
   let claim: OwnedEmailClaim | null;
   try {
     claim = await input.store.claim({ jobId: input.jobId, projectId: input.projectId,
-      environment: input.environment, from: input.from, leaseId,
+      environment: input.environment, connectionId: input.connectionId, from: input.from, leaseId,
       credentialFingerprint: await fingerprint(input.apiKey) });
   } catch { return { status: 'unavailable' }; }
   if (!claim) return { status: 'idle' };
