@@ -18,6 +18,7 @@ export function createOwnedEmailEventDispatcher(input: {
   } | null>;
   fetcher?: typeof fetch;
 }) {
+  input = { ...input };
   return async (connection: EditorIntegrationConnection, event: EditorIntegrationEventEnvelope): Promise<EditorIntegrationDelivery> => {
     const base = { eventId: event.id, connectionId: connection.id, attempt: 0 };
     try {
@@ -36,8 +37,8 @@ export function createOwnedEmailEventDispatcher(input: {
       if (!template) return { ...base, status: 'skipped', error: 'No authorized notification template.' };
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(template.recipientUserId)
         || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(template.sourceEventId)
-        || typeof template.subject !== 'string' || template.subject.length > 200
-        || typeof template.text !== 'string' || template.text.length > 32000) throw new Error();
+        || typeof template.subject !== 'string' || template.subject.length > 400 || Array.from(template.subject).length > 200
+        || typeof template.text !== 'string' || template.text.length > 64000 || Array.from(template.text).length > 32000) throw new Error();
       const key = await input.resolveSecret(ref);
       if (!key || !/^re_[A-Za-z0-9_-]{16,200}$/.test(key)) throw new Error();
       const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(
@@ -46,9 +47,9 @@ export function createOwnedEmailEventDispatcher(input: {
       digest[6] = (digest[6] & 15) | 0x80; digest[8] = (digest[8] & 63) | 0x80;
       const hex = Array.from(digest.slice(0, 16), byte => byte.toString(16).padStart(2, '0')).join('');
       const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-      await enqueueOwnedEmail(input.client, { id, environment: input.environment, from: input.from,
+      await enqueueOwnedEmail(input.client, { id, connectionId: input.connectionId, environment: input.environment, from: input.from,
         recipientUserId: template.recipientUserId, subject: template.subject, text: template.text });
-      const result = await deliverOwnedEmail({ jobId: id, projectId: input.projectId, environment: input.environment,
+      const result = await deliverOwnedEmail({ jobId: id, projectId: input.projectId, connectionId: input.connectionId, environment: input.environment,
         from: input.from, apiKey: key, store: createOwnedEmailStore(input.client), fetcher: input.fetcher });
       if (result.status === 'accepted') return { ...base, attempt: result.attempt, status: 'accepted', providerId: result.providerId };
       if (result.status === 'review') return { ...base, attempt: result.attempt, status: 'review', error: result.code };

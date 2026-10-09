@@ -295,3 +295,41 @@ email test remain necessary before publishing can declare notifications ready.
 The existing notification publish blockers intentionally remain in force. SMS
 is not implemented by this email transport. No real messages were sent by its
 mocked-provider regression checks.
+
+### Atomic email rules and background worker — 2026-10-09
+
+The queue now scopes every job and claim to its email connection as well as its
+project/environment. A service-only due RPC lists bounded job IDs without message
+contents, excludes future retries and active leases, and leaves delivery locking
+to the committed claim. Overlapping worker invocations still acquire one lease.
+
+The server worker drains bounded batches within an execution budget. Its GET
+endpoint accepts only the captured application origin/path and a private Bearer
+cron credential. Query selectors, browser Origin headers and other methods are
+rejected before constructing a private backend client. Responses contain counts,
+not recipients, templates, provider receipts or secrets. The private HTTP client
+uses four fixed RPC endpoints on the verified customer Supabase origin, bounded
+requests/replies, correct new-secret/legacy-JWT headers and no redirects. Public
+credentials, expired/foreign legacy tokens and arbitrary RPC names fail closed.
+
+The rule compiler supplies atomic AFTER triggers for record creation and an
+unambiguous guarded workflow transition. It queues mail only to the record's
+verified permanent owner when owner-read access exists. Auth identity and current
+bans are checked; unknown variables, JSON fields, arbitrary recipients and
+executable template expressions are rejected. Declared field variables produce plain text with bounded
+values, UTC timestamps and sanitized subjects. SQL dollar delimiters are selected
+against the complete template body. Unicode character limits match PostgreSQL,
+including supplementary characters such as emoji. A rolled-back record queues
+no message, an
+ordinary update cannot resend the creation receipt, and replaying a committed
+workflow request cannot create a second notification.
+These database triggers are the sole producers for their compiled rules; the
+same event must not also be enqueued through the generic integration dispatcher.
+
+These tested backend components remain unmounted in customer source exports and
+the publish worker. Native rule editing, immutable source/config capture, customer
+credential handoff, catalog verification and actual scheduler installation are
+still required before notification publish blockers can be removed. No customer
+cron job was installed and no real email was sent. The queue's initial SQL is for
+a new installation; its changed RPC signatures must not be applied as an ad-hoc
+upgrade to an existing customer queue.

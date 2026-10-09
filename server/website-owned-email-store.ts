@@ -11,7 +11,7 @@ export function createOwnedEmailStore(client: OwnedEmailRpcClient): OwnedEmailSt
       if (typeof window !== 'undefined') throw new Error('Server-only delivery store.');
       const { data, error } = await client.rpc('app_email_claim', {
         p_id: input.jobId, p_project_id: input.projectId, p_environment: input.environment,
-        p_fingerprint: input.credentialFingerprint, p_from: input.from, p_lease_id: input.leaseId,
+        p_connection_id: input.connectionId, p_fingerprint: input.credentialFingerprint, p_from: input.from, p_lease_id: input.leaseId,
       });
       if (error) throw new Error('Email claim unavailable.');
       if (data === null) return null;
@@ -32,12 +32,12 @@ export function createOwnedEmailStore(client: OwnedEmailRpcClient): OwnedEmailSt
 /** Only a trusted server may choose a template/user. PostgreSQL resolves the verified
  * recipient from auth.users. The caller cannot supply an arbitrary email address. */
 export async function enqueueOwnedEmail(client: OwnedEmailRpcClient, input: {
-  id: string; recipientUserId: string; environment: 'preview' | 'staging' | 'production';
+  id: string; connectionId: string; recipientUserId: string; environment: 'preview' | 'staging' | 'production';
   from: string; subject: string; text: string;
 }): Promise<void> {
   if (typeof window !== 'undefined') throw new Error('Server-only delivery store.');
   const { data, error } = await client.rpc('app_email_enqueue', {
-    p_id: input.id, p_user_id: input.recipientUserId, p_environment: input.environment,
+    p_id: input.id, p_connection_id: input.connectionId, p_user_id: input.recipientUserId, p_environment: input.environment,
     p_from: input.from, p_subject: input.subject, p_text: input.text,
   });
   if (error || data !== true) throw new Error('Email queue unavailable.');
