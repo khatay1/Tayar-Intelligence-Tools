@@ -37,6 +37,20 @@ export interface ApplicationTransactionRule {
   lineQuantityFieldId: string;
   counterDirection: 'decrement' | 'increment';
 }
+export interface ApplicationWorkflowTransition {
+  id: string;
+  label: string;
+  from: string[];
+  to: string;
+  access: Exclude<ApplicationAccess, 'public'>;
+  roleId?: string;
+}
+/** A guarded enum state machine. The state field can only change through the
+ * generated atomic transition RPC, never through ordinary record updates. */
+export interface ApplicationWorkflowRule {
+  fieldId: string;
+  transitions: ApplicationWorkflowTransition[];
+}
 export interface ApplicationTable {
   id: string;
   key: string;
@@ -46,6 +60,7 @@ export interface ApplicationTable {
   booking?: ApplicationBookingRule;
   counter?: ApplicationCounterRule;
   transaction?: ApplicationTransactionRule;
+  workflow?: ApplicationWorkflowRule;
 }
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {
@@ -53,7 +68,7 @@ export interface ApplicationPageAccess {
   access: Exclude<ApplicationAccess, 'owner'>;
   roleId?: string;
 }
-export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction';
+export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow';
 export interface ApplicationRequirement {
   id: string;
   summary: string;

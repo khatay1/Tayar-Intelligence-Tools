@@ -45,7 +45,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction'], path)) return;
+    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'workflow'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
@@ -156,6 +156,40 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         }
       }
     }
+    if (table.workflow !== undefined) {
+      const workflowPath = `${path}.workflow`;
+      if (shape(table.workflow, ['fieldId', 'transitions'], workflowPath)) {
+        const workflow = table.workflow;
+        const field = Array.isArray(table.fields) ? table.fields.find(candidate => object(candidate) && candidate.id === workflow.fieldId) : undefined;
+        const options = object(field) && Array.isArray(field.options) ? field.options.filter(value => typeof value === 'string') : [];
+        if (!authEnabled || !id(workflow.fieldId) || !object(field) || field.type !== 'enum' || field.required !== true
+          || typeof field.defaultValue !== 'string' || !options.includes(field.defaultValue)) {
+          issue(workflowPath, 'invalid-workflow', 'A workflow needs Auth and a required enum state field with a declared default state.');
+        }
+        const transitionIds = new Set<string>();
+        const transitions = list(workflow.transitions, 100, `${workflowPath}.transitions`);
+        if (!transitions.length) issue(`${workflowPath}.transitions`, 'missing-transitions', 'A workflow needs at least one transition.');
+        transitions.forEach((transition, transitionIndex) => {
+          const transitionPath = `${workflowPath}.transitions[${transitionIndex}]`;
+          if (!shape(transition, ['id', 'label', 'from', 'to', 'access', 'roleId'], transitionPath)) return;
+          if (!id(transition.id) || transitionIds.has(String(transition.id))) issue(`${transitionPath}.id`, 'invalid-id', 'Workflow transition IDs must be valid and unique.');
+          else transitionIds.add(String(transition.id));
+          if (!name(transition.label)) issue(`${transitionPath}.label`, 'invalid-name', 'A workflow transition requires a label.');
+          if (!Array.isArray(transition.from) || !transition.from.length || transition.from.length > 100
+            || new Set(transition.from).size !== transition.from.length || transition.from.some(value => typeof value !== 'string' || !options.includes(value))) {
+            issue(`${transitionPath}.from`, 'invalid-workflow-state', 'Workflow source states must be unique declared enum options.');
+          }
+          if (typeof transition.to !== 'string' || !options.includes(transition.to) || (Array.isArray(transition.from) && transition.from.includes(transition.to))) {
+            issue(`${transitionPath}.to`, 'invalid-workflow-state', 'Workflow destination must be a different declared enum option.');
+          }
+          if (!['authenticated', 'owner', 'role'].includes(String(transition.access))) issue(`${transitionPath}.access`, 'invalid-access', 'Workflow transitions require authenticated, owner or role access.');
+          if (transition.access === 'role' && !roleIds.has(String(transition.roleId))) issue(`${transitionPath}.roleId`, 'missing-role', 'Role workflow access requires an existing role.');
+          if (transition.access !== 'role' && transition.roleId !== undefined) issue(`${transitionPath}.roleId`, 'unexpected-role', 'Only role transitions can specify a role.');
+        });
+        if (!Array.isArray(table.permissions) || !table.permissions.some(rule => object(rule) && rule.operation === 'read')
+          || !table.permissions.some(rule => object(rule) && rule.operation === 'update')) issue(workflowPath, 'workflow-permissions', 'Workflow transitions require explicit read and update permissions.');
+      }
+    }
     const permissionKeys = new Set<string>();
     list(table.permissions, APPLICATION_LIMITS.permissions, `${path}.permissions`).forEach((permission, index) => {
       const permissionPath = `${path}.permissions[${index}]`;
@@ -189,7 +223,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     if (manifest.version !== 1) issue('application.requirements.version', 'unsupported-version', 'Unsupported requirements manifest version.');
     if (typeof manifest.request !== 'string' || !manifest.request.trim() || manifest.request.length > 4000) issue('application.requirements.request', 'invalid-request', 'Requirements need the original nonempty request.');
     const requirementIds = new Set<string>();
-    const capabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction']);
+    const capabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction', 'workflow']);
     list(manifest.items, APPLICATION_LIMITS.requirements, 'application.requirements.items').forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ['id', 'summary', 'capability', 'evidence'], path)) return;
@@ -203,7 +237,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const evidencePath = `${path}.evidence[${evidenceIndex}]`;
         if (typeof entry !== 'string' || entry.length > 260) { issue(evidencePath, 'invalid-evidence', 'Invalid requirement evidence.'); return; }
         if (entry === 'auth') { if (!authEnabled) issue(evidencePath, 'missing-auth', 'Auth evidence requires enabled authentication.'); return; }
-        const match = /^(page|form|view|booking|counter|transaction):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
         if (!match) { issue(evidencePath, 'invalid-evidence', 'Evidence must reference a supported page, table or action.'); return; }
         if (match[1] === 'page') { if (match[3] || (pageIds && !pageIds.has(match[2]))) issue(evidencePath, 'missing-page', 'Page evidence requires an existing page.'); return; }
         const table = tables.find(candidate => object(candidate) && candidate.id === match[2]);
@@ -211,6 +245,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (match[1] === 'booking' && !object(table.booking)) issue(evidencePath, 'missing-booking', 'Booking evidence requires a native booking rule.');
         if (match[1] === 'counter' && !object(table.counter)) issue(evidencePath, 'missing-counter', 'Counter evidence requires a native counter rule.');
         if (match[1] === 'transaction' && !object(table.transaction)) issue(evidencePath, 'missing-transaction', 'Transaction evidence requires a native transaction rule.');
+        if (match[1] === 'workflow' && !object(table.workflow)) issue(evidencePath, 'missing-workflow', 'Workflow evidence requires a native workflow rule.');
         if (match[1] === 'view' && !match[3]) issue(evidencePath, 'missing-action', 'Data-view evidence requires an action.');
         if (match[1] !== 'view' && match[3]) issue(evidencePath, 'unexpected-action', 'Only data-view evidence can include an action.');
       });

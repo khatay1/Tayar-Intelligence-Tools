@@ -34,9 +34,9 @@ export function BuilderApplicationDataViewMapping({ section, application, disabl
           if (!event.target.checked && searchFieldId === field.id) setSearchFieldId('');
         }} />{field.name}
       </label>)}</fieldset>
-      <fieldset disabled={disabled}><legend>{l('Allowed actions')}</legend>{(['create', 'update', 'delete', 'adjust', 'transact'] as const).map(action => <label key={action}>
-        <input type="checkbox" checked={actions.includes(action)} disabled={disabled || !table.permissions.some(rule => rule.operation === (action === 'adjust' ? 'update' : action === 'transact' ? 'create' : action)) || (action === 'adjust' && !table.counter) || (action === 'transact' && !table.transaction)} onChange={event => setActions(current => event.target.checked ? [...current, action] : current.filter(value => value !== action))} />
-        {l(action === 'create' ? 'Add record' : action === 'update' ? 'Edit record' : action === 'adjust' ? 'Adjust quantity' : action === 'transact' ? 'Create transaction' : 'Delete record')}
+      <fieldset disabled={disabled}><legend>{l('Allowed actions')}</legend>{(['create', 'update', 'delete', 'adjust', 'transact', 'transition'] as const).map(action => <label key={action}>
+        <input type="checkbox" checked={actions.includes(action)} disabled={disabled || !table.permissions.some(rule => rule.operation === (action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action)) || (action === 'adjust' && !table.counter) || (action === 'transact' && !table.transaction) || (action === 'transition' && !table.workflow)} onChange={event => setActions(current => event.target.checked ? [...current, action] : current.filter(value => value !== action))} />
+        {l(action === 'create' ? 'Add record' : action === 'update' ? 'Edit record' : action === 'adjust' ? 'Adjust quantity' : action === 'transact' ? 'Create transaction' : action === 'transition' ? 'Workflow' : 'Delete record')}
       </label>)}</fieldset>
       <label>{l('Search column')}<select value={searchFieldId} disabled={disabled} onChange={event => setSearchFieldId(event.target.value)}>
         <option value="">{l('None')}</option>{table.fields.filter(field => field.type === 'text' && columns.includes(field.id)).map(field => <option key={field.id} value={field.id}>{field.name}</option>)}

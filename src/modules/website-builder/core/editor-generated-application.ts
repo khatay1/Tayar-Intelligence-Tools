@@ -54,6 +54,7 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
       if (view.table.booking && view.binding.actions.includes('create')) evidence.add(`booking:${view.table.id}`);
       if (view.table.counter && view.binding.actions.includes('adjust')) evidence.add(`counter:${view.table.id}`);
       if (view.table.transaction && view.binding.actions.includes('transact')) evidence.add(`transaction:${view.table.id}`);
+          if (view.table.workflow && view.binding.actions.includes('transition')) evidence.add(`workflow:${view.table.id}`);
       dataViews++;
     }
     if (section.type === 'contact' && !section.applicationFormBinding) throw new Error('Every form in a customer-owned application must be bound to its application data.');
@@ -76,8 +77,8 @@ export function prepareGeneratedApplication(generated: AIWebsiteGeneration, page
   if (counterRequested && !counterViews) throw new Error('Quantity management requires a bound adjustment view and a native counter rule.');
   if (transactionRequested && !transactionViews) throw new Error('Multi-item transactions require a bound transaction view and native parent, line and counter rules.');
   const requirementIds = new Set<string>();
-  const allowedCapabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction']);
-  const capabilityEvidence: Record<string, string> = { page: 'page:', auth: 'auth', form: 'form:', records: 'view:', booking: 'booking:', counter: 'counter:', transaction: 'transaction:' };
+  const allowedCapabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction', 'workflow']);
+  const capabilityEvidence: Record<string, string> = { page: 'page:', auth: 'auth', form: 'form:', records: 'view:', booking: 'booking:', counter: 'counter:', transaction: 'transaction:', workflow: 'workflow:' };
   const items = generated.requirements.map((item, index) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)
       || Object.keys(item).some(key => !['id', 'summary', 'capability', 'evidence'].includes(key))

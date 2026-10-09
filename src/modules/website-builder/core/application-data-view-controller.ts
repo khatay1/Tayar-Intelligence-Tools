@@ -1,12 +1,13 @@
 import { parseApplicationCounterDelta } from './application-counter';
 import { parseApplicationTransactionLines } from './application-transaction';
+import { applicationWorkflowTransition, availableApplicationWorkflowTransitions } from './application-workflow';
 import { readApplicationDefinition } from './application-validation';
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationDataView, dataViewAllows, parseApplicationDataViewValues, type ApplicationDataViewBinding } from './application-data-view';
 import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
 
-type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction'>;
+type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'>;
 const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
@@ -34,9 +35,9 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'adjust' ? 'update' : action === 'transact' ? 'create' : action, user, roles));
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles));
   }
-  async function write(action: 'create' | 'update' | 'delete' | 'adjust' | 'transact', execute: () => Promise<unknown>) {
+  async function write(action: 'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition', execute: () => Promise<unknown>) {
     if (writing) throw new Error('A record operation is already in progress.');
     writing = true;
     try {
@@ -79,6 +80,10 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       await identity();
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid relationship response.');
       return { options: rows.slice(0, 20).map(row => ({ id: rowId(row.id), label: label && typeof row[label.key] === 'string' && row[label.key] ? row[label.key] as string : row.id as string })), hasNext: rows.length > 20, searchable: !!label };
+    },
+    workflowTransitions(row: Record<string, unknown>) {
+      const field = compiled.table.workflow && compiled.table.fields.find(field => field.id === compiled.table.workflow!.fieldId);
+      return field ? availableApplicationWorkflowTransitions(compiled.table, row[field.key]) : [];
     },
     async transactionItemOptions(page = 0, query = '') {
       const rule = compiled.table.transaction;
@@ -124,6 +129,17 @@ export function createApplicationDataViewController(definition: ApplicationDefin
           createOnce: (_tableId, _payload, requestId) => runtime.adjustCounter(compiled.table.id, recordId, delta, requestId, owner!),
         }, { key: `${durableScope.keyPrefix}:adjust:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
         if (await submission.submit([]) !== 'confirmed') throw new Error('Counter outcome is uncertain. Keep the adjustment and retry.');
+      });
+    },
+    async transition(id: string, transitionId: string) {
+      const recordId = rowId(id);
+      applicationWorkflowTransition(compiled.table, transitionId);
+      if (!durableScope || !runtime.transitionWorkflow) throw new Error('Durable workflow transition is unavailable.');
+      await write('transition', async () => {
+        submission = createDurableApplicationFormSubmission({ tableId: compiled.table.id, values: () => ({ recordId, transitionId }) }, {
+          createOnce: (_tableId, _payload, requestId) => runtime.transitionWorkflow(compiled.table.id, recordId, transitionId, requestId, owner!),
+        }, { key: `${durableScope.keyPrefix}:workflow:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
+        if (await submission.submit([]) !== 'confirmed') throw new Error('Workflow outcome is uncertain. Keep the action and retry.');
       });
     },
     async transact(input: Record<string, unknown>, lines: unknown) {

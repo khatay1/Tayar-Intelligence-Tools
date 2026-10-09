@@ -1,6 +1,7 @@
 import { ApplicationCounterRejected, parseApplicationCounterDelta } from './application-counter';
 import { ApplicationTransactionRejected, parseApplicationTransactionLines } from './application-transaction';
 import { ApplicationBookingRejected, applicationBookingDatabaseRejection, validateApplicationBookingValues } from './application-booking';
+import { ApplicationWorkflowRejected, applicationWorkflowTransition } from './application-workflow';
 import { createApplicationBrowserSessionBridge, createOwnedApplicationBrowserSessionBridge,
   type ApplicationBrowserSessionOptions } from './application-browser-session';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -86,7 +87,8 @@ const rowId = (value: string) => {
 
 function writable(table: ApplicationTable, input: Record<string, unknown>): Record<string, unknown> {
   if (!input || Array.isArray(input) || typeof input !== 'object') throw new Error('Record values must be an object.');
-  const allowed = new Set(table.fields.map(field => field.key));
+  const workflowField = table.workflow ? table.fields.find(field => field.id === table.workflow!.fieldId)?.key : undefined;
+  const allowed = new Set(table.fields.filter(field => field.key !== workflowField).map(field => field.key));
   const values = Object.entries(input);
   if (!values.length || values.some(([key]) => !allowed.has(key))) throw new Error('Only declared application fields can be written.');
   return Object.fromEntries(values);
@@ -345,6 +347,20 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, client: 
       const current = await client.auth.getUser();
       if (current.error || current.data.user?.id !== expectedUserId) throw new Error('Transaction outcome is uncertain.');
       return { id: rowId(row.id), status: row.status as 'created' | 'already-created' };
+    },
+    async transitionWorkflow(tableId: string, id: string, transitionId: string, requestId: string, expectedUserId: string): Promise<'created' | 'already-created'> {
+      const target = table(tableId);
+      applicationWorkflowTransition(target, transitionId);
+      const index = app.tables.findIndex(candidate => candidate.id === target.id), token = await captureWriteToken(expectedUserId);
+      const query = client.rpc(`app_transition_workflow_${index}`, { record_id: rowId(id), transition_id: transitionId, request_id: rowId(requestId) });
+      if (token) query.setHeader('Authorization', `Bearer ${token}`);
+      const response = await query;
+      if (response.error?.code === 'P0001' && response.error.message === 'Application workflow transition unavailable') throw new ApplicationWorkflowRejected();
+      const result = checked(response);
+      if (result !== 'transitioned' && result !== 'already-transitioned') throw new Error('Workflow outcome is uncertain.');
+      const current = await client.auth.getUser();
+      if (current.error || current.data.user?.id !== expectedUserId) throw new Error('Workflow outcome is uncertain.');
+      return result === 'transitioned' ? 'created' : 'already-created';
     },
     async remove(tableId: string, id: string, expectedUserId?: string) {
       const target = table(tableId);
