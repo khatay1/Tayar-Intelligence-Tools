@@ -124,14 +124,16 @@ try {
   } };
   const handler = eventDispatcher({ projectId: project, environment: 'production', connectionId: 'mail', from, client,
     async resolveSecret(actual) { assert.equal(actual, ref); return credential; },
-    async resolveTemplate() { return { recipientUserId: user, subject: job.subject, text: job.text,
+    async resolveTemplate() { return { sourceEventId: jobId, recipientUserId: user, subject: job.subject, text: job.text,
       id: 'template-cannot-override-identity', from: 'attacker@example.com', environment: 'preview' }; },
     async fetcher(_, request) { assert.deepEqual(JSON.parse(request.body).to, [job.to]); return Response.json({ id: receipt }); },
   });
   const adapter = { deliverEmail: handler, async resolveSecret() { assert.fail(); }, async request() { assert.fail(); } };
   assert.equal((await dispatch({ version: 1, connections: [connection] }, event, adapter))[0].status, 'accepted');
   assert.equal((await emit({ version: 1, connections: [connection] }, event, adapter))[0].status, 'accepted');
+  assert.equal((await dispatch({ version: 1, connections: [connection] }, { ...event, id: 'another-client-envelope' }, adapter))[0].status, 'accepted');
   assert.equal(enqueues[0].p_id, enqueues[1].p_id); assert.equal(enqueues[0].p_user_id, user);
+  assert.equal(enqueues[0].p_id, enqueues[2].p_id, 'A different browser envelope cannot turn one committed event into another email');
   assert.equal(enqueues[0].p_from, from); assert.equal(enqueues[0].p_environment, 'production');
   assert.ok(!JSON.stringify(enqueues).includes('attacker@example.com'));
   const before = enqueues.length;

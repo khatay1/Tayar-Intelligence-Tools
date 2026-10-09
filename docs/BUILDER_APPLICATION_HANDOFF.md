@@ -272,7 +272,8 @@ items above is considered implemented by descriptive pages or ordinary CRUD.
 The Resend event boundary can now delegate to a server-only dispatcher using a
 customer PostgreSQL queue. Source event IDs survive retries and derive stable,
 project/environment/connection-scoped message UUIDs. The trusted server chooses
-the recipient user and template; the queue obtains the verified email from
+the committed source event UUID, recipient user and template; client envelope
+IDs cannot change message identity. The queue obtains the verified email from
 `auth.users`, rejects anonymous, unverified and banned recipients, and rechecks
 the frozen address before claiming. Public browser roles cannot enqueue, claim,
 finish or read these jobs. Queue functions are private definers with empty search

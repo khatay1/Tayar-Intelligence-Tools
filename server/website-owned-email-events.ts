@@ -12,7 +12,10 @@ export function createOwnedEmailEventDispatcher(input: {
   from: string;
   client: OwnedEmailRpcClient;
   resolveSecret(ref: string): Promise<string | undefined>;
-  resolveTemplate(event: EditorIntegrationEventEnvelope): Promise<{ recipientUserId: string; subject: string; text: string } | null>;
+  resolveTemplate(event: EditorIntegrationEventEnvelope): Promise<{
+    /** UUID read from the committed source event, never a newly generated delivery ID. */
+    sourceEventId: string; recipientUserId: string; subject: string; text: string;
+  } | null>;
   fetcher?: typeof fetch;
 }) {
   return async (connection: EditorIntegrationConnection, event: EditorIntegrationEventEnvelope): Promise<EditorIntegrationDelivery> => {
@@ -32,12 +35,13 @@ export function createOwnedEmailEventDispatcher(input: {
       const template = await input.resolveTemplate(event);
       if (!template) return { ...base, status: 'skipped', error: 'No authorized notification template.' };
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(template.recipientUserId)
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(template.sourceEventId)
         || typeof template.subject !== 'string' || template.subject.length > 200
         || typeof template.text !== 'string' || template.text.length > 32000) throw new Error();
       const key = await input.resolveSecret(ref);
       if (!key || !/^re_[A-Za-z0-9_-]{16,200}$/.test(key)) throw new Error();
       const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(
-        JSON.stringify([input.projectId, input.environment, input.connectionId, event.id]))));
+        JSON.stringify([input.projectId, input.environment, input.connectionId, template.sourceEventId]))));
       // UUIDv8: application-defined SHA-256 identity, not the SHA-1 UUIDv5 format.
       digest[6] = (digest[6] & 15) | 0x80; digest[8] = (digest[8] & 63) | 0x80;
       const hex = Array.from(digest.slice(0, 16), byte => byte.toString(16).padStart(2, '0')).join('');
