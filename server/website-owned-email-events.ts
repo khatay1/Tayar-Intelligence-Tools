@@ -37,8 +37,8 @@ export function createOwnedEmailEventDispatcher(input: {
       if (!template) return { ...base, status: 'skipped', error: 'No authorized notification template.' };
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(template.recipientUserId)
         || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(template.sourceEventId)
-        || typeof template.subject !== 'string' || template.subject.length > 200
-        || typeof template.text !== 'string' || template.text.length > 32000) throw new Error();
+        || typeof template.subject !== 'string' || template.subject.length > 400 || Array.from(template.subject).length > 200
+        || typeof template.text !== 'string' || template.text.length > 64000 || Array.from(template.text).length > 32000) throw new Error();
       const key = await input.resolveSecret(ref);
       if (!key || !/^re_[A-Za-z0-9_-]{16,200}$/.test(key)) throw new Error();
       const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(

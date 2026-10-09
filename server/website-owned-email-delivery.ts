@@ -58,9 +58,10 @@ export function isOwnedEmailAddress(value: unknown): value is string {
 function validJob(job: OwnedEmailJob, input: OwnedEmailWorkerInput) {
   return job.id === input.jobId && job.projectId === input.projectId && job.connectionId === input.connectionId && job.environment === input.environment
     && job.from === input.from && isOwnedEmailAddress(job.from) && isOwnedEmailAddress(job.to)
-    && typeof job.subject === 'string' && job.subject.trim().length > 0 && job.subject.length <= 200
+    && typeof job.subject === 'string' && job.subject.trim().length > 0 && job.subject.length <= 400 && Array.from(job.subject).length <= 200
     && !Array.from(job.subject).some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
-    && typeof job.text === 'string' && job.text.trim().length > 0 && job.text.length <= 32000 && !job.text.includes('\0');
+    && typeof job.text === 'string' && job.text.trim().length > 0 && job.text.length <= 64000
+    && Array.from(job.text).length <= 32000 && !job.text.includes('\0');
 }
 
 async function fingerprint(value: string) {

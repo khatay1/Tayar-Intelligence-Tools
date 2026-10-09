@@ -24,7 +24,7 @@ async function readReply(response: Response): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > 150_000) { await reader.cancel(); throw new Error(); }
+      if (size > 200_000) { await reader.cancel(); throw new Error(); }
       chunks.push(value);
     }
     const bytes = new Uint8Array(size); let offset = 0;
@@ -50,7 +50,7 @@ export function createOwnedEmailRpcClient(input: {
       if (typeof window !== 'undefined' || !rpcNames.has(name)) return { data: null, error: true };
       try {
         const body = JSON.stringify(args);
-        if (body.length > 150_000) throw new Error();
+        if (body.length > 200_000) throw new Error();
         const response = await (input.fetcher ?? fetch)(`${backendOrigin}/rest/v1/rpc/${name}`, {
           method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(5_000),
           headers: { apikey: input.secretKey, 'Content-Type': 'application/json', Accept: 'application/json',

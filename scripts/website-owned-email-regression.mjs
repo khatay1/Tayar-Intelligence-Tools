@@ -119,6 +119,10 @@ try {
     assert.ok(request.headers['Idempotency-Key'].includes(project)); return Response.json({ id: receipt });
   };
   assert.equal((await deliver(mutableDelivery)).status, 'accepted', 'Async configuration changes cannot replace the claimed credential or scope');
+  store = memoryStore(); store.state.job.subject = '😀'.repeat(200); store.state.job.text = '😀'.repeat(32000);
+  assert.equal((await deliver({ ...input(store), fetcher: async (_,request) => {
+    assert.equal(Array.from(JSON.parse(request.body).subject).length,200); return Response.json({ id:receipt });
+  } })).status, 'accepted', 'Unicode limits match PostgreSQL character counts');
 
   // Durable event IDs pass through the shared boundary; browser mail fields are ignored.
   const ref = `secret://website/${project}/mail/apiKey/production`;
@@ -191,6 +195,15 @@ try {
       return workerClient.rpc(name, args);
     } }, fetcher: async () => Response.json({ id: receipt }) });
   assert.equal(budgetCounts.scanned, 1, 'Budget ends the batch without claiming another job');
+  const visitedConnections = [];
+  const manyConnections = await drain({ ...workerScope, connections: Array.from({length:10},(_,index)=>({id:`mail-${index}`,from,apiKey:credential})),
+    monotonicNow:()=>0, client:{ async rpc(name,args) {
+      if(name==='app_email_due') { visitedConnections.push(args.p_connection_id); assert.equal(args.p_limit,2);
+        return {data:[crypto.randomUUID(),crypto.randomUUID()],error:null}; }
+      return {data:null,error:null};
+    } },fetcher:()=>assert.fail('Unclaimed job must not send') });
+  assert.equal(manyConnections.scanned,20); assert.equal(new Set(visitedConnections).size,10,
+    'Earlier connections cannot consume every slot in a bounded batch');
 
   const projectRef = 'abcdefghijklmnopqrst', backend = { projectRef, url: `https://${projectRef}.supabase.co`, publishableKey: 'sb_publishable_fixture' };
   const privateKey = 'sb_secret_fixture_only_01234567890123456789'; let httpCalls = 0;
@@ -217,7 +230,7 @@ try {
     async fetcher(url) { assert.equal(url,`${backend.url}/rest/v1/rpc/app_email_due`); return Response.json([]); }
   }).rpc('app_email_due', {});
   assert.equal((await httpClient({ backend, expectedProjectRef: projectRef, secretKey: privateKey,
-    async fetcher() { return new Response('x'.repeat(150_001)); } }).rpc('app_email_due', {})).error, true);
+    async fetcher() { return new Response('x'.repeat(200_001)); } }).rpc('app_email_due', {})).error, true);
   const notificationTable = { id: 'appointments', key: 'appointments', name: 'Appointments', fields: [
     { id: 'name', key: 'name', name: 'Name', type: 'text', required: true },
     { id: 'start', key: 'starts_at', name: 'Start', type: 'datetime', required: true },
@@ -272,6 +285,9 @@ try {
       alter table auth.users add column if not exists email_confirmed_at timestamptz;
       alter table auth.users add column if not exists banned_until timestamptz;
       update auth.users set email='verified@example.com',email_confirmed_at=clock_timestamp(),is_anonymous=false where id='${user}';`);
+    // The application compiler initializes its private schema on a new backend.
+    // The queue extends that schema, as the customer exporter must eventually do.
+    await query(appSql(definition).join('\n'));
     await query(compile(project));
     const enqueue = { p_id: jobId, p_connection_id: 'mail', p_user_id: user, p_environment: 'production', p_from: from, p_subject: job.subject, p_text: job.text };
     assert.equal((await dbClient.rpc('app_email_enqueue', enqueue)).data, true);
@@ -357,7 +373,6 @@ try {
     assert.equal([...requestsById.values()].reduce((sum,value)=>sum+value,0), 1);
     assert.equal(competing.reduce((sum,item)=>sum+item.accepted,0), 1);
     await query('delete from private.app_email_jobs;');
-    await query(appSql(definition).join('\n'));
     await query(compiledRules);
     const rowId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
     const asOwner = `set role authenticated; set request.jwt.claim.sub='${user}'; set request.jwt.claim.is_anonymous='false';`;
@@ -385,6 +400,15 @@ try {
     await query(`update auth.users set email_confirmed_at=null where id='${user}';`);
     await query(`${asOwner} insert into public.app_appointments(name,starts_at) values('Unverified','2026-10-10T09:00:00Z');`);
     assert.equal(await query('select count(*) from private.app_email_jobs;'), '2', 'Unverified recipients do not queue mail');
+    await query(`update auth.users set email_confirmed_at=clock_timestamp() where id='${user}';`);
+    await query(`${asOwner} insert into public.app_appointments(name,starts_at) values(${literal('😀'.repeat(400))},'2026-10-10T09:00:00Z');`);
+    let unicodeSent = false;
+    const ruleBatch = await drain({ ...workerScope,client:dbClient, async fetcher(_,request) {
+      const email = JSON.parse(request.body);
+      if (email.subject.includes('😀')) { unicodeSent=true; assert.equal(Array.from(email.subject).length,200); }
+      return Response.json({id:receipt});
+    } });
+    assert.equal(ruleBatch.accepted,3); assert.equal(unicodeSent,true);
     console.log('PASS PostgreSQL owned email: private RPC grants, verified recipients, competing leases, receipt replay and expired/changed bindings');
     console.log('PASS PostgreSQL email worker: due-time, connection and environment isolation; overlapping batches send a job once');
     console.log('PASS PostgreSQL email rules: atomic rollback, frozen UTC templates, guarded transitions, replay/foreign/unverified isolation');

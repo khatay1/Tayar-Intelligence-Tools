@@ -40,7 +40,7 @@ export async function drainOwnedEmailQueue(input: {
   const store = createOwnedEmailStore(input.client);
   for (const connection of input.connections) {
     if (elapsed() > 25_000 || counts.scanned >= 20) break;
-    const limit = Math.min(4, 20 - counts.scanned);
+    const limit = Math.min(4, Math.floor(20 / input.connections.length), 20 - counts.scanned);
     const { data, error } = await input.client.rpc('app_email_due', {
       p_project_id: input.projectId, p_environment: input.environment, p_connection_id: connection.id, p_limit: limit,
     });

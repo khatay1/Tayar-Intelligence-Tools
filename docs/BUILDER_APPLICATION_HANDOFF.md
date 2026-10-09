@@ -318,7 +318,9 @@ verified permanent owner when owner-read access exists. Auth identity and curren
 bans are checked; unknown variables, JSON fields, arbitrary recipients and
 executable template expressions are rejected. Declared field variables produce plain text with bounded
 values, UTC timestamps and sanitized subjects. SQL dollar delimiters are selected
-against the complete template body. A rolled-back record queues no message, an
+against the complete template body. Unicode character limits match PostgreSQL,
+including supplementary characters such as emoji. A rolled-back record queues
+no message, an
 ordinary update cannot resend the creation receipt, and replaying a committed
 workflow request cannot create a second notification.
 These database triggers are the sole producers for their compiled rules; the
