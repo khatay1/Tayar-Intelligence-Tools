@@ -65,6 +65,7 @@ export interface ApplicationTable {
   counter?: ApplicationCounterRule;
   transaction?: ApplicationTransactionRule;
   workflow?: ApplicationWorkflowRule;
+  attachments?: { maxBytes: number; mimeTypes: string[] };
 }
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {
@@ -72,7 +73,7 @@ export interface ApplicationPageAccess {
   access: Exclude<ApplicationAccess, 'owner'>;
   roleId?: string;
 }
-export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow' | 'formula';
+export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow' | 'formula' | 'files';
 export interface ApplicationRequirement {
   id: string;
   summary: string;

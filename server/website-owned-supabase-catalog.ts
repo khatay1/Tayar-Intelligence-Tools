@@ -1,3 +1,4 @@
+import { verifyOwnedFilesCatalog } from './website-owned-files-catalog';
 import { verifyOwnedCounterCatalog } from './website-owned-counter-catalog';
 import { verifyOwnedTransactionCatalog } from './website-owned-transaction-catalog';
 import { verifyOwnedWorkflowCatalog } from './website-owned-workflow-catalog';
@@ -220,6 +221,7 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
       && await verifyOwnedCounterCatalog(app, query)
       && await verifyOwnedTransactionCatalog(app, query)
       && await verifyOwnedWorkflowCatalog(app, query)
-      && await verifyOwnedFormulaCatalog(app, query);
+      && await verifyOwnedFormulaCatalog(app, query)
+      && await verifyOwnedFilesCatalog(app, query);
   } catch { return false; }
 }

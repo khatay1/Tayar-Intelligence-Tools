@@ -2,7 +2,7 @@
 /* eslint-disable no-var, @typescript-eslint/no-unused-vars -- Generated bundler syntax; lint the original server/service modules. */
 
 // server/website-application-backend-link.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@2.57.4";
+import { createClient as createClient5 } from "npm:@supabase/supabase-js@2.57.4";
 
 // supabase/functions/_shared/billing.ts
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
@@ -35,6 +35,18 @@ function getSecretKey() {
   if (!value) throw new HttpError(500, "Supabase secret key is not configured");
   return value;
 }
+
+// src/modules/website-builder/core/application-files.ts
+var APPLICATION_FILE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+];
+var APPLICATION_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
 // src/modules/website-builder/core/application-model.ts
 var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100, requirements: 100, requirementEvidence: 20 };
@@ -96,7 +108,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "workflow"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "workflow", "attachments"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -156,6 +168,13 @@ function validateApplicationDefinition(value, pageIds) {
           }
         }
       }
+    }
+    if (table.attachments !== void 0) {
+      const filePath = `${path}.attachments`, rule = table.attachments;
+      if (!shape(rule, ["maxBytes", "mimeTypes"], filePath) || !authEnabled || !Number.isSafeInteger(rule.maxBytes) || Number(rule.maxBytes) < 1 || Number(rule.maxBytes) > APPLICATION_FILE_MAX_BYTES || !Array.isArray(rule.mimeTypes) || !rule.mimeTypes.length || rule.mimeTypes.length > APPLICATION_FILE_TYPES.length || new Set(rule.mimeTypes).size !== rule.mimeTypes.length || rule.mimeTypes.some((type) => !APPLICATION_FILE_TYPES.includes(type))) {
+        issue(filePath, "invalid-files", "Attachments need Auth, a size limit up to 25 MiB and declared download-safe MIME types.");
+      }
+      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
     }
     if (table.counter !== void 0) {
       const counterPath = `${path}.counter`;
@@ -252,7 +271,7 @@ function validateApplicationDefinition(value, pageIds) {
     if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
     if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
     const requirementIds = /* @__PURE__ */ new Set();
-    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula"]);
+    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula", "files"]);
     list(manifest.items, APPLICATION_LIMITS.requirements, "application.requirements.items").forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ["id", "summary", "capability", "evidence"], path)) return;
@@ -272,7 +291,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
           return;
         }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments))?$/.exec(entry);
         if (!match) {
           issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
           return;
@@ -289,6 +308,7 @@ function validateApplicationDefinition(value, pageIds) {
         if (match[1] === "booking" && !object(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
         if (match[1] === "counter" && !object(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
         if (match[1] === "transaction" && !object(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
+        if (match[1] === "files" && !object(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
         if (match[1] === "workflow" && !object(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
         if (match[1] === "formula" && !table.fields.some((field) => object(field) && object(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
@@ -306,8 +326,11 @@ function readApplicationDefinition(value, pageIds) {
   return structuredClone(value);
 }
 
-// src/modules/website-builder/core/application-data-runtime.ts
+// src/modules/website-builder/core/application-files-runtime.ts
 import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4";
+
+// src/modules/website-builder/core/application-data-runtime.ts
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.57.4";
 function projectRef(url) {
   const parsed = new URL(url);
   const match = /^([a-z0-9]{20})\.supabase\.co$/.exec(parsed.hostname);
@@ -397,7 +420,7 @@ async function assertAuthSettings(definition, backend) {
 }
 
 // src/modules/website-builder/services/websiteApplicationBackendService.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.57.4";
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@2.57.4";
 function isDedicatedServiceKey(key, ref) {
   if (/^sb_secret_[A-Za-z0-9_-]+$/.test(key)) return true;
   const parts = key.split(".");
@@ -414,7 +437,7 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
   validateApplicationPublicBackend(backend, platformUrl);
   if (!isDedicatedServiceKey(serviceKey, backend.projectRef)) throw new Error("A dedicated backend service credential is required.");
   const backendUrl = backend.url;
-  const client = createClient3(backendUrl, serviceKey, {
+  const client = createClient4(backendUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: {
       fetch: (input, init) => {
@@ -561,7 +584,7 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return reply(405, "Method not allowed.");
   try {
     const platformUrl = getSupabaseUrl();
-    const platform = createClient4(platformUrl, getSecretKey(), {
+    const platform = createClient5(platformUrl, getSecretKey(), {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       global: {
         fetch: async (resource, init) => {

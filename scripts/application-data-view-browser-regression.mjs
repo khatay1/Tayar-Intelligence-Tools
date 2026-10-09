@@ -120,11 +120,28 @@ async function run(){
   const transactionBounds={en:'The change exceeds the allowed limits. Choose another amount.',ar:'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.',sv:'Ändringen överskrider tillåtna gränser. Välj ett annat antal.'}[language];
   check(transactionCalls===2&&transactionItems[1].quantity===4&&transactionRows.length===1&&transactionRoot.querySelector('[role=status]').textContent===transactionBounds,'multi-item underflow rolls back with localized message');
   stopTransaction();transactionHost.remove();
+  const filesApp={...app,roles:[],tables:[{...app.tables[0],permissions:['read','update'].map(operation=>({operation,access:'owner'})),attachments:{maxBytes:1024,mimeTypes:['application/pdf']}}]};
+  let fileUser=owner,fileWrites=0,firstFileId,uncertainFile=true,fileRows=[];
+  const fileRuntime={auth:{currentUser:async()=>({id:fileUser,is_anonymous:false}),currentRoles:async()=>[]},list:async()=>[{id:ids[0],name:'Invoice'}],files:{
+    list:async()=>({files:fileRows,hasNext:false}),upload:async(_table,_record,id,file)=>{fileWrites++;if(!firstFileId)firstFileId=id;check(firstFileId===id,'file retry identity retained');check(file.type==='application/pdf','selected file type');if(uncertainFile)throw Error('uncertain');fileRows=[{id,size:file.size}]},
+    remove:async()=>{fileRows=[]},download:async()=>new Blob(['pdf'],{type:'application/octet-stream'})}};
+  const fileHost=document.createElement('div');document.body.append(fileHost);const stopFiles=mountApplicationDataView(fileHost,filesApp,{tableId:'records',columns:['record_name'],actions:['attachments'],pageSize:10},fileRuntime,language,{projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'files',sectionId:'files'});
+  const fileRoot=fileHost.shadowRoot,fileIdle=()=>wait(()=>fileRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const fileButton=text=>[...fileRoot.querySelectorAll('button')].find(button=>button.textContent===text&&!button.hidden&&!button.disabled);
+  const fileCopy={en:{open:'Attachments',upload:'Upload file'},ar:{open:'المرفقات',upload:'رفع ملف'},sv:{open:'Bilagor',upload:'Ladda upp fil'}}[language];
+  await fileIdle();fileButton(fileCopy.open).click();await wait(()=>fileRoot.querySelector('input[type=file]'));
+  const fileInput=fileRoot.querySelector('input[type=file]'),transfer=new DataTransfer();transfer.items.add(new File(['%PDF-fixture'],'invoice.pdf',{type:'application/pdf'}));fileInput.files=transfer.files;fileInput.dispatchEvent(new Event('change'));
+  fileButton(fileCopy.upload).click();await fileIdle();check(fileWrites===1&&fileInput.files.length===1,'uncertain upload preserves selected bytes');
+  uncertainFile=false;fileButton(fileCopy.upload).click();await fileIdle();check(fileWrites===2&&fileRows.length===1&&fileRoot.querySelector('.editor').textContent.includes(firstFileId),'retry uploads once and lists attachment');
+  window.confirm=()=>true;fileButton(copy.remove).click();await fileIdle();check(fileRows.length===0,'attachment deletion');
+  fileUser='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';fileButton(copy.refresh).click();await fileIdle();check(!fileRoot.querySelector('input[type=file]')&&!fileRoot.querySelector('tbody tr'),'account switch clears selected private file and records');
+  stopFiles();fileHost.remove();
+
 
 
  }
 }
-run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / reference selectors / generic counters / atomic transactions / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
+run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / reference selectors / generic counters / atomic transactions / private attachments / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'data-view-fixture.ts' }, bundle: true, write: false,
     platform: 'browser', format: 'iife', target: 'es2020', alias: { '@': resolve('src') } });
   const html = '<!doctype html><html><body><p id="result">RUNNING</p><script src="/fixture.js"></script></body></html>';

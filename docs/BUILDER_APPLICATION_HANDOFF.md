@@ -32,9 +32,9 @@ clear the UI. Create requests persist only a scoped UUID and SHA-256 fingerprint
 in tab storage so an uncertain commit can be reconciled after a reload without
 duplicating a row. Submitted values and record caches are never persisted there.
 
-This supplies working generic record dashboards/editors. Inventory reservations,
-file attachments and notification delivery still require dedicated business
-adapters; basic CRUD must not claim these.
+This supplies working generic record dashboards/editors. Inventory reservations use the native transaction adapter below. Notification
+delivery still requires a dedicated adapter; basic CRUD must not claim it.
+Private record files use the attachment adapter described below.
 
 ## Conflict-safe resource bookings
 
@@ -104,6 +104,36 @@ tax rules, payment capture or financial ledgers. The formula regression covers
 derived insert/update values and forged writes in the isolated CI PostgreSQL
 fixture; customer deployment and browser activation remain separate gates.
 
+## Private record attachments
+
+A table can declare `attachments: {maxBytes, mimeTypes}` and a data view can bind
+`attachments`. Auth and explicit record read/update permissions are mandatory.
+The editor and AI generation retain the same validated configuration; the
+requirements manifest proves files only when an actual attachment view is bound.
+Supported types are PDF, JPEG, PNG, WebP, plain text and OpenXML DOCX/XLSX, with
+an explicit per-file limit up to 25 MiB.
+
+The customer database owns one private Storage bucket per enabled table. Strict
+UUID paths attach immutable objects to existing records. Invoker policy functions
+check permanent-user identity and the actual parent record's read/update access.
+Restrictive policies prevent an unrelated broad permissive Storage policy from
+bypassing these guards. They leave unrelated buckets alone. Public bucket flags,
+limits, MIME lists, exact functions and both permissive/restrictive policy bodies
+must pass the customer publish catalog check. Update/upsert/move/overwrite are
+not allowed. New rules are additive; removing or changing an existing rule requires
+a reviewed storage migration. Permission changes replace the file policies.
+
+The browser pins each Storage request to a captured customer JWT, rejects late
+responses after identity changes/disposal, paginates 20 files and downloads bytes
+as an attachment without inline rendering or public/signed links. Readers can
+list/download; authorized editors can upload/delete. An uncertain upload retains
+the same selected file and UUID for retry. A duplicate counts as success only
+when the downloaded bytes match SHA-256. Files and rows never enter snapshots.
+Files display stable identifiers rather than storing original filenames. The
+adapter does not provide malware scanning, inline previews, external drives,
+public sharing or automatic cleanup of files after parent-record deletion.
+Orphaned files lose parent access and require customer Storage maintenance.
+
 ## Ownership after handover
 
 GitHub source, dedicated Supabase data/Auth and Vercel hosting belong to the connected customer's accounts. Tayar is setup/editing tooling. The deployed runtime operates independently of Tayar, and the customer manages billing, backups, user administration, monitoring and maintenance.
@@ -112,7 +142,18 @@ Setup OAuth permissions and application runtime credentials are different. Remov
 
 The exported schema is for reconstructing a NEW dedicated project, not rerunning on an existing database and not a data backup.
 
-## Live activation is still incomplete
+## Activation history and remaining customer verification
+
+The following October 7 observations are historical. On October 9 the
+production migration/function/browser-setting inventory passed; production Vercel
+and `website-byo-publish` were brought to the merged calculated-field commit
+`fa1da4f3ecfb1a539021fe0cd568325e7d6b8663`. Vercel deployment
+`dpl_5GXMfutcmhnUwvFyWR6D4XLuCi68` was READY, and the signed deployment fetch
+returned the homepage and new calculated-field builder bundle successfully.
+The publish function was ACTIVE as v6 with JWT verification enabled; origin-bound
+OPTIONS and unauthenticated POST checks returned the expected 204/401. These
+checks do not prove customer OAuth consent or a complete customer-owned publish.
+The attachment work below still needs its own release gate and deployment.
 
 Read-only production inspection on 2026-10-07 found no deployed `website-github-connection`, `website-supabase-connection`, `website-vercel-connection` or `website-byo-publish` functions. Browser connection endpoint settings existed for Preview only, not Production. No production provider settings, account permissions, paid plans or existing client projects were changed by this work.
 
@@ -150,7 +191,7 @@ No provider setup consent or real customer-owned deployment was performed in thi
 
 ## Supported scope and remaining application work
 
-The runtime is shared across project types: Auth, role-protected pages, create forms, bound data dashboards/editing views, related-record selectors, conflict-safe single-resource bookings, atomic single-record stock/quota/points adjustments and native multi-item quantity transactions. A transaction creates one parent record and its line records while changing every selected counter in one database transaction with deterministic locking and retry deduplication. These are reusable capabilities for customer portals, resource management, membership tools, inventory applications, order capture, stock reservations and material issuance. Payment capture/fulfilment, financial ledgers, live calendars/availability, recurring scheduling, SMS/email and files still require additional runtime adapters and complete-flow tests. Generation must explicitly reject unsupported requested features instead of substituting descriptive sections.
+The runtime is shared across project types: Auth, role-protected pages, create forms, bound data dashboards/editing views, related-record selectors, conflict-safe single-resource bookings, atomic single-record stock/quota/points adjustments and native multi-item quantity transactions. A transaction creates one parent record and its line records while changing every selected counter in one database transaction with deterministic locking and retry deduplication. These are reusable capabilities for customer portals, resource management, membership tools, inventory applications, order capture, stock reservations and material issuance. Payment capture/fulfilment, financial ledgers, live calendars/availability, recurring scheduling, SMS/email still require additional runtime adapters and complete-flow tests. Generation must explicitly reject unsupported requested features instead of substituting descriptive sections.
 
 The existing Apex Dental publication has not been rewritten or republished. It needs a new complete application revision after the relevant adapters and live connection activation are ready.
 
@@ -196,3 +237,32 @@ Activation contains neither the production admin UUID nor this clinic project. A
 The new regression exercises the actual AI generation handler. It fails on baseline main (`5ff20905`) because the application definition is dropped, and passes with this change. It also checks native forms, internal routes, page access identity, history snapshots and atomic rejection of unsafe/incomplete results.
 
 Application, independent infrastructure/publishing and owned-source suites pass. TypeScript, production build and ESLint have been checked; four existing unused-directive lint warnings and the existing large-bundle build warning remain. Full project health was resumed after adding the new Arabic/Swedish UI phrases.
+
+### Attachment continuation — 2026-10-09
+
+Implemented native configuration, strict generation/evidence validation, private
+bucket schema, invoker policies with restrictive guards, additive migration,
+privileged catalog proof, captured-JWT browser operations and localized editor/
+published panels. Added focused SDK/controller coverage, real PostgreSQL CI
+coverage and real browser attachment scenarios in English, Arabic and Swedish.
+Local focused checks and hosted PostgreSQL/browser checks must be recorded
+separately; successful mocked Storage calls do not prove a live customer upload.
+
+Remaining primary work, in dependency order:
+
+1. Notification provider binding and server-only credentials, a durable delivery
+   queue with retry receipts, validated recipients, consent and template variables;
+   real email/SMS delivery tests in a consenting customer account.
+2. Orders linked to authenticated Stripe Checkout, signature-verified webhook
+   receipts, replay protection, authorized refunds and fulfilment transitions;
+   live and test environment isolation and customer payment-flow tests.
+3. Booking availability, time zones and business hours, recurrence and atomic
+   allocation of multiple resources; real scheduling UI and concurrency tests.
+4. Cross-record totals and exact monetary rounding/tax rules, with independently
+   verified ledger semantics rather than ordinary editable numeric fields.
+5. A complete independent customer Preview → Production → handover test, using
+   separate customer-owned resources and actual OAuth consent; verify the app
+   after setup authorization is revoked while runtime credentials remain.
+
+Social integrations remain in the separate deferred plan. None of the pending
+items above is considered implemented by descriptive pages or ordinary CRUD.

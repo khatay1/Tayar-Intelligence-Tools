@@ -2,7 +2,7 @@
 /* eslint-disable no-var, @typescript-eslint/no-unused-vars -- Generated bundler syntax; lint the original server/service modules. */
 
 // server/website-application-release.ts
-import { createClient as createClient5 } from "npm:@supabase/supabase-js@2.57.4";
+import { createClient as createClient6 } from "npm:@supabase/supabase-js@2.57.4";
 
 // supabase/functions/_shared/billing.ts
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
@@ -35,6 +35,18 @@ function getSecretKey() {
   if (!value) throw new HttpError(500, "Supabase secret key is not configured");
   return value;
 }
+
+// src/modules/website-builder/core/application-files.ts
+var APPLICATION_FILE_TYPES = [
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+];
+var APPLICATION_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
 // src/modules/website-builder/core/application-model.ts
 var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100, requirements: 100, requirementEvidence: 20 };
@@ -96,7 +108,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "workflow"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "workflow", "attachments"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -156,6 +168,13 @@ function validateApplicationDefinition(value, pageIds) {
           }
         }
       }
+    }
+    if (table.attachments !== void 0) {
+      const filePath = `${path}.attachments`, rule = table.attachments;
+      if (!shape(rule, ["maxBytes", "mimeTypes"], filePath) || !authEnabled || !Number.isSafeInteger(rule.maxBytes) || Number(rule.maxBytes) < 1 || Number(rule.maxBytes) > APPLICATION_FILE_MAX_BYTES || !Array.isArray(rule.mimeTypes) || !rule.mimeTypes.length || rule.mimeTypes.length > APPLICATION_FILE_TYPES.length || new Set(rule.mimeTypes).size !== rule.mimeTypes.length || rule.mimeTypes.some((type) => !APPLICATION_FILE_TYPES.includes(type))) {
+        issue(filePath, "invalid-files", "Attachments need Auth, a size limit up to 25 MiB and declared download-safe MIME types.");
+      }
+      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
     }
     if (table.counter !== void 0) {
       const counterPath = `${path}.counter`;
@@ -252,7 +271,7 @@ function validateApplicationDefinition(value, pageIds) {
     if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
     if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
     const requirementIds = /* @__PURE__ */ new Set();
-    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula"]);
+    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula", "files"]);
     list(manifest.items, APPLICATION_LIMITS.requirements, "application.requirements.items").forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ["id", "summary", "capability", "evidence"], path)) return;
@@ -272,7 +291,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
           return;
         }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments))?$/.exec(entry);
         if (!match) {
           issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
           return;
@@ -289,6 +308,7 @@ function validateApplicationDefinition(value, pageIds) {
         if (match[1] === "booking" && !object(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
         if (match[1] === "counter" && !object(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
         if (match[1] === "transaction" && !object(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
+        if (match[1] === "files" && !object(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
         if (match[1] === "workflow" && !object(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
         if (match[1] === "formula" && !table.fields.some((field) => object(field) && object(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
@@ -305,6 +325,9 @@ function readApplicationDefinition(value, pageIds) {
   if (issues.length) throw new Error(issues.map((item) => `${item.path}: ${item.message}`).join("\n"));
   return structuredClone(value);
 }
+
+// src/modules/website-builder/core/application-files-runtime.ts
+import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4";
 
 // src/modules/website-builder/core/application-booking.ts
 var ApplicationBookingRejected = class extends Error {
@@ -336,7 +359,7 @@ function applicationOriginForProject(projectId, hostSuffix, platformOrigin) {
 }
 
 // src/modules/website-builder/core/application-data-runtime.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4";
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.57.4";
 function projectRef(url) {
   const parsed = new URL(url);
   const match = /^([a-z0-9]{20})\.supabase\.co$/.exec(parsed.hostname);
@@ -433,7 +456,7 @@ async function assertAuthSettings(definition, backend) {
 }
 
 // src/modules/website-builder/services/websiteApplicationBackendService.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.57.4";
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@2.57.4";
 var uuid2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isDedicatedServiceKey(key, ref) {
   if (/^sb_secret_[A-Za-z0-9_-]+$/.test(key)) return true;
@@ -451,7 +474,7 @@ function createDedicatedApplicationRevisionReader(backend, platformUrl, serviceK
   validateApplicationPublicBackend(backend, platformUrl);
   if (!isDedicatedServiceKey(serviceKey, backend.projectRef)) throw new Error("A dedicated backend service credential is required.");
   const backendUrl = backend.url;
-  const client = createClient3(backendUrl, serviceKey, {
+  const client = createClient4(backendUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: {
       fetch: (input, init) => {
@@ -6685,6 +6708,11 @@ function localizeUi(text2, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Record attachments": "\u0645\u0631\u0641\u0642\u0627\u062A \u0627\u0644\u0633\u062C\u0644",
+  "Private files follow record permissions. Downloads require sign-in; uploads and deletion require update access.": "\u062A\u062A\u0628\u0639 \u0627\u0644\u0645\u0644\u0641\u0627\u062A \u0627\u0644\u062E\u0627\u0635\u0629 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0633\u062C\u0644. \u064A\u062A\u0637\u0644\u0628 \u0627\u0644\u062A\u0646\u0632\u064A\u0644 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644\u060C \u0648\u064A\u062A\u0637\u0644\u0628 \u0627\u0644\u0631\u0641\u0639 \u0648\u0627\u0644\u062D\u0630\u0641 \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062A\u0639\u062F\u064A\u0644.",
+  "Maximum file size (MiB)": "\u0623\u0642\u0635\u0649 \u062D\u062C\u0645 \u0644\u0644\u0645\u0644\u0641 (MiB)",
+  "Save attachment rule": "\u062D\u0641\u0638 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0645\u0631\u0641\u0642\u0627\u062A",
+  "Remove attachment rule": "\u0625\u0632\u0627\u0644\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0645\u0631\u0641\u0642\u0627\u062A",
   "Atomic quantity adjustments": "\u062A\u063A\u064A\u064A\u0631\u0627\u062A \u0643\u0645\u064A\u0629 \u0630\u0631\u0651\u064A\u0629",
   "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "\u0644\u0644\u0645\u062E\u0632\u0648\u0646 \u0648\u0627\u0644\u062D\u0635\u0635 \u0648\u0627\u0644\u0646\u0642\u0627\u0637. \u062A\u0628\u062F\u0623 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0639\u0646\u062F \u0627\u0644\u062D\u062F \u0627\u0644\u0623\u062F\u0646\u0649 \u0648\u062A\u064F\u063A\u064A\u0651\u0631 \u0627\u0644\u0643\u0645\u064A\u0629 \u0628\u0625\u062C\u0631\u0627\u0621 \u0645\u062D\u0645\u064A.",
   "Quantity field": "\u062D\u0642\u0644 \u0627\u0644\u0643\u0645\u064A\u0629",
@@ -7247,6 +7275,11 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Record attachments": "Postbilagor",
+  "Private files follow record permissions. Downloads require sign-in; uploads and deletion require update access.": "Privata filer f\xF6ljer postens beh\xF6righeter. Nedladdning kr\xE4ver inloggning; uppladdning och borttagning kr\xE4ver \xE4ndrings\xE5tkomst.",
+  "Maximum file size (MiB)": "Maximal filstorlek (MiB)",
+  "Save attachment rule": "Spara bilageregel",
+  "Remove attachment rule": "Ta bort bilageregel",
   "Atomic quantity adjustments": "Atom\xE4ra m\xE4ngd\xE4ndringar",
   "Use for stock, quotas or points. New records start at the minimum; changes use a protected adjustment.": "F\xF6r lager, kvoter och po\xE4ng. Nya poster b\xF6rjar vid minimum; \xE4ndringar anv\xE4nder en skyddad justering.",
   "Quantity field": "M\xE4ngdf\xE4lt",
@@ -10167,7 +10200,7 @@ function compileApplicationCreateForm(definition, source, input) {
 // src/modules/website-builder/core/application-data-view.ts
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateApplicationDataViewShape(value) {
-  if (!object2(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
+  if (!object2(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition", "attachments"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
   return true;
 }
 function compileApplicationDataView(definition, input) {
@@ -10175,7 +10208,8 @@ function compileApplicationDataView(definition, input) {
   if (!app.auth.enabled || !validateApplicationDataViewShape(input)) throw new Error("Invalid application data view.");
   const binding = structuredClone(input);
   const table = app.tables.find((table2) => table2.id === binding.tableId);
-  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (action === "adjust" || action === "transition" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
+  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (action === "attachments" ? "read" : action === "adjust" || action === "transition" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
+  if (binding.actions.includes("attachments") && !table.attachments) throw new Error("Attachments require a native file rule.");
   if (binding.actions.includes("adjust") && !table.counter) throw new Error("Adjustment requires a native counter rule.");
   if (binding.actions.includes("transact") && !table.transaction) throw new Error("Transaction creation requires a native transaction rule.");
   if (binding.actions.includes("transition") && !table.workflow) throw new Error("State transition requires a native workflow rule.");
@@ -10292,7 +10326,7 @@ function assertValidPublishVersionArchive(reference) {
 }
 
 // src/modules/website-builder/services/websiteApplicationPageService.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@2.57.4";
+import { createClient as createClient5 } from "npm:@supabase/supabase-js@2.57.4";
 
 // src/modules/website-builder/services/websiteApplicationPublishedService.ts
 var uuid5 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -10540,7 +10574,7 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return reply2(405, "Method not allowed.");
   try {
     const platformUrl = getSupabaseUrl();
-    const platform = createClient5(platformUrl, getSecretKey(), {
+    const platform = createClient6(platformUrl, getSecretKey(), {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       global: {
         fetch: async (resource, init) => {

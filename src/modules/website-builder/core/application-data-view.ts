@@ -5,7 +5,7 @@ import { readApplicationDefinition } from './application-validation';
 export interface ApplicationDataViewBinding {
   tableId: string;
   columns: string[];
-  actions: Array<'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition'>;
+  actions: Array<'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition' | 'attachments'>;
   pageSize: number;
   searchFieldId?: string;
 }
@@ -20,7 +20,7 @@ export function validateApplicationDataViewShape(value: unknown): value is Appli
     || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80
     || value.columns.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id))
     || new Set(value.columns).size !== value.columns.length
-    || !Array.isArray(value.actions) || value.actions.some(action => !['create', 'update', 'delete', 'adjust', 'transact', 'transition'].includes(String(action)))
+    || !Array.isArray(value.actions) || value.actions.some(action => !['create', 'update', 'delete', 'adjust', 'transact', 'transition', 'attachments'].includes(String(action)))
     || new Set(value.actions).size !== value.actions.length
     || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50
     || (value.searchFieldId !== undefined && (typeof value.searchFieldId !== 'string' || !value.columns.includes(value.searchFieldId)))) return false;
@@ -33,7 +33,8 @@ export function compileApplicationDataView(definition: ApplicationDefinition, in
   const binding = structuredClone(input);
   const table = app.tables.find(table => table.id === binding.tableId);
   if (!table || !table.fields.length || !table.permissions.some(rule => rule.operation === 'read')
-    || binding.actions.some(action => !table.permissions.some(rule => rule.operation === (action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action)))) throw new Error('Data view requires declared read and action permissions.');
+    || binding.actions.some(action => !table.permissions.some(rule => rule.operation === (action === 'attachments' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action)))) throw new Error('Data view requires declared read and action permissions.');
+  if (binding.actions.includes('attachments') && !table.attachments) throw new Error('Attachments require a native file rule.');
   if (binding.actions.includes('adjust') && !table.counter) throw new Error('Adjustment requires a native counter rule.');
   if (binding.actions.includes('transact') && !table.transaction) throw new Error('Transaction creation requires a native transaction rule.');
   if (binding.actions.includes('transition') && !table.workflow) throw new Error('State transition requires a native workflow rule.');

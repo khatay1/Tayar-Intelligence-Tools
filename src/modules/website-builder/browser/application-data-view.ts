@@ -10,9 +10,9 @@ import { createApplicationDataViewController } from '../core/application-data-vi
 import type { createApplicationDataRuntime } from '../core/application-data-runtime';
 
 const translations = {
-  en: { unavailable: 'The transaction is unavailable. Check the selected items and access.', transact: 'Create transaction', addLine: 'Add item', item: 'Item', quantity: 'Quantity', bounds: 'The change exceeds the allowed limits. Choose another amount.', adjust: 'Adjust quantity', delta: 'Change (+ / −)', relatedError: 'Could not load related records. Check access and try again.', conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
-  ar: { unavailable: 'المعاملة غير متاحة. تحقّق من العناصر المحددة والصلاحيات.', transact: 'إنشاء معاملة', addLine: 'إضافة عنصر', item: 'العنصر', quantity: 'الكمية', bounds: 'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.', adjust: 'تغيير الكمية', delta: 'التغيير (+ / −)', relatedError: 'تعذّر تحميل السجلات المرتبطة. تحقّق من صلاحية الوصول وحاول مجددًا.', conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
-  sv: { unavailable: 'Transaktionen är inte tillgänglig. Kontrollera valda poster och åtkomst.', transact: 'Skapa transaktion', addLine: 'Lägg till post', item: 'Post', quantity: 'Antal', bounds: 'Ändringen överskrider tillåtna gränser. Välj ett annat antal.', adjust: 'Ändra antal', delta: 'Ändring (+ / −)', relatedError: 'Kunde inte läsa relaterade poster. Kontrollera åtkomst och försök igen.', conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
+  en: { files: 'Attachments', upload: 'Upload file', download: 'Download', fileConfirm: 'Delete this attachment permanently?', fileLimit: 'Allowed types and size', unavailable: 'The transaction is unavailable. Check the selected items and access.', transact: 'Create transaction', addLine: 'Add item', item: 'Item', quantity: 'Quantity', bounds: 'The change exceeds the allowed limits. Choose another amount.', adjust: 'Adjust quantity', delta: 'Change (+ / −)', relatedError: 'Could not load related records. Check access and try again.', conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
+  ar: { files: 'المرفقات', upload: 'رفع ملف', download: 'تنزيل', fileConfirm: 'هل تريد حذف هذا المرفق نهائيًا؟', fileLimit: 'الأنواع والحجم المسموحان', unavailable: 'المعاملة غير متاحة. تحقّق من العناصر المحددة والصلاحيات.', transact: 'إنشاء معاملة', addLine: 'إضافة عنصر', item: 'العنصر', quantity: 'الكمية', bounds: 'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.', adjust: 'تغيير الكمية', delta: 'التغيير (+ / −)', relatedError: 'تعذّر تحميل السجلات المرتبطة. تحقّق من صلاحية الوصول وحاول مجددًا.', conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
+  sv: { files: 'Bilagor', upload: 'Ladda upp fil', download: 'Ladda ner', fileConfirm: 'Ta bort bilagan permanent?', fileLimit: 'Tillåtna typer och storlek', unavailable: 'Transaktionen är inte tillgänglig. Kontrollera valda poster och åtkomst.', transact: 'Skapa transaktion', addLine: 'Lägg till post', item: 'Post', quantity: 'Antal', bounds: 'Ändringen överskrider tillåtna gränser. Välj ett annat antal.', adjust: 'Ändra antal', delta: 'Ändring (+ / −)', relatedError: 'Kunde inte läsa relaterade poster. Kontrollera åtkomst och försök igen.', conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
 };
 
 /** A native, isolated data component. All record values use textContent/value;
@@ -30,7 +30,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const root = host.attachShadow({ mode: 'open' });
   let disposed = false, busy = false, sequence = 0, page = 0, query = '';
   let references: Array<ReturnType<typeof createApplicationReferenceInput>> = [];
-  function stopEditor() { for (const reference of references) reference.dispose(); references = []; }
+  let editorSequence = 0;
+  const downloadUrls = new Set<string>();
+  function stopEditor() { editorSequence++; for (const url of downloadUrls) URL.revokeObjectURL(url); downloadUrls.clear(); for (const reference of references) reference.dispose(); references = []; }
   const style = document.createElement('style');
   style.textContent = ':host{display:block;font:15px/1.5 system-ui,sans-serif;color:#0f172a}*{box-sizing:border-box}.view{background:#fff;border:1px solid #cbd5e1;border-radius:14px;padding:20px}.toolbar,.pager{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:start;padding:10px;border-bottom:1px solid #e2e8f0;white-space:pre-wrap;overflow-wrap:anywhere;max-width:360px}th{background:#f1f5f9}button,input,select,textarea{font:inherit}button{border:1px solid #64748b;border-radius:8px;padding:8px 12px;background:#f8fafc;color:#0f172a;cursor:pointer}button:disabled{opacity:.5;cursor:default}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #2563eb;outline-offset:2px}.danger{color:#b91c1c}label{display:grid;gap:5px;margin:12px 0}input,select,textarea{width:100%;padding:9px;border:1px solid #94a3b8;border-radius:6px;background:#fff;color:#0f172a}textarea{min-height:100px}.editor{border:1px solid #94a3b8;padding:16px;border-radius:10px;margin:16px 0}h3{margin:0}p{overflow-wrap:anywhere}[hidden]{display:none!important}';
   const view = document.createElement('div'); view.className = 'view'; view.dir = language === 'ar' ? 'rtl' : 'ltr';
@@ -76,7 +78,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       const actions = await controller.permissions();
       const result = await controller.load(page, query);
       if (disposed || current !== sequence) return;
-      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.includes('update') && !actions.includes('delete') && !actions.includes('adjust') && !actions.includes('transition');
+      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.includes('update') && !actions.includes('delete') && !actions.includes('adjust') && !actions.includes('transition') && !actions.includes('attachments');
       for (const row of result.rows) {
         const tr = document.createElement('tr');
         for (const field of controller.columns) { const td = document.createElement('td'); td.textContent = display(row[field.key], field); tr.append(td); }
@@ -88,6 +90,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
               .catch((error: unknown) => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = failure(error); } });
           }));
         }
+        if (actions.includes('attachments')) td.append(button(copy.files, () => openFiles(String(row.id))));
         if (actions.includes('adjust')) td.append(button(copy.adjust, () => openAdjustment(row)));
         if (actions.includes('update')) td.append(button(copy.edit, () => openEditor(row)));
         if (actions.includes('delete')) {
@@ -108,6 +111,51 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     if (value === null || value === undefined) return '—';
     if (field.type === 'boolean') return value ? copy.yes : copy.no;
     return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  }
+  function openFiles(recordId: string) {
+    if (disposed || busy || !controller.table.attachments) return;
+    stopEditor(); editor.replaceChildren(); editor.hidden = false;
+    const current = editorSequence, rule = controller.table.attachments;
+    const active = () => !disposed && current === editorSequence;
+    const info = document.createElement('p'); info.textContent = `${copy.fileLimit}: ${rule.mimeTypes.join(', ')}; ${rule.maxBytes / (1024 * 1024)} MiB`;
+    const input = document.createElement('input'); input.type = 'file'; input.accept = rule.mimeTypes.join(','); input.setAttribute('aria-label', copy.upload);
+    const list = document.createElement('div'); let canWrite = false, filePage = 0, hasNext = false, selectedId = crypto.randomUUID();
+    input.addEventListener('change', () => { selectedId = crypto.randomUUID(); });
+    const report = () => { if (active()) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.failed; } };
+    async function loadFiles() {
+      if (!active()) return;
+      canWrite = await controller.fileWritesAllowed();
+      const result = await controller.listFiles(recordId, filePage);
+      if (!active()) return;
+      input.hidden = !canWrite; upload.hidden = !canWrite;
+      list.replaceChildren(); hasNext = result.hasNext;
+      for (const file of result.files) {
+        const row = document.createElement('p'); row.textContent = `${file.id} (${file.size} B) `;
+        const download = button(copy.download, () => {
+          if (busy || !active()) return; setBusy(true);
+          void controller.downloadFile(recordId, file.id).then(blob => {
+            if (!active()) return;
+            const url = URL.createObjectURL(blob); downloadUrls.add(url);
+            const link = document.createElement('a'); link.href = url; link.download = `attachment-${file.id}${file.extension}`; row.append(link); link.click(); link.remove();
+            window.setTimeout(() => { URL.revokeObjectURL(url); downloadUrls.delete(url); }, 1000); setBusy(false);
+          }).catch(report);
+        });
+        row.append(download);
+        if (canWrite) row.append(button(copy.remove, () => {
+          if (busy || !active() || !window.confirm(copy.fileConfirm)) return; setBusy(true);
+          void controller.removeFile(recordId, file.id).then(async () => { if (active()) { await loadFiles(); setBusy(false); } }).catch(report);
+        })); list.append(row);
+      }
+      filePrevious.disabled = filePage === 0; fileNext.disabled = !hasNext;
+    }
+    const upload = button(copy.upload, () => {
+      const file = input.files?.[0]; if (!file || busy || !active()) return; setBusy(true);
+      void controller.uploadFile(recordId, selectedId, file).then(async () => { if (active()) { input.value = ''; selectedId = crypto.randomUUID(); filePage = 0; await loadFiles(); setBusy(false); status.textContent = copy.saved; } }).catch(report);
+    });
+    const filePrevious = button(copy.previous, () => { if (!busy && filePage > 0) { filePage--; void loadFiles().catch(report); } });
+    const fileNext = button(copy.next, () => { if (!busy && hasNext) { filePage++; void loadFiles().catch(report); } });
+    editor.append(info, input, upload, list, filePrevious, fileNext, button(copy.cancel, () => { stopEditor(); editor.replaceChildren(); editor.hidden = true; }));
+    void loadFiles().catch(report);
   }
   function openAdjustment(row: Record<string, unknown>) {
     if (disposed || busy) return;
