@@ -53,7 +53,7 @@ function run(){for(const language of ['en','ar','sv']){
 try{run();document.querySelector('#result').textContent='PASS notification editor: create/edit/delete, owner templates, live connection changes and dual-producer guard in en-ar-sv'}catch(error){document.querySelector('#result').textContent='FAIL '+error.stack}
 `;
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'notifications-fixture.tsx', loader: 'tsx' }, bundle: true, write: false,
-    platform: 'browser', format: 'iife', target: 'es2020', alias: { '@': resolve('src') }, define: { 'process.env.NODE_ENV': '"production"' },
+    platform: 'browser', format: 'iife', target: 'es2020', jsx: 'automatic', alias: { '@': resolve('src') }, define: { 'process.env.NODE_ENV': '"production"' },
     plugins: [{ name: 'fixture-preferences', setup(builder) {
       builder.onResolve({ filter: /PreferencesContext$/ }, () => ({ path: 'fixture-preferences', namespace: 'fixture' }));
       builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: 'export function usePreferences(){return {prefs:{language:globalThis.fixtureLanguage}}}', loader: 'js' }));
