@@ -301,6 +301,7 @@ $$;`,
 /** Initial schema for one isolated generated-app Supabase database. No migration of existing data. */
 export function compileInitialApplicationSchema(input: ApplicationDefinition): string[] {
   const app = readApplicationDefinition(input);
+  if (app.tables.some(table => table.notifications?.length)) throw new Error('Email notification provisioning requires the customer-owned queue, credentials and scheduled worker.');
   const statements: string[] = [];
   statements.push(...bookingInfrastructure(app));
   statements.push('create schema private;');
@@ -359,6 +360,7 @@ end $$;`);
 export function compileAdditiveApplicationMigration(previous: ApplicationDefinition, next: ApplicationDefinition): string[] {
   const before = readApplicationDefinition(previous);
   const after = readApplicationDefinition(next);
+  if (before.tables.some(table => table.notifications?.length) || after.tables.some(table => table.notifications?.length)) throw new Error('Email notification changes require a separately verified runtime migration.');
   if (JSON.stringify(before.auth) !== JSON.stringify(after.auth)) {
     throw new Error('Authentication changes require a separately reviewed backend migration.');
   }

@@ -55,6 +55,15 @@ export interface ApplicationWorkflowRule {
   fieldId: string;
   transitions: ApplicationWorkflowTransition[];
 }
+/** Transactional email to the verified record owner. Sender and credentials
+ * belong to the referenced integration, never to the editable rule. */
+export interface ApplicationEmailNotification {
+  id: string;
+  connectionId: string;
+  event: { type: 'created' } | { type: 'transition'; transitionId: string };
+  subject: string;
+  text: string;
+}
 export interface ApplicationTable {
   id: string;
   key: string;
@@ -66,6 +75,7 @@ export interface ApplicationTable {
   transaction?: ApplicationTransactionRule;
   workflow?: ApplicationWorkflowRule;
   attachments?: { maxBytes: number; mimeTypes: string[] };
+  notifications?: ApplicationEmailNotification[];
 }
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {

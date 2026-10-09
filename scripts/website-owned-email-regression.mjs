@@ -17,12 +17,14 @@ try {
   await writeFile(entry, ['delivery', 'schema', 'store', 'events', 'worker', 'rpc', 'rules'].map(name =>
     `export * from ${JSON.stringify(resolve(`server/website-owned-email-${name}.ts`))};`).join('\n')
     + `\nexport * from ${JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql.ts'))};`
+    + `\nexport * from ${JSON.stringify(resolve('src/modules/website-builder/core/application-validation.ts'))};`
+    + `\nexport * from ${JSON.stringify(resolve('src/modules/website-builder/core/application-byo-source-capabilities.ts'))};`
     + `\nexport * from ${JSON.stringify(resolve('src/modules/website-builder/core/editor-integration-runtime.ts'))};`
     + `\nexport * from ${JSON.stringify(resolve('src/modules/website-builder/core/editor-integration-events.ts'))};`);
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile: join(dir, 'test.cjs') });
   const { deliverOwnedEmail: deliver, compileOwnedEmailQueueSchema: compile, createOwnedEmailStore: rpcStore,
     createOwnedEmailEventDispatcher: eventDispatcher, dispatchEditorIntegrationEvent: dispatch,
-    emitEditorBuilderIntegrationEvent: emit, drainOwnedEmailQueue: drain, serveOwnedEmailWorker: serve, createOwnedEmailRpcClient: httpClient, compileOwnedEmailNotificationRules: rulesSql, compileInitialApplicationSchema: appSql } = createRequire(import.meta.url)(join(dir, 'test.cjs'));
+    emitEditorBuilderIntegrationEvent: emit, drainOwnedEmailQueue: drain, serveOwnedEmailWorker: serve, createOwnedEmailRpcClient: httpClient, compileOwnedEmailNotificationRules: rulesSql, compileInitialApplicationSchema: appSql, readApplicationDefinition: readDefinition, bindSavedOwnedEmailNotifications: bindSaved, compileAdditiveApplicationMigration: migrate, analyzeByoSourceCapabilities: analyzeSource } = createRequire(import.meta.url)(join(dir, 'test.cjs'));
   const job = { id: jobId, projectId: project, connectionId: 'mail', environment: 'production', from, to: 'verified@example.com',
     subject: 'حجزك مؤكد', text: 'تم تأكيد حجزك.\nYour appointment is confirmed.' };
   function memoryStore() {
@@ -258,6 +260,36 @@ try {
     environment:'production',rules:[transitionRule] }));
   console.log('PASS owned email: durable leases, frozen retries, receipt-loss recovery, scope isolation and safe Resend outcomes');
   console.log('PASS owned email worker: cron authorization, immutable scope, batch budget, due-list validation and private customer RPC boundaries');
+  const savedRule = ({ tableId, from, ...editable }) => editable;
+  const savedDefinition = { ...definition, tables: [{ ...notificationTable, notifications: [savedRule(rule),savedRule(transitionRule)] }] };
+  assert.deepEqual(readDefinition(JSON.parse(JSON.stringify(savedDefinition))),savedDefinition);
+  for (const patch of [{ from }, { to:'attacker@example.com' }, { apiKey:credential }, { text:'{{field:missing}}' },
+    { event:{type:'transition',transitionId:'missing'} }, { subject:'Injected\nBcc' }]) {
+    assert.throws(()=>readDefinition({ ...savedDefinition,tables:[{ ...notificationTable,notifications:[{...savedRule(rule),...patch}] }] }));
+  }
+  assert.throws(()=>readDefinition({...savedDefinition,auth:{...definition.auth,emailVerificationRequired:false}}));
+  assert.throws(()=>readDefinition({...savedDefinition,tables:[{...notificationTable,notifications:[savedRule(rule),savedRule(rule)]}]}));
+  assert.throws(()=>readDefinition({...savedDefinition,tables:[{...notificationTable,fields:[null],notifications:[savedRule(rule)]}]}));
+  assert.throws(()=>appSql(savedDefinition), /customer-owned/);
+  assert.throws(()=>migrate(definition,savedDefinition), /runtime migration/);
+  const pendingSource=analyzeSource({application:savedDefinition,homePageId:'home',pages:[{id:'home',name:'Home',slug:'home',sections:[]}]},'production');
+  assert.ok(pendingSource.blockers.some(message=>message.includes('scheduled worker')),'Missing or removed integration must never export notifications as operational');
+  const mail = { id:'mail',providerId:'resend',name:'Customer mail',enabled:true,status:'configured',environments:['production'],
+    config:{from},secrets:{apiKey:{ref:`secret://website/${project}/mail/apiKey/production`,updatedAt:'2026-10-09T10:00:00Z'}},
+    events:[],createdAt:'2026-10-09T10:00:00Z',updatedAt:'2026-10-09T10:00:00Z' };
+  const bindInput = {projectId:project,definition:savedDefinition,environment:'production',integrations:{version:1,connections:[mail]}};
+  const bound = bindSaved(bindInput);
+  assert.deepEqual(bound.rules,[rule,transitionRule]);
+  assert.equal(bound.connections[0].secretRef,mail.secrets.apiKey.ref);
+  assert.deepEqual(bindSaved({...bindInput,environment:'preview'}),{rules:[],connections:[]});
+  for (const change of [{id:'missing'}, {providerId:'stripe'}, {enabled:false}, {status:'disconnected'}, {events:['form.submitted']},
+    {config:{from:'Sender <receipts@example.com>'}}, {secrets:{apiKey:{ref:`secret://website/${user}/mail/apiKey/production`,updatedAt:mail.updatedAt}}},
+    {secrets:{apiKey:{ref:mail.secrets.apiKey.ref}}}]) assert.throws(()=>bindSaved({...bindInput,integrations:{version:1,connections:[{...mail,...change}]}}));
+  assert.throws(()=>bindSaved({...bindInput,integrations:{version:1,connections:[mail,mail]}}));
+  const frozen = structuredClone(bound);
+  mail.config.from='changed@example.com'; mail.secrets.apiKey.updatedAt='2026-10-10T00:00:00Z';
+  assert.deepEqual(bound,frozen,'Captured binding must not share mutable editor metadata');
+  console.log('PASS saved notifications: strict owner rules, reload, malformed inputs, customer/environment secret binding, immutable capture and honest provisioning gate');
   console.log('PASS email notification rules: owner-only recipients, strict declared variables, safe SQL literals and unambiguous workflow events');
 
   if (process.argv.includes('--postgres')) {

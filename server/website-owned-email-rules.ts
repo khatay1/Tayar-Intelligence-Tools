@@ -1,6 +1,8 @@
-import type { ApplicationDefinition, ApplicationField, ApplicationTable } from '../src/modules/website-builder/core/application-model';
+import type { ApplicationDefinition, ApplicationField } from '../src/modules/website-builder/core/application-model';
+import { applicationEmailTemplateParts, validateApplicationEmailNotification, applicationEmailRuleWithoutRuntime, type ApplicationEmailTemplatePart } from '../src/modules/website-builder/core/application-email-notifications';
 import { readApplicationDefinition } from '../src/modules/website-builder/core/application-validation';
 import { isOwnedEmailAddress, type OwnedEmailJob } from './website-owned-email-delivery';
+import { validateEditorIntegrations, type EditorIntegrationsConfig } from '../src/modules/website-builder/core/editor-integrations';
 
 /** Configuration only. Recipient addresses and credentials are never editable rules. */
 export interface OwnedEmailNotificationRule {
@@ -13,32 +15,40 @@ export interface OwnedEmailNotificationRule {
   text: string;
 }
 
+/** Resolve saved rule IDs against the exact captured customer integration.
+ * Only opaque Vault references leave this function, never resolved credentials.
+ * SQL triggers are the sole producer; generic event automation is rejected. */
+export function bindSavedOwnedEmailNotifications(input: {
+  projectId: string; definition: ApplicationDefinition; environment: OwnedEmailJob['environment']; integrations: EditorIntegrationsConfig;
+}) {
+  const definition = readApplicationDefinition(input.definition);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(input.projectId)
+    || !['preview', 'staging', 'production'].includes(input.environment)
+    || input.integrations.version !== 1 || !Array.isArray(input.integrations.connections)
+    || new Set(input.integrations.connections.map(connection => connection.id)).size !== input.integrations.connections.length) throw new Error('Email connection identity unavailable.');
+  const rules: OwnedEmailNotificationRule[] = [];
+  const connections = new Map<string, { id: string; from: string; secretRef: string; secretUpdatedAt: string; connectionUpdatedAt: string }>();
+  for (const table of definition.tables) for (const rule of table.notifications ?? []) {
+    const connection = input.integrations.connections.find(item => item.id === rule.connectionId);
+    if (!connection || connection.providerId !== 'resend') throw new Error('Email connection unavailable.');
+    if (!connection.environments.includes(input.environment)) continue;
+    const secret = connection.secrets.apiKey;
+    const from = connection.config.from;
+    if (!connection.enabled || !['configured', 'active'].includes(connection.status) || connection.events?.length
+      || validateEditorIntegrations({ version: 1, connections: [connection] }).length
+      || typeof from !== 'string' || !isOwnedEmailAddress(from)
+      || secret?.ref !== `secret://website/${input.projectId}/${connection.id}/apiKey/${input.environment}`
+      || !secret.updatedAt || !Number.isFinite(Date.parse(secret.updatedAt)) || !Number.isFinite(Date.parse(connection.updatedAt))) throw new Error('Email connection requires a verified customer credential binding without generic event automation.');
+    rules.push({ ...applicationEmailRuleWithoutRuntime(rule), tableId: table.id, from });
+    connections.set(connection.id, { id: connection.id, from, secretRef: secret.ref, secretUpdatedAt: secret.updatedAt, connectionUpdatedAt: connection.updatedAt });
+  }
+  if (connections.size > 10) throw new Error('Email worker supports at most 10 connections.');
+  return { rules, connections: [...connections.values()] };
+}
+
 const identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
 const quoted = (value: string) => `"${value}"`;
-type TemplatePart = { literal: string } | { field: ApplicationField } | { recordId: true };
-
-function templateParts(value: string, table: ApplicationTable): TemplatePart[] {
-  const parts: TemplatePart[] = []; let cursor = 0;
-  for (const match of value.matchAll(/\{\{(record\.id|field:([A-Za-z0-9][A-Za-z0-9_-]{0,119}))\}\}/g)) {
-    const preceding = value.slice(cursor, match.index);
-    if (preceding.includes('{{') || preceding.includes('}}')) throw new Error('Unknown email template variable.');
-    if (preceding) parts.push({ literal: preceding });
-    if (match[1] === 'record.id') parts.push({ recordId: true });
-    else {
-      const field = table.fields.find(field => field.id === match[2]);
-      if (!field || field.type === 'json') throw new Error('Unknown email template field.');
-      parts.push({ field });
-    }
-    cursor = match.index! + match[0].length;
-  }
-  const remainder = value.slice(cursor);
-  if (remainder.includes('{{') || remainder.includes('}}')) throw new Error('Unknown email template variable.');
-  if (remainder) parts.push({ literal: remainder });
-  if (parts.length > 100) throw new Error('Email template too large.');
-  return parts;
-}
-
 function valueSql(field: ApplicationField): string {
   const column = `new.${quoted(field.key)}`;
   const value = field.type === 'datetime' ? `to_char(${column} at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
@@ -46,7 +56,7 @@ function valueSql(field: ApplicationField): string {
   return `left(coalesce(${value},''),500)`;
 }
 
-function templateSql(parts: TemplatePart[]) {
+function templateSql(parts: ApplicationEmailTemplatePart[]) {
   return parts.map(part => 'literal' in part ? literal(part.literal) : 'field' in part ? valueSql(part.field) : 'new.id::text').join(' || ') || "''";
 }
 
@@ -73,6 +83,8 @@ export function compileOwnedEmailNotificationRules(input: {
     if (!table || !table.permissions.some(permission => permission.operation === 'read' && permission.access === 'owner')) {
       throw new Error('Email recipients require owner read access.');
     }
+    const validation = validateApplicationEmailNotification(applicationEmailRuleWithoutRuntime(rule), table);
+    if (validation) throw new Error(validation);
     const event = rule.event;
     let condition = "TG_OP='INSERT'", operation = 'insert';
     if (event?.type === 'created' && Object.keys(event).join(',') === 'type') {
@@ -87,7 +99,7 @@ export function compileOwnedEmailNotificationRules(input: {
  and old.${quoted(field.key)} in (${transition.from.map(literal).join(',')}) and new.${quoted(field.key)}=${literal(transition.to)}`;
       operation = 'update';
     } else throw new Error('Unknown email notification event.');
-    const subject = templateSql(templateParts(rule.subject, table)), text = templateSql(templateParts(rule.text, table));
+    const subject = templateSql(applicationEmailTemplateParts(rule.subject, table.fields)), text = templateSql(applicationEmailTemplateParts(rule.text, table.fields));
     const name = `app_email_rule_${index}`;
     const body = `declare actor uuid := (select auth.uid()); rendered_subject text; rendered_body text;
 begin

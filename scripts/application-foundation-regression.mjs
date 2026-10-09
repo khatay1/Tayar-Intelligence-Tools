@@ -102,6 +102,19 @@ try {
   assert.deepEqual(readiness.applicationPublishBlockers(undefined, new Set(['home'])), []);
   assert.deepEqual(readiness.applicationPublishBlockers(empty, new Set(['home'])), []);
   assert.ok(readiness.applicationPublishBlockers(app, new Set(['home'])).some(issue => issue.code === 'backend-not-provisioned'));
+  const notification = { id:'notify-owner',connectionId:'mail',event:{type:'created'},subject:'New {{field:vehicle-name}}',text:'Record {{record.id}}' };
+  const mailTable = { ...ai.project.application.tables[0],permissions:[{operation:'read',access:'owner'},{operation:'create',access:'owner'}],notifications:[notification] };
+  const withMail = apply(ai.project,[{type:'put_table',table:mailTable}],'manual',review(ai.project),ai.history);
+  assert.equal(withMail.transaction.ok,true);
+  assert.deepEqual(withMail.project.application.tables[0].notifications,[notification]);
+  const mailSnapshot = JSON.parse(JSON.stringify(snapshots.createEditorProjectSnapshot(withMail.project)));
+  assert.deepEqual(validation.readApplicationDefinition(mailSnapshot.application),withMail.project.application);
+  const mailUndo = history.undoEditorHistory(withMail.project,withMail.history);
+  assert.deepEqual(mailUndo.value,ai.project);
+  assert.deepEqual(history.redoEditorHistory(mailUndo.value,mailUndo.history).value,withMail.project);
+  const broken = apply(withMail.project,[{type:'put_table',table:{...mailTable,fields:[]}}]);
+  assert.equal(broken.transaction.ok,false,'Removing a referenced template field must roll back the entire command');
+  assert.deepEqual(broken.project,withMail.project);
   console.log('PASS application model, manual/AI commands, atomic rollback, identity, migration, actual reload, undo/redo and honest publish gate');
 } finally {
   await rm(temp, { recursive: true, force: true });

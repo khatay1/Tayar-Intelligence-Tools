@@ -48,6 +48,51 @@ var APPLICATION_FILE_TYPES = [
 ];
 var APPLICATION_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
+// src/modules/website-builder/core/application-email-notifications.ts
+var identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
+var object = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+function applicationEmailTemplateParts(value, fields) {
+  const parts = [];
+  let cursor = 0;
+  for (const match of value.matchAll(/\{\{(record\.id|field:([A-Za-z0-9][A-Za-z0-9_-]{0,119}))\}\}/g)) {
+    const preceding = value.slice(cursor, match.index);
+    if (preceding.includes("{{") || preceding.includes("}}")) throw new Error("Unknown email template variable.");
+    if (preceding) parts.push({ literal: preceding });
+    if (match[1] === "record.id") parts.push({ recordId: true });
+    else {
+      const field = fields.find((field2) => field2.id === match[2]);
+      if (!field || field.type === "json") throw new Error("Unknown email template field.");
+      parts.push({ field });
+    }
+    cursor = match.index + match[0].length;
+  }
+  const remainder = value.slice(cursor);
+  if (remainder.includes("{{") || remainder.includes("}}")) throw new Error("Unknown email template variable.");
+  if (remainder) parts.push({ literal: remainder });
+  if (parts.length > 100) throw new Error("Email template too large.");
+  return parts;
+}
+function validateApplicationEmailNotification(value, table) {
+  if (!object(value) || Object.keys(value).sort().join(",") !== "connectionId,event,id,subject,text" || typeof value.id !== "string" || !identifier.test(value.id) || typeof value.connectionId !== "string" || !identifier.test(value.connectionId) || typeof value.subject !== "string" || !value.subject.trim() || value.subject.length > 200 || Array.from(value.subject).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) || typeof value.text !== "string" || !value.text.trim() || value.text.length > 16e3 || value.text.includes("\0")) return "Invalid email notification rule.";
+  if (!table.permissions.some((permission) => permission.operation === "read" && permission.access === "owner")) return "Email recipients require owner read access.";
+  const event = value.event;
+  if (!object(event)) return "Unknown email notification event.";
+  if (event.type === "created" && Object.keys(event).join(",") === "type") {
+    if (!table.permissions.some((permission) => permission.operation === "create" && permission.access !== "public")) return "Email source write unavailable.";
+  } else if (event.type === "transition" && Object.keys(event).sort().join(",") === "transitionId,type") {
+    const transition = table.workflow?.transitions.find((item) => item.id === event.transitionId);
+    if (!transition) return "Unknown email workflow transition.";
+    if (table.workflow.transitions.some((other) => other.id !== transition.id && other.to === transition.to && other.from.some((state) => transition.from.includes(state)))) return "Email source transition is ambiguous.";
+  } else return "Unknown email notification event.";
+  try {
+    applicationEmailTemplateParts(value.subject, table.fields);
+    applicationEmailTemplateParts(value.text, table.fields);
+  } catch (error) {
+    return error instanceof Error ? error.message : "Invalid email notification rule.";
+  }
+  return null;
+}
+
 // src/modules/website-builder/core/application-model.ts
 var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100, requirements: 100, requirementEvidence: 20 };
 var APPLICATION_SYSTEM_FIELDS = ["id", "owner_id", "created_at", "updated_at"];
@@ -56,15 +101,15 @@ function createApplicationDefinition() {
 }
 
 // src/modules/website-builder/core/application-validation.ts
-var object = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-var identifier = (value) => typeof value === "string" && /^[a-z][a-z0-9_]{0,47}$/.test(value);
+var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var identifier2 = (value) => typeof value === "string" && /^[a-z][a-z0-9_]{0,47}$/.test(value);
 var id = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
 var name = (value) => typeof value === "string" && value.trim().length > 0 && value.length <= 160;
 function validateApplicationDefinition(value, pageIds) {
   const issues = [];
   const issue = (path, code, message) => issues.push({ path, code, message });
   function shape(item, keys, path) {
-    if (!object(item)) {
+    if (!object2(item)) {
       issue(path, "invalid-object", "Expected an application configuration object.");
       return false;
     }
@@ -105,12 +150,12 @@ function validateApplicationDefinition(value, pageIds) {
     for (const key of ["enabled", "signUpEnabled", "emailVerificationRequired"]) if (typeof auth[key] !== "boolean") issue(`application.auth.${key}`, "invalid-boolean", "Expected a boolean setting.");
     if (auth.signUpEnabled && !auth.enabled) issue("application.auth", "auth-disabled", "Enable authentication before allowing registration.");
   }
-  const authEnabled = object(auth) && auth.enabled === true;
+  const authEnabled = object2(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "workflow", "attachments"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "workflow", "attachments", "notifications"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
-    if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
+    if (!identifier2(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
     if (!name(table.name)) issue(`${path}.name`, "invalid-name", "A table requires a display name.");
   });
@@ -122,14 +167,14 @@ function validateApplicationDefinition(value, pageIds) {
     if (rule.access !== "role" && rule.roleId !== void 0) issue(`${path}.roleId`, "unexpected-role", "Role restrictions require role-based access.");
   }
   tables.forEach((table, tableIndex) => {
-    if (!object(table)) return;
+    if (!object2(table)) return;
     const path = `application.tables[${tableIndex}]`;
     const keys = new Set(APPLICATION_SYSTEM_FIELDS);
     list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field, fieldIndex) => {
       const fieldPath = `${path}.fields[${fieldIndex}]`;
       if (!shape(field, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId", "formula"], fieldPath)) return;
       identity(field.id, `${fieldPath}.id`);
-      if (!identifier(field.key) || keys.has(field.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
+      if (!identifier2(field.key) || keys.has(field.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
       else keys.add(field.key);
       if (!name(field.name)) issue(`${fieldPath}.name`, "invalid-name", "A field requires a display name.");
       if (!["text", "number", "boolean", "date", "datetime", "uuid", "json", "enum", "reference"].includes(String(field.type))) issue(`${fieldPath}.type`, "invalid-type", "Unsupported field type.");
@@ -138,7 +183,7 @@ function validateApplicationDefinition(value, pageIds) {
       if (field.type !== "reference" && field.referenceTableId !== void 0) issue(fieldPath, "unexpected-reference", "Only reference fields can target a table.");
       if (field.formula !== void 0) {
         const formulaPath = `${fieldPath}.formula`, formula = field.formula;
-        if (!shape(formula, ["operation", "fieldIds"], formulaPath) || field.type !== "number" || field.required !== true || field.defaultValue !== void 0 || !["sum", "subtract", "multiply"].includes(String(formula.operation)) || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20 || formula.operation !== "sum" && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length || formula.fieldIds.some((sourceId) => sourceId === field.id || !table.fields.some((source) => object(source) && source.id === sourceId && source.type === "number" && source.required === true && source.formula === void 0))) {
+        if (!shape(formula, ["operation", "fieldIds"], formulaPath) || field.type !== "number" || field.required !== true || field.defaultValue !== void 0 || !["sum", "subtract", "multiply"].includes(String(formula.operation)) || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20 || formula.operation !== "sum" && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length || formula.fieldIds.some((sourceId) => sourceId === field.id || !table.fields.some((source) => object2(source) && source.id === sourceId && source.type === "number" && source.required === true && source.formula === void 0))) {
           issue(formulaPath, "invalid-formula", "A formula needs a required numeric result and 2\u201320 distinct required numeric source fields.");
         }
       }
@@ -155,7 +200,7 @@ function validateApplicationDefinition(value, pageIds) {
       const bookingPath = `${path}.booking`;
       if (shape(table.booking, ["resourceFieldId", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses"], bookingPath)) {
         const rule = table.booking;
-        const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object2) : [];
         const find = (fieldId) => fields.find((field) => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
         if (!authEnabled || !id(rule.resourceFieldId) || !id(rule.startFieldId) || !id(rule.endFieldId) || (/* @__PURE__ */ new Set([rule.resourceFieldId, rule.startFieldId, rule.endFieldId])).size !== 3 || !resource?.required || !["uuid", "reference"].includes(String(resource.type)) || !start?.required || start.type !== "datetime" || !end?.required || end.type !== "datetime") {
@@ -174,35 +219,35 @@ function validateApplicationDefinition(value, pageIds) {
       if (!shape(rule, ["maxBytes", "mimeTypes"], filePath) || !authEnabled || !Number.isSafeInteger(rule.maxBytes) || Number(rule.maxBytes) < 1 || Number(rule.maxBytes) > APPLICATION_FILE_MAX_BYTES || !Array.isArray(rule.mimeTypes) || !rule.mimeTypes.length || rule.mimeTypes.length > APPLICATION_FILE_TYPES.length || new Set(rule.mimeTypes).size !== rule.mimeTypes.length || rule.mimeTypes.some((type) => !APPLICATION_FILE_TYPES.includes(type))) {
         issue(filePath, "invalid-files", "Attachments need Auth, a size limit up to 25 MiB and declared download-safe MIME types.");
       }
-      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
+      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
     }
     if (table.counter !== void 0) {
       const counterPath = `${path}.counter`;
       if (shape(table.counter, ["fieldId", "minimum", "maximum", "integer"], counterPath)) {
         const rule = table.counter;
-        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object(field2) && field2.id === rule.fieldId) : void 0;
-        if (!authEnabled || !id(rule.fieldId) || !object(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
+        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object2(field2) && field2.id === rule.fieldId) : void 0;
+        if (!authEnabled || !id(rule.fieldId) || !object2(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
           issue(counterPath, "invalid-counter", "A counter needs Auth, a required numeric field defaulting to its finite minimum, and valid optional bounds.");
         }
-        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
       }
     }
     if (table.transaction !== void 0) {
       const transactionPath = `${path}.transaction`;
       if (shape(table.transaction, ["itemTableId", "lineTableId", "lineTransactionFieldId", "lineItemFieldId", "lineQuantityFieldId", "counterDirection"], transactionPath)) {
         const rule = table.transaction;
-        const itemTable = tables.find((candidate) => object(candidate) && candidate.id === rule.itemTableId);
-        const lineTable = tables.find((candidate) => object(candidate) && candidate.id === rule.lineTableId);
-        const lineFields = object(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object) : [];
+        const itemTable = tables.find((candidate) => object2(candidate) && candidate.id === rule.itemTableId);
+        const lineTable = tables.find((candidate) => object2(candidate) && candidate.id === rule.lineTableId);
+        const lineFields = object2(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object2) : [];
         const transactionField = lineFields.find((field) => field.id === rule.lineTransactionFieldId);
         const itemField = lineFields.find((field) => field.id === rule.lineItemFieldId);
         const quantityField = lineFields.find((field) => field.id === rule.lineQuantityFieldId);
         const distinct = /* @__PURE__ */ new Set([rule.lineTransactionFieldId, rule.lineItemFieldId, rule.lineQuantityFieldId]);
-        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object(itemTable) || !object(itemTable.counter) || !object(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || quantityField.formula !== void 0 || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
+        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object2(itemTable) || !object2(itemTable.counter) || !object2(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || quantityField.formula !== void 0 || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
           issue(transactionPath, "invalid-transaction", "A transaction needs Auth, a counter item table and a separate line table with required parent, item and numeric quantity fields.");
         }
-        const has = (candidate, operation) => object(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object(permission) && permission.operation === operation);
-        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object(permission) && permission.operation !== "read")) {
+        const has = (candidate, operation) => object2(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object2(permission) && permission.operation === operation);
+        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object2(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object2(permission) && permission.operation !== "read")) {
           issue(transactionPath, "transaction-permissions", "Transactions require parent read/create, item read/update and read-only line permissions.");
         }
       }
@@ -211,9 +256,9 @@ function validateApplicationDefinition(value, pageIds) {
       const workflowPath = `${path}.workflow`;
       if (shape(table.workflow, ["fieldId", "transitions"], workflowPath)) {
         const workflow = table.workflow;
-        const field = Array.isArray(table.fields) ? table.fields.find((candidate) => object(candidate) && candidate.id === workflow.fieldId) : void 0;
-        const options = object(field) && Array.isArray(field.options) ? field.options.filter((value2) => typeof value2 === "string") : [];
-        if (!authEnabled || !id(workflow.fieldId) || !object(field) || field.type !== "enum" || field.required !== true || typeof field.defaultValue !== "string" || !options.includes(field.defaultValue)) {
+        const field = Array.isArray(table.fields) ? table.fields.find((candidate) => object2(candidate) && candidate.id === workflow.fieldId) : void 0;
+        const options = object2(field) && Array.isArray(field.options) ? field.options.filter((value2) => typeof value2 === "string") : [];
+        if (!authEnabled || !id(workflow.fieldId) || !object2(field) || field.type !== "enum" || field.required !== true || typeof field.defaultValue !== "string" || !options.includes(field.defaultValue)) {
           issue(workflowPath, "invalid-workflow", "A workflow needs Auth and a required enum state field with a declared default state.");
         }
         const transitionIds = /* @__PURE__ */ new Set();
@@ -235,7 +280,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (transition.access === "role" && !roleIds.has(String(transition.roleId))) issue(`${transitionPath}.roleId`, "missing-role", "Role workflow access requires an existing role.");
           if (transition.access !== "role" && transition.roleId !== void 0) issue(`${transitionPath}.roleId`, "unexpected-role", "Only role transitions can specify a role.");
         });
-        if (!Array.isArray(table.permissions) || !table.permissions.some((rule) => object(rule) && rule.operation === "read") || !table.permissions.some((rule) => object(rule) && rule.operation === "update")) issue(workflowPath, "workflow-permissions", "Workflow transitions require explicit read and update permissions.");
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule) => object2(rule) && rule.operation === "read") || !table.permissions.some((rule) => object2(rule) && rule.operation === "update")) issue(workflowPath, "workflow-permissions", "Workflow transitions require explicit read and update permissions.");
       }
     }
     const permissionKeys = /* @__PURE__ */ new Set();
@@ -249,11 +294,29 @@ function validateApplicationDefinition(value, pageIds) {
       if (permissionKeys.has(key)) issue(permissionPath, "duplicate-permission", "Duplicate permission rule.");
       permissionKeys.add(key);
     });
-    if (Array.isArray(table.permissions) && table.permissions.some((p) => object(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
+    if (Array.isArray(table.permissions) && table.permissions.some((p) => object2(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object2(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
   });
+  let notificationCount = 0;
+  tables.forEach((table, index) => {
+    if (!object2(table) || table.notifications === void 0) return;
+    const path = `application.tables[${index}]`, rulePath = `${path}.notifications`;
+    const rules = list(table.notifications, 50, rulePath);
+    notificationCount += rules.length;
+    if (!authEnabled || !object2(auth) || auth.emailVerificationRequired !== true) issue(rulePath, "email-auth-required", "Email notifications require authentication and verified email addresses.");
+    const validTable = !issues.some((item) => item.path === path || item.path.startsWith(`${path}.`));
+    rules.forEach((rule, ruleIndex) => {
+      const itemPath = `${rulePath}[${ruleIndex}]`;
+      if (object2(rule)) identity(rule.id, `${itemPath}.id`);
+      if (validTable) {
+        const error = validateApplicationEmailNotification(rule, table);
+        if (error) issue(itemPath, "invalid-email-notification", error);
+      }
+    });
+  });
+  if (notificationCount > 50) issue("application.tables", "too-many-email-notifications", "An application supports at most 50 email notification rules.");
   const lineTables = /* @__PURE__ */ new Set();
   tables.forEach((table, index) => {
-    if (!object(table) || !object(table.transaction)) return;
+    if (!object2(table) || !object2(table.transaction)) return;
     const line = String(table.transaction.lineTableId);
     if (lineTables.has(line)) issue(`application.tables[${index}].transaction.lineTableId`, "duplicate-transaction-line-table", "A line table can belong to only one native transaction.");
     lineTables.add(line);
@@ -300,17 +363,17 @@ function validateApplicationDefinition(value, pageIds) {
           if (match[3] || pageIds && !pageIds.has(match[2])) issue(evidencePath, "missing-page", "Page evidence requires an existing page.");
           return;
         }
-        const table = tables.find((candidate) => object(candidate) && candidate.id === match[2]);
-        if (!object(table)) {
+        const table = tables.find((candidate) => object2(candidate) && candidate.id === match[2]);
+        if (!object2(table)) {
           issue(evidencePath, "missing-table", "Requirement evidence requires an existing table.");
           return;
         }
-        if (match[1] === "booking" && !object(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
-        if (match[1] === "counter" && !object(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
-        if (match[1] === "transaction" && !object(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
-        if (match[1] === "files" && !object(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
-        if (match[1] === "workflow" && !object(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
-        if (match[1] === "formula" && !table.fields.some((field) => object(field) && object(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
+        if (match[1] === "booking" && !object2(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
+        if (match[1] === "counter" && !object2(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
+        if (match[1] === "transaction" && !object2(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
+        if (match[1] === "files" && !object2(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
+        if (match[1] === "workflow" && !object2(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
+        if (match[1] === "formula" && !table.fields.some((field) => object2(field) && object2(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
         if (match[1] !== "view" && match[3]) issue(evidencePath, "unexpected-action", "Only data-view evidence can include an action.");
       });
