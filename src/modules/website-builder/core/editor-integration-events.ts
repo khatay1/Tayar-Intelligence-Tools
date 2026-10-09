@@ -15,6 +15,9 @@ export interface EditorBuilderIntegrationEventContext {
   environment: EditorIntegrationEnvironment;
   event: EditorBuilderIntegrationEvent;
   payload?: Record<string, unknown>;
+  /** Use the committed form/record event ID when replaying an uncertain delivery. */
+  id?: string;
+  occurredAt?: string;
 }
 
 /**
@@ -35,6 +38,8 @@ export async function emitEditorBuilderIntegrationEvent(
       environment: context.environment,
       event: context.event,
       payload: context.payload ?? {},
+      id: context.id,
+      occurredAt: context.occurredAt,
     }),
     adapter,
     options,

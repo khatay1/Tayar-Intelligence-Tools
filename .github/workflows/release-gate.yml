@@ -81,6 +81,7 @@ jobs:
           timeout 45s node scripts/application-workflow-regression.mjs --postgres
           timeout 45s node scripts/application-formula-regression.mjs --postgres
           timeout 45s node scripts/application-files-regression.mjs --postgres
+          timeout 45s node scripts/website-owned-email-regression.mjs --postgres
 
       - name: Application data view browser regression
         id: data-view-browser
