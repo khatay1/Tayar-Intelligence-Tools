@@ -1,5 +1,6 @@
 import { ApplicationCounterRejected } from '../core/application-counter';
 import { ApplicationTransactionRejected } from '../core/application-transaction';
+import { ApplicationWorkflowRejected } from '../core/application-workflow';
 import { createApplicationReferenceInput } from './application-reference-input';
 import { ApplicationBookingRejected } from '../core/application-booking';
 import type { Language } from '@/context/PreferencesContext';
@@ -20,7 +21,8 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   runtime: ReturnType<typeof createApplicationDataRuntime>, language: Language, scope: { projectRef: string; projectId: string; pageId: string; sectionId: string }) {
   const copy = translations[language] ?? translations.en;
   const failure = (error: unknown) => error instanceof ApplicationBookingRejected ? copy[error.reason]
-    : error instanceof ApplicationCounterRejected ? copy.bounds : error instanceof ApplicationTransactionRejected ? copy[error.reason] : copy.failed;
+    : error instanceof ApplicationCounterRejected ? copy.bounds : error instanceof ApplicationTransactionRejected ? copy[error.reason]
+      : error instanceof ApplicationWorkflowRejected ? copy.unavailable : copy.failed;
   const controller = createApplicationDataViewController(definition, binding, runtime, () => crypto.randomUUID(), {
     keyPrefix: `tayar-app-form:${scope.projectRef}:${scope.projectId}:${scope.pageId}:data:${scope.sectionId}`,
     storage: { getItem: key => sessionStorage.getItem(key), setItem: (key, value) => sessionStorage.setItem(key, value), removeItem: key => sessionStorage.removeItem(key) }, crypto,
@@ -74,11 +76,18 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       const actions = await controller.permissions();
       const result = await controller.load(page, query);
       if (disposed || current !== sequence) return;
-      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.includes('update') && !actions.includes('delete') && !actions.includes('adjust');
+      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.includes('update') && !actions.includes('delete') && !actions.includes('adjust') && !actions.includes('transition');
       for (const row of result.rows) {
         const tr = document.createElement('tr');
         for (const field of controller.columns) { const td = document.createElement('td'); td.textContent = display(row[field.key], field); tr.append(td); }
         const td = document.createElement('td'); td.hidden = actionsHeader.hidden;
+        if (actions.includes('transition')) for (const transition of controller.workflowTransitions(row)) {
+          td.append(button(transition.label, () => {
+            if (busy) return; setBusy(true); status.textContent = copy.loading;
+            void controller.transition(String(row.id), transition.id).then(() => { if (!disposed) { setBusy(false); status.textContent = copy.saved; void load(); } })
+              .catch((error: unknown) => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = failure(error); } });
+          }));
+        }
         if (actions.includes('adjust')) td.append(button(copy.adjust, () => openAdjustment(row)));
         if (actions.includes('update')) td.append(button(copy.edit, () => openEditor(row)));
         if (actions.includes('delete')) {
@@ -121,6 +130,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     stopEditor(); editor.replaceChildren(); editor.hidden = false;
     const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
     for (const field of controller.table.fields) {
+      if (controller.table.workflow?.fieldId === field.id) continue;
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
       if (field.type === 'reference') {
@@ -161,6 +171,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     stopEditor(); editor.replaceChildren(); editor.hidden = false;
     const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
     for (const field of controller.table.fields) {
+      if (controller.table.workflow?.fieldId === field.id) continue;
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
       let reference: ReturnType<typeof createApplicationReferenceInput> | undefined;

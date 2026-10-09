@@ -127,6 +127,16 @@ try {
   const orderResponse = { projectKind: 'application', requirements: [{ id: 'atomic-order', summary: 'Users can create a multi-item order atomically.', capability: 'transaction', evidence: ['transaction:orders'] }], application: { ...application, pageAccess: [], tables: [inventoryTable, orderTable, lineTable] }, pages: [{ name: 'Orders', slug: 'orders', sections: [{ type: 'features', applicationDataView: { tableId: 'orders', columns: ['order_note'], actions: ['transact'], pageSize: 10 } }] }] };
   const orders = await run(orderResponse, 6, 'بدي إدارة الطلبات'); assert.equal(orders.state.AiStage, 'ready'); assert.deepEqual(orders.state.Application.tables[1].transaction, orderTable.transaction);
   const fakeOrders = await run(dashboardResponse, 6, 'Build order management'); assert.equal(fakeOrders.state.AiStage, 'error'); assert.equal(fakeOrders.state.Pages, undefined);
+  const workflowTable = { ...orderTable, transaction: undefined, permissions: ['read', 'create', 'update'].map(operation => ({ operation, access: 'owner' })),
+    fields: [...orderTable.fields, { id: 'order_state', key: 'state', name: 'State', type: 'enum', required: true, options: ['pending', 'approved'], defaultValue: 'pending' }],
+    workflow: { fieldId: 'order_state', transitions: [{ id: 'approve', label: 'Approve', from: ['pending'], to: 'approved', access: 'owner' }] } };
+  const workflowResponse = { projectKind: 'application', requirements: [{ id: 'approval', summary: 'Users can approve their pending orders.', capability: 'workflow', evidence: ['workflow:orders'] }],
+    application: { ...application, pageAccess: [], tables: [workflowTable] }, pages: [{ name: 'Approvals', slug: 'approvals', sections: [{ type: 'features',
+      applicationDataView: { tableId: 'orders', columns: ['order_note', 'order_state'], actions: ['transition'], pageSize: 10 } }] }] };
+  const workflow = await run(workflowResponse, 6, 'Build order approvals'); assert.equal(workflow.state.AiStage, 'ready');
+  assert.deepEqual(workflow.state.Application.tables[0].workflow, workflowTable.workflow);
+  const missingWorkflowAction = structuredClone(workflowResponse); missingWorkflowAction.pages[0].sections[0].applicationDataView.actions = [];
+  const missingWorkflow = await run(missingWorkflowAction, 6, 'Build order approvals'); assert.equal(missingWorkflow.state.AiStage, 'error'); assert.equal(missingWorkflow.state.Pages, undefined);
   for (const invalidRequirements of [undefined, [], [{ id: 'fake-payment', summary: 'Payments work.', capability: 'records', evidence: ['view:payments:create'] }]]) {
     const failed = await run({ ...dashboardResponse, requirements: invalidRequirements }, 6, 'Build record management');
     assert.equal(failed.state.AiStage, 'error'); assert.equal(failed.state.Pages, undefined); assert.equal(failed.checkpoints.length, 0);

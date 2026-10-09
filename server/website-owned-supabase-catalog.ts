@@ -1,5 +1,6 @@
 import { verifyOwnedCounterCatalog } from './website-owned-counter-catalog';
 import { verifyOwnedTransactionCatalog } from './website-owned-transaction-catalog';
+import { verifyOwnedWorkflowCatalog } from './website-owned-workflow-catalog';
 import type { ApplicationDefinition } from '../src/modules/website-builder/core/application-model';
 import { readApplicationDefinition } from '../src/modules/website-builder/core/application-validation';
 import { applicationBookingConstraintManifest, applicationRoleFunctionManifest, applicationSecurityPolicies } from '../src/modules/website-builder/core/application-schema-sql';
@@ -216,6 +217,7 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
       && (!app.roles.length || await verifyRoleInfrastructure(query))
       && await verifyOwnedSupabaseBookingConstraints(app, query)
       && await verifyOwnedCounterCatalog(app, query)
-      && await verifyOwnedTransactionCatalog(app, query);
+      && await verifyOwnedTransactionCatalog(app, query)
+      && await verifyOwnedWorkflowCatalog(app, query);
   } catch { return false; }
 }

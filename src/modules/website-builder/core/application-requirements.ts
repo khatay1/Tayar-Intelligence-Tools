@@ -5,7 +5,7 @@ import type { WebsitePage } from './website-builder-model';
 
 const capabilityPrefix: Record<string, string> = {
   page: 'page:', auth: 'auth', form: 'form:', records: 'view:',
-  booking: 'booking:', counter: 'counter:', transaction: 'transaction:',
+  booking: 'booking:', counter: 'counter:', transaction: 'transaction:', workflow: 'workflow:',
 };
 
 /** Recompute evidence from the current editable project; saved claims never prove completion by themselves. */
@@ -32,6 +32,7 @@ export function applicationRequirementIssues(application: ApplicationDefinition 
           if (view.table.booking && view.binding.actions.includes('create')) evidence.add(`booking:${view.table.id}`);
           if (view.table.counter && view.binding.actions.includes('adjust')) evidence.add(`counter:${view.table.id}`);
           if (view.table.transaction && view.binding.actions.includes('transact')) evidence.add(`transaction:${view.table.id}`);
+          if (view.table.workflow && view.binding.actions.includes('transition')) evidence.add(`workflow:${view.table.id}`);
         } catch { /* The existing application/view validation reports the detailed error. */ }
       }
     }
