@@ -97,6 +97,9 @@ jobs:
           path: /tmp/tayar-data-view-browser.log
           retention-days: 3
 
+      - name: Application notification editor browser regression
+        run: timeout 40s node scripts/application-notifications-browser-regression.mjs
+
       - name: Production build
         run: npm run build
 

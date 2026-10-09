@@ -63,6 +63,7 @@ export function analyzeByoPublishReadiness(input: {
     { provider: 'external', required: integrations.some(item => item.providerId !== 'stripe'), reason: 'External integrations require user-owned credentials and destination verification.' },
   ];
   const blockers = issues.map(issue => `Integration configuration: ${issue.message}`);
+  if (definition.tables.some(table => table.notifications?.length)) blockers.push('Email notifications require verified customer-owned credentials, database triggers and a scheduled worker.');
   const requirements = providers.map(({ provider, required, reason }): ByoRequirement => {
     const candidates = input.connections.filter(connection => connection.provider === provider
       && connection.ownerId === ownerId && connection.projectId === projectId && connection.environment === environment);

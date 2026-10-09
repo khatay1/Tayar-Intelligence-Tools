@@ -68,6 +68,8 @@ export function analyzeByoSourceCapabilities(snapshot: Record<string, unknown>, 
   }
   blockers.push(...websiteProjectLinkIssues(snapshot.pages, typeof snapshot.homePageId === 'string' ? snapshot.homePageId : undefined).map(issue => issue.message));
   const definition = readApplicationDefinition(snapshot.application, ids);
+  if (definition.tables.some(table => table.notifications?.length))
+    blockers.push('Saved email notification rules require verified customer-owned credentials, database triggers and a scheduled worker before publishing.');
   for (const page of snapshot.pages) preparePublishedApplicationDataViews(definition, page.id, page.sections as WebsiteSection[]);
   const privatePages = definition.pageAccess.some(rule => rule.access !== 'public');
   const auth = definition.auth.enabled || privatePages || definition.roles.length > 0;

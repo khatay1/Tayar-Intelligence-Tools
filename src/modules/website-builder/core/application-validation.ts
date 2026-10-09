@@ -1,5 +1,6 @@
 import { APPLICATION_FILE_TYPES, APPLICATION_FILE_MAX_BYTES } from './application-files';
-import { APPLICATION_LIMITS, APPLICATION_SYSTEM_FIELDS, createApplicationDefinition, type ApplicationDefinition } from './application-model';
+import { validateApplicationEmailNotification } from './application-email-notifications';
+import { APPLICATION_LIMITS, APPLICATION_SYSTEM_FIELDS, createApplicationDefinition, type ApplicationDefinition, type ApplicationTable } from './application-model';
 
 export interface ApplicationIssue { path: string; code: string; message: string }
 type RecordValue = Record<string, unknown>;
@@ -46,7 +47,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'workflow', 'attachments'], path)) return;
+    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'workflow', 'attachments', 'notifications'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
@@ -227,6 +228,26 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     });
     if (Array.isArray(table.permissions) && table.permissions.some(p => object(p) && ['update', 'delete'].includes(String(p.operation))) && !table.permissions.some(p => object(p) && p.operation === 'read')) issue(`${path}.permissions`, 'read-required', 'Update and delete require a read policy.');
   });
+  let notificationCount = 0;
+  tables.forEach((table, index) => {
+    if (!object(table) || table.notifications === undefined) return;
+    const path = `application.tables[${index}]`, rulePath = `${path}.notifications`;
+    const rules = list(table.notifications, 50, rulePath);
+    notificationCount += rules.length;
+    if (!authEnabled || !object(auth) || auth.emailVerificationRequired !== true) issue(rulePath, 'email-auth-required', 'Email notifications require authentication and verified email addresses.');
+    // Invalid table fields/workflows must remain ordinary validation issues,
+    // rather than throwing while inspecting an untrusted configuration.
+    const validTable = !issues.some(item => item.path === path || item.path.startsWith(`${path}.`));
+    rules.forEach((rule, ruleIndex) => {
+      const itemPath = `${rulePath}[${ruleIndex}]`;
+      if (object(rule)) identity(rule.id, `${itemPath}.id`);
+      if (validTable) {
+        const error = validateApplicationEmailNotification(rule, table as unknown as ApplicationTable);
+        if (error) issue(itemPath, 'invalid-email-notification', error);
+      }
+    });
+  });
+  if (notificationCount > 50) issue('application.tables', 'too-many-email-notifications', 'An application supports at most 50 email notification rules.');
   const lineTables = new Set<string>();
   tables.forEach((table, index) => {
     if (!object(table) || !object(table.transaction)) return;
