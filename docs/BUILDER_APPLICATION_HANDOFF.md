@@ -85,6 +85,25 @@ The independent source includes the same schema and runtime. Initial records sta
 minimum; operators use adjustments for opening quantities. This is an atomic operation
 on one record, not a multi-product order/payment/reservation workflow or financial ledger.
 
+## Server-calculated numeric fields
+
+Required numeric fields can declare a sum of 2–20 distinct required numeric source
+fields, or subtraction/multiplication of two sources in their declared order.
+Sources must be ordinary fields in the same record. AI generation, native editing,
+snapshots and independent export retain the validated rule. PostgreSQL stored
+generated columns calculate the result on insert/update; forms, record editors,
+the public-key client and atomic transaction attributes reject supplied results.
+Customer preflight checks the actual generated expression, numeric type and
+required constraint before publishing. Adding a calculated field to an existing
+table is additive; modifying/removing an existing formula requires a reviewed
+migration. Transaction functions are refreshed when parent fields are added.
+Transaction line quantities must remain writable source fields.
+
+These calculations do not implement cross-record totals, financial rounding,
+tax rules, payment capture or financial ledgers. The formula regression covers
+derived insert/update values and forged writes in the isolated CI PostgreSQL
+fixture; customer deployment and browser activation remain separate gates.
+
 ## Ownership after handover
 
 GitHub source, dedicated Supabase data/Auth and Vercel hosting belong to the connected customer's accounts. Tayar is setup/editing tooling. The deployed runtime operates independently of Tayar, and the customer manages billing, backups, user administration, monitoring and maintenance.
@@ -136,6 +155,31 @@ The runtime is shared across project types: Auth, role-protected pages, create f
 The existing Apex Dental publication has not been rewritten or republished. It needs a new complete application revision after the relevant adapters and live connection activation are ready.
 
 ## Validation
+
+### Calculated-field continuation — 2026-10-09
+
+Completed the previously uploaded `feature/application-formulas` source with
+transaction compatibility: generated results are excluded from parent inserts
+and accepted attributes; generated transaction quantities are rejected; additive
+parent-field changes regenerate the transaction function. Added combined
+formula/transaction regression coverage and updated read-only catalog fixtures
+to account for the generated-column inspection without weakening the verifier.
+
+PASS locally: formula, transaction, actual AI generation, the application suite,
+owned source/catalog/project/migration-worker regressions, TypeScript, affected
+source ESLint, production build, generated-bundle consistency and whitespace.
+Project health passed through the catalog stage; after fixing its two dependent
+fixtures, the remaining infrastructure and health stages passed on resume.
+The local PostgreSQL executable is unavailable, so the real database formula
+and transaction checks remain pending in Release Gate. Browser interaction,
+customer deployment and production activation were not performed.
+
+Automatic approval review blocked publishing the continuation commit to the
+public GitHub branch. The local changes are committed; approval is needed for
+that upload and the review PR before hosted database checks can run. Do not
+repeat completed suites merely to resume this upload. Remaining adapters include
+files, notifications, payment fulfilment and richer scheduling, alongside the
+independent customer activation and handover gates described above.
 
 ### Same-admin clinic inspection — 2026-10-07
 

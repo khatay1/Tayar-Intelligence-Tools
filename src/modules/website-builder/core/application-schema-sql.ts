@@ -443,6 +443,7 @@ end $form_ledger$;`);
     else if (old?.transaction) {
       const itemIndex = after.tables.findIndex(candidate => candidate.id === table.transaction!.itemTableId);
       if (JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)
+        || JSON.stringify(old.fields) !== JSON.stringify(table.fields)
         || JSON.stringify(before.tables[itemIndex]?.permissions) !== JSON.stringify(after.tables[itemIndex]?.permissions)) {
         statements.push(...compileApplicationTransactionSchema(after, index, true));
       }

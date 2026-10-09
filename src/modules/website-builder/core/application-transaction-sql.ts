@@ -54,13 +54,14 @@ export function compileApplicationTransactionSchema(input: ApplicationDefinition
   const quantityField = lineTable.fields.find(field => field.id === rule.lineQuantityFieldId)!;
   const parentName = `public.${quoted(`app_${table.key}`)}`, itemName = `public.${quoted(`app_${item.key}`)}`, lineName = `public.${quoted(`app_${lineTable.key}`)}`;
   const inner = `app_create_transaction_${index}`;
-  const allowed = table.fields.length ? `array[${table.fields.map(field => literal(field.key)).join(',')}]::text[]` : 'array[]::text[]';
-  const columns = table.fields.map(field => quoted(field.key));
-  const values = table.fields.map(fieldValue);
+  const writableFields = table.fields.filter(field => !field.formula);
+  const allowed = writableFields.length ? `array[${writableFields.map(field => literal(field.key)).join(',')}]::text[]` : 'array[]::text[]';
+  const columns = writableFields.map(field => quoted(field.key));
+  const values = writableFields.map(fieldValue);
   const parentInsert = `insert into ${parentName}(id, owner_id, _tayar_request_id${columns.length ? `, ${columns.join(', ')}` : ''}) values (parent_id, actor, ${inner}.request_id${values.length ? `, ${values.join(', ')}` : ''});`;
   const delta = rule.counterDirection === 'decrement' ? '-entry.quantity' : 'entry.quantity';
   const bound = `changed < ${counter.minimum}${counter.maximum === undefined ? '' : ` or changed > ${counter.maximum}`}`;
-  const shapeChecks = table.fields.map(fieldShape).join(' or ') || 'false';
+  const shapeChecks = writableFields.map(fieldShape).join(' or ') || 'false';
   const candidateInteger = counter.integer ? ' or candidate.quantity <> trunc(candidate.quantity)' : '';
   const lineConstraint = `alter table ${lineName} add constraint ${quoted(`app_transaction_quantity_${index}`)} check (${quoted(quantityField.key)} > 0 and ${quoted(quantityField.key)} <= 1000000000000 and ${quoted(quantityField.key)} not in ('NaN'::numeric, 'Infinity'::numeric, '-Infinity'::numeric)${counter.integer ? ` and ${quoted(quantityField.key)} = trunc(${quoted(quantityField.key)})` : ''});`;
   const body = `

@@ -64,12 +64,13 @@ try {
   const proof = live({ ...input, isCurrent: async () => { checks++; return true; },
     fetcher: async (url, init) => {
       if (url.endsWith('/database/query/read-only')) { catalogReads++;
-        assert.match(JSON.parse(init.body).query, /pg_catalog\.pg_policy/);
-        return Response.json([catalogRow], { status: 201 }); }
+        const sql = JSON.parse(init.body).query;
+        assert.match(sql, /pg_catalog\.(pg_policy|pg_attribute)/);
+        return Response.json(sql.includes('a.attgenerated') ? [] : [catalogRow], { status: 201 }); }
       return scoped.fetcher(url, init);
     } });
   assert.equal(await proof(definition), true);
-  assert.equal(checks, 2); assert.equal(catalogReads, 1);
+  assert.equal(checks, 2); assert.equal(catalogReads, 2);
   assert.equal(scoped.calls.length, 8, 'Ownership is checked around the catalog read');
   assert.equal(await live({ ...input, isCurrent: async () => false,
     fetcher: async () => { throw new Error('stale connection must not call provider'); } })(definition), false);

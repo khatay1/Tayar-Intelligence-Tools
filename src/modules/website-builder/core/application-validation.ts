@@ -155,7 +155,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
           || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId)
           || transactionField?.type !== 'reference' || transactionField.required !== true || transactionField.referenceTableId !== table.id
           || itemField?.type !== 'reference' || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId
-          || quantityField?.type !== 'number' || quantityField.required !== true
+          || quantityField?.type !== 'number' || quantityField.required !== true || quantityField.formula !== undefined
           || !['decrement', 'increment'].includes(String(rule.counterDirection)) || table.booking !== undefined || table.counter !== undefined) {
           issue(transactionPath, 'invalid-transaction', 'A transaction needs Auth, a counter item table and a separate line table with required parent, item and numeric quantity fields.');
         }
