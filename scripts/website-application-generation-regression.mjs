@@ -119,6 +119,17 @@ try {
   assert.deepEqual(inventory.state.Application.tables[0].counter, inventoryTable.counter);
   const fakeInventory = await run(dashboardResponse, 6, 'Build inventory management');
   assert.equal(fakeInventory.state.AiStage, 'error'); assert.equal(fakeInventory.state.Pages, undefined); assert.equal(fakeInventory.checkpoints.length, 0);
+  const invoiceTable = { id: 'invoice_lines', key: 'invoice_lines', name: 'Invoice lines', fields: [
+    { id: 'unit_price', key: 'unit_price', name: 'Unit price', type: 'number', required: true, defaultValue: 0 },
+    { id: 'units', key: 'units', name: 'Units', type: 'number', required: true, defaultValue: 0 },
+    { id: 'line_total', key: 'line_total', name: 'Line total', type: 'number', required: true, formula: { operation: 'multiply', fieldIds: ['unit_price', 'units'] } }],
+    permissions: ['read', 'create'].map(operation => ({ operation, access: 'owner' })) };
+  const formulaResponse = { projectKind: 'application', requirements: [{ id: 'line-total', summary: 'Calculate line totals.', capability: 'formula', evidence: ['formula:invoice_lines'] }],
+    application: { ...application, pageAccess: [], tables: [invoiceTable] }, pages: [{ name: 'Invoices', slug: 'invoices', sections: [{ type: 'features', applicationDataView: {
+      tableId: 'invoice_lines', columns: ['unit_price', 'units', 'line_total'], actions: ['create'], pageSize: 10 } }] }] };
+  const formulaApp = await run(formulaResponse, 6, 'Build invoice totals'); assert.equal(formulaApp.state.AiStage, 'ready');
+  const hiddenFormula = structuredClone(formulaResponse); hiddenFormula.pages[0].sections[0].applicationDataView.columns = ['unit_price', 'units'];
+  const missingFormula = await run(hiddenFormula, 6, 'Build invoice totals'); assert.equal(missingFormula.state.AiStage, 'error'); assert.equal(missingFormula.state.Pages, undefined);
   const orderTable = { id: 'orders', key: 'orders', name: 'Orders', fields: [{ id: 'order_note', key: 'note', name: 'Note', type: 'text', required: true }], permissions: [{ operation: 'read', access: 'owner' }, { operation: 'create', access: 'owner' }], transaction: { itemTableId: 'stock_items', lineTableId: 'order_lines', lineTransactionFieldId: 'order_line_order', lineItemFieldId: 'order_line_item', lineQuantityFieldId: 'order_line_quantity', counterDirection: 'decrement' } };
   const lineTable = { id: 'order_lines', key: 'order_lines', name: 'Order lines', fields: [
     { id: 'order_line_order', key: 'order_id', name: 'Order', type: 'reference', required: true, referenceTableId: 'orders' },

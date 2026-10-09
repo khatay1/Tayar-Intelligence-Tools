@@ -23,7 +23,12 @@ try {
     { id: 'product_name', key: 'name', name: 'Name', type: 'text', required: true },
     { id: 'product_stock', key: 'quantity', name: 'Stock', type: 'number', required: true, defaultValue: 0 },
   ], permissions: [{ operation: 'read', access: 'authenticated' }, { operation: 'update', access: 'authenticated' }], counter: { fieldId: 'product_stock', minimum: 0, maximum: 100, integer: true } };
-  const orders = { id: 'orders', key: 'orders', name: 'Orders', fields: [{ id: 'order_note', key: 'note', name: 'Note', type: 'text', required: true }],
+  const orders = { id: 'orders', key: 'orders', name: 'Orders', fields: [
+    { id: 'order_note', key: 'note', name: 'Note', type: 'text', required: true },
+    { id: 'order_price', key: 'price', name: 'Price', type: 'number', required: true, defaultValue: 2 },
+    { id: 'order_units', key: 'units', name: 'Units', type: 'number', required: true, defaultValue: 5 },
+    { id: 'order_total', key: 'total', name: 'Total', type: 'number', required: true, formula: { operation: 'multiply', fieldIds: ['order_price', 'order_units'] } },
+  ],
     permissions: [{ operation: 'read', access: 'owner' }, { operation: 'create', access: 'owner' }],
     transaction: { itemTableId: 'products', lineTableId: 'order_lines', lineTransactionFieldId: 'line_order', lineItemFieldId: 'line_item', lineQuantityFieldId: 'line_quantity', counterDirection: 'decrement' } };
   const lines = { id: 'order_lines', key: 'order_lines', name: 'Order lines', fields: [
@@ -33,6 +38,15 @@ try {
   ], permissions: [{ operation: 'read', access: 'owner' }] };
   const app = { version: 1, roles: [], pageAccess: [], auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, tables: [products, orders, lines] };
   const sql = compile(app).join('\n'); validate(app);
+  const parentInsert = sql.match(/insert into public\."app_orders"\([^;]+;/)?.[0];
+  assert.ok(parentInsert); assert.doesNotMatch(parentInsert, /"total"/);
+  const withoutTotal = { ...app, tables: [products, { ...orders, fields: orders.fields.filter(field => !field.formula) }, lines] };
+  assert.match(migrate(withoutTotal, app).join('\n'), /create or replace function private.app_create_transaction_1/);
+  const derivedQuantity = { ...lines, fields: [...lines.fields.map(field => field.id === 'line_quantity'
+    ? { ...field, formula: { operation: 'multiply', fieldIds: ['factor_a', 'factor_b'] } } : field),
+    { id: 'factor_a', key: 'factor_a', name: 'Factor A', type: 'number', required: true, defaultValue: 1 },
+    { id: 'factor_b', key: 'factor_b', name: 'Factor B', type: 'number', required: true, defaultValue: 1 }] };
+  assert.throws(() => validate({ ...app, tables: [products, orders, derivedQuantity] }), /transaction/);
   assert.match(sql, /app_create_transaction_1/); assert.match(sql, /order by "itemId"/); assert.match(sql, /app_transaction_requests_pkey/);
   assert.match(sql, /Application transaction exceeds allowed bounds/); assert.match(sql, /security invoker/);
   assert.deepEqual(parseLines(orders, products, [{ itemId: itemA, quantity: '2' }]), [{ itemId: itemA, quantity: 2 }]);
@@ -89,6 +103,8 @@ try {
     await query(`${asUser(owner)} select public.app_adjust_counter_0('${itemA}',10,gen_random_uuid()); select public.app_adjust_counter_0('${itemB}',10,gen_random_uuid());`);
     const created = JSON.parse(await query(`${asUser(owner)} select public.app_create_transaction_1('{"note":"First"}'::jsonb,'[{"itemId":"${itemA}","quantity":2},{"itemId":"${itemB}","quantity":3}]'::jsonb,'${request}');`));
     assert.equal(created.status, 'created'); assert.equal(await query(`select quantity from public.app_products where id='${itemA}';`), '8');
+    assert.equal(await query(`select total from public.app_orders where id='${created.id}';`), '10');
+    await assert.rejects(query(`${asUser(owner)} select public.app_create_transaction_1('{"note":"Forged","total":999}'::jsonb,'[{"itemId":"${itemA}","quantity":1}]'::jsonb,gen_random_uuid());`), /Application transaction unavailable/);
     const replay = JSON.parse(await query(`${asUser(owner)} select public.app_create_transaction_1('{"note":"First"}'::jsonb,'[{"quantity":3,"itemId":"${itemB}"},{"quantity":2,"itemId":"${itemA}"}]'::jsonb,'${request}');`));
     assert.equal(replay.status, 'already-created'); assert.equal(replay.id, created.id); assert.equal(await query('select count(*) from public.app_orders;'), '1'); assert.equal(await query('select count(*) from public.app_order_lines;'), '2');
     const beforeA = await query(`select quantity from public.app_products where id='${itemA}';`), beforeB = await query(`select quantity from public.app_products where id='${itemB}';`);

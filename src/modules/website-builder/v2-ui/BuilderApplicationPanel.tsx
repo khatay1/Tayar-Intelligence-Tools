@@ -1,6 +1,7 @@
 import { BuilderApplicationCounterRule } from './BuilderApplicationCounterRule';
 import { BuilderApplicationTransactionRule } from './BuilderApplicationTransactionRule';
 import { BuilderApplicationWorkflowRule } from './BuilderApplicationWorkflowRule';
+import { BuilderApplicationFormulaRule } from './BuilderApplicationFormulaRule';
 import { useEffect, useRef, useState } from 'react';
 import { BuilderApplicationBookingRule } from './BuilderApplicationBookingRule';
 import BuilderApplicationBackendPanel from './BuilderApplicationBackendPanel';
@@ -95,6 +96,8 @@ export function BuilderApplicationPanel({ value, pages, cloudProjectId, loadSequ
           <button type="button" disabled={disabled} onClick={() => commit([{ type: 'put_table', table: { ...table, fields: table.fields.filter(item => item.id !== field.id) } }])}>{l('Remove field')}</button>
         </div>)}
         <button type="button" disabled={disabled} onClick={() => { const n = table.fields.length + 1; updateTable({ ...table, fields: [...table.fields, { id: id(), key: `field_${n}`, name: `Field ${n}`, type: 'text', required: false }] }); }}>{l('Add field')}</button>
+        <BuilderApplicationFormulaRule key={`formula:${JSON.stringify(table)}`} table={table} disabled={disabled} onSave={(fieldId, formula) => updateTable({ ...table,
+          fields: table.fields.map(field => { if (field.id !== fieldId) return field; const next = { ...field }; if (formula) next.formula = formula; else delete next.formula; return next; }) })} />
         <BuilderApplicationCounterRule key={`counter:${JSON.stringify(table)}`} table={table} disabled={disabled} onSave={counter => { const next = { ...table }; if (counter) next.counter = counter; else delete next.counter; updateTable(next); }} />
         <BuilderApplicationTransactionRule key={`transaction:${JSON.stringify(table)}:${app.tables.length}`} table={table} tables={app.tables} disabled={disabled} onSave={transaction => { const next = { ...table }; if (transaction) next.transaction = transaction; else delete next.transaction; updateTable(next); }} />
         <BuilderApplicationBookingRule key={JSON.stringify(table)} table={table} disabled={disabled} onSave={booking => { const next = { ...table }; if (booking) next.booking = booking; else delete next.booking; updateTable(next); }} />

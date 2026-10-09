@@ -33,10 +33,13 @@ try {
       assert.equal(url, 'https://api.supabase.com/v1/projects/abcdefghijklmnopqrst/database/query/read-only');
       assert.equal(init.headers.Authorization, 'Bearer customer_oauth_token');
       assert.equal(init.redirect, 'error'); assert.equal(init.cache, 'no-store');
-      assert.match(JSON.parse(init.body).query, /pg_catalog\.pg_policy/);
-      return Response.json([row], { status: 201 });
+      const sql = JSON.parse(init.body).query;
+      assert.match(sql, /pg_catalog\.(pg_policy|pg_attribute)/);
+      return Response.json(sql.includes('a.attgenerated') ? [] : [row], { status: 201 });
     } });
-  assert.equal(await verify(definition, query), true); assert.equal(calls, 1);
+  assert.equal(await verify(definition, query), true); assert.equal(calls, 2);
+  assert.equal(await verify(definition, async sql => sql.includes('a.attgenerated')
+    ? [{ table_name: 'app_notes', column_name: 'undeclared', generated: 's', required: true, type: 'numeric', expression: '1' }] : [row]), false);
   for (const mutation of [
     { rls: false }, { anon_create: true }, { anon_column_create: true }, { authenticated_read: false },
     { policy_name: 'unrelated' }, { command: '*' }, { permissive: false },
@@ -52,7 +55,7 @@ try {
   const ownerExpression = "(((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true) and (select auth.uid()) = owner_id)";
   const ownerRow = { ...row, anon_read: false, anon_column_read: false,
     roles: ['authenticated'], using_expression: ownerExpression };
-  assert.equal(await verify(ownerDefinition, async () => [ownerRow]), true);
+  assert.equal(await verify(ownerDefinition, async sql => sql.includes('a.attgenerated') ? [] : [ownerRow]), true);
   assert.equal(await verify(ownerDefinition, async () => [{ ...ownerRow,
     using_expression: ownerExpression.replace('owner_id', 'id') }]), false);
   const roleDefinition = { ...definition, auth: { enabled: true, signUpEnabled: true,
@@ -69,7 +72,7 @@ try {
     authenticated_execute: item.name !== 'app_bootstrap_role_admin', service_execute: true,
   }));
   assert.equal(roleFunctions.length, 8);
-  const roleQuery = async sql => sql.includes('pg_catalog.pg_proc') ? roleFunctions
+  const roleQuery = async sql => sql.includes('a.attgenerated') ? [] : sql.includes('pg_catalog.pg_proc') ? roleFunctions
     : sql.includes('app_user_roles') ? roleTables
       : sql.includes('has_schema_privilege') ? [{ anon_usage: false, authenticated_usage: true }] : [row];
   assert.equal(await verify(roleDefinition, roleQuery), true);

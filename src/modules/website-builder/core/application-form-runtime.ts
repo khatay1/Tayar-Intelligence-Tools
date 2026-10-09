@@ -99,7 +99,7 @@ export function compileApplicationCreateForm(definition: ApplicationDefinition, 
       || formIds.has(mapping.formFieldId) || tableIds.has(mapping.tableFieldId)) throw invalid();
     const form = section.formFields!.find(item => item.id === mapping.formFieldId);
     const field = table.fields.find(item => item.id === mapping.tableFieldId);
-    if (!form || !field || table.workflow?.fieldId === field.id || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || names.has(form.name)
+    if (!form || !field || table.workflow?.fieldId === field.id || field.formula || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || names.has(form.name)
       || form.name.startsWith('_tayar_') || form.conditions?.length || form.type === 'file') throw invalid();
     if (form.validation) {
       exact(form.validation, ['minLength', 'maxLength', 'min', 'max', 'pattern']);
@@ -122,7 +122,7 @@ export function compileApplicationCreateForm(definition: ApplicationDefinition, 
     return { form, field };
   });
   if (new Set(section.formFields.map(field => field.id)).size !== section.formFields.length
-    || table.fields.some(field => field.required && field.defaultValue === undefined && !tableIds.has(field.id))) throw invalid();
+    || table.fields.some(field => field.required && field.defaultValue === undefined && !field.formula && !tableIds.has(field.id))) throw invalid();
   return {
     tableId: table.id,
     values(entries: Iterable<[string, unknown]>): Record<string, unknown> {

@@ -130,7 +130,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     stopEditor(); editor.replaceChildren(); editor.hidden = false;
     const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
     for (const field of controller.table.fields) {
-      if (controller.table.workflow?.fieldId === field.id) continue;
+      if (controller.table.workflow?.fieldId === field.id || field.formula) continue;
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
       if (field.type === 'reference') {
@@ -171,7 +171,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     stopEditor(); editor.replaceChildren(); editor.hidden = false;
     const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
     for (const field of controller.table.fields) {
-      if (controller.table.workflow?.fieldId === field.id) continue;
+      if (controller.table.workflow?.fieldId === field.id || field.formula) continue;
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
       let reference: ReturnType<typeof createApplicationReferenceInput> | undefined;

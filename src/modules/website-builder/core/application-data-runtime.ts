@@ -88,7 +88,7 @@ const rowId = (value: string) => {
 function writable(table: ApplicationTable, input: Record<string, unknown>): Record<string, unknown> {
   if (!input || Array.isArray(input) || typeof input !== 'object') throw new Error('Record values must be an object.');
   const workflowField = table.workflow ? table.fields.find(field => field.id === table.workflow!.fieldId)?.key : undefined;
-  const allowed = new Set(table.fields.filter(field => field.key !== workflowField).map(field => field.key));
+  const allowed = new Set(table.fields.filter(field => field.key !== workflowField && !field.formula).map(field => field.key));
   const values = Object.entries(input);
   if (!values.length || values.some(([key]) => !allowed.has(key))) throw new Error('Only declared application fields can be written.');
   return Object.fromEntries(values);

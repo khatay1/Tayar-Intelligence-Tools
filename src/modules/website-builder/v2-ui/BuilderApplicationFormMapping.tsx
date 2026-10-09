@@ -47,7 +47,7 @@ export function BuilderApplicationFormMapping({ section, application, disabled, 
           setFields(current => ({ ...current, [field.id]: event.target.value })); setError('');
         }}>
           <option value="">{l('Select a field')}</option>
-          {table.fields.map(item => <option key={item.id} value={item.id}>{item.name} · {item.type}</option>)}
+          {table.fields.filter(item => !item.formula && item.id !== table.workflow?.fieldId).map(item => <option key={item.id} value={item.id}>{item.name} · {item.type}</option>)}
         </select>
       </label>)}
     </div>}

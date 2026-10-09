@@ -64,7 +64,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     const keys = new Set<string>(APPLICATION_SYSTEM_FIELDS);
     list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field, fieldIndex) => {
       const fieldPath = `${path}.fields[${fieldIndex}]`;
-      if (!shape(field, ['id', 'key', 'name', 'type', 'required', 'unique', 'indexed', 'defaultValue', 'options', 'referenceTableId'], fieldPath)) return;
+      if (!shape(field, ['id', 'key', 'name', 'type', 'required', 'unique', 'indexed', 'defaultValue', 'options', 'referenceTableId', 'formula'], fieldPath)) return;
       identity(field.id, `${fieldPath}.id`);
       if (!identifier(field.key) || keys.has(field.key)) issue(`${fieldPath}.key`, 'invalid-key', 'Field keys must be unique lower-case identifiers and cannot replace system fields.');
       else keys.add(field.key);
@@ -73,6 +73,17 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
       if (typeof field.required !== 'boolean' || ['unique', 'indexed'].some(key => field[key] !== undefined && typeof field[key] !== 'boolean')) issue(fieldPath, 'invalid-boolean', 'Field constraint flags must be booleans.');
       if (field.type === 'reference' && !tableIds.has(String(field.referenceTableId))) issue(fieldPath, 'missing-table', 'A relationship requires an existing target table.');
       if (field.type !== 'reference' && field.referenceTableId !== undefined) issue(fieldPath, 'unexpected-reference', 'Only reference fields can target a table.');
+      if (field.formula !== undefined) {
+        const formulaPath = `${fieldPath}.formula`, formula = field.formula;
+        if (!shape(formula, ['operation', 'fieldIds'], formulaPath) || field.type !== 'number' || field.required !== true
+          || field.defaultValue !== undefined || !['sum', 'subtract', 'multiply'].includes(String(formula.operation))
+          || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20
+          || formula.operation !== 'sum' && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length
+          || formula.fieldIds.some(sourceId => sourceId === field.id || !(table.fields as unknown[]).some(source => object(source)
+            && source.id === sourceId && source.type === 'number' && source.required === true && source.formula === undefined))) {
+          issue(formulaPath, 'invalid-formula', 'A formula needs a required numeric result and 2–20 distinct required numeric source fields.');
+        }
+      }
       if (field.type === 'enum') {
         if (!Array.isArray(field.options) || field.options.length < 1 || field.options.length > 100 || field.options.some(item => typeof item !== 'string' || !item || item.length > 200) || new Set(field.options).size !== field.options.length) issue(fieldPath, 'invalid-options', 'An enum requires 1–100 unique nonempty options.');
       } else if (field.options !== undefined) issue(fieldPath, 'unexpected-options', 'Only enum fields can define options.');
@@ -144,7 +155,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
           || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId)
           || transactionField?.type !== 'reference' || transactionField.required !== true || transactionField.referenceTableId !== table.id
           || itemField?.type !== 'reference' || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId
-          || quantityField?.type !== 'number' || quantityField.required !== true
+          || quantityField?.type !== 'number' || quantityField.required !== true || quantityField.formula !== undefined
           || !['decrement', 'increment'].includes(String(rule.counterDirection)) || table.booking !== undefined || table.counter !== undefined) {
           issue(transactionPath, 'invalid-transaction', 'A transaction needs Auth, a counter item table and a separate line table with required parent, item and numeric quantity fields.');
         }
@@ -223,7 +234,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     if (manifest.version !== 1) issue('application.requirements.version', 'unsupported-version', 'Unsupported requirements manifest version.');
     if (typeof manifest.request !== 'string' || !manifest.request.trim() || manifest.request.length > 4000) issue('application.requirements.request', 'invalid-request', 'Requirements need the original nonempty request.');
     const requirementIds = new Set<string>();
-    const capabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction', 'workflow']);
+    const capabilities = new Set(['page', 'auth', 'form', 'records', 'booking', 'counter', 'transaction', 'workflow', 'formula']);
     list(manifest.items, APPLICATION_LIMITS.requirements, 'application.requirements.items').forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ['id', 'summary', 'capability', 'evidence'], path)) return;
@@ -237,7 +248,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const evidencePath = `${path}.evidence[${evidenceIndex}]`;
         if (typeof entry !== 'string' || entry.length > 260) { issue(evidencePath, 'invalid-evidence', 'Invalid requirement evidence.'); return; }
         if (entry === 'auth') { if (!authEnabled) issue(evidencePath, 'missing-auth', 'Auth evidence requires enabled authentication.'); return; }
-        const match = /^(page|form|view|booking|counter|transaction|workflow):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition))?$/.exec(entry);
         if (!match) { issue(evidencePath, 'invalid-evidence', 'Evidence must reference a supported page, table or action.'); return; }
         if (match[1] === 'page') { if (match[3] || (pageIds && !pageIds.has(match[2]))) issue(evidencePath, 'missing-page', 'Page evidence requires an existing page.'); return; }
         const table = tables.find(candidate => object(candidate) && candidate.id === match[2]);
@@ -246,6 +257,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (match[1] === 'counter' && !object(table.counter)) issue(evidencePath, 'missing-counter', 'Counter evidence requires a native counter rule.');
         if (match[1] === 'transaction' && !object(table.transaction)) issue(evidencePath, 'missing-transaction', 'Transaction evidence requires a native transaction rule.');
         if (match[1] === 'workflow' && !object(table.workflow)) issue(evidencePath, 'missing-workflow', 'Workflow evidence requires a native workflow rule.');
+        if (match[1] === 'formula' && !(table.fields as unknown[]).some(field => object(field) && object(field.formula))) issue(evidencePath, 'missing-formula', 'Formula evidence requires a server-computed field.');
         if (match[1] === 'view' && !match[3]) issue(evidencePath, 'missing-action', 'Data-view evidence requires an action.');
         if (match[1] !== 'view' && match[3]) issue(evidencePath, 'unexpected-action', 'Only data-view evidence can include an action.');
       });
