@@ -266,3 +266,32 @@ Remaining primary work, in dependency order:
 
 Social integrations remain in the separate deferred plan. None of the pending
 items above is considered implemented by descriptive pages or ordinary CRUD.
+
+### Durable email transport foundation — 2026-10-09
+
+The Resend event boundary can now delegate to a server-only dispatcher using a
+customer PostgreSQL queue. Source event IDs survive retries and derive stable,
+project/environment/connection-scoped message UUIDs. The trusted server chooses
+the committed source event UUID, recipient user and template; client envelope
+IDs cannot change message identity. The queue obtains the verified email from
+`auth.users`, rejects anonymous, unverified and banned recipients, and rechecks
+the frozen address before claiming. Public browser roles cannot enqueue, claim,
+finish or read these jobs. Queue functions are private definers with empty search
+paths and service-role-only invoker wrappers; elevated access is needed solely
+to resolve Auth recipients and mutate the otherwise inaccessible private queue.
+
+Claims commit a 90-second lease, first-attempt time, attempt counter and credential
+fingerprint before contacting Resend. Retries retain exactly the same payload and
+idempotency key. Expired leases cannot acknowledge a newer worker. Changed sender/
+credential bindings, expired 20-hour retry windows and exhausted attempts require
+reconciliation. Accepted provider UUIDs are distinct from confirmed recipient
+delivery. Provider errors, response bodies and credentials are excluded from logs.
+
+The queue schema is an opt-in customer compiler foundation, not a Tayar platform
+migration. It is not yet included in customer source exports or installed by the
+publish worker. Template/rule UI, authorized form/record producers, secret custody
+handoff, catalog verification, background draining and a real consenting customer
+email test remain necessary before publishing can declare notifications ready.
+The existing notification publish blockers intentionally remain in force. SMS
+is not implemented by this email transport. No real messages were sent by its
+mocked-provider regression checks.

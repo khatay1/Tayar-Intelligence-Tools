@@ -13,11 +13,12 @@ export interface EditorIntegrationDelivery {
   eventId: string;
   connectionId: string;
   attempt: number;
-  status: 'delivered' | 'failed' | 'skipped';
+  status: 'delivered' | 'accepted' | 'queued' | 'review' | 'failed' | 'skipped';
   statusCode?: number;
   error?: string;
   deliveredAt?: string;
   nextRetryAt?: string;
+  providerId?: string;
 }
 
 export interface EditorIntegrationRuntimeAdapter {
@@ -26,6 +27,8 @@ export interface EditorIntegrationRuntimeAdapter {
   sign?(payload: string, secret: string): Promise<string>;
   now?(): Date;
   sleep?(milliseconds: number): Promise<void>;
+  /** Server-only durable email dispatcher. Never fall back to a browser API call. */
+  deliverEmail?(connection: EditorIntegrationConnection, event: EditorIntegrationEventEnvelope): Promise<EditorIntegrationDelivery>;
 }
 
 export interface EditorIntegrationDispatchOptions {
@@ -93,6 +96,15 @@ export async function dispatchEditorIntegrationEvent(config: EditorIntegrationsC
       || !/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,63}$/.test(prefix)
       || validateEditorIntegrations({ version: 1, connections: [connection] }).length) {
       deliveries.push({ eventId: event.id, connectionId: connection.id, attempt: 0, status: 'failed', error: 'Integration configuration is invalid.' });
+      continue;
+    }
+    if (connection.providerId === 'resend' && adapter.deliverEmail) {
+      try {
+        deliveries.push(await adapter.deliverEmail(connection, event));
+      } catch {
+        deliveries.push({ eventId: event.id, connectionId: connection.id, attempt: 0, status: 'failed',
+          error: 'Email delivery unavailable.' });
+      }
       continue;
     }
     const url = endpoint(connection);
