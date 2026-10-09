@@ -79,12 +79,12 @@ end $payment$;
 
 create function private.app_stripe_order_bind_session(p_order_id uuid,p_operation_id uuid,p_session_id text)
 returns boolean language plpgsql security definer set search_path='' as $payment$
-declare found private.app_stripe_order_payments;
+declare payment private.app_stripe_order_payments;
 begin
  if p_order_id is null or p_operation_id is null or p_session_id !~ '^cs_(test|live)_[A-Za-z0-9]{8,200}$' then raise exception 'Invalid checkout session'; end if;
- select * into found from private.app_stripe_order_payments where order_id=p_order_id and operation_id=p_operation_id for update;
- if not found or found.status<>'pending' or (found.livemode and p_session_id !~ '^cs_live_') or (not found.livemode and p_session_id !~ '^cs_test_')
-  or (found.session_id is not null and found.session_id<>p_session_id) then raise exception 'Checkout session conflict'; end if;
+ select * into payment from private.app_stripe_order_payments where order_id=p_order_id and operation_id=p_operation_id for update;
+ if not found or payment.status<>'pending' or (payment.livemode and p_session_id !~ '^cs_live_') or (not payment.livemode and p_session_id !~ '^cs_test_')
+  or (payment.session_id is not null and payment.session_id<>p_session_id) then raise exception 'Checkout session conflict'; end if;
  update private.app_stripe_order_payments set session_id=p_session_id,updated_at=clock_timestamp() where order_id=p_order_id;
  return true;
 end $payment$;
