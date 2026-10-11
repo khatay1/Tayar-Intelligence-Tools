@@ -263,6 +263,7 @@ function validateApplicationDefinition(value, pageIds) {
                   new Intl.DateTimeFormat("en", { timeZone: period.timeZone }).format(0);
                   zone = true;
                 } catch {
+                  zone = false;
                 }
               }
               if (!object4(date) || !["date", "datetime"].includes(String(date.type)) || !["day", "week", "month", "year"].includes(String(period.unit)) || !zone || !Number.isInteger(period.offset) || Number(period.offset) < -120 || Number(period.offset) > 0 || typeof period.comparePrevious !== "boolean")

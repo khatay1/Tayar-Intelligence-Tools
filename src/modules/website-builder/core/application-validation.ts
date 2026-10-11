@@ -125,7 +125,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
               const date = Array.isArray(table.fields) && table.fields.find(field => object(field) && field.id === period.fieldId);
               let zone = false;
               if (typeof period.timeZone === 'string' && period.timeZone.length <= 80 && /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(period.timeZone)) {
-                try { new Intl.DateTimeFormat('en', { timeZone: period.timeZone }).format(0); zone = true; } catch { /* invalid zone */ }
+                try { new Intl.DateTimeFormat('en', { timeZone: period.timeZone }).format(0); zone = true; } catch { zone = false; }
               }
               if (!object(date) || !['date', 'datetime'].includes(String(date.type)) || !['day', 'week', 'month', 'year'].includes(String(period.unit))
                 || !zone || !Number.isInteger(period.offset) || Number(period.offset) < -120 || Number(period.offset) > 0 || typeof period.comparePrevious !== 'boolean')
