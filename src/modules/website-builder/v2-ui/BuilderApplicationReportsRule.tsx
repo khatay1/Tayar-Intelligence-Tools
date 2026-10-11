@@ -20,7 +20,7 @@ export function BuilderApplicationReportsRule({ table, disabled, onSave }: {
       {(['count', 'sum', 'min', 'max', 'avg'] as const).map(value => <option key={value} value={value}>{l(value)}</option>)}
     </select></label>
     {operation !== 'count' && <label>{l('Numeric field')}<select disabled={disabled} value={fieldId} onChange={event => setFieldId(event.target.value)}>
-      <option value="">{l('Select field')}</option>{fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
+      <option value="">{l('Select a field')}</option>{fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
     </select></label>}
     <button type="button" disabled={disabled || reports.length >= 8 || !name.trim() || operation !== 'count' && !fields.some(field => field.id === fieldId)} onClick={() => {
       onSave([...reports, { id: crypto.randomUUID(), name: name.trim(), operation, ...(operation !== 'count' ? { fieldId } : {}) }]); setName('');
