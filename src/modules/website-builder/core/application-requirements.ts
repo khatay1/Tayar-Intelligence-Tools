@@ -6,6 +6,7 @@ import type { WebsitePage } from './website-builder-model';
 const capabilityPrefix: Record<string, string> = {
   page: 'page:', auth: 'auth', form: 'form:', records: 'view:',
   booking: 'booking:', counter: 'counter:', transaction: 'transaction:', workflow: 'workflow:', formula: 'formula:', files: 'files:',
+  payment: 'payment:', email: 'email:', reports: 'reports:',
 };
 
 /** Recompute evidence from the current editable project; saved claims never prove completion by themselves. */
@@ -35,10 +36,13 @@ export function applicationRequirementIssues(application: ApplicationDefinition 
           if (view.table.attachments && view.binding.actions.includes('attachments')) evidence.add(`files:${view.table.id}`);
           if (view.table.workflow && view.binding.actions.includes('transition')) evidence.add(`workflow:${view.table.id}`);
           if (view.table.fields.some(field => field.formula && view.binding.columns.includes(field.id))) evidence.add(`formula:${view.table.id}`);
+          if (view.table.payment && view.binding.actions.some(action => action === 'pay' || action === 'refund')) evidence.add(`payment:${view.table.id}`);
+          if (view.table.reports?.length) evidence.add(`reports:${view.table.id}`);
         } catch { /* The existing application/view validation reports the detailed error. */ }
       }
     }
   }
+  for (const table of application.tables) if (table.notifications?.length) evidence.add(`email:${table.id}`);
   return manifest.items.flatMap(item => {
     const prefix = capabilityPrefix[item.capability];
     const matching = item.evidence.some(entry => prefix === 'auth' ? entry === 'auth' : entry.startsWith(prefix));

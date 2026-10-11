@@ -103,6 +103,10 @@ try {
       applicationDataView: { tableId: 'appointments', columns: bookingFields.map(field => field.id), actions: ['create'], pageSize: 10 } }] }] };
   const realBooking = await run(bookingResponse, 6, 'بدي حجز المواعيد');
   assert.equal(realBooking.state.AiStage, 'ready'); assert.deepEqual(realBooking.state.Application.tables[0].booking, bookingRule);
+  for (const prompt of ['Build recurring appointments', 'Build a booking waitlist', 'Build booking working hours', 'Book a doctor and room using multiple resources']) {
+    const incompleteBooking = await run(bookingResponse, 6, prompt);
+    assert.equal(incompleteBooking.state.AiStage, 'error'); assert.equal(incompleteBooking.state.Pages, undefined); assert.equal(incompleteBooking.checkpoints.length, 0);
+  }
   for (const invalid of [response, { ...bookingResponse, application: { ...bookingResponse.application, tables: [{ ...bookingResponse.application.tables[0], booking: undefined }] } },
     { ...bookingResponse, application: { ...bookingResponse.application, tables: [{ ...bookingResponse.application.tables[0], booking: { ...bookingRule, secret: 'forbidden' } }] } }]) {
     const failed = await run(invalid, 6, 'Build appointment booking');
@@ -138,6 +142,16 @@ try {
   const orderResponse = { projectKind: 'application', requirements: [{ id: 'atomic-order', summary: 'Users can create a multi-item order atomically.', capability: 'transaction', evidence: ['transaction:orders'] }], application: { ...application, pageAccess: [], tables: [inventoryTable, orderTable, lineTable] }, pages: [{ name: 'Orders', slug: 'orders', sections: [{ type: 'features', applicationDataView: { tableId: 'orders', columns: ['order_note'], actions: ['transact'], pageSize: 10 } }] }] };
   const orders = await run(orderResponse, 6, 'بدي إدارة الطلبات'); assert.equal(orders.state.AiStage, 'ready'); assert.deepEqual(orders.state.Application.tables[1].transaction, orderTable.transaction);
   const fakeOrders = await run(dashboardResponse, 6, 'Build order management'); assert.equal(fakeOrders.state.AiStage, 'error'); assert.equal(fakeOrders.state.Pages, undefined);
+  const pricedInventoryTable = { ...inventoryTable, fields: [...inventoryTable.fields,
+    { id: 'item_price', key: 'unit_price', name: 'Unit price', type: 'number', required: true, defaultValue: 0 }] };
+  const paidOrderTable = { ...orderTable, payment: { provider: 'stripe', currency: 'usd', itemUnitAmountFieldId: 'item_price', refundRoleId: 'finance' } };
+  const paymentResponse = { projectKind: 'application', requirements: [{ id: 'server-payment', summary: 'Users can pay and finance can refund.', capability: 'payment', evidence: ['payment:orders', 'view:orders:refund'] }],
+    application: { ...application, roles: [{ id: 'finance', name: 'Finance' }], pageAccess: [], tables: [pricedInventoryTable, paidOrderTable, lineTable] },
+    pages: [{ name: 'Checkout', slug: 'checkout', sections: [{ type: 'features', applicationDataView: { tableId: 'orders', columns: ['order_note'], actions: ['transact', 'pay', 'refund'], pageSize: 10 } }] }] };
+  const payment = await run(paymentResponse, 6, 'Build Stripe checkout and refunds'); assert.equal(payment.state.AiStage, 'ready');
+  assert.deepEqual(payment.state.Application.tables[1].payment, paidOrderTable.payment);
+  const missingRefund = structuredClone(paymentResponse); missingRefund.pages[0].sections[0].applicationDataView.actions = ['transact', 'pay'];
+  const incompleteRefund = await run(missingRefund, 6, 'Build Stripe checkout and refunds'); assert.equal(incompleteRefund.state.AiStage, 'error'); assert.equal(incompleteRefund.state.Pages, undefined);
   const workflowTable = { ...orderTable, transaction: undefined, permissions: ['read', 'create', 'update'].map(operation => ({ operation, access: 'owner' })),
     fields: [...orderTable.fields, { id: 'order_state', key: 'state', name: 'State', type: 'enum', required: true, options: ['pending', 'approved'], defaultValue: 'pending' }],
     workflow: { fieldId: 'order_state', transitions: [{ id: 'approve', label: 'Approve', from: ['pending'], to: 'approved', access: 'owner' }] } };
@@ -148,6 +162,24 @@ try {
   assert.deepEqual(workflow.state.Application.tables[0].workflow, workflowTable.workflow);
   const missingWorkflowAction = structuredClone(workflowResponse); missingWorkflowAction.pages[0].sections[0].applicationDataView.actions = [];
   const missingWorkflow = await run(missingWorkflowAction, 6, 'Build order approvals'); assert.equal(missingWorkflow.state.AiStage, 'error'); assert.equal(missingWorkflow.state.Pages, undefined);
+  const reportTable = { ...invoiceTable, fields: [...invoiceTable.fields,
+    { id: 'invoice_category', key: 'category', name: 'Category', type: 'enum', required: true, options: ['service', 'product'], defaultValue: 'service' },
+    { id: 'invoice_date', key: 'invoice_date', name: 'Date', type: 'date', required: true }],
+    reports: [{ id: 'monthly_count', name: 'Monthly count', operation: 'count', groupByFieldId: 'invoice_category',
+      period: { fieldId: 'invoice_date', unit: 'month', timeZone: 'UTC', offset: 0, comparePrevious: true } }] };
+  const reportResponse = { projectKind: 'application', requirements: [{ id: 'monthly-report', summary: 'Show grouped monthly counts and compare periods.', capability: 'reports', evidence: ['reports:invoice_lines'] }],
+    application: { ...application, pageAccess: [], tables: [reportTable] }, pages: [{ name: 'Reports', slug: 'reports', sections: [{ type: 'features', applicationDataView: {
+      tableId: 'invoice_lines', columns: ['invoice_category', 'invoice_date'], actions: [], pageSize: 10 } }] }] };
+  const reports = await run(reportResponse, 6, 'Build grouped monthly reports with period comparison'); assert.equal(reports.state.AiStage, 'ready');
+  const ungrouped = structuredClone(reportResponse); delete ungrouped.application.tables[0].reports[0].groupByFieldId;
+  const incompleteReports = await run(ungrouped, 6, 'Build grouped monthly reports with period comparison'); assert.equal(incompleteReports.state.AiStage, 'error'); assert.equal(incompleteReports.state.Pages, undefined);
+  const emailResponse = { ...response, requirements: [{ id: 'created-email', summary: 'Email the owner after creation.', capability: 'email', evidence: ['email:appointments'] }],
+    application: { ...application, tables: [{ ...table, notifications: [{ id: 'created-email', connectionId: 'invented-resend', event: { type: 'created' }, subject: 'Saved {{record.id}}', text: 'Your request was saved.' }] }] } };
+  const inventedEmail = await run(emailResponse, 6, 'Build confirmation email notifications'); assert.equal(inventedEmail.state.AiStage, 'error'); assert.equal(inventedEmail.state.Pages, undefined);
+  for (const prompt of ['Build Stripe payment checkout', 'Build confirmation email notifications', 'Build grouped monthly reports', 'Build private file uploads']) {
+    const incompleteCapability = await run(dashboardResponse, 6, prompt);
+    assert.equal(incompleteCapability.state.AiStage, 'error'); assert.equal(incompleteCapability.state.Pages, undefined); assert.equal(incompleteCapability.checkpoints.length, 0);
+  }
   for (const invalidRequirements of [undefined, [], [{ id: 'fake-payment', summary: 'Payments work.', capability: 'records', evidence: ['view:payments:create'] }]]) {
     const failed = await run({ ...dashboardResponse, requirements: invalidRequirements }, 6, 'Build record management');
     assert.equal(failed.state.AiStage, 'error'); assert.equal(failed.state.Pages, undefined); assert.equal(failed.checkpoints.length, 0);

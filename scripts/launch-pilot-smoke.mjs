@@ -159,13 +159,15 @@ check('Optional public legal identity variables are documented for deployment',
     .every(name => envExample.includes(name)));
 check('Guarded Supabase release applies Auth config and every changed billing function',
   deploymentGuard.includes('Invoke-Supabase config push') &&
-  ['billing-admin-control', 'billing-admin-status', 'billing-portal', 'create-checkout-session', 'delete-account', 'public-plan-catalog', 'stripe-webhook', 'website-form-submit']
+  ['billing-admin-control', 'billing-admin-status', 'billing-portal', 'create-checkout-session', 'delete-account', 'public-plan-catalog', 'social-channel-webhook', 'social-delivery-worker', 'stripe-webhook', 'website-form-submit']
     .every(name => deploymentGuard.includes(`'${name}'`)) &&
-  deploymentGuard.includes("@('public-plan-catalog', 'stripe-webhook', 'website-form-submit')") &&
+  deploymentGuard.includes("@('public-plan-catalog', 'social-channel-webhook', 'social-delivery-worker', 'stripe-webhook', 'website-form-submit')") &&
   deploymentGuard.includes('--no-verify-jwt') &&
   supabaseConfig.includes('[functions.public-plan-catalog]') &&
   supabaseConfig.includes('[functions.stripe-webhook]') &&
   supabaseConfig.includes('[functions.website-form-submit]') &&
+  supabaseConfig.includes('[functions.social-channel-webhook]\nverify_jwt = false') &&
+  supabaseConfig.includes('[functions.social-delivery-worker]\nverify_jwt = false') &&
   // The BYO GitHub OAuth callback is source-only on this branch. It has a
   // one-use state and checks JWT on begin, and is absent from this production guard.
   supabaseConfig.includes('[functions.website-github-connection]\nverify_jwt = false') &&
@@ -174,7 +176,7 @@ check('Guarded Supabase release applies Auth config and every changed billing fu
   !deploymentGuard.includes("'website-vercel-connection'") &&
   supabaseConfig.includes('[functions.website-supabase-connection]\nverify_jwt = false') &&
   !deploymentGuard.includes("'website-supabase-connection'") &&
-  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 6 &&
+  (supabaseConfig.match(/verify_jwt = false/g) || []).length === 8 &&
   deploymentGuard.includes('ConfirmAuthConfig'));
 
 let failed = 0;

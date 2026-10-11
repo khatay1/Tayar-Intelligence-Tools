@@ -479,7 +479,7 @@ function validateApplicationDefinition(value, pageIds) {
     if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
     if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
     const requirementIds = /* @__PURE__ */ new Set();
-    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula", "files"]);
+    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula", "files", "payment", "email", "reports"]);
     list(manifest.items, APPLICATION_LIMITS.requirements, "application.requirements.items").forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ["id", "summary", "capability", "evidence"], path)) return;
@@ -499,7 +499,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
           return;
         }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments|pay|refund))?$/.exec(entry);
         if (!match) {
           issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
           return;
@@ -519,6 +519,9 @@ function validateApplicationDefinition(value, pageIds) {
         if (match[1] === "files" && !object4(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
         if (match[1] === "workflow" && !object4(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
         if (match[1] === "formula" && !table.fields.some((field) => object4(field) && object4(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
+        if (match[1] === "payment" && !object4(table.payment)) issue(evidencePath, "missing-payment", "Payment evidence requires a native payment rule.");
+        if (match[1] === "email" && (!Array.isArray(table.notifications) || !table.notifications.length)) issue(evidencePath, "missing-email", "Email evidence requires a declared notification rule.");
+        if (match[1] === "reports" && (!Array.isArray(table.reports) || !table.reports.length)) issue(evidencePath, "missing-reports", "Report evidence requires a declared aggregate report.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
         if (match[1] !== "view" && match[3]) issue(evidencePath, "unexpected-action", "Only data-view evidence can include an action.");
       });
@@ -3956,7 +3959,59 @@ var ar = {
   "textarea": "\u0645\u0646\u0637\u0642\u0629 \u0646\u0635",
   "three-column": "\u062B\u0644\u0627\u062B\u0629 \u0623\u0639\u0645\u062F\u0629",
   "top": "\u0623\u0639\u0644\u0649",
-  "two-column": "\u0639\u0645\u0648\u062F\u0627\u0646"
+  "two-column": "\u0639\u0645\u0648\u062F\u0627\u0646",
+  "Social Hub created for this workspace.": "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A \u0644\u0645\u0633\u0627\u062D\u0629 \u0627\u0644\u0639\u0645\u0644.",
+  "Reply queued for secure delivery.": "\u062A\u0645 \u0648\u0636\u0639 \u0627\u0644\u0631\u062F \u0641\u064A \u0637\u0627\u0628\u0648\u0631 \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0622\u0645\u0646.",
+  "AI draft created. Review it before approving delivery.": "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u0648\u062F\u0629 \u0630\u0643\u064A\u0629. \u0631\u0627\u062C\u0639\u0647\u0627 \u0642\u0628\u0644 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0627\u0644\u0625\u0631\u0633\u0627\u0644.",
+  "Social Hub": "\u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "One secure inbox for WhatsApp Business, Telegram, Facebook Messenger and Instagram.": "\u0635\u0646\u062F\u0648\u0642 \u0648\u0627\u0631\u062F \u0622\u0645\u0646 \u0648\u0627\u062D\u062F \u0644\u0648\u0627\u062A\u0633\u0627\u0628 \u0644\u0644\u0623\u0639\u0645\u0627\u0644 \u0648\u062A\u064A\u0644\u064A\u062C\u0631\u0627\u0645 \u0648\u0641\u064A\u0633\u0628\u0648\u0643 \u0645\u0627\u0633\u0646\u062C\u0631 \u0648\u0625\u0646\u0633\u062A\u063A\u0631\u0627\u0645.",
+  "Team workspace": "\u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644 \u0627\u0644\u0641\u0631\u064A\u0642",
+  "Select a workspace": "\u0627\u062E\u062A\u0631 \u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644",
+  "A team workspace is required": "\u064A\u0644\u0632\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644 \u0641\u0631\u064A\u0642",
+  "Create a Team Workspace first so conversations, permissions and customer data remain isolated.": "\u0623\u0646\u0634\u0626 \u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644 \u0641\u0631\u064A\u0642 \u0623\u0648\u0644\u064B\u0627 \u0644\u064A\u0628\u0642\u0649 \u0639\u0632\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0627\u062A \u0648\u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0648\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0645\u062D\u0641\u0648\u0638\u064B\u0627.",
+  "Social Hub is not initialized": "\u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A \u063A\u064A\u0631 \u0645\u0647\u064A\u0623",
+  "Create the isolated inbox for this workspace. Account connections stay deferred to the final activation step.": "\u0623\u0646\u0634\u0626 \u0635\u0646\u062F\u0648\u0642 \u0627\u0644\u0648\u0627\u0631\u062F \u0627\u0644\u0645\u0639\u0632\u0648\u0644 \u0644\u0647\u0630\u0647 \u0627\u0644\u0645\u0633\u0627\u062D\u0629. \u064A\u0628\u0642\u0649 \u0631\u0628\u0637 \u0627\u0644\u062D\u0633\u0627\u0628\u0627\u062A \u0645\u0624\u062C\u0644\u064B\u0627 \u0625\u0644\u0649 \u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631\u0629.",
+  "Ask a workspace owner or admin to initialize Social Hub.": "\u0627\u0637\u0644\u0628 \u0645\u0646 \u0645\u0627\u0644\u0643 \u0627\u0644\u0645\u0633\u0627\u062D\u0629 \u0623\u0648 \u0627\u0644\u0645\u0634\u0631\u0641 \u062A\u0647\u064A\u0626\u0629 \u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A.",
+  "Create Social Hub": "\u0625\u0646\u0634\u0627\u0621 \u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "Open conversations": "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0627\u062A \u0627\u0644\u0645\u0641\u062A\u0648\u062D\u0629",
+  "Unread messages": "\u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u063A\u064A\u0631 \u0627\u0644\u0645\u0642\u0631\u0648\u0621\u0629",
+  "AI drafts awaiting approval": "\u0645\u0633\u0648\u062F\u0627\u062A \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629",
+  "Failed deliveries": "\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0641\u0627\u0634\u0644\u0629",
+  "Social Hub sections": "\u0623\u0642\u0633\u0627\u0645 \u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "All statuses": "\u0643\u0644 \u0627\u0644\u062D\u0627\u0644\u0627\u062A",
+  "Resolved": "\u0645\u062D\u0644\u0648\u0644\u0629",
+  "Spam": "\u0645\u0632\u0639\u062C\u0629",
+  "All channels": "\u0643\u0644 \u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "No conversations match these filters.": "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u062D\u0627\u062F\u062B\u0627\u062A \u062A\u0637\u0627\u0628\u0642 \u0647\u0630\u0647 \u0627\u0644\u0645\u0631\u0634\u062D\u0627\u062A.",
+  "Unknown contact": "\u062C\u0647\u0629 \u0627\u062A\u0635\u0627\u0644 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641\u0629",
+  "No messages yet": "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0628\u0639\u062F",
+  "Select a conversation to read and reply.": "\u0627\u062E\u062A\u0631 \u0645\u062D\u0627\u062F\u062B\u0629 \u0644\u0642\u0631\u0627\u0621\u062A\u0647\u0627 \u0648\u0627\u0644\u0631\u062F \u0639\u0644\u064A\u0647\u0627.",
+  "Low": "\u0645\u0646\u062E\u0641\u0636\u0629",
+  "Urgent": "\u0639\u0627\u062C\u0644\u0629",
+  "Write a reply\u2026": "\u0627\u0643\u062A\u0628 \u0631\u062F\u064B\u0627\u2026",
+  "Viewers cannot send replies.": "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0644\u0644\u0645\u0634\u0627\u0647\u062F\u064A\u0646 \u0625\u0631\u0633\u0627\u0644 \u0631\u062F\u0648\u062F.",
+  "Reject draft": "\u0631\u0641\u0636 \u0627\u0644\u0645\u0633\u0648\u062F\u0629",
+  "Draft with AI": "\u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u0648\u062F\u0629 \u0628\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A",
+  "Approve and send": "\u0645\u0648\u0627\u0641\u0642\u0629 \u0648\u0625\u0631\u0633\u0627\u0644",
+  "Send": "\u0625\u0631\u0633\u0627\u0644",
+  "CRM contact": "\u062C\u0647\u0629 \u0627\u062A\u0635\u0627\u0644 CRM",
+  "Lifecycle": "\u0645\u0631\u062D\u0644\u0629 \u0627\u0644\u0639\u0645\u064A\u0644",
+  "Contact details appear with the selected conversation.": "\u062A\u0638\u0647\u0631 \u062A\u0641\u0627\u0635\u064A\u0644 \u062C\u0647\u0629 \u0627\u0644\u0627\u062A\u0635\u0627\u0644 \u0639\u0646\u062F \u0627\u062E\u062A\u064A\u0627\u0631 \u0645\u062D\u0627\u062F\u062B\u0629.",
+  "Account and credential linking is reserved for the final activation step.": "\u062A\u0645 \u062D\u062C\u0632 \u0631\u0628\u0637 \u0627\u0644\u062D\u0633\u0627\u0628 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0633\u0631\u064A\u0629 \u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631\u0629.",
+  "Manage in final activation": "\u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0641\u064A \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631",
+  "Connect in final activation": "\u0627\u0644\u0631\u0628\u0637 \u0641\u064A \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631",
+  "AI reply approval": "\u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0627\u0644\u0631\u062F \u0627\u0644\u0630\u0643\u064A",
+  "AI replies remain drafts until an authorized teammate approves them. Automatic unreviewed sending is blocked.": "\u062A\u0628\u0642\u0649 \u0631\u062F\u0648\u062F \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0645\u0633\u0648\u062F\u0627\u062A \u062D\u062A\u0649 \u064A\u0648\u0627\u0641\u0642 \u0639\u0644\u064A\u0647\u0627 \u0639\u0636\u0648 \u0645\u062E\u0648\u0644. \u064A\u064F\u0645\u0646\u0639 \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A \u062F\u0648\u0646 \u0645\u0631\u0627\u062C\u0639\u0629.",
+  "Safe automations": "\u0623\u062A\u0645\u062A\u0629 \u0622\u0645\u0646\u0629",
+  "Assignment, tags and reply templates are isolated per workspace and recorded in the audit log.": "\u062A\u064F\u0639\u0632\u0644 \u0627\u0644\u062A\u0639\u064A\u064A\u0646\u0627\u062A \u0648\u0627\u0644\u0648\u0633\u0648\u0645 \u0648\u0642\u0648\u0627\u0644\u0628 \u0627\u0644\u0631\u062F \u0644\u0643\u0644 \u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644 \u0648\u062A\u064F\u0633\u062C\u0644 \u0641\u064A \u0633\u062C\u0644 \u0627\u0644\u062A\u062F\u0642\u064A\u0642.",
+  "Failure handling": "\u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u0641\u0634\u0644",
+  "Outbound delivery uses idempotent jobs, bounded retries and a dead-letter state for operator review.": "\u064A\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0648\u0638\u0627\u0626\u0641 \u0644\u0627 \u062A\u062A\u0643\u0631\u0631 \u0648\u0645\u062D\u0627\u0648\u0644\u0627\u062A \u0645\u062D\u062F\u0648\u062F\u0629 \u0648\u062D\u0627\u0644\u0629 \u0641\u0634\u0644 \u0646\u0647\u0627\u0626\u064A\u0629 \u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u0627\u0644\u0645\u0634\u063A\u0644.",
+  "Keyword reply automations": "\u0623\u062A\u0645\u062A\u0629 \u0627\u0644\u0631\u062F \u0628\u0627\u0644\u0643\u0644\u0645\u0627\u062A \u0627\u0644\u0645\u0641\u062A\u0627\u062D\u064A\u0629",
+  "Keyword": "\u0627\u0644\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0641\u062A\u0627\u062D\u064A\u0629",
+  "No automation rules yet.": "\u0644\u0627 \u062A\u0648\u062C\u062F \u0642\u0648\u0627\u0639\u062F \u0623\u062A\u0645\u062A\u0629 \u0628\u0639\u062F.",
+  "Rule name": "\u0627\u0633\u0645 \u0627\u0644\u0642\u0627\u0639\u062F\u0629",
+  "Reply template": "\u0642\u0627\u0644\u0628 \u0627\u0644\u0631\u062F",
+  "Save disabled rule": "\u062D\u0641\u0638 \u0627\u0644\u0642\u0627\u0639\u062F\u0629 \u0645\u0639\u0637\u0644\u0629"
 };
 var sv = {
   "Could not prepare website media. Please try again.": "Det gick inte att f\xF6rbereda webbplatsens media. F\xF6rs\xF6k igen.",
@@ -6889,9 +6944,147 @@ var sv = {
   "textarea": "textomr\xE5de",
   "three-column": "tre kolumner",
   "top": "upptill",
-  "two-column": "tv\xE5 kolumner"
+  "two-column": "tv\xE5 kolumner",
+  "Social Hub sections": "Delar i socialt nav",
+  "Contact details appear with the selected conversation.": "Kontaktuppgifter visas f\xF6r den valda konversationen.",
+  "AI replies remain drafts until an authorized teammate approves them. Automatic unreviewed sending is blocked.": "AI-svar f\xF6rblir utkast tills en beh\xF6rig teammedlem godk\xE4nner dem. Automatisk ogranskad s\xE4ndning blockeras.",
+  "Assignment, tags and reply templates are isolated per workspace and recorded in the audit log.": "Tilldelning, taggar och svarsmallar isoleras per arbetsyta och registreras i granskningsloggen.",
+  "Outbound delivery uses idempotent jobs, bounded retries and a dead-letter state for operator review.": "Utg\xE5ende leverans anv\xE4nder idempotenta jobb, begr\xE4nsade \xE5terf\xF6rs\xF6k och ett slutligt fell\xE4ge f\xF6r operat\xF6rsgranskning."
 };
-var maps = { en: {}, ar, sv };
+var socialHubAr = {
+  "Social Hub": "\u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "One secure inbox for WhatsApp Business, Telegram, Facebook Messenger and Instagram.": "\u0635\u0646\u062F\u0648\u0642 \u0648\u0627\u0631\u062F \u0622\u0645\u0646 \u0648\u0627\u062D\u062F \u0644\u0648\u0627\u062A\u0633\u0627\u0628 \u0644\u0644\u0623\u0639\u0645\u0627\u0644 \u0648\u062A\u064A\u0644\u064A\u062C\u0631\u0627\u0645 \u0648\u0641\u064A\u0633\u0628\u0648\u0643 \u0645\u0627\u0633\u0646\u062C\u0631 \u0648\u0625\u0646\u0633\u062A\u063A\u0631\u0627\u0645.",
+  "Team workspace": "\u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644 \u0627\u0644\u0641\u0631\u064A\u0642",
+  "Select a workspace": "\u0627\u062E\u062A\u0631 \u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644",
+  "Refresh": "\u062A\u062D\u062F\u064A\u062B",
+  "A team workspace is required": "\u064A\u0644\u0632\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644 \u0641\u0631\u064A\u0642",
+  "Create a Team Workspace first so conversations, permissions and customer data remain isolated.": "\u0623\u0646\u0634\u0626 \u0645\u0633\u0627\u062D\u0629 \u0639\u0645\u0644 \u0641\u0631\u064A\u0642 \u0623\u0648\u0644\u064B\u0627 \u0644\u064A\u0628\u0642\u0649 \u0639\u0632\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0627\u062A \u0648\u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0648\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0639\u0645\u0644\u0627\u0621 \u0645\u062D\u0641\u0648\u0638\u064B\u0627.",
+  "Social Hub is not initialized": "\u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A \u063A\u064A\u0631 \u0645\u0647\u064A\u0623",
+  "Create Social Hub": "\u0625\u0646\u0634\u0627\u0621 \u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "Create the isolated inbox for this workspace. Account connections stay deferred to the final activation step.": "\u0623\u0646\u0634\u0626 \u0635\u0646\u062F\u0648\u0642 \u0627\u0644\u0648\u0627\u0631\u062F \u0627\u0644\u0645\u0639\u0632\u0648\u0644 \u0644\u0647\u0630\u0647 \u0627\u0644\u0645\u0633\u0627\u062D\u0629. \u064A\u0628\u0642\u0649 \u0631\u0628\u0637 \u0627\u0644\u062D\u0633\u0627\u0628\u0627\u062A \u0645\u0624\u062C\u0644\u064B\u0627 \u0625\u0644\u0649 \u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631\u0629.",
+  "Ask a workspace owner or admin to initialize Social Hub.": "\u0627\u0637\u0644\u0628 \u0645\u0646 \u0645\u0627\u0644\u0643 \u0627\u0644\u0645\u0633\u0627\u062D\u0629 \u0623\u0648 \u0627\u0644\u0645\u0634\u0631\u0641 \u062A\u0647\u064A\u0626\u0629 \u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A.",
+  "Social Hub created for this workspace.": "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0631\u0643\u0632 \u0627\u0644\u0642\u0646\u0648\u0627\u062A \u0644\u0645\u0633\u0627\u062D\u0629 \u0627\u0644\u0639\u0645\u0644.",
+  "Open conversations": "\u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0627\u062A \u0627\u0644\u0645\u0641\u062A\u0648\u062D\u0629",
+  "Unread messages": "\u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u063A\u064A\u0631 \u0627\u0644\u0645\u0642\u0631\u0648\u0621\u0629",
+  "AI drafts awaiting approval": "\u0645\u0633\u0648\u062F\u0627\u062A \u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0628\u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629",
+  "Failed deliveries": "\u0639\u0645\u0644\u064A\u0627\u062A \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0641\u0627\u0634\u0644\u0629",
+  "Unified inbox": "\u0635\u0646\u062F\u0648\u0642 \u0627\u0644\u0648\u0627\u0631\u062F \u0627\u0644\u0645\u0648\u062D\u062F",
+  "Channels": "\u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "AI and automations": "\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A \u0648\u0627\u0644\u0623\u062A\u0645\u062A\u0629",
+  "All statuses": "\u0643\u0644 \u0627\u0644\u062D\u0627\u0644\u0627\u062A",
+  "All channels": "\u0643\u0644 \u0627\u0644\u0642\u0646\u0648\u0627\u062A",
+  "Open": "\u0645\u0641\u062A\u0648\u062D\u0629",
+  "Pending": "\u0645\u0639\u0644\u0642\u0629",
+  "Resolved": "\u0645\u062D\u0644\u0648\u0644\u0629",
+  "Spam": "\u0645\u0632\u0639\u062C\u0629",
+  "No conversations match these filters.": "\u0644\u0627 \u062A\u0648\u062C\u062F \u0645\u062D\u0627\u062F\u062B\u0627\u062A \u062A\u0637\u0627\u0628\u0642 \u0647\u0630\u0647 \u0627\u0644\u0645\u0631\u0634\u062D\u0627\u062A.",
+  "Select a conversation to read and reply.": "\u0627\u062E\u062A\u0631 \u0645\u062D\u0627\u062F\u062B\u0629 \u0644\u0642\u0631\u0627\u0621\u062A\u0647\u0627 \u0648\u0627\u0644\u0631\u062F \u0639\u0644\u064A\u0647\u0627.",
+  "Unknown contact": "\u062C\u0647\u0629 \u0627\u062A\u0635\u0627\u0644 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641\u0629",
+  "No messages yet": "\u0644\u0627 \u062A\u0648\u062C\u062F \u0631\u0633\u0627\u0626\u0644 \u0628\u0639\u062F",
+  "Low": "\u0645\u0646\u062E\u0641\u0636\u0629",
+  "Normal": "\u0639\u0627\u062F\u064A\u0629",
+  "High": "\u0645\u0631\u062A\u0641\u0639\u0629",
+  "Urgent": "\u0639\u0627\u062C\u0644\u0629",
+  "Write a reply\u2026": "\u0627\u0643\u062A\u0628 \u0631\u062F\u064B\u0627\u2026",
+  "Viewers cannot send replies.": "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0644\u0644\u0645\u0634\u0627\u0647\u062F\u064A\u0646 \u0625\u0631\u0633\u0627\u0644 \u0631\u062F\u0648\u062F.",
+  "Send": "\u0625\u0631\u0633\u0627\u0644",
+  "Draft with AI": "\u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u0648\u062F\u0629 \u0628\u0627\u0644\u0630\u0643\u0627\u0621 \u0627\u0644\u0627\u0635\u0637\u0646\u0627\u0639\u064A",
+  "Approve and send": "\u0645\u0648\u0627\u0641\u0642\u0629 \u0648\u0625\u0631\u0633\u0627\u0644",
+  "Edit manually": "\u062A\u062D\u0631\u064A\u0631 \u064A\u062F\u0648\u064A",
+  "Reject draft": "\u0631\u0641\u0636 \u0627\u0644\u0645\u0633\u0648\u062F\u0629",
+  "AI draft created. Review it before approving delivery.": "\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0645\u0633\u0648\u062F\u0629 \u0630\u0643\u064A\u0629. \u0631\u0627\u062C\u0639\u0647\u0627 \u0642\u0628\u0644 \u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0627\u0644\u0625\u0631\u0633\u0627\u0644.",
+  "Reply queued for secure delivery.": "\u062A\u0645 \u0648\u0636\u0639 \u0627\u0644\u0631\u062F \u0641\u064A \u0637\u0627\u0628\u0648\u0631 \u0627\u0644\u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0622\u0645\u0646.",
+  "CRM contact": "\u062C\u0647\u0629 \u0627\u062A\u0635\u0627\u0644 CRM",
+  "Name": "\u0627\u0644\u0627\u0633\u0645",
+  "Lifecycle": "\u0645\u0631\u062D\u0644\u0629 \u0627\u0644\u0639\u0645\u064A\u0644",
+  "Email": "\u0627\u0644\u0628\u0631\u064A\u062F \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
+  "Phone": "\u0627\u0644\u0647\u0627\u062A\u0641",
+  "Tags": "\u0627\u0644\u0648\u0633\u0648\u0645",
+  "Notes": "\u0627\u0644\u0645\u0644\u0627\u062D\u0638\u0627\u062A",
+  "Not connected": "\u063A\u064A\u0631 \u0645\u062A\u0635\u0644",
+  "Account and credential linking is reserved for the final activation step.": "\u062A\u0645 \u062D\u062C\u0632 \u0631\u0628\u0637 \u0627\u0644\u062D\u0633\u0627\u0628 \u0648\u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0633\u0631\u064A\u0629 \u0644\u062E\u0637\u0648\u0629 \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631\u0629.",
+  "Connect in final activation": "\u0627\u0644\u0631\u0628\u0637 \u0641\u064A \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631",
+  "Manage in final activation": "\u0627\u0644\u0625\u062F\u0627\u0631\u0629 \u0641\u064A \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062E\u064A\u0631",
+  "AI reply approval": "\u0627\u0644\u0645\u0648\u0627\u0641\u0642\u0629 \u0639\u0644\u0649 \u0627\u0644\u0631\u062F \u0627\u0644\u0630\u0643\u064A",
+  "Safe automations": "\u0623\u062A\u0645\u062A\u0629 \u0622\u0645\u0646\u0629",
+  "Failure handling": "\u0645\u0639\u0627\u0644\u062C\u0629 \u0627\u0644\u0641\u0634\u0644",
+  "Keyword reply automations": "\u0623\u062A\u0645\u062A\u0629 \u0627\u0644\u0631\u062F \u0628\u0627\u0644\u0643\u0644\u0645\u0627\u062A \u0627\u0644\u0645\u0641\u062A\u0627\u062D\u064A\u0629",
+  "Keyword": "\u0627\u0644\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0641\u062A\u0627\u062D\u064A\u0629",
+  "Enabled": "\u0645\u0641\u0639\u0644\u0629",
+  "Disabled": "\u0645\u0639\u0637\u0644\u0629",
+  "Enable": "\u062A\u0641\u0639\u064A\u0644",
+  "Disable": "\u062A\u0639\u0637\u064A\u0644",
+  "No automation rules yet.": "\u0644\u0627 \u062A\u0648\u062C\u062F \u0642\u0648\u0627\u0639\u062F \u0623\u062A\u0645\u062A\u0629 \u0628\u0639\u062F.",
+  "Rule name": "\u0627\u0633\u0645 \u0627\u0644\u0642\u0627\u0639\u062F\u0629",
+  "Reply template": "\u0642\u0627\u0644\u0628 \u0627\u0644\u0631\u062F",
+  "Save disabled rule": "\u062D\u0641\u0638 \u0627\u0644\u0642\u0627\u0639\u062F\u0629 \u0645\u0639\u0637\u0644\u0629"
+};
+var socialHubSv = {
+  "Social Hub": "Socialt nav",
+  "One secure inbox for WhatsApp Business, Telegram, Facebook Messenger and Instagram.": "En s\xE4ker inkorg f\xF6r WhatsApp Business, Telegram, Facebook Messenger och Instagram.",
+  "Team workspace": "Teamarbetsyta",
+  "Select a workspace": "V\xE4lj en arbetsyta",
+  "Refresh": "Uppdatera",
+  "A team workspace is required": "En teamarbetsyta kr\xE4vs",
+  "Social Hub is not initialized": "Socialt nav \xE4r inte initierat",
+  "Create Social Hub": "Skapa socialt nav",
+  "Social Hub created for this workspace.": "Socialt nav skapades f\xF6r arbetsytan.",
+  "Open conversations": "\xD6ppna konversationer",
+  "Unread messages": "Ol\xE4sta meddelanden",
+  "AI drafts awaiting approval": "AI-utkast v\xE4ntar p\xE5 godk\xE4nnande",
+  "Failed deliveries": "Misslyckade leveranser",
+  "Unified inbox": "Gemensam inkorg",
+  "Channels": "Kanaler",
+  "AI and automations": "AI och automationer",
+  "All statuses": "Alla statusar",
+  "All channels": "Alla kanaler",
+  "Open": "\xD6ppen",
+  "Pending": "V\xE4ntande",
+  "Resolved": "L\xF6st",
+  "Spam": "Skr\xE4ppost",
+  "No conversations match these filters.": "Inga konversationer matchar filtren.",
+  "Select a conversation to read and reply.": "V\xE4lj en konversation f\xF6r att l\xE4sa och svara.",
+  "Unknown contact": "Ok\xE4nd kontakt",
+  "No messages yet": "Inga meddelanden \xE4nnu",
+  "Low": "L\xE5g",
+  "Normal": "Normal",
+  "High": "H\xF6g",
+  "Urgent": "Br\xE5dskande",
+  "Write a reply\u2026": "Skriv ett svar\u2026",
+  "Viewers cannot send replies.": "Visare kan inte skicka svar.",
+  "Send": "Skicka",
+  "Draft with AI": "Skapa AI-utkast",
+  "Approve and send": "Godk\xE4nn och skicka",
+  "Edit manually": "Redigera manuellt",
+  "Reject draft": "Avvisa utkast",
+  "AI draft created. Review it before approving delivery.": "AI-utkastet skapades. Granska det innan leverans godk\xE4nns.",
+  "Reply queued for secure delivery.": "Svaret k\xF6ades f\xF6r s\xE4ker leverans.",
+  "CRM contact": "CRM-kontakt",
+  "Name": "Namn",
+  "Lifecycle": "Kundfas",
+  "Email": "E-post",
+  "Phone": "Telefon",
+  "Tags": "Taggar",
+  "Notes": "Anteckningar",
+  "Not connected": "Inte ansluten",
+  "Account and credential linking is reserved for the final activation step.": "Konto- och nyckelkoppling \xE4r reserverad f\xF6r det sista aktiveringssteget.",
+  "Connect in final activation": "Anslut vid slutaktivering",
+  "Manage in final activation": "Hantera vid slutaktivering",
+  "AI reply approval": "Godk\xE4nnande av AI-svar",
+  "Safe automations": "S\xE4kra automationer",
+  "Failure handling": "Felhantering",
+  "Keyword reply automations": "Nyckelordsstyrda svar",
+  "Keyword": "Nyckelord",
+  "Enabled": "Aktiverad",
+  "Disabled": "Inaktiverad",
+  "Enable": "Aktivera",
+  "Disable": "Inaktivera",
+  "No automation rules yet.": "Inga automationsregler \xE4nnu.",
+  "Rule name": "Regelnamn",
+  "Reply template": "Svarsmall",
+  "Save disabled rule": "Spara inaktiverad regel"
+};
+var maps = { en: {}, ar: { ...ar, ...socialHubAr }, sv: { ...sv, ...socialHubSv } };
 function localizeUi(text2, language) {
   if (language === "en") return text2;
   return maps[language][text2] ?? text2;

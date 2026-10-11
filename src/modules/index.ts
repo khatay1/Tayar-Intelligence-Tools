@@ -24,6 +24,7 @@ import './image-cropper';
 import './background-remover';
 import './image-to-pdf';
 import './media-studio-max';
+import './social-hub';
 
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';

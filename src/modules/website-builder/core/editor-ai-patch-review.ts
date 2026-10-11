@@ -14,7 +14,7 @@ export interface AIWebsiteGeneration {
   requirements?: Array<{
     id: string;
     summary: string;
-    capability: 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow' | 'formula' | 'files';
+    capability: import('./application-model').ApplicationRequirementCapability;
     /** page evidence uses the generated slug; other evidence uses table IDs. */
     evidence: string[];
   }>;

@@ -19,6 +19,14 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
+# Provider webhooks authenticate with their signed request or secret header.
+[functions.social-channel-webhook]
+verify_jwt = false
+
+# Scheduled worker authenticates with a dedicated high-entropy cron secret.
+[functions.social-delivery-worker]
+verify_jwt = false
+
 [functions.website-form-submit]
 verify_jwt = false
 
