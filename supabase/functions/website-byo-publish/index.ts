@@ -11991,7 +11991,9 @@ function compileOwnedStripeOrderSchema(projectId) {
   return `
 begin;
 create schema if not exists private;
-revoke all on schema private from public,anon,authenticated;
+-- Other application RPCs use this schema. Keep their explicit USAGE grants;
+-- Stripe table and function grants are revoked individually below.
+revoke all on schema private from public;
 create table private.app_stripe_order_payments (
  order_id uuid primary key,
  project_id uuid not null check(project_id='${projectId}'::uuid),

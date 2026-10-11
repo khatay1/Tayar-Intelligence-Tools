@@ -261,6 +261,8 @@ try {
     await assert.rejects(query(`${asUser(owner)} select public.app_create_transaction_1('{"note":"Invalid price"}'::jsonb,'[{"itemId":"${itemA}","quantity":1}]'::jsonb,gen_random_uuid());`),/Invalid order price/);
     assert.equal(await query(`select quantity from public.app_products where id='${itemA}';`),'8','invalid price must roll back inventory');
     await query(stripeSchema('dddddddd-dddd-4ddd-8ddd-dddddddddddd'));await query(accessSql);
+    assert.equal(await query("select has_schema_privilege('authenticated','private','USAGE');"),'t','Stripe installation preserves application RPC schema access');
+    for(const role of ['anon','authenticated','service_role'])await assert.rejects(query(`set role ${role}; select * from private.app_order_quotes;`),/permission denied/);
     assert.equal(await query(`set role service_role;select public.app_order_quote_1('${priced.id}','${owner}')->>'amount';`),'250');
     assert.equal(await query(`set role service_role;select public.app_order_quote_1('${priced.id}','${other}') is null;`),'t');
     assert.equal(await query(`set role service_role;select public.app_order_payment_status_1('${priced.id}','${owner}')->>'status';`),'unpaid');
