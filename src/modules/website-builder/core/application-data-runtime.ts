@@ -161,6 +161,23 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
       await captureWriteToken(owner);
     }),
     files: createApplicationFilesRuntime(config, client, table, captureWriteToken, () => disposed),
+    async bookingAvailable(tableId: string, values: Record<string, unknown>, expectedUserId: string) {
+      const target = table(tableId), rule = target.booking;
+      if (!rule) throw new Error('Booking availability is not configured.');
+      const key = (id: string) => target.fields.find(field => field.id === id)!.key;
+      const resources = [rule.resourceFieldId, ...(rule.additionalResourceFieldIds ?? [])].map(id => rowId(String(values[key(id)])));
+      const start = new Date(String(values[key(rule.startFieldId)])), end = new Date(String(values[key(rule.endFieldId)]));
+      if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end || end.getTime() - start.getTime() > 86400000) throw new ApplicationBookingRejected('interval');
+      const token = await captureWriteToken(expectedUserId);
+      const query = client.rpc(`app_booking_available_${app.tables.indexOf(target)}`, { resources, starts_at: start.toISOString(), ends_at: end.toISOString() });
+      query.setHeader('Authorization', `Bearer ${token}`);
+      const response = await query;
+      await captureWriteToken(expectedUserId);
+      if (disposed) throw new Error('Booking identity changed.');
+      const result = checked(response);
+      if (typeof result !== 'boolean') throw new Error('Booking availability is unavailable.');
+      return result;
+    },
     async reports(tableId: string, expectedUserId: string) {
       const target = table(tableId);
       if (!target.reports?.length) throw new Error('Reports are not configured.');

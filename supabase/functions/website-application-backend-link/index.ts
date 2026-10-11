@@ -96,7 +96,7 @@ function validateApplicationEmailNotification(value, table) {
 // src/modules/website-builder/core/application-booking-schedule.ts
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validApplicationBookingSchedule(value) {
-  if (!object2(value) || Object.keys(value).sort().join(",") !== "maxDurationMinutes,timeZone,weekly" || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
+  if (!object2(value) || Object.keys(value).some((key) => !["maxDurationMinutes", "timeZone", "weekly", "exceptions"].includes(key)) || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
   } catch {
@@ -106,7 +106,21 @@ function validApplicationBookingSchedule(value) {
     if (!object2(window2) || Object.keys(window2).sort().join(",") !== "day,endMinute,startMinute" || !Number.isInteger(window2.day) || Number(window2.day) < 1 || Number(window2.day) > 7 || !Number.isInteger(window2.startMinute) || Number(window2.startMinute) < 0 || !Number.isInteger(window2.endMinute) || Number(window2.endMinute) > 1440 || Number(window2.endMinute) <= Number(window2.startMinute)) return false;
   }
   const windows = value.weekly;
-  return !windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute));
+  if (windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
+  if (value.exceptions !== void 0) {
+    if (!Array.isArray(value.exceptions) || value.exceptions.length > 366) return false;
+    const dates = /* @__PURE__ */ new Set();
+    for (const exception of value.exceptions) {
+      if (!object2(exception) || Object.keys(exception).sort().join(",") !== "date,windows" || typeof exception.date !== "string" || (!/^\d{4}-\d{2}-\d{2}$/.test(exception.date) || exception.date.startsWith("0000-")) || !Number.isFinite(Date.parse(exception.date)) || new Date(exception.date).toISOString().slice(0, 10) !== exception.date || dates.has(exception.date) || !Array.isArray(exception.windows) || exception.windows.length > 4) return false;
+      dates.add(exception.date);
+      for (const window2 of exception.windows) {
+        if (!object2(window2) || Object.keys(window2).sort().join(",") !== "endMinute,startMinute" || !Number.isInteger(window2.startMinute) || !Number.isInteger(window2.endMinute) || Number(window2.startMinute) < 0 || Number(window2.endMinute) > 1440 || Number(window2.startMinute) >= Number(window2.endMinute)) return false;
+      }
+      const special = exception.windows;
+      if (special.some((left, index) => special.some((right, other) => other > index && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
+    }
+  }
+  return true;
 }
 
 // src/modules/website-builder/core/application-booking-recurrence.ts
@@ -230,16 +244,38 @@ function validateApplicationDefinition(value, pageIds) {
         const reportIds = /* @__PURE__ */ new Set();
         table.reports.forEach((report, index) => {
           const reportPath = `${path}.reports[${index}]`;
-          if (!shape(report, ["id", "name", "operation", "fieldId"], reportPath)) return;
+          if (!shape(report, ["id", "name", "operation", "fieldId", "groupByFieldId", "period"], reportPath)) return;
           const field = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === report.fieldId);
           if (!id(report.id) || reportIds.has(String(report.id)) || !name(report.name) || !["count", "sum", "min", "max", "avg"].includes(String(report.operation)) || (report.operation === "count" ? report.fieldId !== void 0 : !object4(field) || field.type !== "number")) issue(reportPath, "invalid-report", "Reports need unique IDs, a name and an ordinary count or declared numeric field.");
           reportIds.add(String(report.id));
+          if (report.groupByFieldId !== void 0) {
+            const group = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === report.groupByFieldId);
+            if (!object4(group) || !["text", "enum", "boolean", "uuid", "reference"].includes(String(group.type)))
+              issue(reportPath, "invalid-report-group", "Report grouping requires a declared categorical field.");
+          }
+          if (report.period !== void 0) {
+            const period = report.period;
+            if (shape(period, ["fieldId", "unit", "timeZone", "offset", "comparePrevious"], `${reportPath}.period`)) {
+              const date = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === period.fieldId);
+              let zone = false;
+              if (typeof period.timeZone === "string" && period.timeZone.length <= 80 && /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(period.timeZone)) {
+                try {
+                  new Intl.DateTimeFormat("en", { timeZone: period.timeZone }).format(0);
+                  zone = true;
+                } catch {
+                  zone = false;
+                }
+              }
+              if (!object4(date) || !["date", "datetime"].includes(String(date.type)) || !["day", "week", "month", "year"].includes(String(period.unit)) || !zone || !Number.isInteger(period.offset) || Number(period.offset) < -120 || Number(period.offset) > 0 || typeof period.comparePrevious !== "boolean")
+                issue(reportPath, "invalid-report-period", "Report periods require a date field, valid time zone, calendar unit and offset -120\u20130.");
+            }
+          }
         });
       }
     }
     if (table.booking !== void 0) {
       const bookingPath = `${path}.booking`;
-      if (shape(table.booking, ["resourceFieldId", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses", "schedule", "recurrence"], bookingPath)) {
+      if (shape(table.booking, ["resourceFieldId", "additionalResourceFieldIds", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses", "waitlistStatus", "schedule", "recurrence"], bookingPath)) {
         const rule = table.booking;
         if (rule.recurrence !== void 0 && (!validBookingRecurrenceRule(rule.recurrence) || object4(rule.schedule) && rule.recurrence.timeZone !== rule.schedule.timeZone || !Array.isArray(table.permissions) || !["read", "create"].every((operation) => table.permissions.some((permission) => object4(permission) && permission.operation === operation))))
           issue(`${bookingPath}.recurrence`, "invalid-booking-recurrence", "Recurrence requires read/create access, a valid zone matching the schedule and a 2\u201352 occurrence limit.");
@@ -247,6 +283,17 @@ function validateApplicationDefinition(value, pageIds) {
         const fields = Array.isArray(table.fields) ? table.fields.filter(object4) : [];
         const find = (fieldId) => fields.find((field) => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (rule.waitlistStatus !== void 0) {
+          const state = find(rule.statusFieldId);
+          if (typeof rule.waitlistStatus !== "string" || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus) || !Array.isArray(rule.blockingStatuses) || rule.blockingStatuses.includes(rule.waitlistStatus) || object4(table.workflow) && table.workflow.fieldId === rule.statusFieldId)
+            issue(bookingPath, "invalid-waitlist", "Waiting lists need a declared nonblocking status outside protected workflow fields.");
+        }
+        if (rule.additionalResourceFieldIds !== void 0) {
+          const extras = rule.additionalResourceFieldIds;
+          const allocation = Array.isArray(extras) ? [resource, ...extras.map(find)] : [];
+          if (!Array.isArray(extras) || !extras.length || extras.length > 4 || (/* @__PURE__ */ new Set([rule.resourceFieldId, ...extras])).size !== extras.length + 1 || allocation.some((field) => !field?.required || field.type !== "reference") || new Set(allocation.map((field) => field?.referenceTableId)).size !== allocation.length)
+            issue(bookingPath, "invalid-booking-resources", "Additional resources require 1\u20134 distinct required references to separate resource tables.");
+        }
         if (!authEnabled || !id(rule.resourceFieldId) || !id(rule.startFieldId) || !id(rule.endFieldId) || (/* @__PURE__ */ new Set([rule.resourceFieldId, rule.startFieldId, rule.endFieldId])).size !== 3 || !resource?.required || !["uuid", "reference"].includes(String(resource.type)) || !start?.required || start.type !== "datetime" || !end?.required || end.type !== "datetime") {
           issue(bookingPath, "invalid-booking", "Booking needs Auth, a required UUID/resource reference and two distinct required datetime fields.");
         }

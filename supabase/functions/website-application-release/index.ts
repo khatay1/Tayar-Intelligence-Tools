@@ -96,7 +96,7 @@ function validateApplicationEmailNotification(value, table) {
 // src/modules/website-builder/core/application-booking-schedule.ts
 var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validApplicationBookingSchedule(value) {
-  if (!object2(value) || Object.keys(value).sort().join(",") !== "maxDurationMinutes,timeZone,weekly" || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
+  if (!object2(value) || Object.keys(value).some((key) => !["maxDurationMinutes", "timeZone", "weekly", "exceptions"].includes(key)) || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
   } catch {
@@ -106,7 +106,21 @@ function validApplicationBookingSchedule(value) {
     if (!object2(window2) || Object.keys(window2).sort().join(",") !== "day,endMinute,startMinute" || !Number.isInteger(window2.day) || Number(window2.day) < 1 || Number(window2.day) > 7 || !Number.isInteger(window2.startMinute) || Number(window2.startMinute) < 0 || !Number.isInteger(window2.endMinute) || Number(window2.endMinute) > 1440 || Number(window2.endMinute) <= Number(window2.startMinute)) return false;
   }
   const windows = value.weekly;
-  return !windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute));
+  if (windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
+  if (value.exceptions !== void 0) {
+    if (!Array.isArray(value.exceptions) || value.exceptions.length > 366) return false;
+    const dates = /* @__PURE__ */ new Set();
+    for (const exception of value.exceptions) {
+      if (!object2(exception) || Object.keys(exception).sort().join(",") !== "date,windows" || typeof exception.date !== "string" || (!/^\d{4}-\d{2}-\d{2}$/.test(exception.date) || exception.date.startsWith("0000-")) || !Number.isFinite(Date.parse(exception.date)) || new Date(exception.date).toISOString().slice(0, 10) !== exception.date || dates.has(exception.date) || !Array.isArray(exception.windows) || exception.windows.length > 4) return false;
+      dates.add(exception.date);
+      for (const window2 of exception.windows) {
+        if (!object2(window2) || Object.keys(window2).sort().join(",") !== "endMinute,startMinute" || !Number.isInteger(window2.startMinute) || !Number.isInteger(window2.endMinute) || Number(window2.startMinute) < 0 || Number(window2.endMinute) > 1440 || Number(window2.startMinute) >= Number(window2.endMinute)) return false;
+      }
+      const special = exception.windows;
+      if (special.some((left, index) => special.some((right, other) => other > index && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
+    }
+  }
+  return true;
 }
 function applicationBookingWithinSchedule(schedule, from, to) {
   if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to || to - from > schedule.maxDurationMinutes * 6e4) return false;
@@ -126,7 +140,9 @@ function applicationBookingWithinSchedule(schedule, from, to) {
   };
   const start = local(from), end = local(to), date2 = new Date(start);
   const midnight = Date.UTC(date2.getUTCFullYear(), date2.getUTCMonth(), date2.getUTCDate()), day = date2.getUTCDay() || 7;
-  return start < end && schedule.weekly.some((window2) => window2.day === day && start >= midnight + window2.startMinute * 6e4 && end <= midnight + window2.endMinute * 6e4);
+  const exception = schedule.exceptions?.find((exception2) => exception2.date === date2.toISOString().slice(0, 10));
+  const windows = exception ? exception.windows : schedule.weekly.filter((window2) => window2.day === day);
+  return start < end && windows.some((window2) => start >= midnight + window2.startMinute * 6e4 && end <= midnight + window2.endMinute * 6e4);
 }
 
 // src/modules/website-builder/core/application-booking.ts
@@ -271,16 +287,38 @@ function validateApplicationDefinition(value, pageIds) {
         const reportIds = /* @__PURE__ */ new Set();
         table.reports.forEach((report, index) => {
           const reportPath = `${path}.reports[${index}]`;
-          if (!shape(report, ["id", "name", "operation", "fieldId"], reportPath)) return;
+          if (!shape(report, ["id", "name", "operation", "fieldId", "groupByFieldId", "period"], reportPath)) return;
           const field = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === report.fieldId);
           if (!id(report.id) || reportIds.has(String(report.id)) || !name(report.name) || !["count", "sum", "min", "max", "avg"].includes(String(report.operation)) || (report.operation === "count" ? report.fieldId !== void 0 : !object4(field) || field.type !== "number")) issue(reportPath, "invalid-report", "Reports need unique IDs, a name and an ordinary count or declared numeric field.");
           reportIds.add(String(report.id));
+          if (report.groupByFieldId !== void 0) {
+            const group = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === report.groupByFieldId);
+            if (!object4(group) || !["text", "enum", "boolean", "uuid", "reference"].includes(String(group.type)))
+              issue(reportPath, "invalid-report-group", "Report grouping requires a declared categorical field.");
+          }
+          if (report.period !== void 0) {
+            const period = report.period;
+            if (shape(period, ["fieldId", "unit", "timeZone", "offset", "comparePrevious"], `${reportPath}.period`)) {
+              const date2 = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === period.fieldId);
+              let zone = false;
+              if (typeof period.timeZone === "string" && period.timeZone.length <= 80 && /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(period.timeZone)) {
+                try {
+                  new Intl.DateTimeFormat("en", { timeZone: period.timeZone }).format(0);
+                  zone = true;
+                } catch {
+                  zone = false;
+                }
+              }
+              if (!object4(date2) || !["date", "datetime"].includes(String(date2.type)) || !["day", "week", "month", "year"].includes(String(period.unit)) || !zone || !Number.isInteger(period.offset) || Number(period.offset) < -120 || Number(period.offset) > 0 || typeof period.comparePrevious !== "boolean")
+                issue(reportPath, "invalid-report-period", "Report periods require a date field, valid time zone, calendar unit and offset -120\u20130.");
+            }
+          }
         });
       }
     }
     if (table.booking !== void 0) {
       const bookingPath = `${path}.booking`;
-      if (shape(table.booking, ["resourceFieldId", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses", "schedule", "recurrence"], bookingPath)) {
+      if (shape(table.booking, ["resourceFieldId", "additionalResourceFieldIds", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses", "waitlistStatus", "schedule", "recurrence"], bookingPath)) {
         const rule = table.booking;
         if (rule.recurrence !== void 0 && (!validBookingRecurrenceRule(rule.recurrence) || object4(rule.schedule) && rule.recurrence.timeZone !== rule.schedule.timeZone || !Array.isArray(table.permissions) || !["read", "create"].every((operation) => table.permissions.some((permission) => object4(permission) && permission.operation === operation))))
           issue(`${bookingPath}.recurrence`, "invalid-booking-recurrence", "Recurrence requires read/create access, a valid zone matching the schedule and a 2\u201352 occurrence limit.");
@@ -288,6 +326,17 @@ function validateApplicationDefinition(value, pageIds) {
         const fields = Array.isArray(table.fields) ? table.fields.filter(object4) : [];
         const find = (fieldId) => fields.find((field) => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (rule.waitlistStatus !== void 0) {
+          const state = find(rule.statusFieldId);
+          if (typeof rule.waitlistStatus !== "string" || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus) || !Array.isArray(rule.blockingStatuses) || rule.blockingStatuses.includes(rule.waitlistStatus) || object4(table.workflow) && table.workflow.fieldId === rule.statusFieldId)
+            issue(bookingPath, "invalid-waitlist", "Waiting lists need a declared nonblocking status outside protected workflow fields.");
+        }
+        if (rule.additionalResourceFieldIds !== void 0) {
+          const extras = rule.additionalResourceFieldIds;
+          const allocation = Array.isArray(extras) ? [resource, ...extras.map(find)] : [];
+          if (!Array.isArray(extras) || !extras.length || extras.length > 4 || (/* @__PURE__ */ new Set([rule.resourceFieldId, ...extras])).size !== extras.length + 1 || allocation.some((field) => !field?.required || field.type !== "reference") || new Set(allocation.map((field) => field?.referenceTableId)).size !== allocation.length)
+            issue(bookingPath, "invalid-booking-resources", "Additional resources require 1\u20134 distinct required references to separate resource tables.");
+        }
         if (!authEnabled || !id(rule.resourceFieldId) || !id(rule.startFieldId) || !id(rule.endFieldId) || (/* @__PURE__ */ new Set([rule.resourceFieldId, rule.startFieldId, rule.endFieldId])).size !== 3 || !resource?.required || !["uuid", "reference"].includes(String(resource.type)) || !start?.required || start.type !== "datetime" || !end?.required || end.type !== "datetime") {
           issue(bookingPath, "invalid-booking", "Booking needs Auth, a required UUID/resource reference and two distinct required datetime fields.");
         }
@@ -6850,6 +6899,26 @@ function localizeUi(text2, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Waiting list status": "\u062D\u0627\u0644\u0629 \u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631",
+  "No waiting list": "\u0628\u062F\u0648\u0646 \u0642\u0627\u0626\u0645\u0629 \u0627\u0646\u062A\u0638\u0627\u0631",
+  "Additional booking resources": "\u0645\u0648\u0627\u0631\u062F \u0625\u0636\u0627\u0641\u064A\u0629 \u0644\u0644\u062D\u062C\u0632",
+  "Each resource type uses a separate referenced table. All selected resources reserve the same interval atomically.": "\u0643\u0644 \u0646\u0648\u0639 \u0645\u0648\u0627\u0631\u062F \u064A\u0633\u062A\u062E\u062F\u0645 \u062C\u062F\u0648\u0644\u064B\u0627 \u0645\u0631\u062C\u0639\u064A\u064B\u0627 \u0645\u0633\u062A\u0642\u0644\u064B\u0627. \u062A\u064F\u062D\u062C\u0632 \u062C\u0645\u064A\u0639 \u0627\u0644\u0645\u0648\u0627\u0631\u062F \u0627\u0644\u0645\u062D\u062F\u062F\u0629 \u0644\u0644\u0641\u062A\u0631\u0629 \u0646\u0641\u0633\u0647\u0627 \u0641\u064A \u0639\u0645\u0644\u064A\u0629 \u0648\u0627\u062D\u062F\u0629.",
+  "Booking date exceptions": "\u0627\u0633\u062A\u062B\u0646\u0627\u0621\u0627\u062A \u062A\u0648\u0627\u0631\u064A\u062E \u0627\u0644\u062D\u062C\u0632",
+  "A date exception replaces weekly hours for that date. No periods means closed.": "\u064A\u0633\u062A\u0628\u062F\u0644 \u0627\u0633\u062A\u062B\u0646\u0627\u0621 \u0627\u0644\u062A\u0627\u0631\u064A\u062E \u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644 \u0627\u0644\u0623\u0633\u0628\u0648\u0639\u064A\u0629 \u0644\u0630\u0644\u0643 \u0627\u0644\u064A\u0648\u0645. \u0639\u062F\u0645 \u0625\u0636\u0627\u0641\u0629 \u0641\u062A\u0631\u0627\u062A \u064A\u0639\u0646\u064A \u0623\u0646 \u0627\u0644\u064A\u0648\u0645 \u0645\u063A\u0644\u0642.",
+  "Exception date": "\u062A\u0627\u0631\u064A\u062E \u0627\u0644\u0627\u0633\u062A\u062B\u0646\u0627\u0621",
+  "Remove exception": "\u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u0627\u0633\u062A\u062B\u0646\u0627\u0621",
+  "Add date exception": "\u0625\u0636\u0627\u0641\u0629 \u0627\u0633\u062A\u062B\u0646\u0627\u0621 \u0628\u062A\u0627\u0631\u064A\u062E",
+  "Time zone": "\u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0632\u0645\u0646\u064A\u0629",
+  "Group by": "\u062A\u062C\u0645\u064A\u0639 \u062D\u0633\u0628",
+  "No grouping": "\u0628\u062F\u0648\u0646 \u062A\u062C\u0645\u064A\u0639",
+  "Report date field": "\u062D\u0642\u0644 \u062A\u0627\u0631\u064A\u062E \u0627\u0644\u062A\u0642\u0631\u064A\u0631",
+  "All dates": "\u062C\u0645\u064A\u0639 \u0627\u0644\u062A\u0648\u0627\u0631\u064A\u062E",
+  "Calendar period": "\u0627\u0644\u0641\u062A\u0631\u0629 \u0627\u0644\u0632\u0645\u0646\u064A\u0629",
+  "Period offset (0 = current)": "\u0625\u0632\u0627\u062D\u0629 \u0627\u0644\u0641\u062A\u0631\u0629 (0 = \u0627\u0644\u062D\u0627\u0644\u064A\u0629)",
+  "Compare previous period": "\u0645\u0642\u0627\u0631\u0646\u0629 \u0627\u0644\u0641\u062A\u0631\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629",
+  "Current periods may be incomplete. Comparisons use the entire preceding calendar period.": "\u0642\u062F \u062A\u0643\u0648\u0646 \u0627\u0644\u0641\u062A\u0631\u0629 \u0627\u0644\u062D\u0627\u0644\u064A\u0629 \u063A\u064A\u0631 \u0645\u0643\u062A\u0645\u0644\u0629. \u0627\u0644\u0645\u0642\u0627\u0631\u0646\u0629 \u062A\u0634\u0645\u0644 \u0643\u0627\u0645\u0644 \u0627\u0644\u0641\u062A\u0631\u0629 \u0627\u0644\u0632\u0645\u0646\u064A\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629.",
+  "day": "\u064A\u0648\u0645",
+  "week": "\u0623\u0633\u0628\u0648\u0639",
   "Aggregate reports": "\u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631 \u0627\u0644\u0645\u062C\u0645\u0651\u0639\u0629",
   "Totals include all records the signed-in user can read. Search and page selection do not change totals.": "\u062A\u0634\u0645\u0644 \u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A\u0627\u062A \u062C\u0645\u064A\u0639 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0645\u0633\u062C\u0651\u0644 \u0628\u0642\u0631\u0627\u0621\u062A\u0647\u0627. \u0627\u0644\u0628\u062D\u062B \u0648\u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0644\u0635\u0641\u062D\u0629 \u0644\u0627 \u064A\u063A\u064A\u0651\u0631\u0627\u0646 \u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A\u0627\u062A.",
   "Remove report": "\u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062A\u0642\u0631\u064A\u0631",
@@ -7462,6 +7531,26 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Waiting list status": "V\xE4ntelistestatus",
+  "No waiting list": "Ingen v\xE4ntelista",
+  "Additional booking resources": "Ytterligare bokningsresurser",
+  "Each resource type uses a separate referenced table. All selected resources reserve the same interval atomically.": "Varje resurstyp anv\xE4nder en separat referenstabell. Alla valda resurser reserverar samma intervall i en atomisk operation.",
+  "Booking date exceptions": "Undantag f\xF6r bokningsdatum",
+  "A date exception replaces weekly hours for that date. No periods means closed.": "Ett datumundantag ers\xE4tter veckans \xF6ppettider f\xF6r det datumet. Inga perioder betyder st\xE4ngt.",
+  "Exception date": "Undantagsdatum",
+  "Remove exception": "Ta bort undantag",
+  "Add date exception": "L\xE4gg till datumundantag",
+  "Time zone": "Tidszon",
+  "Group by": "Gruppera efter",
+  "No grouping": "Ingen gruppering",
+  "Report date field": "Rapportens datumf\xE4lt",
+  "All dates": "Alla datum",
+  "Calendar period": "Kalenderperiod",
+  "Period offset (0 = current)": "Periodf\xF6rskjutning (0 = aktuell)",
+  "Compare previous period": "J\xE4mf\xF6r f\xF6reg\xE5ende period",
+  "Current periods may be incomplete. Comparisons use the entire preceding calendar period.": "Aktuella perioder kan vara ofullst\xE4ndiga. J\xE4mf\xF6relsen omfattar hela f\xF6reg\xE5ende kalenderperiod.",
+  "day": "Dag",
+  "week": "Vecka",
   "Aggregate reports": "Sammanst\xE4llda rapporter",
   "Totals include all records the signed-in user can read. Search and page selection do not change totals.": "Summorna omfattar alla poster den inloggade anv\xE4ndaren f\xE5r l\xE4sa. S\xF6kning och sidval \xE4ndrar inte summorna.",
   "Remove report": "Ta bort rapport",

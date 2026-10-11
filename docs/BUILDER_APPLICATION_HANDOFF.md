@@ -454,3 +454,13 @@ still required before notification publish blockers can be removed. No customer
 cron job was installed and no real email was sent. The queue's initial SQL is for
 a new installation; its changed RPC signatures must not be applied as an ad-hoc
 upgrade to an existing customer queue.
+
+## Advanced report and booking follow-up
+
+Reports support categorical `groupByFieldId` and an optional `period` with date/datetime `fieldId`, calendar `unit`, IANA `timeZone`, integer `offset` (-120–0) and `comparePrevious`. Totals obey table RLS across all readable rows; comparisons and exports preserve decimal text. Group lists disclose a 100-group cap while totals include all groups. JSON export rechecks the account before and after fetching. Current-period versus full-previous-period comparisons are labeled accordingly.
+
+Bookings may declare `additionalResourceFieldIds` (up to four) when all resource fields are required references to distinct resource tables. Each field has an independent exclusion constraint and one transaction reserves them all. Schedule `exceptions` override weekly hours by exact local date, with empty windows indicating closure. `waitlistStatus` selects a declared nonblocking state; promotion is manual and conflict-safe.
+
+`app_booking_available_N(resources uuid[], starts_at timestamptz, ends_at timestamptz)` is an authenticated selected-interval probe with a 24-hour bound. Its exact-verified private helper checks permanent identity, create permission, referenced-resource visibility and the server schedule. Only a boolean occupancy projection is returned, even for booking rows hidden by RLS. Resource permission edits regenerate these functions. The public wrapper is SECURITY INVOKER; the private function is narrowly SECURITY DEFINER with an empty search path and no anon/service-role execution. A successful probe is advisory; the authoritative insert/update may still lose a concurrent reservation.
+
+See `APPLICATION_COMPLETION_CHECKPOINT_20261011.md` for source evidence, limits and the deferred final credential/Preview/Production sequence.

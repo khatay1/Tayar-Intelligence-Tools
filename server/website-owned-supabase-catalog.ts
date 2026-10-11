@@ -1,3 +1,4 @@
+import { verifyOwnedBookingAvailabilityCatalog } from './website-owned-booking-availability-catalog';
 import { verifyOwnedFilesCatalog } from './website-owned-files-catalog';
 import { verifyOwnedBookingScheduleCatalog } from './website-owned-booking-schedule-catalog';
 import { verifyOwnedReportsCatalog } from './website-owned-reports-catalog';
@@ -109,15 +110,16 @@ export async function verifyOwnedSupabaseBookingConstraints(definition: Applicat
     const rules = applicationBookingConstraintManifest(definition);
     if (!rules.length) return true;
     const rows = await query(BOOKING_SQL);
-    if (!Array.isArray(rows) || rows.length !== rules.length * 2) return false;
+    if (!Array.isArray(rows) || rows.length !== rules.reduce((count, rule) => count + 2 + rule.additionalResources.length, 0)) return false;
     for (const rule of rules) {
       const start = bookingIdentifier(rule.start), end = bookingIdentifier(rule.end);
       const interval = `CHECK ((isfinite(${start}) AND isfinite(${end}) AND (${start} < ${end})))`;
       const predicate = !rule.status ? '' : rule.blockingStatuses!.length === 1
         ? ` WHERE ((${bookingIdentifier(rule.status)} = ${bookingLiteral(rule.blockingStatuses![0])}))`
         : ` WHERE ((${bookingIdentifier(rule.status)} = ANY (ARRAY[${rule.blockingStatuses!.map(bookingLiteral).join(', ')}])))`;
-      const overlap = `EXCLUDE USING gist (${bookingIdentifier(rule.resource)} WITH =, tstzrange(${start}, ${end}, '[)'::text) WITH &&)${predicate}`;
-      for (const [name, type, expected] of [[rule.intervalName, 'c', interval], [rule.overlapName, 'x', overlap]]) {
+      for (const resource of [rule, ...rule.additionalResources]) {
+      const overlap = `EXCLUDE USING gist (${bookingIdentifier(resource.resource)} WITH =, tstzrange(${start}, ${end}, '[)'::text) WITH &&)${predicate}`;
+      for (const [name, type, expected] of [...(resource === rule ? [[rule.intervalName, 'c', interval]] : []), [resource.overlapName, 'x', overlap]]) {
         const matches = rows.filter((row: Row) => row?.table_name === rule.table && row.name === name);
         if (matches.length !== 1) return false;
         const row = matches[0] as Row;
@@ -125,13 +127,14 @@ export async function verifyOwnedSupabaseBookingConstraints(definition: Applicat
           || typeof row.definition !== 'string' || !row.fields || typeof row.fields !== 'object') return false;
         // Quote bare identifiers with a SQL-aware scanner; literals stay byte exact.
         const actual = row.definition.replace(/'(?:''|[^'])*'|"(?:""|[^"])*"|[a-z_][a-z0-9_]*/g, (token, offset, source) =>
-          [rule.resource, rule.start, rule.end, rule.status].includes(token) && !source.slice(offset + token.length).startsWith('(')
+          [resource.resource, rule.start, rule.end, rule.status].includes(token) && !source.slice(offset + token.length).startsWith('(')
             && !source.slice(0, offset).endsWith('::') && !source.slice(0, offset).endsWith('USING ') ? bookingIdentifier(token) : token);
         if (actual !== expected) return false;
         const fields = row.fields as Record<string, { required?: unknown; type?: unknown }>;
-        for (const [field, fieldType] of [[rule.resource, 'uuid'], [rule.start, 'timestamp with time zone'], [rule.end, 'timestamp with time zone'], ...(rule.status ? [[rule.status, 'text']] : [])]) {
+        for (const [field, fieldType] of [[resource.resource, 'uuid'], [rule.start, 'timestamp with time zone'], [rule.end, 'timestamp with time zone'], ...(rule.status ? [[rule.status, 'text']] : [])]) {
           if (fields[field]?.required !== true || fields[field]?.type !== fieldType) return false;
         }
+      }
       }
     }
     return true;
@@ -221,6 +224,7 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
       && (!app.roles.length || await verifyRoleInfrastructure(query))
       && await verifyOwnedSupabaseBookingConstraints(app, query)
       && await verifyOwnedBookingScheduleCatalog(app, query)
+      && await verifyOwnedBookingAvailabilityCatalog(app, query)
       && await verifyOwnedReportsCatalog(app, query)
       && await verifyOwnedCounterCatalog(app, query)
       && await verifyOwnedTransactionCatalog(app, query)

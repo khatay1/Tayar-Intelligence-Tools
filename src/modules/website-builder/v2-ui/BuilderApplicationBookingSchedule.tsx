@@ -28,6 +28,26 @@ export function BuilderApplicationBookingSchedule({ value, disabled, onChange }:
         </div>;
       })}
       <button type="button" disabled={value.weekly.length >= 28} onClick={() => onChange({ ...value, weekly: [...value.weekly, { day: 1, startMinute: 540, endMinute: 1020 }] })}>{l('Add working period')}</button>
+      <fieldset><legend>{l('Booking date exceptions')}</legend>
+        <p>{l('A date exception replaces weekly hours for that date. No periods means closed.')}</p>
+        {(value.exceptions ?? []).map((exception, index) => {
+          const update = (patch: Partial<typeof exception>) => onChange({ ...value, exceptions: value.exceptions!.map((item, other) => other === index ? { ...item, ...patch } : item) });
+          return <fieldset key={index}>
+            <label>{l('Exception date')}<input type="date" value={exception.date} onChange={event => update({ date: event.target.value })} /></label>
+            {exception.windows.map((window, windowIndex) => {
+              const change = (patch: Partial<typeof window>) => update({ windows: exception.windows.map((item, other) => other === windowIndex ? { ...item, ...patch } : item) });
+              return <div key={windowIndex}>
+                <label>{l('Opening time')}<input type="time" value={Number.isFinite(window.startMinute) ? time(window.startMinute) : ''} onChange={event => change({ startMinute: minute(event.target.value, false) })} /></label>
+                <label>{l('Closing time')}<input type="time" value={Number.isFinite(window.endMinute) ? time(window.endMinute) : ''} onChange={event => change({ endMinute: minute(event.target.value, true) })} /></label>
+                <button type="button" onClick={() => update({ windows: exception.windows.filter((_, other) => other !== windowIndex) })}>{l('Remove working period')}</button>
+              </div>;
+            })}
+            <button type="button" disabled={exception.windows.length >= 4} onClick={() => update({ windows: [...exception.windows, { startMinute: 540, endMinute: 1020 }] })}>{l('Add working period')}</button>
+            <button type="button" onClick={() => onChange({ ...value, exceptions: value.exceptions!.filter((_, other) => other !== index) })}>{l('Remove exception')}</button>
+          </fieldset>;
+        })}
+        <button type="button" disabled={(value.exceptions?.length ?? 0) >= 366} onClick={() => onChange({ ...value, exceptions: [...(value.exceptions ?? []), { date: '', windows: [] }] })}>{l('Add date exception')}</button>
+      </fieldset>
       {!validApplicationBookingSchedule(value) && <p role="alert">{l('Choose a valid time zone and non-overlapping working periods.')}</p>}
     </>}
   </fieldset>;
