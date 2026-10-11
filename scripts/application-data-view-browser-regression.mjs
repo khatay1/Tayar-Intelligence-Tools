@@ -212,7 +212,8 @@ run().then(()=>document.querySelector('#result').textContent='PASS application d
   const url = `http://127.0.0.1:${server.address().port}`;
   // dump-dom can finish while asynchronous UI checks are still running. Wait
   // for the real browser's terminal result, with a wall-clock failure deadline.
-  const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', `--user-data-dir=${dir}`, url], { stdio: ['ignore', 'ignore', 'pipe'] });
+  const detached = process.platform !== 'win32';
+  const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', `--user-data-dir=${dir}`, url], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer;
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
   let marker;
@@ -224,12 +225,17 @@ run().then(()=>document.querySelector('#result').textContent='PASS application d
     })]);
   } finally {
     clearTimeout(timer);
-    if (child.pid && child.exitCode === null && child.signalCode === null) {
-      const exited = new Promise(resolve => child.once('exit', resolve));
-      child.kill('SIGKILL');
+    if (child.pid) {
+      const exited = child.exitCode === null && child.signalCode === null
+        ? new Promise(resolve => child.once('exit', resolve)) : Promise.resolve();
+      // Renderer/network children can keep writing the profile after the parent
+      // exits. Stop the entire process group before removing its directory.
+      if (detached) {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+      } else spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
       await exited;
     }
   }
   if (!marker?.startsWith('PASS')) throw new Error(marker ?? 'Browser did not return a result');
   console.log(marker);
-} finally { server?.closeAllConnections(); await new Promise(resolve => server ? server.close(resolve) : resolve()); await rm(dir, { recursive: true, force: true }); }
+} finally { server?.closeAllConnections(); await new Promise(resolve => server ? server.close(resolve) : resolve()); await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
