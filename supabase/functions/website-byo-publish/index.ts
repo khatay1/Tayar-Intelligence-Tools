@@ -10323,7 +10323,7 @@ function applicationBookingAvailabilityManifest(input) {
       const field2 = table.fields.find((field3) => field3.id === id4);
       if (field2.type !== "reference") return "";
       const target2 = app.tables.find((candidate) => candidate.id === field2.referenceTableId);
-      return `if not exists(select 1 from public."app_${target2.key}" r where r.id=resources[${slot + 1}] and (${access(target2.permissions.find((permission3) => permission3.operation === "read"), "r.owner_id")})) then return null;end if;`;
+      return `if not exists(select 1 from public."app_${target2.key}" r where r.id=($1)[${slot + 1}] and (${access(target2.permissions.find((permission3) => permission3.operation === "read"), "r.owner_id")})) then return null;end if;`;
     }).join("\n");
     const schedule = rule.schedule;
     const source = `
@@ -10340,9 +10340,9 @@ begin
  ${schedule ? `local_start:=timezone(${literal2(schedule.timeZone)},starts_at);local_end:=timezone(${literal2(schedule.timeZone)},ends_at);
  if ends_at-starts_at>make_interval(mins=>${schedule.maxDurationMinutes}) or local_start>=local_end or not(${applicationBookingSchedulePredicate(schedule)}) then return false;end if;` : ""}
  return not exists(select 1 from public."app_${table.key}" b where
-  (${resources.map((id4, slot) => `b."${key2(id4)}"=resources[${slot + 1}]`).join(" or ")})
+  (${resources.map((id4, slot) => `b."${key2(id4)}"=($1)[${slot + 1}]`).join(" or ")})
   ${rule.statusFieldId ? `and b."${key2(rule.statusFieldId)}" in (${rule.blockingStatuses.map(literal2).join(",")})` : ""}
-  and tstzrange(b."${key2(rule.startFieldId)}",b."${key2(rule.endFieldId)}",'[)') && tstzrange(starts_at,ends_at,'[)'));
+  and tstzrange(b."${key2(rule.startFieldId)}",b."${key2(rule.endFieldId)}",'[)') && tstzrange($2,$3,'[)'));
 end;`;
     const name2 = `app_booking_available_${index}`;
     return [

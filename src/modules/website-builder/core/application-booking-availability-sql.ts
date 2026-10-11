@@ -19,7 +19,7 @@ export function applicationBookingAvailabilityManifest(input: ApplicationDefinit
       const field = table.fields.find(field => field.id === id)!;
       if (field.type !== 'reference') return '';
       const target = app.tables.find(candidate => candidate.id === field.referenceTableId)!;
-      return `if not exists(select 1 from public."app_${target.key}" r where r.id=resources[${slot + 1}] and (${access(target.permissions.find(permission => permission.operation === 'read'), 'r.owner_id')})) then return null;end if;`;
+      return `if not exists(select 1 from public."app_${target.key}" r where r.id=($1)[${slot + 1}] and (${access(target.permissions.find(permission => permission.operation === 'read'), 'r.owner_id')})) then return null;end if;`;
     }).join('\n');
     const schedule = rule.schedule;
     const source = `
@@ -36,9 +36,9 @@ begin
  ${schedule ? `local_start:=timezone(${literal(schedule.timeZone)},starts_at);local_end:=timezone(${literal(schedule.timeZone)},ends_at);
  if ends_at-starts_at>make_interval(mins=>${schedule.maxDurationMinutes}) or local_start>=local_end or not(${applicationBookingSchedulePredicate(schedule)}) then return false;end if;` : ''}
  return not exists(select 1 from public."app_${table.key}" b where
-  (${resources.map((id, slot) => `b."${key(id)}"=resources[${slot + 1}]`).join(' or ')})
+  (${resources.map((id, slot) => `b."${key(id)}"=($1)[${slot + 1}]`).join(' or ')})
   ${rule.statusFieldId ? `and b."${key(rule.statusFieldId)}" in (${rule.blockingStatuses!.map(literal).join(',')})` : ''}
-  and tstzrange(b."${key(rule.startFieldId)}",b."${key(rule.endFieldId)}",'[)') && tstzrange(starts_at,ends_at,'[)'));
+  and tstzrange(b."${key(rule.startFieldId)}",b."${key(rule.endFieldId)}",'[)') && tstzrange($2,$3,'[)'));
 end;`;
     const name = `app_booking_available_${index}`;
     return [{ name, schema: 'private', source, language: 'plpgsql', definer: true },
