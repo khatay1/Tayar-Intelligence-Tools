@@ -120,6 +120,7 @@ export interface ApplicationRequirementManifest {
   version: 1;
   request: string;
   items: ApplicationRequirement[];
+  specification?: import('./project-specification').ProjectSpecification;
 }
 export interface ApplicationDefinition {
   version: 1;

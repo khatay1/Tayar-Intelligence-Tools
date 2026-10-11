@@ -1,94 +1,82 @@
 # Universal engineering platform — verified checkpoint
 
-## Scope and sequencing
+## Durable rules
 
-Continue the existing engine; do not create sector-specific replacement engines.
-Customer credentials/live provider activation stay last. Social Hub stays on
-`deferred/social-hub-foundation-20261011`; preserve that branch.
+Extend the existing application engine; do not create sector-specific engines.
+Customer credentials and live provider activation stay last. Social Hub remains
+deferred on `deferred/social-hub-foundation-20261011` and must be preserved.
+Generated code, a successful build, passing tests, deployment and verified live
+services are distinct delivery states.
 
-## Phase zero — 2026-10-11
+## Phase zero — complete on 2026-10-11
 
-Inspected GitHub once: main `4ebd186afa8427c5ac2989df7e6b4f3814b14858`,
-open PR #146 head `b1d326665f43f5e15e0bbfd9817990ab6fc1de3b`.
+- PR #146 merged to `main` as
+  `ab55075ea6f8ebd09b71994a0e631efe12e96024` after Release Gate
+  38165046959 passed. The subsequent main Release Gate 38165264856 also passed.
+- The stale owned runtime and dependent BYO Edge bundle were regenerated from
+  their trusted source. The application data-view browser regression now waits
+  for an explicit terminal result, detects crashes/timeouts and cleans up the
+  Chromium process group safely. Real CI Chrome passed the en/ar/sv assertions.
+- Source migration `20261011183711_phase_zero_advisor_hardening.sql` added the
+  16 verified foreign-key indexes and converted the constant scheduler readiness
+  function to SECURITY INVOKER while preserving ACL, RLS and disabled scheduling.
+  The live Supabase migration record is version `20261011184736` with the same
+  logical migration name. Embedded and native PostgreSQL regressions passed.
+- After the migration, the uncovered-FK advisor notice count is zero. Remaining
+  SECURITY DEFINER notices were reviewed rather than blanket-revoked: their
+  exposed callers have explicit grants, fixed search paths and application
+  authorization/published-site guards. RLS-without-policy tables remain private
+  server-only tables. Newly created indexes can appear as unused until workload.
+- Supabase leaked-password protection remains disabled because the organization
+  is on the Free plan and the supported feature requires an owner plan decision.
+  No billing, Auth configuration, customer credential or secret change occurred.
+- Vercel production deployment `dpl_BhDGCqhxhDMBZBm6MhjSmKZGUuJo` is READY from
+  the exact merged SHA above. `https://www.tayar.se/` and its manifest returned
+  200; an invalid published-site API path returned the expected 400. These probes
+  do not claim that unconfigured customer services are live.
 
-- PR Release Gate 38162235711 failed because the owned runtime template was
-  stale. Regenerated it from its trusted source with the repository builder,
-  then regenerated the dependent BYO publish Edge bundle. Both consistency
-  checks now pass; browser runtime, backend-link and release bundles also match.
-- Main Release Gate 38158241853 failed with `Error: RUNNING`: Chrome dump-dom
-  returned before async browser assertions completed. The browser regression
-  now posts its terminal assertion result to the loopback fixture server. The
-  runner waits with a 35-second wall-clock deadline and rejects browser crashes,
-  timeouts and FAIL results. Cleanup handles signal exits and open connections.
-- Targeted generation, data-view, owned-source, owned-runtime-binding and BYO
-  Edge regressions passed. Focused ESLint and whitespace checks passed.
-- A local real Chromium attempt was blocked by the execution environment's
-  Unix-socket restrictions (`socket() failed: Operation not permitted`). This
-  is NOT a passing browser check. Required real-browser verification is in CI.
-- CI on `f11e8a7484c0f8ff5a8de43ea22790d2b74acffd` passed every
-  en/ar/sv data-view browser assertion, but profile removal failed because
-  Chromium children were still writing. Commit
-  `3eac7716bb6623dc735c8b5f03107a8cbf0fef4c` stops the full process group
-  and retries only transient directory cleanup. An earlier single-process
-  Chromium launch crashed and was removed; normal process isolation remains.
-- Final Release Gate including the advisor repair is pending on PR #146.
-  Do not merge until it passes. All phase-zero source fixes are one batch.
+## Phase one — active batch
 
-## Infrastructure observations (not activation claims)
+Branch: `feature/universal-project-specification-20261011`.
 
-- Vercel production project `prj_Va68HaopapL5mCzXkQsnJ7X7Kr7V`, team
-  `team_dxtUwkdzIKpmkmE2GFEaMWn1`: READY deployment
-  `dpl_Hh5UVVH12dSfAV3cgxBnGcn8hrCo` is commit
-  `22e528a8c22572d170cc1e6d40186e94a57fb40b`, older than main. Update only
-  after the corrected release passes; verify staged deployment before promotion.
-- Supabase platform project `pnbllxdlskljcakyaylt`: 6 anonymous and 45
-  authenticated SECURITY DEFINER execution notices, 16 uncovered foreign keys,
-  31 unused-index informational notices. These counts are not proof of a
-  vulnerability. Inspect bodies/callers and preserve intended access.
-- Live catalog confirms explicit role grants (no PUBLIC EXECUTE) and fixed
-  search paths on the exposed functions. Most authenticated entry points have
-  identity/role guards; delegated wrappers require following their callees.
-  Public signup status and published-site ingestion/resolution have intentional
-  anonymous callers. Review authorization and published-site checks before
-  changing them; do not indiscriminately revoke access or disable RLS.
-- `website_publish_scheduler_ready()` currently returns constant false under
-  SECURITY DEFINER; no elevation is required for that constant. Prepare an
-  invoker migration with privilege/readiness regression coverage.
-- Leaked-password protection is disabled. Supabase organization
-  `vpdokchxxttciydfbbcw` is Free; official password-security documentation
-  requires Pro or above. No billing change is authorized/performed. Activation
-  requires an owner plan decision and a supported Auth configuration connection.
-  Reference: https://supabase.com/docs/guides/auth/password-security
-- Advisor references: https://supabase.com/docs/guides/database/database-linter
+Implemented a domain-neutral `ProjectSpecification` attached to the existing
+`ApplicationRequirementManifest`. It references the existing generated schema,
+roles and requirement IDs rather than creating a parallel generator. The closed,
+bounded contract records actors, entity scope/sensitivity, explicit or inferred
+requirements, observable acceptance criteria, operations and dependencies,
+business rules, tenancy, deferred integration scopes, privacy/retention and
+unresolved decisions.
 
-## Next action
+The validator rejects unknown fields/IDs, duplicates, missing table
+classifications or requirement coverage, dependency cycles, missing sensitive
+data plans, contradictory tenancy and unresolved conflicts. Custom execution and
+organization/branch isolation fail closed until their isolated executor and
+membership policies exist. Descriptive rules and acceptance criteria are never
+treated as implementation or test evidence.
 
-Advisor repair batch prepared as part of PR #146:
+Agent-mode application generation now requires this specification and validates
+it before mutating editor state. Legacy/manual projects and ordinary brochure
+generation remain backward compatible. The AI request performs the analysis in
+the existing single generation call and is explicitly forbidden from inventing
+credentials, sector assumptions or unsupported native behavior.
 
-- CLI-generated migration `20261011183711_phase_zero_advisor_hardening.sql`
-  adds the 16 verified referencing-column indexes. Bounded lock/statement waits,
-  one transaction, and a scheduler-source guard prevent partial/drifted changes.
-- The constant scheduler readiness function becomes SECURITY INVOKER using
-  ALTER, preserving its ACL and the existing scheduling safety trigger.
-- Embedded PostgreSQL (PGlite 0.5.2) regression passed: all indexes cover their
-  declared columns, a repeat apply is safe, RLS/ACL/FKs remain identical, allowed
-  roles still see false, anon is denied, scheduled publication stays disabled,
-  and source drift aborts the entire migration. Native PostgreSQL is added to
-  Release Gate using a separate synthetic fixture database.
-- Public ingestion functions validate input/quotas/rate limits and retain the
-  published-site/owner trigger. Custom-domain resolver filters verified domains
-  and live projects. Secret wrapper delegates to the owner-locked private
-  implementation; admin RPCs delegate to identity-based is_admin. Those entry
-  points require their existing elevated access and are not blanket-revoked.
-- No live database migration or production promotion has been applied yet.
+Verified locally after this change:
 
-Run Release Gate on the repaired PR head and merge only when successful.
-Then finish the scoped database advisor review/index migration and verify
-production freshness before any Universal Engine expansion. Inspect existing
-specification, workflow, generation, coverage and isolated execution modules
-first; extend only missing capabilities. Record each verified batch here.
+- TypeScript and focused ESLint passed.
+- Domain-neutral specification regression passed across retail, restaurant,
+  school, clinic, government, factory and a custom research record model.
+- Real generation-handler regression passed: a valid specification persisted;
+  a missing specification and claimed custom execution were rejected atomically.
+- Application foundation, release upload/endpoint, backend link, published
+  runtime, owned source/runtime binding and BYO Edge regressions passed.
+- Application runtime, backend-link, release, owned runtime and BYO publish
+  generated artifacts were regenerated from source. Release Gate is required
+  once after the stable commit and before merge.
 
-## Completion boundary
+## Honest completion boundary
 
-Universal phases 1–7 are not yet certified; no universal-generation, secure
-custom execution, live-provider or final production readiness claim is made.
+Phase one is not complete until this batch passes Release Gate and merges.
+Phases two through seven still require incremental implementation and evidence,
+especially isolated custom code execution, generalized atomic workflows,
+requirement-to-test coverage results, safe repair/rollback and diverse full
+reference-project verification. Final provider activation remains phase eight.

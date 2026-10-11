@@ -2,6 +2,7 @@ import type { AIWebsiteGeneration } from './editor-ai-patch-review';
 import type { WebsitePage } from './website-builder-model';
 import type { ApplicationDefinition, ApplicationRequirementCapability } from './application-model';
 import { readApplicationDefinition } from './application-validation';
+import { readProjectSpecification } from './project-specification';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { compileApplicationDataView } from './application-data-view';
 import { websiteProjectLinkIssues } from './website-project-links';
@@ -32,6 +33,7 @@ export function prepareGeneratedApplication(
   pages: WebsitePage[],
   prompt: string,
   availableEmailConnectionIds: ReadonlySet<string> = new Set(),
+  requireSpecification = false,
 ): ApplicationDefinition | undefined {
   if (generated.projectKind !== undefined && !['website', 'application'].includes(generated.projectKind)) throw new Error('AI returned an invalid project kind.');
   if (generated.unsupportedFeatures !== undefined && (!Array.isArray(generated.unsupportedFeatures)
@@ -162,7 +164,12 @@ export function prepareGeneratedApplication(
   for (const capability of requestedCapabilities) if (!coveredCapabilities.has(capability)) {
     throw new Error(`The requested ${capability} capability has no verified requirement. No incomplete application was applied.`);
   }
-  return readApplicationDefinition({ ...definition, requirements: { version: 1, request: prompt.slice(0, 4000), items } }, new Set(pages.map(page => page.id)));
+  const completed: ApplicationDefinition = { ...definition, requirements: { version: 1, request: prompt.slice(0, 4000), items } };
+  if (requireSpecification && generated.projectSpecification === undefined) {
+    throw new Error('Agent application generation requires a structured project specification. No unverifiable application was applied.');
+  }
+  if (generated.projectSpecification !== undefined) completed.requirements!.specification = readProjectSpecification(generated.projectSpecification, completed);
+  return readApplicationDefinition(completed, new Set(pages.map(page => page.id)));
 }
 
 /** Root-relative AI paths previously escaped /site/owner/project entirely.
