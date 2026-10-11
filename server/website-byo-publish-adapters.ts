@@ -10,6 +10,8 @@ import { prepareOwnedVercelProductionRuntimeEnvironment,
   prepareOwnedVercelRuntimeEnvironment } from './website-owned-vercel-runtime-environment';
 import { handoffOwnedStripeRuntime,inspectOwnedStripeRuntimeForPublish,
   verifyOwnedStripeRuntimeDestination } from './website-owned-stripe';
+import { handoffOwnedEmailRuntime,inspectOwnedEmailRuntimeForPublish,
+  verifyOwnedEmailRuntimeDestination } from './website-owned-email-runtime';
 import { exportWebsiteProjectToOwnedGitHub } from '../src/modules/website-builder/services/websiteGithubExportWorker';
 import { beginWebsiteVercelDeploymentAttempt,
   commitWebsiteVercelDeploymentObservation } from '../src/modules/website-builder/services/websiteVercelDeploymentAttemptService';
@@ -125,7 +127,45 @@ export async function runWebsiteOwnedByoPublish(input:{
     await verifyOwnedStripeRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,
       vercelProjectId:vercel.vercelProjectId,environmentId:receipt.environmentId,projectId:input.projectId,
       environment:'preview',handoffOperationId:input.operationId,isCurrent:exactCurrent,fetcher:input.fetcher});};
-  const runtime=async()=>{await environment();await stripeRuntime();};
+  const emailRuntime=async()=>{const capturedSource=await source(),email=capturedSource.emailRuntime;
+    if(!email)return;const vercel=await grant();
+    for(const connection of email.connections){
+      const emailOperationId=await deterministicUuid({kind:'email-secret-handoff-operation',operationId:input.operationId,
+        sourceConnectionId:connection.sourceConnectionId,environmentKey:connection.environmentKey});
+      const state=await inspectOwnedEmailRuntimeForPublish({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
+        vercelConnectionId:input.vercelConnectionId,vercelConnectionVersion:capturedSource.vercel.version,
+        sourceConnectionId:connection.sourceConnectionId,sourceUpdatedAt:connection.sourceUpdatedAt,
+        environmentKey:connection.environmentKey,environment:'preview'});
+      const exactCurrent=async()=>await capturedSource.isCurrent()&&await owner();
+      if(state.ready){if(!state.environmentId||!state.handoffOperationId)throw new Error();
+        await verifyOwnedEmailRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,
+          accountId:vercel.accountId,vercelProjectId:vercel.vercelProjectId,environmentId:state.environmentId,
+          environmentKey:connection.environmentKey,projectId:input.projectId,environment:'preview',
+          handoffOperationId:state.handoffOperationId,isCurrent:exactCurrent,fetcher:input.fetcher});continue;}
+      const sameOperation=state.handoffOperationId===emailOperationId;
+      if(state.handoffStatus==='removed'||state.handoffStatus==='preparing'&&!sameOperation
+        ||(!state.sourceAvailable&&!(state.handoffStatus==='verified'&&sameOperation)))throw new Error();
+      const handoffId=state.handoffId??await deterministicUuid({kind:'email-secret-handoff',projectId:input.projectId,
+        environment:'preview',vercelConnectionId:input.vercelConnectionId,
+        sourceConnectionId:connection.sourceConnectionId,environmentKey:connection.environmentKey});
+      let expectedHandoffVersion=state.handoffVersion;
+      if(sameOperation&&state.handoffStatus==='preparing')expectedHandoffVersion=state.handoffVersion-1;
+      if(sameOperation&&state.handoffStatus==='verified')expectedHandoffVersion=state.handoffVersion-2;
+      if(expectedHandoffVersion<0||!await exactCurrent())throw new Error();
+      const receipt=await handoffOwnedEmailRuntime({client:input.client,handoffId,
+        vercelConnectionId:input.vercelConnectionId,projectId:input.projectId,ownerId:input.ownerId,
+        vercelConnectionVersion:capturedSource.vercel.version,expectedHandoffVersion,
+        sourceConnectionId:connection.sourceConnectionId,sourceUpdatedAt:connection.sourceUpdatedAt,
+        environmentKey:connection.environmentKey,environment:'preview',operationId:emailOperationId,
+        commitId:await deterministicUuid({kind:'email-handoff-commit',operationId:emailOperationId,handoffId,
+          sourceUpdatedAt:connection.sourceUpdatedAt}),isCurrent:()=>current,fetcher:input.fetcher});
+      if(receipt.status!=='verified'||!await exactCurrent())throw new Error();
+      await verifyOwnedEmailRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,
+        accountId:vercel.accountId,vercelProjectId:vercel.vercelProjectId,environmentId:receipt.environmentId,
+        environmentKey:connection.environmentKey,projectId:input.projectId,environment:'preview',
+        handoffOperationId:emailOperationId,isCurrent:exactCurrent,fetcher:input.fetcher});
+    }};
+  const runtime=async()=>{await environment();await stripeRuntime();await emailRuntime();};
   try{return await runByoPublishWorker({operationId:input.operationId,projectId:input.projectId,ownerId:input.ownerId,
     environment:input.environment,store,isCurrent:owner,
     validate:async()=>{const capturedSource=await source();return{sourceDigest:capturedSource.sourceDigest,requiredEnvironment:await requirements()};},

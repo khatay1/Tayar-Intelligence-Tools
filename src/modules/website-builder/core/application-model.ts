@@ -29,6 +29,13 @@ export interface ApplicationBookingRule {
   endFieldId: string;
   statusFieldId?: string;
   blockingStatuses?: string[];
+  schedule?: ApplicationBookingSchedule;
+  recurrence?: { timeZone: string; maxOccurrences: number };
+}
+export interface ApplicationBookingSchedule {
+  timeZone: string;
+  weekly: Array<{ day: number; startMinute: number; endMinute: number }>;
+  maxDurationMinutes: number;
 }
 export interface ApplicationCounterRule { fieldId: string; minimum: number; maximum?: number; integer: boolean }
 /** Creates one parent record and one or more line records while changing every
@@ -40,6 +47,14 @@ export interface ApplicationTransactionRule {
   lineItemFieldId: string;
   lineQuantityFieldId: string;
   counterDirection: 'decrement' | 'increment';
+}
+/** Server-priced Stripe payment for an authenticated transaction. Amounts are
+ * stored in the currency's minor unit and refunds require an explicit role. */
+export interface ApplicationPaymentRule {
+  provider: 'stripe';
+  currency: string;
+  itemUnitAmountFieldId: string;
+  refundRoleId: string;
 }
 export interface ApplicationWorkflowTransition {
   id: string;
@@ -73,10 +88,13 @@ export interface ApplicationTable {
   booking?: ApplicationBookingRule;
   counter?: ApplicationCounterRule;
   transaction?: ApplicationTransactionRule;
+  payment?: ApplicationPaymentRule;
   workflow?: ApplicationWorkflowRule;
   attachments?: { maxBytes: number; mimeTypes: string[] };
   notifications?: ApplicationEmailNotification[];
+  reports?: ApplicationReport[];
 }
+export interface ApplicationReport { id: string; name: string; operation: 'count' | 'sum' | 'min' | 'max' | 'avg'; fieldId?: string }
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {
   pageId: string;

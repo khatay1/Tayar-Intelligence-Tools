@@ -5,6 +5,7 @@ import type { ApplicationDefinition } from '../core/application-model';
 import { applicationAuthCopy } from '../core/application-auth-copy';
 import { createApplicationNavigator } from '../core/application-navigation';
 import { compileApplicationCreateForm, createDurableApplicationFormSubmission } from '../core/application-form-runtime';
+import { formatApplicationBookingSchedule } from '../core/application-booking-schedule';
 import type { PublishedApplicationForm } from '../core/application-published-forms';
 import type { PublishedApplicationDataView } from '../core/application-published-data-views';
 import { mountApplicationDataView } from './application-data-view';
@@ -14,10 +15,10 @@ const config = JSON.parse(script.dataset.application!) as (ApplicationAuthScreen
   { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[]; applicationDataViews?: PublishedApplicationDataView[] };
 const copy = applicationAuthCopy[config.language] ?? applicationAuthCopy.en;
 const formCopy = {
-  en: { conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' },
-  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.' },
-  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.' },
-}[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' };
+  en: { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' },
+  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', schedule: 'اختر وقتًا ضمن ساعات العمل والمدة القصوى للحجز.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.' },
+  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', schedule: 'Välj en tid inom öppettiderna och bokningens längdgräns.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.' },
+}[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' };
 const account = new URL(config.returnPath, config.applicationOrigin);
 account.searchParams.set('applicationAuth', '1');
 // Keep account controls in a shadow root so authored styles do not accidentally
@@ -97,6 +98,11 @@ try {
         && candidate.closest('[data-tayar-section-id]')?.getAttribute('data-tayar-section-id') === sectionId);
       if (!form || leadForms.filter(candidate => candidate.dataset.formId === sectionId).length !== 1) throw new Error('Application form markup is unavailable.');
       const compiled = compileApplicationCreateForm(config.definition, item.section, item.binding);
+      const schedule = config.definition.tables.find(table => table.id === item.binding.tableId)?.booking?.schedule;
+      if (schedule && !form.querySelector('[data-booking-schedule]')) {
+        const info = document.createElement('p'); info.dataset.bookingSchedule = '';
+        info.textContent = formatApplicationBookingSchedule(schedule, config.language); form.prepend(info);
+      }
       const key = ['tayar-app-form', config.backend.projectRef, config.projectId, user.id, item.pageId, sectionId].join(':');
       const controller = createDurableApplicationFormSubmission(compiled, runtime, { key, storage: sessionStorage, crypto });
       boundForms.set(form, { controller, userId: user.id });

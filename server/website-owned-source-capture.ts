@@ -5,6 +5,8 @@ import { analyzeByoSourceCapabilities, type ByoSourceCapabilities } from '../src
 import { readEditorIntegrationsFromProject } from '../src/modules/website-builder/core/editor-integrations-project-host';
 import { isEditorProjectSecretReferenceFor } from '../src/modules/website-builder/core/editor-integration-security';
 import { compileWebsiteOwnedApplicationSource } from './website-owned-source-compiler';
+import { bindSavedOwnedEmailNotifications } from './website-owned-email-rules';
+import { createOwnedRuntimeSecretPlan } from './website-owned-runtime-secret-plan';
 
 type Environment = 'preview' | 'production';
 export interface OwnedRuntimeBinding {
@@ -25,6 +27,8 @@ export interface OwnedSourceReader extends SourceReader {
 type Verification = (binding: OwnedRuntimeBinding, supabase: InfrastructureConnection,
   vercel: InfrastructureConnection, capabilities: ByoSourceCapabilities) => Promise<boolean>;
 export interface OwnedStripeRuntimeSource { sourceConnectionId:string;sourceUpdatedAt:string;publishableKey:string; }
+export interface OwnedEmailRuntimeSource { connections: Array<{ sourceConnectionId:string;sourceUpdatedAt:string;
+  connectionUpdatedAt:string;from:string;environmentKey:string }> }
 const stripePublishable=/^pk_(test|live)_[A-Za-z0-9]+$/;
 function stripeRuntimeSource(snapshot:Record<string,unknown>,projectId:string,environment:Environment,
   capabilities:ByoSourceCapabilities):OwnedStripeRuntimeSource|null{
@@ -43,6 +47,22 @@ function stripeRuntimeSource(snapshot:Record<string,unknown>,projectId:string,en
   return{sourceConnectionId:selected.id,sourceUpdatedAt:secret.updatedAt,publishableKey};
 }
 
+export function captureOwnedEmailRuntimeSource(snapshot:Record<string,unknown>,projectId:string,environment:Environment,
+  capabilities:ByoSourceCapabilities):OwnedEmailRuntimeSource|null{
+  if(!capabilities.definition.tables.some(table=>table.notifications?.length))return null;
+  const bound=bindSavedOwnedEmailNotifications({projectId,definition:capabilities.definition,environment,
+    integrations:readEditorIntegrationsFromProject(snapshot)});
+  if(!bound.rules.length||!bound.connections.length)throw new Error('Customer email runtime source is unavailable.');
+  const plan=createOwnedRuntimeSecretPlan({environment,capabilities,
+    emailConnections:bound.connections.map(connection=>({id:connection.id,from:connection.from}))});
+  return{connections:plan.emailConnections.map(connection=>{
+    const source=bound.connections.find(item=>item.id===connection.id);
+    if(!source)throw new Error('Customer email runtime source is unavailable.');
+    return{sourceConnectionId:source.id,sourceUpdatedAt:source.secretUpdatedAt,
+      connectionUpdatedAt:source.connectionUpdatedAt,from:source.from,environmentKey:connection.environmentKey};
+  })};
+}
+
 /** Source-only trust boundary. The binding and both provider records come from
  * private, owner-scoped persistence, never editable snapshot fields. Provider
  * ownership and schema/Auth/RLS proof must be supplied by a live verifier. */
@@ -56,7 +76,8 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     throw new Error('Customer runtime scope is unavailable.');
   }
   const captured: { value?: { binding: OwnedRuntimeBinding; supabase: InfrastructureConnection; vercel: InfrastructureConnection } } = {};
-  const state: { capabilities?: ByoSourceCapabilities;stripeRuntime?:OwnedStripeRuntimeSource|null } = {};
+  const state: { capabilities?: ByoSourceCapabilities;stripeRuntime?:OwnedStripeRuntimeSource|null;
+    emailRuntime?:OwnedEmailRuntimeSource|null } = {};
   const identity = (connection: InfrastructureConnection) => JSON.stringify({
     id: connection.id, ownerId: connection.ownerId, projectId: connection.projectId,
     provider: connection.provider, environment: connection.environment, accountId: connection.accountId,
@@ -99,6 +120,7 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     async compile(snapshot) {
       state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
       state.stripeRuntime=stripeRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
+      state.emailRuntime=captureOwnedEmailRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
       captured.value = await current();
       return compileWebsiteOwnedApplicationSource(snapshot, { projectId: input.projectId,
         applicationOrigin: captured.value.binding.applicationOrigin, expectedProjectRef: captured.value.supabase.targetId!,
@@ -121,5 +143,6 @@ export async function captureWebsiteOwnedApplicationSource(input: {
   if (!await isCurrent()) throw new Error('Customer runtime scope changed.');
   return { ...source, binding: structuredClone(initial.binding), supabase: structuredClone(initial.supabase),
     vercel: structuredClone(initial.vercel), capabilities: structuredClone(state.capabilities!),
-    stripeRuntime:state.stripeRuntime?structuredClone(state.stripeRuntime):null,isCurrent };
+    stripeRuntime:state.stripeRuntime?structuredClone(state.stripeRuntime):null,
+    emailRuntime:state.emailRuntime?structuredClone(state.emailRuntime):null,isCurrent };
 }

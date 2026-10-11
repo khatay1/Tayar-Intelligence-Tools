@@ -10,15 +10,16 @@ import { build } from 'esbuild';
 const dir = await mkdtemp(join(tmpdir(), 'tayar-booking-')), require = createRequire(import.meta.url);
 const owner = '11111111-1111-4111-8111-111111111111', other = '22222222-2222-4222-8222-222222222222';
 const resource = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', resource2 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+let embeddedDatabase;
 try {
   const entry = join(dir, 'test.ts');
-  await writeFile(entry, ['application-model', 'application-validation', 'application-schema-sql', 'application-form-runtime', 'application-booking', 'application-data-view', 'application-data-runtime']
+  await writeFile(entry, ['application-model', 'application-validation', 'application-schema-sql', 'application-form-runtime', 'application-booking', 'application-data-view', 'application-data-runtime', 'application-booking-schedule', 'application-booking-schedule-sql']
     .map(name => `export * from ${JSON.stringify(resolve(`src/modules/website-builder/core/${name}`))};`).join('\n')
-    + `\nexport * from ${JSON.stringify(resolve('server/website-owned-supabase-catalog'))};`);
+    + `\nexport * from ${JSON.stringify(resolve('server/website-owned-supabase-catalog'))};\nexport * from ${JSON.stringify(resolve('server/website-owned-booking-schedule-catalog'))};`);
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile: join(dir, 'test.cjs') });
   const { compileInitialApplicationSchema: compile, compileAdditiveApplicationMigration: migrate, readApplicationDefinition: validate,
     parseApplicationDataViewValues: parse, ApplicationBookingRejected: Rejected, createDurableApplicationFormSubmission: durable,
-    verifyOwnedSupabaseBookingConstraints: verify, createOwnedApplicationDataRuntime: runtimeFor } = require(join(dir, 'test.cjs'));
+    validApplicationBookingSchedule:validSchedule,applicationBookingWithinSchedule:withinSchedule,applicationBookingScheduleManifest:scheduleManifest,compileApplicationBookingSchedule:scheduleSQL,verifyOwnedBookingScheduleCatalog:verifySchedule,verifyOwnedSupabaseBookingConstraints: verify, createOwnedApplicationDataRuntime: runtimeFor } = require(join(dir, 'test.cjs'));
   const fields = [
     { id: 'resource', key: 'resource_id', name: 'Resource', type: 'uuid', required: true },
     { id: 'start', key: 'starts_at', name: 'Start', type: 'datetime', required: true },
@@ -46,6 +47,38 @@ try {
   const values = { resource_id: resource, starts_at: '2026-10-09T10:00:00+02:00', ends_at: '2026-10-09T11:00:00+02:00', status: 'pending' };
   assert.equal(parse(table, values, true).starts_at, '2026-10-09T08:00:00.000Z');
   assert.throws(() => parse(table, { ...values, ends_at: values.starts_at }, true), /after start/);
+  const schedule={timeZone:'Europe/Stockholm',maxDurationMinutes:120,weekly:[{day:5,startMinute:540,endMinute:1020}]};
+  const scheduledTable={...table,booking:{...booking,schedule}},scheduledApp={...app,tables:[scheduledTable]};
+  assert.equal(validSchedule(schedule),true);validate(scheduledApp);
+  assert.equal(parse(scheduledTable,values,true).starts_at,'2026-10-09T08:00:00.000Z');
+  for(const bad of [{...schedule,timeZone:'bad/zone'},{...schedule,maxDurationMinutes:0},{...schedule,weekly:[]},
+    {...schedule,weekly:[{day:0,startMinute:540,endMinute:1020}]},{...schedule,weekly:[{day:5,startMinute:1020,endMinute:540}]},
+    {...schedule,weekly:[...schedule.weekly,{day:5,startMinute:600,endMinute:660}]},{...schedule,extra:true}])assert.equal(validSchedule(bad),false);
+  const interval=(from,to,rule=schedule)=>withinSchedule(rule,Date.parse(from),Date.parse(to));
+  assert.equal(interval('2026-10-09T07:00Z','2026-10-09T08:00Z'),true,'opening inclusive');
+  assert.equal(interval('2026-10-09T14:00Z','2026-10-09T15:00Z'),true,'closing inclusive');
+  assert.equal(interval('2026-10-09T14:00Z','2026-10-09T15:00:00.001Z'),false,'one millisecond past close');
+  assert.equal(interval('2026-10-09T06:59Z','2026-10-09T08:00Z'),false);
+  assert.equal(interval('2026-10-10T08:00Z','2026-10-10T09:00Z'),false,'closed day');
+  assert.equal(interval('2026-10-09T08:00Z','2026-10-09T10:01Z'),false,'actual duration limit');
+  assert.equal(interval('2026-12-11T08:00Z','2026-12-11T09:00Z'),true,'winter offset');
+  const midnight={...schedule,weekly:[{day:5,startMinute:1320,endMinute:1440}]};
+  assert.equal(interval('2026-10-09T21:00Z','2026-10-09T22:00Z',midnight),true,'midnight closes the preceding day');
+  const sunday={...schedule,weekly:[{day:7,startMinute:60,endMinute:240}]};
+  assert.equal(interval('2026-03-29T00:30Z','2026-03-29T01:30Z',sunday),true,'spring transition uses absolute instants');
+  assert.equal(interval('2026-10-25T00:30Z','2026-10-25T01:30Z',sunday),false,'repeated local end must be after local start');
+  assert.throws(()=>parse(scheduledTable,{...values,starts_at:'2026-10-09T06:00Z'},true),error=>error instanceof Rejected&&error.reason==='schedule');
+  assert.doesNotThrow(()=>parse(scheduledTable,{...values,starts_at:'2026-10-09T06:00Z',status:'cancelled'},true));
+  const windows=applicationScheduleFixture();
+  function applicationScheduleFixture(){const [manifest]=scheduleManifest(scheduledApp);return{...manifest,table_name:manifest.table,trigger_name:manifest.name,
+    time_zone_available:true,security_definer:false,volatility:'v',kind:'f',result:'trigger',arguments:'',language:'plpgsql',owner:'postgres',
+    configuration:['search_path=""'],anon_execute:false,authenticated_execute:false,service_execute:false,enabled:'O',type:23,trigger_arguments:'\\x'};}
+  assert.equal(await verifySchedule(scheduledApp,async()=>[windows]),true);
+  for(const mutation of [{time_zone_available:false},{source:'return new;'},{enabled:'D'},{security_definer:true},{anon_execute:true},{service_execute:true},{type:7},{table_name:'other'},{configuration:['search_path=public']}])
+    assert.equal(await verifySchedule(scheduledApp,async()=>[{...windows,...mutation}]),false);
+  assert.match(compile(scheduledApp).join('\n'),/Application booking outside schedule/);
+  assert.throws(()=>migrate(app,scheduledApp),/reviewed/);
+  console.log('PASS booking schedule: strict windows/time zones, boundaries, duration, DST, cancellation and exact catalog guard proof');
   const rows = [
     { name: 'app_booking_interval_0', type: 'c', definition: 'CHECK ((isfinite(starts_at) AND isfinite(ends_at) AND (starts_at < ends_at)))' },
     { name: 'app_booking_overlap_0', type: 'x', definition: "EXCLUDE USING gist (resource_id WITH =, tstzrange(starts_at, ends_at, '[)'::text) WITH &&) WHERE ((status = ANY (ARRAY['pending'::text, 'confirmed'::text])))" },
@@ -118,27 +151,47 @@ do $test$ begin
 end $test$;
 select 'booking overlap, adjacency, different resources, cancellation and finite interval checks passed' as result; rollback;`;
   if (process.env.TAYAR_BOOKING_PROBE_SQL) await writeFile(process.env.TAYAR_BOOKING_PROBE_SQL, probeSql);
-  if (process.argv.includes('--postgres')) {
+  if (process.argv.includes('--postgres') || process.argv.includes('--pglite')) {
+    let query;
+    const embedded = process.argv.includes('--pglite');
+    if (embedded) {
+      const modulePath = process.env.TAYAR_PGLITE_MODULE ?? '@electric-sql/pglite';
+      const { PGlite } = require(modulePath);
+      const { btree_gist } = require(join(require.resolve(modulePath), '..', 'contrib', 'btree_gist.cjs'));
+      embeddedDatabase = new PGlite({ extensions: { btree_gist } });
+      query = async input => {
+        try {
+          const results = await embeddedDatabase.exec(`reset role; ${input}`);
+          return results.flatMap(result => result.rows.map(row => Object.values(row).map(value => typeof value === 'object' ? JSON.stringify(value) : String(value)).join('|'))).join('\n');
+        } catch (error) { await embeddedDatabase.exec('rollback; reset role;'); throw error; }
+      };
+    } else {
     const databaseUrl = process.env.TAYAR_BOOKING_TEST_DATABASE_URL;
     const url = new URL(databaseUrl ?? 'http://invalid');
     if (!['postgres:', 'postgresql:'].includes(url.protocol) || !['localhost', '127.0.0.1'].includes(url.hostname)
       || url.pathname !== '/tayar_booking_test') throw Error('An isolated local tayar_booking_test database is required.');
-    const query = input => new Promise((resolveQuery, reject) => {
+    query = input => new Promise((resolveQuery, reject) => {
       const child = spawn('psql', [databaseUrl, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-A', '-t'], { stdio: ['pipe', 'pipe', 'pipe'] });
       let output = '', error = ''; child.stdout.on('data', data => output += data); child.stderr.on('data', data => error += data);
       child.on('error', reject); child.on('close', code => code === 0 ? resolveQuery(output.trim()) : reject(Error(error))); child.stdin.end(input);
     });
+    }
     await query(authSetup + '\n' + sql);
     await query(probeSql);
     // Two independent connections contend for the same invisible resource interval.
     const asUser = user => `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`;
     const insert = (r, from, to, status = 'pending') => `insert into public.app_appointments(resource_id,starts_at,ends_at,status) values ('${r}','2026-10-10 ${from}Z','2026-10-10 ${to}Z','${status}');`;
-    const results = await Promise.allSettled([
-      query(`begin; ${asUser(owner)} ${insert(resource, '10:00', '11:00')} select pg_sleep(0.3); commit;`),
-      query(`begin; ${asUser(other)} ${insert(resource, '10:30', '11:30')} select pg_sleep(0.3); commit;`),
-    ]);
-    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
-    assert.match(String(results.find(result => result.status === 'rejected').reason), /exclusion constraint/);
+    if (embedded) {
+      await query(`${asUser(owner)} ${insert(resource, '10:00', '11:00')}`);
+      await assert.rejects(query(`${asUser(other)} ${insert(resource, '10:30', '11:30')}`), /exclusion constraint/);
+    } else {
+      const results = await Promise.allSettled([
+        query(`begin; ${asUser(owner)} ${insert(resource, '10:00', '11:00')} select pg_sleep(0.3); commit;`),
+        query(`begin; ${asUser(other)} ${insert(resource, '10:30', '11:30')} select pg_sleep(0.3); commit;`),
+      ]);
+      assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+      assert.match(String(results.find(result => result.status === 'rejected').reason), /exclusion constraint/);
+    }
     assert.equal(await query('select count(*) from public.app_appointments;'), '1');
     const winner = await query('select owner_id from public.app_appointments limit 1;');
     const loser = winner === owner ? other : owner;
@@ -152,8 +205,25 @@ select 'booking overlap, adjacency, different resources, cancellation and finite
     await assert.rejects(query(`${asUser(loser)} update public.app_appointments set ends_at=starts_at;`), /check constraint/);
     const catalog = await verify(app, async querySql => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${querySql}) x;`)));
     assert.equal(catalog, true, 'Actual PostgreSQL constraints match customer publish catalog proof');
+    // One bulk INSERT is one transaction: a conflict on its second occurrence
+    // must roll back the first row and its durable form-request receipt.
+    const countBeforeSeries = await query('select count(*) from public.app_appointments;');
+    await assert.rejects(query(`${asUser(loser)} insert into public.app_appointments(resource_id,starts_at,ends_at,status)
+      values ('${resource2}','2026-10-12 10:00Z','2026-10-12 11:00Z','pending'),
+      ('${resource}','2026-10-10 10:30Z','2026-10-10 11:30Z','pending');`), /exclusion constraint/);
+    assert.equal(await query('select count(*) from public.app_appointments;'), countBeforeSeries);
+    const allDays={...schedule,weekly:[1,2,3,4,5,6,7].map(day=>({day,startMinute:540,endMinute:1020}))};
+    const guardedApp={...app,tables:[{...table,booking:{...booking,schedule:allDays}}]};
+    await query(scheduleSQL(guardedApp,0).join('\n'));
+    await assert.rejects(query(`${asUser(loser)} ${insert(resource2,'05:00','06:00')}`),/outside schedule/);
+    await assert.rejects(query(`${asUser(loser)} update public.app_appointments set ends_at=starts_at+interval '3 hours' where owner_id=auth.uid();`),/outside schedule/);
+    await query(`${asUser(loser)} ${insert(resource2,'05:00','06:00','cancelled')}`);
+    const actualScheduleQuery=async querySql=>JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${querySql}) x;`));
+    assert.equal(await verifySchedule(guardedApp,actualScheduleQuery),true);
+    await query('alter table public.app_appointments disable trigger app_booking_schedule_0;');
+    assert.equal(await verifySchedule(guardedApp,actualScheduleQuery),false);
     await query('alter table public.app_appointments drop constraint app_booking_overlap_0;');
     assert.equal(await verify(app, async querySql => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${querySql}) x;`))), false);
-    console.log('PASS actual PostgreSQL: concurrent inserts/updates, invisible-row conflicts, cancellation, invalid intervals and removed-constraint refusal');
+    console.log(`PASS actual PostgreSQL: ${embedded ? 'isolated inserts/updates' : 'concurrent inserts/updates'}, invisible-row conflicts, cancellation, atomic series rollback, schedule guards, invalid intervals and removed-constraint refusal`);
   }
-} finally { await rm(dir, { recursive: true, force: true }); }
+} finally { await embeddedDatabase?.close(); await rm(dir, { recursive: true, force: true }); }

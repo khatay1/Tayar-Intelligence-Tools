@@ -7,12 +7,16 @@ export function compileOwnedStripeOrderSchema(projectId: string): string {
   const functions: Array<[string, string]> = [
     ['app_stripe_order_reserve', 'uuid,uuid,text,text,bigint,uuid'],
     ['app_stripe_order_bind_session', 'uuid,uuid,text'],
+    ['app_stripe_order_reserve_refund', 'uuid,uuid,text,bigint,uuid'],
+    ['app_stripe_order_bind_refund', 'uuid,uuid,text,text'],
     ['app_stripe_order_apply_event', 'text,text,timestamptz,uuid,uuid,boolean,text,text,bigint,text,text'],
   ];
   return `
 begin;
 create schema if not exists private;
-revoke all on schema private from public,anon,authenticated;
+-- Other application RPCs use this schema. Keep their explicit USAGE grants;
+-- Stripe table and function grants are revoked individually below.
+revoke all on schema private from public;
 create table private.app_stripe_order_payments (
  order_id uuid primary key,
  project_id uuid not null check(project_id='${projectId}'::uuid),
@@ -53,12 +57,26 @@ create table private.app_stripe_order_refunds (
  status text not null check(status in ('pending','succeeded','failed')),
  last_event_at timestamptz not null
 );
+create table private.app_stripe_order_refund_requests (
+ operation_id uuid primary key,
+ order_id uuid not null references private.app_stripe_order_payments(order_id) on delete restrict,
+ requested_by uuid not null references auth.users(id) on delete restrict,
+ payment_intent_id text not null check(payment_intent_id ~ '^pi_[A-Za-z0-9]{8,200}$'),
+ amount bigint not null check(amount between 1 and 99999999999),
+ provider_refund_id text unique check(provider_refund_id is null or provider_refund_id ~ '^re_[A-Za-z0-9]{8,200}$'),
+ provider_status text check(provider_status is null or provider_status in('pending','succeeded')),
+ created_at timestamptz not null default clock_timestamp(),
+ updated_at timestamptz not null default clock_timestamp()
+);
 alter table private.app_stripe_order_payments enable row level security;
 alter table private.app_stripe_order_events enable row level security;
 alter table private.app_stripe_order_refunds enable row level security;
-revoke all on private.app_stripe_order_payments,private.app_stripe_order_events,private.app_stripe_order_refunds from public,anon,authenticated,service_role;
+alter table private.app_stripe_order_refund_requests enable row level security;
+revoke all on private.app_stripe_order_payments,private.app_stripe_order_events,private.app_stripe_order_refunds,
+ private.app_stripe_order_refund_requests from public,anon,authenticated,service_role;
 create index app_stripe_events_order on private.app_stripe_order_events(order_id,event_created_at,event_id);
 create index app_stripe_refunds_order on private.app_stripe_order_refunds(order_id,status);
+create index app_stripe_refund_requests_order on private.app_stripe_order_refund_requests(order_id);
 
 create function private.app_stripe_order_reserve(p_order_id uuid,p_user_id uuid,p_environment text,p_currency text,p_amount_due bigint,p_operation_id uuid)
 returns jsonb language plpgsql security definer set search_path='' as $payment$
@@ -75,6 +93,54 @@ begin
  if found.project_id<>'${projectId}'::uuid or found.user_id<>p_user_id or found.environment<>p_environment or found.currency<>p_currency
   or found.amount_due<>p_amount_due or found.operation_id<>p_operation_id then raise exception 'Payment reservation conflict'; end if;
  return jsonb_build_object('orderId',found.order_id,'status',found.status,'sessionId',found.session_id);
+end $payment$;
+
+create function private.app_stripe_order_reserve_refund(p_order_id uuid,p_requested_by uuid,p_payment_intent_id text,p_amount bigint,p_operation_id uuid)
+returns jsonb language plpgsql security definer set search_path='' as $payment$
+declare payment private.app_stripe_order_payments; request private.app_stripe_order_refund_requests;reserved bigint;
+begin
+ if p_order_id is null or p_requested_by is null or p_operation_id is null
+  or p_payment_intent_id !~ '^pi_[A-Za-z0-9]{8,200}$' or p_amount not between 1 and 99999999999
+  then raise exception 'Invalid refund reservation';end if;
+ if not exists(select 1 from auth.users where id=p_requested_by and email_confirmed_at is not null and not coalesce(is_anonymous,false)
+  and(banned_until is null or banned_until<=clock_timestamp()))then raise exception 'Verified refund actor required';end if;
+ select * into payment from private.app_stripe_order_payments where order_id=p_order_id for update;
+ if not found or payment.payment_intent_id is distinct from p_payment_intent_id or payment.amount_paid<1
+  then raise exception 'Refund unavailable';end if;
+ select * into request from private.app_stripe_order_refund_requests where operation_id=p_operation_id;
+ if found then
+  if request.order_id<>p_order_id or request.requested_by<>p_requested_by
+   or request.payment_intent_id<>p_payment_intent_id or request.amount<>p_amount
+   then raise exception 'Refund reservation conflict';end if;
+  return jsonb_build_object('operationId',request.operation_id,'providerRefundId',request.provider_refund_id,
+   'providerStatus',request.provider_status,'amount',request.amount);
+ end if;
+ if payment.status not in('paid','refund-pending','partially-refunded')then raise exception 'Refund unavailable';end if;
+ select coalesce(sum(r.amount),0) into reserved from private.app_stripe_order_refund_requests r
+ where r.order_id=p_order_id and(r.provider_refund_id is null or not exists(
+  select 1 from private.app_stripe_order_refunds f where f.provider_refund_id=r.provider_refund_id));
+ reserved:=reserved+(select coalesce(sum(f.amount),0) from private.app_stripe_order_refunds f
+  where f.order_id=p_order_id and f.status='pending');
+ if p_amount>payment.amount_paid-payment.amount_refunded-reserved then raise exception 'Refund amount unavailable';end if;
+ insert into private.app_stripe_order_refund_requests(operation_id,order_id,requested_by,payment_intent_id,amount)
+ values(p_operation_id,p_order_id,p_requested_by,p_payment_intent_id,p_amount);
+ return jsonb_build_object('operationId',p_operation_id,'providerRefundId',null,'providerStatus',null,'amount',p_amount);
+end $payment$;
+
+create function private.app_stripe_order_bind_refund(p_order_id uuid,p_operation_id uuid,p_provider_refund_id text,p_provider_status text)
+returns boolean language plpgsql security definer set search_path='' as $payment$
+declare request private.app_stripe_order_refund_requests;
+begin
+ if p_order_id is null or p_operation_id is null or p_provider_refund_id!~'^re_[A-Za-z0-9]{8,200}$'
+  or p_provider_status not in('pending','succeeded')then raise exception 'Invalid refund binding';end if;
+ select * into request from private.app_stripe_order_refund_requests
+  where operation_id=p_operation_id and order_id=p_order_id for update;
+ if not found or(request.provider_refund_id is not null and request.provider_refund_id<>p_provider_refund_id)
+  or(request.provider_status is not null and request.provider_status<>p_provider_status)
+  then raise exception 'Refund binding conflict';end if;
+ update private.app_stripe_order_refund_requests set provider_refund_id=p_provider_refund_id,
+  provider_status=p_provider_status,updated_at=clock_timestamp() where operation_id=p_operation_id;
+ return true;
 end $payment$;
 
 create function private.app_stripe_order_bind_session(p_order_id uuid,p_operation_id uuid,p_session_id text)
@@ -135,7 +201,7 @@ begin
      and payment_intent_id=p_provider_payment_id and amount=p_amount and last_event_at>=p_event_created_at) then return 'conflict'; end if;
    end if;
   elsif p_provider_object_id !~ '^ch_' or p_status not in ('partially-refunded','refunded') or p_amount>payment.amount_paid then return 'conflict'; end if;
-  select coalesce(sum(amount),0),count(*) filter(where status='pending') into successful,pending_count
+  select coalesce(sum(amount) filter(where status='succeeded'),0),count(*) filter(where status='pending') into successful,pending_count
    from private.app_stripe_order_refunds where order_id=p_order_id and status in ('succeeded','pending');
   if p_provider_object_id ~ '^ch_' then successful:=greatest(successful,p_amount); end if;
   if successful>payment.amount_paid then return 'conflict'; end if;
@@ -156,6 +222,12 @@ returns jsonb language sql security invoker set search_path='' as $wrapper$
 create function public.app_stripe_order_bind_session(p_order_id uuid,p_operation_id uuid,p_session_id text)
 returns boolean language sql security invoker set search_path='' as $wrapper$
  select private.app_stripe_order_bind_session(p_order_id,p_operation_id,p_session_id); $wrapper$;
+create function public.app_stripe_order_reserve_refund(p_order_id uuid,p_requested_by uuid,p_payment_intent_id text,p_amount bigint,p_operation_id uuid)
+returns jsonb language sql security invoker set search_path='' as $wrapper$
+ select private.app_stripe_order_reserve_refund(p_order_id,p_requested_by,p_payment_intent_id,p_amount,p_operation_id); $wrapper$;
+create function public.app_stripe_order_bind_refund(p_order_id uuid,p_operation_id uuid,p_provider_refund_id text,p_provider_status text)
+returns boolean language sql security invoker set search_path='' as $wrapper$
+ select private.app_stripe_order_bind_refund(p_order_id,p_operation_id,p_provider_refund_id,p_provider_status); $wrapper$;
 create function public.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_order_id uuid,
  p_livemode boolean,p_provider_object_id text,p_provider_payment_id text,p_amount bigint,p_currency text,p_status text)
 returns text language sql security invoker set search_path='' as $wrapper$

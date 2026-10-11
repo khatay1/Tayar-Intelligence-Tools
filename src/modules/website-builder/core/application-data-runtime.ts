@@ -1,4 +1,7 @@
 import { createApplicationFilesRuntime } from './application-files-runtime';
+import { createApplicationPaymentRuntime } from './application-payment-runtime';
+import { parseApplicationReports } from './application-reports';
+import { expandApplicationBookingRecurrence, applicationBookingOccurrenceIds } from './application-booking-recurrence';
 import { ApplicationCounterRejected, parseApplicationCounterDelta } from './application-counter';
 import { ApplicationTransactionRejected, parseApplicationTransactionLines } from './application-transaction';
 import { ApplicationBookingRejected, applicationBookingDatabaseRejection, validateApplicationBookingValues } from './application-booking';
@@ -125,11 +128,11 @@ export function createOwnedApplicationDataRuntime(definition: ApplicationDefinit
   expectedProjectRef: string, browserSession?: { projectId: string; applicationOrigin: string }) {
   const client = createOwnedApplicationClient(config, expectedProjectRef);
   return buildApplicationDataRuntime(definition, config, client,
-    browserSession ? createOwnedApplicationBrowserSessionBridge(client, browserSession) : null);
+    browserSession ? createOwnedApplicationBrowserSessionBridge(client, browserSession) : null, browserSession?.applicationOrigin);
 }
 
 function buildApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, client: SupabaseClient,
-  sessionBridge: ReturnType<typeof createApplicationBrowserSessionBridge> | null) {
+  sessionBridge: ReturnType<typeof createApplicationBrowserSessionBridge> | null, paymentOrigin?: string) {
   const app = readApplicationDefinition(definition);
   let disposed = false;
   const table = (id: string) => {
@@ -142,6 +145,7 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
     return result.data;
   };
   const captureWriteToken = async (expectedUserId?: string) => {
+    if (disposed) throw new Error('Application runtime is closed.');
     if (expectedUserId === undefined) return undefined;
     rowId(expectedUserId);
     const session = await client.auth.getSession();
@@ -152,7 +156,22 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
     return token;
   };
   return {
+    payments: createApplicationPaymentRuntime(paymentOrigin, captureWriteToken, async owner => {
+      if (disposed) throw new Error('Payment view is closed.');
+      await captureWriteToken(owner);
+    }),
     files: createApplicationFilesRuntime(config, client, table, captureWriteToken, () => disposed),
+    async reports(tableId: string, expectedUserId: string) {
+      const target = table(tableId);
+      if (!target.reports?.length) throw new Error('Reports are not configured.');
+      const token = await captureWriteToken(expectedUserId);
+      const query = client.rpc(`app_reports_${app.tables.indexOf(target)}`);
+      query.setHeader('Authorization', `Bearer ${token}`);
+      const response = await query;
+      await captureWriteToken(expectedUserId);
+      if (disposed) throw new Error('Report identity changed.');
+      return parseApplicationReports(target, checked(response));
+    },
     dispose() { disposed = true; sessionBridge?.dispose(); void client.auth.stopAutoRefresh().catch(() => {}); },
     auth: {
       async prepareNavigation() { await sessionBridge?.synchronize(); },
@@ -307,6 +326,46 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
       }
       if (rejection) throw rejection;
       throw new Error('Application submission outcome is uncertain.');
+    },
+    /** One PostgREST bulk INSERT is one database statement: any overlap,
+     * schedule or RLS rejection rolls back every occurrence and receipt. */
+    async createBookingSeries(tableId: string, input: Record<string, unknown>, repeat: unknown, requestId: string, expectedUserId: string): Promise<'created' | 'already-created'> {
+      const target = table(tableId), owner = rowId(expectedUserId).toLowerCase();
+      const values = writable(target, input), occurrences = expandApplicationBookingRecurrence(target, values, repeat);
+      const requests = await applicationBookingOccurrenceIds(target.id, owner, rowId(requestId), occurrences.length);
+      const token = await captureWriteToken(owner);
+      const assertOwner = async () => {
+        const user = await client.auth.getUser();
+        if (disposed || user.error || user.data.user?.is_anonymous || user.data.user?.id !== owner) throw new Error('Booking series outcome is uncertain.');
+      };
+      let rejection: ApplicationBookingRejected | undefined;
+      try {
+        const query = client.from(`app_${target.key}`).insert(occurrences.map((row, index) => ({ ...row, owner_id: owner, _tayar_request_id: requests[index] })), { defaultToNull: false });
+        query.setHeader('Authorization', `Bearer ${token}`);
+        const response = await query;
+        if (!response.error) { await assertOwner(); return 'created'; }
+        rejection = applicationBookingDatabaseRejection(target, response.error);
+      } catch { /* A lost response may follow the entire committed statement. */ }
+      await assertOwner();
+      const lookup = client.from(`app_${target.key}`).select(['id', '_tayar_request_id', ...Object.keys(values)].join(','))
+        .eq('owner_id', owner).in('_tayar_request_id', requests).limit(occurrences.length + 1);
+      lookup.setHeader('Authorization', `Bearer ${token}`);
+      const response = await lookup; await assertOwner();
+      if (!response.error && Array.isArray(response.data)) {
+        const rows = response.data as unknown as Record<string, unknown>[];
+        const seen = new Set<string>();
+        if (rows.length === occurrences.length && rows.every(row => {
+          const index = requests.indexOf(String(row._tayar_request_id));
+          if (index < 0 || seen.has(String(row._tayar_request_id)) || typeof row.id !== 'string') return false;
+          seen.add(String(row._tayar_request_id));
+          return Object.entries(occurrences[index]).every(([key, value]) => {
+            const field = target.fields.find(field => field.key === key);
+            return !!field && Object.prototype.hasOwnProperty.call(row, key) && sameRequestField(field.type, value, row[key]);
+          });
+        })) return 'already-created';
+        if (!rows.length && rejection) throw rejection;
+      }
+      throw new Error('Booking series outcome is uncertain. Keep the same values and retry.');
     },
     async update(tableId: string, id: string, input: Record<string, unknown>, expectedUserId?: string) {
       const target = table(tableId);

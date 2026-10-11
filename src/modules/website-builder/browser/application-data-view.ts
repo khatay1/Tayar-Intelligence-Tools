@@ -3,6 +3,7 @@ import { ApplicationTransactionRejected } from '../core/application-transaction'
 import { ApplicationWorkflowRejected } from '../core/application-workflow';
 import { createApplicationReferenceInput } from './application-reference-input';
 import { ApplicationBookingRejected } from '../core/application-booking';
+import { formatApplicationBookingSchedule } from '../core/application-booking-schedule';
 import type { Language } from '@/context/PreferencesContext';
 import type { ApplicationDefinition, ApplicationField } from '../core/application-model';
 import type { ApplicationDataViewBinding } from '../core/application-data-view';
@@ -10,9 +11,9 @@ import { createApplicationDataViewController } from '../core/application-data-vi
 import type { createApplicationDataRuntime } from '../core/application-data-runtime';
 
 const translations = {
-  en: { files: 'Attachments', upload: 'Upload file', download: 'Download', fileConfirm: 'Delete this attachment permanently?', fileLimit: 'Allowed types and size', unavailable: 'The transaction is unavailable. Check the selected items and access.', transact: 'Create transaction', addLine: 'Add item', item: 'Item', quantity: 'Quantity', bounds: 'The change exceeds the allowed limits. Choose another amount.', adjust: 'Adjust quantity', delta: 'Change (+ / −)', relatedError: 'Could not load related records. Check access and try again.', conflict: 'This resource is already booked for that time. Choose another time.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
-  ar: { files: 'المرفقات', upload: 'رفع ملف', download: 'تنزيل', fileConfirm: 'هل تريد حذف هذا المرفق نهائيًا؟', fileLimit: 'الأنواع والحجم المسموحان', unavailable: 'المعاملة غير متاحة. تحقّق من العناصر المحددة والصلاحيات.', transact: 'إنشاء معاملة', addLine: 'إضافة عنصر', item: 'العنصر', quantity: 'الكمية', bounds: 'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.', adjust: 'تغيير الكمية', delta: 'التغيير (+ / −)', relatedError: 'تعذّر تحميل السجلات المرتبطة. تحقّق من صلاحية الوصول وحاول مجددًا.', conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
-  sv: { files: 'Bilagor', upload: 'Ladda upp fil', download: 'Ladda ner', fileConfirm: 'Ta bort bilagan permanent?', fileLimit: 'Tillåtna typer och storlek', unavailable: 'Transaktionen är inte tillgänglig. Kontrollera valda poster och åtkomst.', transact: 'Skapa transaktion', addLine: 'Lägg till post', item: 'Post', quantity: 'Antal', bounds: 'Ändringen överskrider tillåtna gränser. Välj ett annat antal.', adjust: 'Ändra antal', delta: 'Ändring (+ / −)', relatedError: 'Kunde inte läsa relaterade poster. Kontrollera åtkomst och försök igen.', conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
+  en: { files: 'Attachments', upload: 'Upload file', download: 'Download', fileConfirm: 'Delete this attachment permanently?', fileLimit: 'Allowed types and size', unavailable: 'The transaction is unavailable. Check the selected items and access.', transact: 'Create transaction', addLine: 'Add item', item: 'Item', quantity: 'Quantity', bounds: 'The change exceeds the allowed limits. Choose another amount.', adjust: 'Adjust quantity', delta: 'Change (+ / −)', relatedError: 'Could not load related records. Check access and try again.', conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', add: 'Add record', edit: 'Edit', remove: 'Delete', save: 'Save', cancel: 'Cancel', search: 'Search', refresh: 'Refresh', previous: 'Previous', next: 'Next', empty: 'No records found.', loading: 'Loading…', error: 'Could not load records. Sign in and try again.', failed: 'Could not save. Check your values and permissions. If the result is uncertain, retry with the same values.', saved: 'Saved.', removed: 'Deleted.', confirm: 'Delete this record permanently?', yes: 'Yes', no: 'No', unset: 'Select a value', actions: 'Actions', page: 'Page', readonly: 'Read only' },
+  ar: { files: 'المرفقات', upload: 'رفع ملف', download: 'تنزيل', fileConfirm: 'هل تريد حذف هذا المرفق نهائيًا؟', fileLimit: 'الأنواع والحجم المسموحان', unavailable: 'المعاملة غير متاحة. تحقّق من العناصر المحددة والصلاحيات.', transact: 'إنشاء معاملة', addLine: 'إضافة عنصر', item: 'العنصر', quantity: 'الكمية', bounds: 'التغيير يتجاوز الحدود المسموحة. اختر كمية أخرى.', adjust: 'تغيير الكمية', delta: 'التغيير (+ / −)', relatedError: 'تعذّر تحميل السجلات المرتبطة. تحقّق من صلاحية الوصول وحاول مجددًا.', conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', schedule: 'اختر وقتًا ضمن ساعات العمل والمدة القصوى للحجز.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', add: 'إضافة سجل', edit: 'تعديل', remove: 'حذف', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', refresh: 'تحديث', previous: 'السابق', next: 'التالي', empty: 'لا توجد سجلات.', loading: 'جارٍ التحميل…', error: 'تعذّر تحميل السجلات. سجّل الدخول وحاول مجددًا.', failed: 'تعذّر الحفظ. تحقّق من القيم والصلاحيات. إذا كانت النتيجة غير مؤكدة، أعد المحاولة بالقيم نفسها.', saved: 'تم الحفظ.', removed: 'تم الحذف.', confirm: 'هل تريد حذف هذا السجل نهائيًا؟', yes: 'نعم', no: 'لا', unset: 'اختر قيمة', actions: 'الإجراءات', page: 'الصفحة', readonly: 'للقراءة فقط' },
+  sv: { files: 'Bilagor', upload: 'Ladda upp fil', download: 'Ladda ner', fileConfirm: 'Ta bort bilagan permanent?', fileLimit: 'Tillåtna typer och storlek', unavailable: 'Transaktionen är inte tillgänglig. Kontrollera valda poster och åtkomst.', transact: 'Skapa transaktion', addLine: 'Lägg till post', item: 'Post', quantity: 'Antal', bounds: 'Ändringen överskrider tillåtna gränser. Välj ett annat antal.', adjust: 'Ändra antal', delta: 'Ändring (+ / −)', relatedError: 'Kunde inte läsa relaterade poster. Kontrollera åtkomst och försök igen.', conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', schedule: 'Välj en tid inom öppettiderna och bokningens längdgräns.', interval: 'Bokningens slut måste vara efter starten.', add: 'Lägg till post', edit: 'Redigera', remove: 'Ta bort', save: 'Spara', cancel: 'Avbryt', search: 'Sök', refresh: 'Uppdatera', previous: 'Föregående', next: 'Nästa', empty: 'Inga poster hittades.', loading: 'Laddar…', error: 'Kunde inte läsa poster. Logga in och försök igen.', failed: 'Kunde inte spara. Kontrollera värden och behörigheter. Om resultatet är osäkert, försök igen med samma värden.', saved: 'Sparat.', removed: 'Borttaget.', confirm: 'Ta bort den här posten permanent?', yes: 'Ja', no: 'Nej', unset: 'Välj ett värde', actions: 'Åtgärder', page: 'Sida', readonly: 'Skrivskyddad' },
 };
 
 /** A native, isolated data component. All record values use textContent/value;
@@ -20,6 +21,21 @@ const translations = {
 export function mountApplicationDataView(host: HTMLElement, definition: ApplicationDefinition, binding: ApplicationDataViewBinding,
   runtime: ReturnType<typeof createApplicationDataRuntime>, language: Language, scope: { projectRef: string; projectId: string; pageId: string; sectionId: string }) {
   const copy = translations[language] ?? translations.en;
+  const reportCopy = ({ en: { title: 'Aggregate reports', scope: 'All records you can read. Search and page selection do not change totals.', error: 'Could not load totals. Refresh and try again.' },
+    ar: { title: 'التقارير المجمّعة', scope: 'جميع السجلات المسموح لك بقراءتها. البحث واختيار الصفحة لا يغيّران الإجماليات.', error: 'تعذّر تحميل الإجماليات. حدّث وحاول مجددًا.' },
+    sv: { title: 'Sammanställda rapporter', scope: 'Alla poster du får läsa. Sökning och sidval ändrar inte totalsummorna.', error: 'Kunde inte läsa totalsummorna. Uppdatera och försök igen.' } })[language];
+  const recurrenceCopy = ({ en: { enable: 'Repeat booking', count: 'Number of appointments', frequency: 'Frequency', daily: 'Daily', weekly: 'Weekly', interval: 'Every (days or weeks)', note: 'All appointments save together. Dates below use your device time zone; repetition follows the configured booking time zone.' },
+    ar: { enable: 'تكرار الحجز', count: 'عدد المواعيد', frequency: 'التكرار', daily: 'يومي', weekly: 'أسبوعي', interval: 'كل (أيام أو أسابيع)', note: 'تُحفظ المواعيد كلها معًا. التواريخ أدناه بتوقيت جهازك؛ التكرار يتبع المنطقة الزمنية المحددة للحجز.' },
+    sv: { enable: 'Upprepa bokning', count: 'Antal bokningar', frequency: 'Frekvens', daily: 'Dagligen', weekly: 'Varje vecka', interval: 'Var (dagar eller veckor)', note: 'Alla bokningar sparas tillsammans. Datumen nedan använder enhetens tidszon; upprepning följer bokningens tidszon.' } })[language];
+  const paymentStates = ({ en: ['Unpaid', 'Pending payment', 'Paid', 'Payment failed', 'Refund pending', 'Partially refunded', 'Refunded', 'Refund failed'],
+    ar: ['غير مدفوع', 'بانتظار الدفع', 'مدفوع', 'فشل الدفع', 'استرداد قيد الانتظار', 'استرداد جزئي', 'تم الاسترداد', 'فشل الاسترداد'],
+    sv: ['Obetald', 'Väntar på betalning', 'Betald', 'Betalning misslyckades', 'Återbetalning väntar', 'Delvis återbetald', 'Återbetald', 'Återbetalning misslyckades'] })[language];
+  const paymentStatusCopy = ({ en: { title: 'Payment status', due: 'Due', paid: 'Paid', refunded: 'Refunded', units: 'Amounts in minor currency units' },
+    ar: { title: 'حالة الدفع', due: 'المستحق', paid: 'المدفوع', refunded: 'المسترد', units: 'المبالغ بأصغر وحدة للعملة' },
+    sv: { title: 'Betalningsstatus', due: 'Belopp', paid: 'Betalt', refunded: 'Återbetalt', units: 'Belopp i minsta valutaenhet' } })[language];
+  const paymentCopy = ({ en: { pay: 'Pay order', refund: 'Refund', amount: 'Refund amount in minor currency units (for example, 100 = 1.00)', confirm: 'Submit this refund?', accepted: 'Refund request accepted. Final status is confirmed by the payment provider.' },
+    ar: { pay: 'دفع الطلب', refund: 'استرداد', amount: 'مبلغ الاسترداد بأصغر وحدة للعملة (مثال: 100 = 1.00)', confirm: 'هل تريد إرسال طلب الاسترداد؟', accepted: 'تم قبول طلب الاسترداد. الحالة النهائية يؤكدها مزود الدفع.' },
+    sv: { pay: 'Betala order', refund: 'Återbetala', amount: 'Belopp i minsta valutaenhet (till exempel 100 = 1,00)', confirm: 'Skicka återbetalningen?', accepted: 'Återbetalningen har accepterats. Betalningsleverantören bekräftar slutstatus.' } })[language] ?? { pay: 'Pay order', refund: 'Refund', amount: 'Amount in minor currency units', confirm: 'Submit refund?', accepted: 'Refund request accepted.' };
   const failure = (error: unknown) => error instanceof ApplicationBookingRejected ? copy[error.reason]
     : error instanceof ApplicationCounterRejected ? copy.bounds : error instanceof ApplicationTransactionRejected ? copy[error.reason]
       : error instanceof ApplicationWorkflowRejected ? copy.unavailable : copy.failed;
@@ -64,25 +80,56 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const previous = button(copy.previous, () => { if (page > 0 && !busy) { page--; void load(); } });
   const next = button(copy.next, () => { if (!busy) { page++; void load(); } });
   const pageLabel = document.createElement('span'); pager.append(previous, pageLabel, next);
-  view.append(title, toolbar, status, editor, scroll, empty, pager); root.append(style, view);
+  const summaries = document.createElement('section'); summaries.hidden = true; summaries.setAttribute('aria-label', reportCopy.title);
+  view.append(title, toolbar, status, summaries, editor, scroll, empty, pager); root.append(style, view);
+  if (controller.table.booking?.schedule) {
+    const info = document.createElement('p'); info.textContent = formatApplicationBookingSchedule(controller.table.booking.schedule, language);
+    title.after(info);
+  }
   function setBusy(value: boolean) {
     busy = value; view.setAttribute('aria-busy', String(value));
     for (const control of view.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('button,input,select,textarea')) control.disabled = value;
     for (const reference of references) reference.setDisabled(value);
   }
-  function clear() { stopEditor(); body.replaceChildren(); empty.hidden = true; add.hidden = true; transact.hidden = true; editor.replaceChildren(); editor.hidden = true; previous.disabled = true; next.disabled = true; }
+  function clear() { stopEditor(); summaries.replaceChildren(); summaries.hidden = true; body.replaceChildren(); empty.hidden = true; add.hidden = true; transact.hidden = true; editor.replaceChildren(); editor.hidden = true; previous.disabled = true; next.disabled = true; }
   async function load() {
     if (disposed || busy) return;
     const current = ++sequence; setBusy(true); status.textContent = copy.loading;
+    summaries.replaceChildren(); summaries.hidden = true;
     try {
       const actions = await controller.permissions();
       const result = await controller.load(page, query);
       if (disposed || current !== sequence) return;
-      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.includes('update') && !actions.includes('delete') && !actions.includes('adjust') && !actions.includes('transition') && !actions.includes('attachments');
+      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund'].includes(action));
+      if (controller.table.reports?.length) {
+        let reportResult: Awaited<ReturnType<typeof controller.reports>> | undefined;
+        try { reportResult = await controller.reports(); } catch { if (controller.closed()) throw new Error('Report identity changed.'); }
+        if (disposed || current !== sequence) return;
+        const note = document.createElement('p'); note.textContent = reportResult ? reportCopy.scope : reportCopy.error; summaries.append(note);
+        if (reportResult) for (const report of reportResult) {
+          const line = document.createElement('p'); line.textContent = `${report.name}: ${report.value ?? '—'}`; summaries.append(line);
+        }
+        summaries.hidden = false;
+      }
       for (const row of result.rows) {
         const tr = document.createElement('tr');
         for (const field of controller.columns) { const td = document.createElement('td'); td.textContent = display(row[field.key], field); tr.append(td); }
         const td = document.createElement('td'); td.hidden = actionsHeader.hidden;
+        if (actions.includes('pay') || actions.includes('refund')) td.append(button(paymentStatusCopy.title, () => {
+          if (busy) return; setBusy(true); status.textContent = copy.loading;
+          void controller.paymentStatus(String(row.id)).then(payment => {
+            if (disposed) return;
+            const states = ['unpaid', 'pending', 'paid', 'payment-failed', 'refund-pending', 'partially-refunded', 'refunded', 'refund-failed'];
+            status.textContent = `${paymentStates[states.indexOf(payment.status)]}. ${paymentStatusCopy.due}: ${payment.amountDue}; ${paymentStatusCopy.paid}: ${payment.amountPaid}; ${paymentStatusCopy.refunded}: ${payment.amountRefunded} ${payment.currency.toUpperCase()}. ${paymentStatusCopy.units}.`;
+            setBusy(false);
+          }).catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.error; } });
+        }));
+        if (actions.includes('pay')) td.append(button(paymentCopy.pay, () => {
+          if (busy) return; setBusy(true); status.textContent = copy.loading;
+          void controller.pay(String(row.id)).then(url => { if (!disposed) window.location.assign(url); })
+            .catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.failed; } });
+        }));
+        if (actions.includes('refund')) td.append(button(paymentCopy.refund, () => openRefund(String(row.id))));
         if (actions.includes('transition')) for (const transition of controller.workflowTransitions(row)) {
           td.append(button(transition.label, () => {
             if (busy) return; setBusy(true); status.textContent = copy.loading;
@@ -111,6 +158,22 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     if (value === null || value === undefined) return '—';
     if (field.type === 'boolean') return value ? copy.yes : copy.no;
     return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  }
+  function openRefund(recordId: string) {
+    if (disposed || busy) return;
+    stopEditor(); editor.replaceChildren(); editor.hidden = false;
+    const label = document.createElement('label'); label.textContent = `${paymentCopy.amount} — ${controller.table.payment?.currency.toUpperCase()}`;
+    const amount = document.createElement('input'); amount.type = 'number'; amount.min = '1'; amount.max = '99999999999'; amount.step = '1'; amount.required = true; label.append(amount);
+    const form = document.createElement('form'), submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = paymentCopy.refund;
+    form.append(label, submit, button(copy.cancel, () => { stopEditor(); editor.hidden = true; editor.replaceChildren(); }));
+    form.addEventListener('submit', event => {
+      event.preventDefault(); if (busy || !form.reportValidity() || !window.confirm(paymentCopy.confirm)) return;
+      setBusy(true); status.textContent = copy.loading;
+      void controller.refund(recordId, Number(amount.value)).then(() => {
+        if (!disposed) { setBusy(false); stopEditor(); editor.hidden = true; editor.replaceChildren(); status.textContent = paymentCopy.accepted; }
+      }).catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.failed; } });
+    });
+    editor.append(form); amount.focus();
   }
   function openFiles(recordId: string) {
     if (disposed || busy || !controller.table.attachments) return;
@@ -243,12 +306,31 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       }
       label.append(input); form.append(label); if (reference) form.append(reference.controls); inputs.set(field.key, input);
     }
+    let repeatControls: { enabled: HTMLInputElement; count: HTMLInputElement; interval: HTMLInputElement; frequency: HTMLSelectElement } | undefined;
+    if (!row && controller.table.booking?.recurrence) {
+      const rule = controller.table.booking.recurrence, fieldset = document.createElement('fieldset');
+      const label = document.createElement('label'), enabled = document.createElement('input'); enabled.type = 'checkbox'; label.append(enabled, document.createTextNode(recurrenceCopy.enable)); fieldset.append(label);
+      const controls = document.createElement('fieldset'); controls.hidden = true; controls.disabled = true;
+      const note = document.createElement('p'); note.textContent = `${recurrenceCopy.note} ${rule.timeZone}`; controls.append(note);
+      const number = (name: string, initial: number, maximum: number) => {
+        const label = document.createElement('label'); label.textContent = name;
+        const input = document.createElement('input'); input.type = 'number'; input.min = name === recurrenceCopy.count ? '2' : '1'; input.max = String(maximum); input.step = '1'; input.value = String(initial); label.append(input); controls.append(label); return input;
+      };
+      const count = number(recurrenceCopy.count, Math.min(4, rule.maxOccurrences), rule.maxOccurrences), interval = number(recurrenceCopy.interval, 1, 12);
+      const frequencyLabel = document.createElement('label'); frequencyLabel.textContent = recurrenceCopy.frequency;
+      const frequency = document.createElement('select');
+      for (const [value, text] of [['daily', recurrenceCopy.daily], ['weekly', recurrenceCopy.weekly]]) { const option = document.createElement('option'); option.value = value; option.textContent = text; frequency.append(option); }
+      frequency.value = 'weekly'; frequencyLabel.append(frequency); controls.append(frequencyLabel); fieldset.append(controls); form.append(fieldset);
+      enabled.addEventListener('change', () => { controls.hidden = !enabled.checked; controls.disabled = !enabled.checked; count.required = enabled.checked; interval.required = enabled.checked; });
+      repeatControls = { enabled, count, interval, frequency };
+    }
     const save = document.createElement('button'); save.type = 'submit'; save.textContent = copy.save;
     const cancel = button(copy.cancel, () => { stopEditor(); editor.replaceChildren(); editor.hidden = true; add.focus(); }); form.append(save, cancel);
     form.addEventListener('submit', event => {
       event.preventDefault(); if (busy || disposed) return;
       const values = Object.fromEntries([...inputs].map(([key, input]) => [key, input.value])); setBusy(true); status.textContent = copy.loading;
-      const operation = row ? controller.update(String(row.id), values) : controller.create(values);
+      const operation = row ? controller.update(String(row.id), values) : repeatControls?.enabled.checked
+        ? controller.recur(values, { count: Number(repeatControls.count.value), interval: Number(repeatControls.interval.value), frequency: repeatControls.frequency.value }) : controller.create(values);
       void operation.then(() => { if (!disposed) { stopEditor(); editor.hidden = true; setBusy(false); status.textContent = copy.saved; void load(); } }).catch((error: unknown) => { if (!disposed) { if (controller.closed()) clear(); else body.replaceChildren(); setBusy(false); status.textContent = failure(error); } });
     });
     editor.append(form); for (const reference of references) void reference.load(); inputs.values().next().value?.focus();

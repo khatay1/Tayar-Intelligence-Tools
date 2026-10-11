@@ -1,4 +1,6 @@
 import { compileApplicationFilesSchema } from './application-files-sql';
+import { compileApplicationBookingSchedule } from './application-booking-schedule-sql';
+import { compileApplicationReports } from './application-reports-sql';
 import { applicationCounterInfrastructure, compileApplicationCounterSchema } from './application-counter-sql';
 import { applicationTransactionInfrastructure, compileApplicationTransactionSchema } from './application-transaction-sql';
 import { applicationWorkflowInfrastructure, compileApplicationWorkflowSchema } from './application-workflow-sql';
@@ -126,6 +128,7 @@ function bookingConstraints(app: ApplicationDefinition, index: number): string[]
     join pg_catalog.pg_namespace n on n.oid = e.extnamespace where e.extname = 'btree_gist';
   execute format(${literal(exclusion)}, extension_schema);
 end $booking$;`,
+    ...compileApplicationBookingSchedule(app, index),
   ];
 }
 
@@ -299,9 +302,13 @@ $$;`,
 }
 
 /** Initial schema for one isolated generated-app Supabase database. No migration of existing data. */
-export function compileInitialApplicationSchema(input: ApplicationDefinition): string[] {
+export function compileInitialApplicationSchema(input: ApplicationDefinition, options?: {
+  emailNotificationsProvisioned?: boolean;stripeOrderPaymentsProvisioned?:boolean;
+}): string[] {
   const app = readApplicationDefinition(input);
-  if (app.tables.some(table => table.notifications?.length)) throw new Error('Email notification provisioning requires the customer-owned queue, credentials and scheduled worker.');
+  if (app.tables.some(table => table.notifications?.length) && options?.emailNotificationsProvisioned !== true) throw new Error('Email notification provisioning requires the customer-owned queue, credentials and scheduled worker.');
+  if(app.tables.some(table=>table.payment)&&options?.stripeOrderPaymentsProvisioned!==true)
+    throw new Error('Stripe order payment provisioning requires the customer-owned ledger, webhook and server actions.');
   const statements: string[] = [];
   statements.push(...bookingInfrastructure(app));
   statements.push('create schema private;');
@@ -352,6 +359,7 @@ end $$;`);
     statements.push(...compileApplicationWorkflowSchema(app, tableIndex));
     statements.push(...policies(table, tableIndex));
     statements.push(...compileApplicationFilesSchema(app, tableIndex));
+    statements.push(...compileApplicationReports(app, tableIndex));
   }
   return statements;
 }
@@ -361,6 +369,8 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
   const before = readApplicationDefinition(previous);
   const after = readApplicationDefinition(next);
   if (before.tables.some(table => table.notifications?.length) || after.tables.some(table => table.notifications?.length)) throw new Error('Email notification changes require a separately verified runtime migration.');
+  if(before.tables.some(table=>table.payment)||after.tables.some(table=>table.payment))
+    throw new Error('Payment rule changes require a separately verified payment migration.');
   if (JSON.stringify(before.auth) !== JSON.stringify(after.auth)) {
     throw new Error('Authentication changes require a separately reviewed backend migration.');
   }
@@ -377,6 +387,7 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
   }
   if (before.tables.some((table, index) => table.counter && JSON.stringify(table.counter) !== JSON.stringify(after.tables[index].counter))) throw new Error('Removing or changing counter rules requires a separately reviewed data migration.');
   if (before.tables.some((table, index) => table.transaction && JSON.stringify(table.transaction) !== JSON.stringify(after.tables[index].transaction))) throw new Error('Removing or changing transaction rules requires a separately reviewed data migration.');
+  if (before.tables.some((table, index) => table.payment && JSON.stringify(table.payment) !== JSON.stringify(after.tables[index].payment))) throw new Error('Removing or changing payment rules requires a separately reviewed payment migration.');
   if (before.tables.some((table, index) => table.attachments && JSON.stringify(table.attachments) !== JSON.stringify(after.tables[index].attachments))) throw new Error('Removing or changing attachment rules requires a separately reviewed storage migration.');
   if (before.tables.some((table, index) => table.workflow && JSON.stringify(table.workflow) !== JSON.stringify(after.tables[index].workflow))) throw new Error('Removing or changing workflow rules requires a separately reviewed data migration.');
   if (JSON.stringify(before) === JSON.stringify(after)) return [];
@@ -457,6 +468,10 @@ end $form_ledger$;`);
     }
     if (!old?.workflow && table.workflow) statements.push(...compileApplicationWorkflowSchema(after, index));
     else if (old?.workflow && JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)) statements.push(...compileApplicationWorkflowSchema(after, index, true));
+    if (JSON.stringify(old?.reports) !== JSON.stringify(table.reports)) {
+      if (table.reports?.length) statements.push(...compileApplicationReports(after, index, !!old?.reports?.length));
+      else if (old?.reports?.length) statements.push(`drop function public.app_reports_${index}();`);
+    }
     if (old && JSON.stringify(old.permissions) === JSON.stringify(table.permissions)) continue;
     if (old) {
       // Revoke before creating replacement policies; a removed rule cannot retain a stale grant.

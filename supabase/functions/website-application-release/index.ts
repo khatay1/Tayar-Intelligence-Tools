@@ -93,6 +93,75 @@ function validateApplicationEmailNotification(value, table) {
   return null;
 }
 
+// src/modules/website-builder/core/application-booking-schedule.ts
+var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+function validApplicationBookingSchedule(value) {
+  if (!object2(value) || Object.keys(value).sort().join(",") !== "maxDurationMinutes,timeZone,weekly" || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
+  } catch {
+    return false;
+  }
+  for (const window2 of value.weekly) {
+    if (!object2(window2) || Object.keys(window2).sort().join(",") !== "day,endMinute,startMinute" || !Number.isInteger(window2.day) || Number(window2.day) < 1 || Number(window2.day) > 7 || !Number.isInteger(window2.startMinute) || Number(window2.startMinute) < 0 || !Number.isInteger(window2.endMinute) || Number(window2.endMinute) > 1440 || Number(window2.endMinute) <= Number(window2.startMinute)) return false;
+  }
+  const windows = value.weekly;
+  return !windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute));
+}
+function applicationBookingWithinSchedule(schedule, from, to) {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to || to - from > schedule.maxDurationMinutes * 6e4) return false;
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: schedule.timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  });
+  const local = (time) => {
+    const parts = Object.fromEntries(formatter.formatToParts(time).map((part) => [part.type, part.value]));
+    return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second)) + (time % 1e3 + 1e3) % 1e3;
+  };
+  const start = local(from), end = local(to), date2 = new Date(start);
+  const midnight = Date.UTC(date2.getUTCFullYear(), date2.getUTCMonth(), date2.getUTCDate()), day = date2.getUTCDay() || 7;
+  return start < end && schedule.weekly.some((window2) => window2.day === day && start >= midnight + window2.startMinute * 6e4 && end <= midnight + window2.endMinute * 6e4);
+}
+
+// src/modules/website-builder/core/application-booking.ts
+var ApplicationBookingRejected = class extends Error {
+  constructor(reason) {
+    super(reason === "conflict" ? "This resource is already booked for that time." : reason === "schedule" ? "Booking is outside working hours or exceeds the allowed duration." : "Booking end must be after start.");
+    this.reason = reason;
+    this.name = "ApplicationBookingRejected";
+  }
+};
+function validateApplicationBookingValues(table, values) {
+  if (!table.booking) return;
+  const start = table.fields.find((field) => field.id === table.booking.startFieldId);
+  const end = table.fields.find((field) => field.id === table.booking.endFieldId);
+  if (values[start.key] === void 0 || values[end.key] === void 0) return;
+  const from = Date.parse(String(values[start.key])), to = Date.parse(String(values[end.key]));
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) throw new ApplicationBookingRejected("interval");
+  const rule = table.booking;
+  const status = rule.statusFieldId && table.fields.find((field) => field.id === rule.statusFieldId);
+  const value = status ? values[status.key] ?? status.defaultValue : void 0;
+  if (rule.schedule && (!status || value === void 0 || rule.blockingStatuses.includes(String(value))) && !applicationBookingWithinSchedule(rule.schedule, from, to)) throw new ApplicationBookingRejected("schedule");
+}
+
+// src/modules/website-builder/core/application-booking-recurrence.ts
+var object3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+function validBookingRecurrenceRule(value) {
+  if (!object3(value) || Object.keys(value).sort().join(",") !== "maxOccurrences,timeZone" || typeof value.timeZone !== "string" || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || value.timeZone.length > 80 || !Number.isInteger(value.maxOccurrences) || Number(value.maxOccurrences) < 2 || Number(value.maxOccurrences) > 52) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // src/modules/website-builder/core/application-model.ts
 var APPLICATION_LIMITS = { tables: 50, fields: 80, roles: 30, permissions: 120, pageAccess: 100, requirements: 100, requirementEvidence: 20 };
 var APPLICATION_SYSTEM_FIELDS = ["id", "owner_id", "created_at", "updated_at"];
@@ -101,7 +170,7 @@ function createApplicationDefinition() {
 }
 
 // src/modules/website-builder/core/application-validation.ts
-var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object4 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var identifier2 = (value) => typeof value === "string" && /^[a-z][a-z0-9_]{0,47}$/.test(value);
 var id = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
 var name = (value) => typeof value === "string" && value.trim().length > 0 && value.length <= 160;
@@ -109,7 +178,7 @@ function validateApplicationDefinition(value, pageIds) {
   const issues = [];
   const issue = (path, code, message) => issues.push({ path, code, message });
   function shape(item, keys, path) {
-    if (!object2(item)) {
+    if (!object4(item)) {
       issue(path, "invalid-object", "Expected an application configuration object.");
       return false;
     }
@@ -150,10 +219,10 @@ function validateApplicationDefinition(value, pageIds) {
     for (const key of ["enabled", "signUpEnabled", "emailVerificationRequired"]) if (typeof auth[key] !== "boolean") issue(`application.auth.${key}`, "invalid-boolean", "Expected a boolean setting.");
     if (auth.signUpEnabled && !auth.enabled) issue("application.auth", "auth-disabled", "Enable authentication before allowing registration.");
   }
-  const authEnabled = object2(auth) && auth.enabled === true;
+  const authEnabled = object4(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "workflow", "attachments", "notifications"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier2(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -167,7 +236,7 @@ function validateApplicationDefinition(value, pageIds) {
     if (rule.access !== "role" && rule.roleId !== void 0) issue(`${path}.roleId`, "unexpected-role", "Role restrictions require role-based access.");
   }
   tables.forEach((table, tableIndex) => {
-    if (!object2(table)) return;
+    if (!object4(table)) return;
     const path = `application.tables[${tableIndex}]`;
     const keys = new Set(APPLICATION_SYSTEM_FIELDS);
     list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field, fieldIndex) => {
@@ -183,7 +252,7 @@ function validateApplicationDefinition(value, pageIds) {
       if (field.type !== "reference" && field.referenceTableId !== void 0) issue(fieldPath, "unexpected-reference", "Only reference fields can target a table.");
       if (field.formula !== void 0) {
         const formulaPath = `${fieldPath}.formula`, formula = field.formula;
-        if (!shape(formula, ["operation", "fieldIds"], formulaPath) || field.type !== "number" || field.required !== true || field.defaultValue !== void 0 || !["sum", "subtract", "multiply"].includes(String(formula.operation)) || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20 || formula.operation !== "sum" && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length || formula.fieldIds.some((sourceId) => sourceId === field.id || !table.fields.some((source) => object2(source) && source.id === sourceId && source.type === "number" && source.required === true && source.formula === void 0))) {
+        if (!shape(formula, ["operation", "fieldIds"], formulaPath) || field.type !== "number" || field.required !== true || field.defaultValue !== void 0 || !["sum", "subtract", "multiply"].includes(String(formula.operation)) || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20 || formula.operation !== "sum" && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length || formula.fieldIds.some((sourceId) => sourceId === field.id || !table.fields.some((source) => object4(source) && source.id === sourceId && source.type === "number" && source.required === true && source.formula === void 0))) {
           issue(formulaPath, "invalid-formula", "A formula needs a required numeric result and 2\u201320 distinct required numeric source fields.");
         }
       }
@@ -196,11 +265,27 @@ function validateApplicationDefinition(value, pageIds) {
         if (!validDefault) issue(`${fieldPath}.defaultValue`, "invalid-default", "The default must match the field type. Computed, relationship and structured defaults are not accepted.");
       }
     });
+    if (table.reports !== void 0) {
+      if (!authEnabled || !Array.isArray(table.reports) || !table.reports.length || table.reports.length > 8 || !Array.isArray(table.permissions) || !table.permissions.some((rule) => object4(rule) && rule.operation === "read")) issue(`${path}.reports`, "invalid-reports", "Reports require Auth, read permission and 1\u20138 declarations.");
+      else {
+        const reportIds = /* @__PURE__ */ new Set();
+        table.reports.forEach((report, index) => {
+          const reportPath = `${path}.reports[${index}]`;
+          if (!shape(report, ["id", "name", "operation", "fieldId"], reportPath)) return;
+          const field = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === report.fieldId);
+          if (!id(report.id) || reportIds.has(String(report.id)) || !name(report.name) || !["count", "sum", "min", "max", "avg"].includes(String(report.operation)) || (report.operation === "count" ? report.fieldId !== void 0 : !object4(field) || field.type !== "number")) issue(reportPath, "invalid-report", "Reports need unique IDs, a name and an ordinary count or declared numeric field.");
+          reportIds.add(String(report.id));
+        });
+      }
+    }
     if (table.booking !== void 0) {
       const bookingPath = `${path}.booking`;
-      if (shape(table.booking, ["resourceFieldId", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses"], bookingPath)) {
+      if (shape(table.booking, ["resourceFieldId", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses", "schedule", "recurrence"], bookingPath)) {
         const rule = table.booking;
-        const fields = Array.isArray(table.fields) ? table.fields.filter(object2) : [];
+        if (rule.recurrence !== void 0 && (!validBookingRecurrenceRule(rule.recurrence) || object4(rule.schedule) && rule.recurrence.timeZone !== rule.schedule.timeZone || !Array.isArray(table.permissions) || !["read", "create"].every((operation) => table.permissions.some((permission) => object4(permission) && permission.operation === operation))))
+          issue(`${bookingPath}.recurrence`, "invalid-booking-recurrence", "Recurrence requires read/create access, a valid zone matching the schedule and a 2\u201352 occurrence limit.");
+        if (rule.schedule !== void 0 && !validApplicationBookingSchedule(rule.schedule)) issue(`${bookingPath}.schedule`, "invalid-booking-schedule", "Booking schedule requires a valid time zone, non-overlapping weekly windows and a bounded duration.");
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object4) : [];
         const find = (fieldId) => fields.find((field) => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
         if (!authEnabled || !id(rule.resourceFieldId) || !id(rule.startFieldId) || !id(rule.endFieldId) || (/* @__PURE__ */ new Set([rule.resourceFieldId, rule.startFieldId, rule.endFieldId])).size !== 3 || !resource?.required || !["uuid", "reference"].includes(String(resource.type)) || !start?.required || start.type !== "datetime" || !end?.required || end.type !== "datetime") {
@@ -219,36 +304,47 @@ function validateApplicationDefinition(value, pageIds) {
       if (!shape(rule, ["maxBytes", "mimeTypes"], filePath) || !authEnabled || !Number.isSafeInteger(rule.maxBytes) || Number(rule.maxBytes) < 1 || Number(rule.maxBytes) > APPLICATION_FILE_MAX_BYTES || !Array.isArray(rule.mimeTypes) || !rule.mimeTypes.length || rule.mimeTypes.length > APPLICATION_FILE_TYPES.length || new Set(rule.mimeTypes).size !== rule.mimeTypes.length || rule.mimeTypes.some((type) => !APPLICATION_FILE_TYPES.includes(type))) {
         issue(filePath, "invalid-files", "Attachments need Auth, a size limit up to 25 MiB and declared download-safe MIME types.");
       }
-      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
+      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
     }
     if (table.counter !== void 0) {
       const counterPath = `${path}.counter`;
       if (shape(table.counter, ["fieldId", "minimum", "maximum", "integer"], counterPath)) {
         const rule = table.counter;
-        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object2(field2) && field2.id === rule.fieldId) : void 0;
-        if (!authEnabled || !id(rule.fieldId) || !object2(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
+        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object4(field2) && field2.id === rule.fieldId) : void 0;
+        if (!authEnabled || !id(rule.fieldId) || !object4(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
           issue(counterPath, "invalid-counter", "A counter needs Auth, a required numeric field defaulting to its finite minimum, and valid optional bounds.");
         }
-        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object2(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
       }
     }
     if (table.transaction !== void 0) {
       const transactionPath = `${path}.transaction`;
       if (shape(table.transaction, ["itemTableId", "lineTableId", "lineTransactionFieldId", "lineItemFieldId", "lineQuantityFieldId", "counterDirection"], transactionPath)) {
         const rule = table.transaction;
-        const itemTable = tables.find((candidate) => object2(candidate) && candidate.id === rule.itemTableId);
-        const lineTable = tables.find((candidate) => object2(candidate) && candidate.id === rule.lineTableId);
-        const lineFields = object2(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object2) : [];
+        const itemTable = tables.find((candidate) => object4(candidate) && candidate.id === rule.itemTableId);
+        const lineTable = tables.find((candidate) => object4(candidate) && candidate.id === rule.lineTableId);
+        const lineFields = object4(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object4) : [];
         const transactionField = lineFields.find((field) => field.id === rule.lineTransactionFieldId);
         const itemField = lineFields.find((field) => field.id === rule.lineItemFieldId);
         const quantityField = lineFields.find((field) => field.id === rule.lineQuantityFieldId);
         const distinct = /* @__PURE__ */ new Set([rule.lineTransactionFieldId, rule.lineItemFieldId, rule.lineQuantityFieldId]);
-        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object2(itemTable) || !object2(itemTable.counter) || !object2(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || quantityField.formula !== void 0 || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
+        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object4(itemTable) || !object4(itemTable.counter) || !object4(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || quantityField.formula !== void 0 || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
           issue(transactionPath, "invalid-transaction", "A transaction needs Auth, a counter item table and a separate line table with required parent, item and numeric quantity fields.");
         }
-        const has = (candidate, operation) => object2(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object2(permission) && permission.operation === operation);
-        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object2(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object2(permission) && permission.operation !== "read")) {
+        const has = (candidate, operation) => object4(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object4(permission) && permission.operation === operation);
+        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object4(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object4(permission) && permission.operation !== "read")) {
           issue(transactionPath, "transaction-permissions", "Transactions require parent read/create, item read/update and read-only line permissions.");
+        }
+      }
+    }
+    if (table.payment !== void 0) {
+      const paymentPath = `${path}.payment`, rule = table.payment;
+      if (shape(rule, ["provider", "currency", "itemUnitAmountFieldId", "refundRoleId"], paymentPath)) {
+        const transaction = object4(table.transaction) ? table.transaction : null;
+        const itemTable = transaction ? tables.find((candidate) => object4(candidate) && candidate.id === transaction.itemTableId) : null;
+        const amountField = object4(itemTable) && Array.isArray(itemTable.fields) ? itemTable.fields.find((field) => object4(field) && field.id === rule.itemUnitAmountFieldId) : null;
+        if (rule.provider !== "stripe" || !transaction || typeof rule.currency !== "string" || !/^[a-z]{3}$/.test(rule.currency) || !id(rule.itemUnitAmountFieldId) || !object4(amountField) || amountField.type !== "number" || amountField.required !== true || amountField.formula !== void 0 || amountField.id === (object4(itemTable) && object4(itemTable.counter) ? itemTable.counter.fieldId : null) || transaction.counterDirection !== "decrement" || !authEnabled || !object4(auth) || auth.emailVerificationRequired !== true || !id(rule.refundRoleId) || !roleIds.has(String(rule.refundRoleId))) {
+          issue(paymentPath, "invalid-payment", "Stripe payment needs a transaction, a required ordinary item price in minor units, a currency and a declared refund role.");
         }
       }
     }
@@ -256,9 +352,9 @@ function validateApplicationDefinition(value, pageIds) {
       const workflowPath = `${path}.workflow`;
       if (shape(table.workflow, ["fieldId", "transitions"], workflowPath)) {
         const workflow = table.workflow;
-        const field = Array.isArray(table.fields) ? table.fields.find((candidate) => object2(candidate) && candidate.id === workflow.fieldId) : void 0;
-        const options = object2(field) && Array.isArray(field.options) ? field.options.filter((value2) => typeof value2 === "string") : [];
-        if (!authEnabled || !id(workflow.fieldId) || !object2(field) || field.type !== "enum" || field.required !== true || typeof field.defaultValue !== "string" || !options.includes(field.defaultValue)) {
+        const field = Array.isArray(table.fields) ? table.fields.find((candidate) => object4(candidate) && candidate.id === workflow.fieldId) : void 0;
+        const options = object4(field) && Array.isArray(field.options) ? field.options.filter((value2) => typeof value2 === "string") : [];
+        if (!authEnabled || !id(workflow.fieldId) || !object4(field) || field.type !== "enum" || field.required !== true || typeof field.defaultValue !== "string" || !options.includes(field.defaultValue)) {
           issue(workflowPath, "invalid-workflow", "A workflow needs Auth and a required enum state field with a declared default state.");
         }
         const transitionIds = /* @__PURE__ */ new Set();
@@ -280,7 +376,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (transition.access === "role" && !roleIds.has(String(transition.roleId))) issue(`${transitionPath}.roleId`, "missing-role", "Role workflow access requires an existing role.");
           if (transition.access !== "role" && transition.roleId !== void 0) issue(`${transitionPath}.roleId`, "unexpected-role", "Only role transitions can specify a role.");
         });
-        if (!Array.isArray(table.permissions) || !table.permissions.some((rule) => object2(rule) && rule.operation === "read") || !table.permissions.some((rule) => object2(rule) && rule.operation === "update")) issue(workflowPath, "workflow-permissions", "Workflow transitions require explicit read and update permissions.");
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule) => object4(rule) && rule.operation === "read") || !table.permissions.some((rule) => object4(rule) && rule.operation === "update")) issue(workflowPath, "workflow-permissions", "Workflow transitions require explicit read and update permissions.");
       }
     }
     const permissionKeys = /* @__PURE__ */ new Set();
@@ -294,19 +390,19 @@ function validateApplicationDefinition(value, pageIds) {
       if (permissionKeys.has(key)) issue(permissionPath, "duplicate-permission", "Duplicate permission rule.");
       permissionKeys.add(key);
     });
-    if (Array.isArray(table.permissions) && table.permissions.some((p) => object2(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object2(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
+    if (Array.isArray(table.permissions) && table.permissions.some((p) => object4(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object4(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
   });
   let notificationCount = 0;
   tables.forEach((table, index) => {
-    if (!object2(table) || table.notifications === void 0) return;
+    if (!object4(table) || table.notifications === void 0) return;
     const path = `application.tables[${index}]`, rulePath = `${path}.notifications`;
     const rules = list(table.notifications, 50, rulePath);
     notificationCount += rules.length;
-    if (!authEnabled || !object2(auth) || auth.emailVerificationRequired !== true) issue(rulePath, "email-auth-required", "Email notifications require authentication and verified email addresses.");
+    if (!authEnabled || !object4(auth) || auth.emailVerificationRequired !== true) issue(rulePath, "email-auth-required", "Email notifications require authentication and verified email addresses.");
     const validTable = !issues.some((item) => item.path === path || item.path.startsWith(`${path}.`));
     rules.forEach((rule, ruleIndex) => {
       const itemPath = `${rulePath}[${ruleIndex}]`;
-      if (object2(rule)) identity(rule.id, `${itemPath}.id`);
+      if (object4(rule)) identity(rule.id, `${itemPath}.id`);
       if (validTable) {
         const error = validateApplicationEmailNotification(rule, table);
         if (error) issue(itemPath, "invalid-email-notification", error);
@@ -316,7 +412,7 @@ function validateApplicationDefinition(value, pageIds) {
   if (notificationCount > 50) issue("application.tables", "too-many-email-notifications", "An application supports at most 50 email notification rules.");
   const lineTables = /* @__PURE__ */ new Set();
   tables.forEach((table, index) => {
-    if (!object2(table) || !object2(table.transaction)) return;
+    if (!object4(table) || !object4(table.transaction)) return;
     const line = String(table.transaction.lineTableId);
     if (lineTables.has(line)) issue(`application.tables[${index}].transaction.lineTableId`, "duplicate-transaction-line-table", "A line table can belong to only one native transaction.");
     lineTables.add(line);
@@ -363,17 +459,17 @@ function validateApplicationDefinition(value, pageIds) {
           if (match[3] || pageIds && !pageIds.has(match[2])) issue(evidencePath, "missing-page", "Page evidence requires an existing page.");
           return;
         }
-        const table = tables.find((candidate) => object2(candidate) && candidate.id === match[2]);
-        if (!object2(table)) {
+        const table = tables.find((candidate) => object4(candidate) && candidate.id === match[2]);
+        if (!object4(table)) {
           issue(evidencePath, "missing-table", "Requirement evidence requires an existing table.");
           return;
         }
-        if (match[1] === "booking" && !object2(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
-        if (match[1] === "counter" && !object2(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
-        if (match[1] === "transaction" && !object2(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
-        if (match[1] === "files" && !object2(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
-        if (match[1] === "workflow" && !object2(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
-        if (match[1] === "formula" && !table.fields.some((field) => object2(field) && object2(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
+        if (match[1] === "booking" && !object4(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
+        if (match[1] === "counter" && !object4(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
+        if (match[1] === "transaction" && !object4(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
+        if (match[1] === "files" && !object4(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
+        if (match[1] === "workflow" && !object4(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
+        if (match[1] === "formula" && !table.fields.some((field) => object4(field) && object4(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
         if (match[1] !== "view" && match[3]) issue(evidencePath, "unexpected-action", "Only data-view evidence can include an action.");
       });
@@ -391,23 +487,6 @@ function readApplicationDefinition(value, pageIds) {
 
 // src/modules/website-builder/core/application-files-runtime.ts
 import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4";
-
-// src/modules/website-builder/core/application-booking.ts
-var ApplicationBookingRejected = class extends Error {
-  constructor(reason) {
-    super(reason === "conflict" ? "This resource is already booked for that time." : "Booking end must be after start.");
-    this.reason = reason;
-    this.name = "ApplicationBookingRejected";
-  }
-};
-function validateApplicationBookingValues(table, values) {
-  if (!table.booking) return;
-  const start = table.fields.find((field) => field.id === table.booking.startFieldId);
-  const end = table.fields.find((field) => field.id === table.booking.endFieldId);
-  if (values[start.key] === void 0 || values[end.key] === void 0) return;
-  const from = Date.parse(String(values[start.key])), to = Date.parse(String(values[end.key]));
-  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) throw new ApplicationBookingRejected("interval");
-}
 
 // src/modules/website-builder/core/application-origin.ts
 var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -6771,6 +6850,18 @@ function localizeUi(text2, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Aggregate reports": "\u0627\u0644\u062A\u0642\u0627\u0631\u064A\u0631 \u0627\u0644\u0645\u062C\u0645\u0651\u0639\u0629",
+  "Totals include all records the signed-in user can read. Search and page selection do not change totals.": "\u062A\u0634\u0645\u0644 \u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A\u0627\u062A \u062C\u0645\u064A\u0639 \u0627\u0644\u0633\u062C\u0644\u0627\u062A \u0627\u0644\u0645\u0633\u0645\u0648\u062D \u0644\u0644\u0645\u0633\u062A\u062E\u062F\u0645 \u0627\u0644\u0645\u0633\u062C\u0651\u0644 \u0628\u0642\u0631\u0627\u0621\u062A\u0647\u0627. \u0627\u0644\u0628\u062D\u062B \u0648\u0627\u062E\u062A\u064A\u0627\u0631 \u0627\u0644\u0635\u0641\u062D\u0629 \u0644\u0627 \u064A\u063A\u064A\u0651\u0631\u0627\u0646 \u0627\u0644\u0625\u062C\u0645\u0627\u0644\u064A\u0627\u062A.",
+  "Remove report": "\u0625\u0632\u0627\u0644\u0629 \u0627\u0644\u062A\u0642\u0631\u064A\u0631",
+  "Report name": "\u0627\u0633\u0645 \u0627\u0644\u062A\u0642\u0631\u064A\u0631",
+  "Calculation": "\u0627\u0644\u062D\u0633\u0627\u0628",
+  "Numeric field": "\u062D\u0642\u0644 \u0631\u0642\u0645\u064A",
+  "Add report": "\u0625\u0636\u0627\u0641\u0629 \u062A\u0642\u0631\u064A\u0631",
+  "count": "\u0639\u062F\u062F \u0627\u0644\u0633\u062C\u0644\u0627\u062A",
+  "sum": "\u0627\u0644\u0645\u062C\u0645\u0648\u0639",
+  "min": "\u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u062F\u0646\u064A\u0627",
+  "max": "\u0627\u0644\u0642\u064A\u0645\u0629 \u0627\u0644\u0639\u0644\u064A\u0627",
+  "avg": "\u0627\u0644\u0645\u062A\u0648\u0633\u0637",
   "Record attachments": "\u0645\u0631\u0641\u0642\u0627\u062A \u0627\u0644\u0633\u062C\u0644",
   "Private files follow record permissions. Downloads require sign-in; uploads and deletion require update access.": "\u062A\u062A\u0628\u0639 \u0627\u0644\u0645\u0644\u0641\u0627\u062A \u0627\u0644\u062E\u0627\u0635\u0629 \u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0627\u0644\u0633\u062C\u0644. \u064A\u062A\u0637\u0644\u0628 \u0627\u0644\u062A\u0646\u0632\u064A\u0644 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644\u060C \u0648\u064A\u062A\u0637\u0644\u0628 \u0627\u0644\u0631\u0641\u0639 \u0648\u0627\u0644\u062D\u0630\u0641 \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u062A\u0639\u062F\u064A\u0644.",
   "Maximum file size (MiB)": "\u0623\u0642\u0635\u0649 \u062D\u062C\u0645 \u0644\u0644\u0645\u0644\u0641 (MiB)",
@@ -6798,8 +6889,41 @@ var arSupplement = {
   "Increase": "\u0632\u064A\u0627\u062F\u0629",
   "Save transaction rule": "\u062D\u0641\u0638 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629",
   "Remove transaction rule": "\u0625\u0632\u0627\u0644\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u0645\u0639\u0627\u0645\u0644\u0629",
+  "Stripe order payments": "\u062F\u0641\u0639 \u0627\u0644\u0637\u0644\u0628\u0627\u062A \u0639\u0628\u0631 Stripe",
+  "Pay order": "\u062F\u0641\u0639 \u0627\u0644\u0637\u0644\u0628",
+  "Refund order": "\u0627\u0633\u062A\u0631\u062F\u0627\u062F \u0627\u0644\u0637\u0644\u0628",
+  "Prices use minor units: 100 means 1.00 SEK. Refunds require the selected role.": "\u0627\u0644\u0623\u0633\u0639\u0627\u0631 \u0628\u0648\u062D\u062F\u0629 \u0627\u0644\u0639\u0645\u0644\u0629 \u0627\u0644\u0635\u063A\u0631\u0649: 100 \u062A\u0639\u0646\u064A 1.00 \u0643\u0631\u0648\u0646\u0629 \u0633\u0648\u064A\u062F\u064A\u0629. \u0627\u0644\u0627\u0633\u062A\u0631\u062F\u0627\u062F \u064A\u062A\u0637\u0644\u0628 \u0627\u0644\u062F\u0648\u0631 \u0627\u0644\u0645\u062D\u062F\u062F.",
+  "Payment setup is saved here. Publishing requires the verified order payment runtime.": "\u062A\u064F\u062D\u0641\u0638 \u0625\u0639\u062F\u0627\u062F\u0627\u062A \u0627\u0644\u062F\u0641\u0639 \u0647\u0646\u0627. \u0627\u0644\u0646\u0634\u0631 \u064A\u062A\u0637\u0644\u0628 \u0627\u0644\u062A\u062D\u0642\u0642 \u0645\u0646 \u062A\u0634\u063A\u064A\u0644 \u062F\u0641\u0639 \u0627\u0644\u0637\u0644\u0628\u0627\u062A.",
+  "Currency code": "\u0631\u0645\u0632 \u0627\u0644\u0639\u0645\u0644\u0629",
+  "Item price field": "\u062D\u0642\u0644 \u0633\u0639\u0631 \u0627\u0644\u0639\u0646\u0635\u0631",
+  "Refund role": "\u062F\u0648\u0631 \u0627\u0644\u0627\u0633\u062A\u0631\u062F\u0627\u062F",
+  "Select a role": "\u0627\u062E\u062A\u0631 \u062F\u0648\u0631\u064B\u0627",
+  "Save payment rule": "\u062D\u0641\u0638 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u062F\u0641\u0639",
+  "Remove payment rule": "\u0625\u0632\u0627\u0644\u0629 \u0642\u0627\u0639\u062F\u0629 \u0627\u0644\u062F\u0641\u0639",
   "Create transaction": "\u0625\u0646\u0634\u0627\u0621 \u0645\u0639\u0627\u0645\u0644\u0629",
   "Booking conflict protection": "\u0645\u0646\u0639 \u062A\u0639\u0627\u0631\u0636 \u0627\u0644\u062D\u062C\u0648\u0632\u0627\u062A",
+  "Booking working hours": "\u0633\u0627\u0639\u0627\u062A \u0639\u0645\u0644 \u0627\u0644\u062D\u062C\u0648\u0632\u0627\u062A",
+  "Recurring bookings": "\u0627\u0644\u062D\u062C\u0648\u0632\u0627\u062A \u0627\u0644\u0645\u062A\u0643\u0631\u0631\u0629",
+  "Allow daily and weekly booking series": "\u0627\u0644\u0633\u0645\u0627\u062D \u0628\u0633\u0644\u0627\u0633\u0644 \u062D\u062C\u0648\u0632\u0627\u062A \u064A\u0648\u0645\u064A\u0629 \u0648\u0623\u0633\u0628\u0648\u0639\u064A\u0629",
+  "Maximum occurrences": "\u0627\u0644\u0639\u062F\u062F \u0627\u0644\u0623\u0642\u0635\u0649 \u0644\u0644\u0645\u0648\u0627\u0639\u064A\u062F",
+  "Series use local calendar time and save all appointments together. The zone must match working hours. Ambiguous or nonexistent times are rejected.": "\u062A\u062A\u0628\u0639 \u0627\u0644\u0633\u0644\u0633\u0644\u0629 \u0627\u0644\u0648\u0642\u062A \u0627\u0644\u0645\u062D\u0644\u064A \u0648\u062A\u064F\u062D\u0641\u0638 \u0627\u0644\u0645\u0648\u0627\u0639\u064A\u062F \u0643\u0644\u0647\u0627 \u0645\u0639\u064B\u0627. \u064A\u062C\u0628 \u0623\u0646 \u062A\u0637\u0627\u0628\u0642 \u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0632\u0645\u0646\u064A\u0629 \u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644. \u062A\u064F\u0631\u0641\u0636 \u0627\u0644\u0623\u0648\u0642\u0627\u062A \u0627\u0644\u0645\u0644\u062A\u0628\u0633\u0629 \u0623\u0648 \u063A\u064A\u0631 \u0627\u0644\u0645\u0648\u062C\u0648\u062F\u0629.",
+  "Choose a valid time zone and non-overlapping working periods.": "\u0627\u062E\u062A\u0631 \u0645\u0646\u0637\u0642\u0629 \u0632\u0645\u0646\u064A\u0629 \u0635\u062D\u064A\u062D\u0629 \u0648\u0641\u062A\u0631\u0627\u062A \u0639\u0645\u0644 \u063A\u064A\u0631 \u0645\u062A\u062F\u0627\u062E\u0644\u0629.",
+  "Restrict bookings to working hours": "\u062D\u0635\u0631 \u0627\u0644\u062D\u062C\u0648\u0632\u0627\u062A \u0628\u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644",
+  "Hours use the selected time zone. Midnight as an end means the end of that day. Cancelled states release the time.": "\u0627\u0644\u0633\u0627\u0639\u0627\u062A \u062D\u0633\u0628 \u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0632\u0645\u0646\u064A\u0629 \u0627\u0644\u0645\u062D\u062F\u062F\u0629. \u0645\u0646\u062A\u0635\u0641 \u0627\u0644\u0644\u064A\u0644 \u0641\u064A \u0648\u0642\u062A \u0627\u0644\u0625\u063A\u0644\u0627\u0642 \u064A\u0639\u0646\u064A \u0646\u0647\u0627\u064A\u0629 \u0627\u0644\u064A\u0648\u0645. \u062D\u0627\u0644\u0627\u062A \u0627\u0644\u0625\u0644\u063A\u0627\u0621 \u062A\u062D\u0631\u0631 \u0627\u0644\u0648\u0642\u062A.",
+  "Booking time zone": "\u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0632\u0645\u0646\u064A\u0629 \u0644\u0644\u062D\u062C\u0632",
+  "Maximum booking duration (minutes)": "\u0627\u0644\u0645\u062F\u0629 \u0627\u0644\u0642\u0635\u0648\u0649 \u0644\u0644\u062D\u062C\u0632 \u0628\u0627\u0644\u062F\u0642\u0627\u0626\u0642",
+  "Working day": "\u064A\u0648\u0645 \u0627\u0644\u0639\u0645\u0644",
+  "Opening time": "\u0648\u0642\u062A \u0627\u0644\u0641\u062A\u062D",
+  "Closing time": "\u0648\u0642\u062A \u0627\u0644\u0625\u063A\u0644\u0627\u0642",
+  "Remove working period": "\u062D\u0630\u0641 \u0641\u062A\u0631\u0629 \u0639\u0645\u0644",
+  "Add working period": "\u0625\u0636\u0627\u0641\u0629 \u0641\u062A\u0631\u0629 \u0639\u0645\u0644",
+  "Monday": "\u0627\u0644\u0627\u062B\u0646\u064A\u0646",
+  "Tuesday": "\u0627\u0644\u062B\u0644\u0627\u062B\u0627\u0621",
+  "Wednesday": "\u0627\u0644\u0623\u0631\u0628\u0639\u0627\u0621",
+  "Thursday": "\u0627\u0644\u062E\u0645\u064A\u0633",
+  "Friday": "\u0627\u0644\u062C\u0645\u0639\u0629",
+  "Saturday": "\u0627\u0644\u0633\u0628\u062A",
+  "Sunday": "\u0627\u0644\u0623\u062D\u062F",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "\u0644\u0627 \u064A\u0645\u0643\u0646 \u062D\u062C\u0632 \u0627\u0644\u0645\u0648\u0631\u062F \u0646\u0641\u0633\u0647 \u0628\u0623\u0648\u0642\u0627\u062A \u0645\u062A\u062F\u0627\u062E\u0644\u0629. \u064A\u064F\u0633\u0645\u062D \u0628\u0627\u0644\u0623\u0648\u0642\u0627\u062A \u0627\u0644\u0645\u062A\u062C\u0627\u0648\u0631\u0629 \u0648\u064A\u0645\u0643\u0646 \u0644\u0644\u062D\u0627\u0644\u0627\u062A \u0627\u0644\u0645\u0644\u063A\u0627\u0629 \u062A\u062D\u0631\u064A\u0631 \u0627\u0644\u0648\u0642\u062A.",
   "Booking resource": "\u0645\u0648\u0631\u062F \u0627\u0644\u062D\u062C\u0632",
   "Booking start": "\u0628\u062F\u0627\u064A\u0629 \u0627\u0644\u062D\u062C\u0632",
@@ -7338,6 +7462,18 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Aggregate reports": "Sammanst\xE4llda rapporter",
+  "Totals include all records the signed-in user can read. Search and page selection do not change totals.": "Summorna omfattar alla poster den inloggade anv\xE4ndaren f\xE5r l\xE4sa. S\xF6kning och sidval \xE4ndrar inte summorna.",
+  "Remove report": "Ta bort rapport",
+  "Report name": "Rapportnamn",
+  "Calculation": "Ber\xE4kning",
+  "Numeric field": "Numeriskt f\xE4lt",
+  "Add report": "L\xE4gg till rapport",
+  "count": "Antal poster",
+  "sum": "Summa",
+  "min": "Minsta v\xE4rde",
+  "max": "St\xF6rsta v\xE4rde",
+  "avg": "Medelv\xE4rde",
   "Record attachments": "Postbilagor",
   "Private files follow record permissions. Downloads require sign-in; uploads and deletion require update access.": "Privata filer f\xF6ljer postens beh\xF6righeter. Nedladdning kr\xE4ver inloggning; uppladdning och borttagning kr\xE4ver \xE4ndrings\xE5tkomst.",
   "Maximum file size (MiB)": "Maximal filstorlek (MiB)",
@@ -7365,8 +7501,41 @@ var svSupplement = {
   "Increase": "\xD6ka",
   "Save transaction rule": "Spara transaktionsregel",
   "Remove transaction rule": "Ta bort transaktionsregel",
+  "Stripe order payments": "Orderbetalningar via Stripe",
+  "Pay order": "Betala order",
+  "Refund order": "\xC5terbetala order",
+  "Prices use minor units: 100 means 1.00 SEK. Refunds require the selected role.": "Priser anges i minsta valutaenhet: 100 betyder 1,00 SEK. \xC5terbetalningar kr\xE4ver den valda rollen.",
+  "Payment setup is saved here. Publishing requires the verified order payment runtime.": "Betalningsinst\xE4llningarna sparas h\xE4r. Publicering kr\xE4ver verifierad k\xF6rning f\xF6r orderbetalningar.",
+  "Currency code": "Valutakod",
+  "Item price field": "Prisf\xE4lt f\xF6r artikeln",
+  "Refund role": "\xC5terbetalningsroll",
+  "Select a role": "V\xE4lj en roll",
+  "Save payment rule": "Spara betalningsregel",
+  "Remove payment rule": "Ta bort betalningsregel",
   "Create transaction": "Skapa transaktion",
   "Booking conflict protection": "Skydd mot bokningskonflikter",
+  "Booking working hours": "Bokningens \xF6ppettider",
+  "Recurring bookings": "\xC5terkommande bokningar",
+  "Allow daily and weekly booking series": "Till\xE5t dagliga och veckovisa bokningsserier",
+  "Maximum occurrences": "H\xF6gsta antal bokningar",
+  "Series use local calendar time and save all appointments together. The zone must match working hours. Ambiguous or nonexistent times are rejected.": "Serien f\xF6ljer lokal tid och alla bokningar sparas tillsammans. Tidszonen m\xE5ste matcha \xF6ppettiderna. Tvetydiga eller obefintliga tider avvisas.",
+  "Choose a valid time zone and non-overlapping working periods.": "V\xE4lj en giltig tidszon och \xF6ppetperioder som inte \xF6verlappar.",
+  "Restrict bookings to working hours": "Begr\xE4nsa bokningar till \xF6ppettider",
+  "Hours use the selected time zone. Midnight as an end means the end of that day. Cancelled states release the time.": "Tiderna anv\xE4nder vald tidszon. Midnatt som sluttid betyder dagens slut. Avbokade tillst\xE5nd frig\xF6r tiden.",
+  "Booking time zone": "Bokningens tidszon",
+  "Maximum booking duration (minutes)": "L\xE4ngsta bokningstid (minuter)",
+  "Working day": "Arbetsdag",
+  "Opening time": "\xD6ppningstid",
+  "Closing time": "St\xE4ngningstid",
+  "Remove working period": "Ta bort \xF6ppetperiod",
+  "Add working period": "L\xE4gg till \xF6ppetperiod",
+  "Monday": "M\xE5ndag",
+  "Tuesday": "Tisdag",
+  "Wednesday": "Onsdag",
+  "Thursday": "Torsdag",
+  "Friday": "Fredag",
+  "Saturday": "L\xF6rdag",
+  "Sunday": "S\xF6ndag",
   "One resource cannot have overlapping bookings. Adjacent times are allowed. Cancelled states can release the time.": "En resurs kan inte ha \xF6verlappande bokningar. Angr\xE4nsande tider till\xE5ts. Avbokade tillst\xE5nd kan frig\xF6ra tiden.",
   "Booking resource": "Bokningsresurs",
   "Booking start": "Bokningens start",
@@ -10261,9 +10430,9 @@ function compileApplicationCreateForm(definition, source, input) {
 }
 
 // src/modules/website-builder/core/application-data-view.ts
-var object3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object5 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateApplicationDataViewShape(value) {
-  if (!object3(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition", "attachments"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
+  if (!object5(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition", "attachments", "pay", "refund"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
   return true;
 }
 function compileApplicationDataView(definition, input) {
@@ -10271,7 +10440,8 @@ function compileApplicationDataView(definition, input) {
   if (!app.auth.enabled || !validateApplicationDataViewShape(input)) throw new Error("Invalid application data view.");
   const binding = structuredClone(input);
   const table = app.tables.find((table2) => table2.id === binding.tableId);
-  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (action === "attachments" ? "read" : action === "adjust" || action === "transition" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
+  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (["attachments", "pay", "refund"].includes(action) ? "read" : action === "adjust" || action === "transition" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
+  if (binding.actions.some((action) => action === "pay" || action === "refund") && !table.payment) throw new Error("Payment actions require a native payment rule.");
   if (binding.actions.includes("attachments") && !table.attachments) throw new Error("Attachments require a native file rule.");
   if (binding.actions.includes("adjust") && !table.counter) throw new Error("Adjustment requires a native counter rule.");
   if (binding.actions.includes("transact") && !table.transaction) throw new Error("Transaction creation requires a native transaction rule.");

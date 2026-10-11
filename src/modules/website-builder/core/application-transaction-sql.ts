@@ -49,6 +49,7 @@ export function compileApplicationTransactionSchema(input: ApplicationDefinition
   const itemIndex = app.tables.findIndex(candidate => candidate.id === rule.itemTableId), item = app.tables[itemIndex];
   const lineIndex = app.tables.findIndex(candidate => candidate.id === rule.lineTableId), lineTable = app.tables[lineIndex];
   const counter = item.counter!, counterField = item.fields.find(field => field.id === counter.fieldId)!;
+  const priceField = table.payment ? item.fields.find(field => field.id === table.payment!.itemUnitAmountFieldId)! : null;
   const parentField = lineTable.fields.find(field => field.id === rule.lineTransactionFieldId)!;
   const itemField = lineTable.fields.find(field => field.id === rule.lineItemFieldId)!;
   const quantityField = lineTable.fields.find(field => field.id === rule.lineQuantityFieldId)!;
@@ -68,6 +69,7 @@ export function compileApplicationTransactionSchema(input: ApplicationDefinition
 <<transaction_operation>>
 declare actor uuid := (select auth.uid()); parent_id uuid := gen_random_uuid(); normalized jsonb; item_count integer; unique_count integer;
   claimed uuid; prior private.app_transaction_requests%rowtype; entry record; balance numeric; changed numeric;
+  ${priceField ? 'unit_amount numeric; total_amount numeric := 0; frozen_items jsonb := \'[]\'::jsonb;' : ''}
 begin
   if not ${permanentUser} or ${inner}.request_id is null or jsonb_typeof(attrs) <> 'object' or jsonb_typeof(lines) <> 'array'
     or jsonb_array_length(lines) < 1 or jsonb_array_length(lines) > 100 or attrs - ${allowed} <> '{}'::jsonb
@@ -90,8 +92,14 @@ begin
     return jsonb_build_object('status','already-created','id',prior.record_id);
   end if;
   for entry in select * from jsonb_to_recordset(normalized) as value("itemId" uuid, quantity numeric) order by "itemId" loop
-    select t.${quoted(counterField.key)} into balance from ${itemName} t where t.id=entry."itemId" and ${permission(item, 'read', 't')} and ${permission(item, 'update', 't')} for update;
+    select t.${quoted(counterField.key)}${priceField ? `,t.${quoted(priceField.key)}` : ''} into balance${priceField ? ',unit_amount' : ''} from ${itemName} t where t.id=entry."itemId" and ${permission(item, 'read', 't')} and ${permission(item, 'update', 't')} for update;
     if not found then raise exception 'Application transaction unavailable'; end if;
+    ${priceField ? `if unit_amount is null or unit_amount in ('NaN'::numeric,'Infinity'::numeric,'-Infinity'::numeric)
+      or unit_amount<1 or unit_amount>99999999999 or unit_amount<>trunc(unit_amount)
+      or entry.quantity<>trunc(entry.quantity) then raise exception 'Invalid order price or quantity';end if;
+    total_amount:=total_amount+unit_amount*entry.quantity;
+    if total_amount>99999999999 then raise exception 'Order amount exceeds allowed bounds';end if;
+    frozen_items:=frozen_items||jsonb_build_array(jsonb_build_object('itemId',entry."itemId",'quantity',entry.quantity,'unitAmount',unit_amount));` : ''}
     changed := balance + (${delta});
     if ${bound} then raise exception 'Application transaction exceeds allowed bounds'; end if;
     insert into private.app_counter_context(transaction_id,actor_id,table_name,record_id,field_name,delta)
@@ -100,12 +108,18 @@ begin
     delete from private.app_counter_context where transaction_id=txid_current();
   end loop;
   ${parentInsert}
+  ${priceField ? `insert into private.app_order_quotes(order_id,table_id,owner_id,currency,amount,items)
+    values(parent_id,${literal(table.id)},actor,${literal(table.payment!.currency)},total_amount::bigint,frozen_items);` : ''}
   for entry in select * from jsonb_to_recordset(normalized) as value("itemId" uuid, quantity numeric) order by "itemId" loop
     insert into ${lineName}(owner_id,${quoted(parentField.key)},${quoted(itemField.key)},${quoted(quantityField.key)}) values (actor,parent_id,entry."itemId",entry.quantity);
   end loop;
   return jsonb_build_object('status','created','id',parent_id);
 end `;
-  const statements = [lineConstraint,
+  const statements = [...(priceField ? [
+    'create table if not exists private.app_order_quotes(order_id uuid primary key,table_id text not null,owner_id uuid not null references auth.users(id),currency text not null check(currency ~ \'^[a-z]{3}$\'),amount bigint not null check(amount between 1 and 99999999999),items jsonb not null);',
+    'alter table private.app_order_quotes enable row level security;',
+    'revoke all on private.app_order_quotes from public,anon,authenticated,service_role;',
+  ] : []),lineConstraint,
     `create function private.${inner}(attrs jsonb, lines jsonb, request_id uuid) returns jsonb language plpgsql security definer set search_path = '' as $$${body}$$;`,
     `revoke all on function private.${inner}(jsonb,jsonb,uuid) from public, anon;`,
     `grant execute on function private.${inner}(jsonb,jsonb,uuid) to authenticated;`,

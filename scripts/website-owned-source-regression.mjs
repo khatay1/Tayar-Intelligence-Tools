@@ -35,12 +35,13 @@ try {
   const before = JSON.stringify(snapshot);
   const files = await compile(snapshot, config);
   assert.equal(JSON.stringify(snapshot), before);
-  assert.deepEqual(files.map(file => file.path), ['package.json', 'vercel.json', 'api/application.js', 'database/schema.sql', 'application-definition.json', 'HANDOVER.md']);
+  assert.deepEqual(files.map(file => file.path), ['package.json', 'vercel.json', 'api/application.js', 'database/schema.sql', 'application-definition.json', 'runtime-environment-plan.json', 'HANDOVER.md']);
   assert.deepEqual(await compile(snapshot, config), files);
   assert.match(files[3].content, /enable row level security/i);
   assert.deepEqual(JSON.parse(files[4].content), snapshot.application);
-  assert.match(files[5].content, /without calling the Tayar platform/);
-  assert.match(files[5].content, /separate from the OAuth permissions/);
+  assert.deepEqual(JSON.parse(files[5].content).requirements.map(item=>item.key),['SUPABASE_URL','SUPABASE_ANON_KEY']);
+  assert.match(files[6].content, /without calling the Tayar platform/);
+  assert.match(files[6].content, /separate from the OAuth permissions/);
   assert(files.every(file => !file.path.startsWith('public/')));
   assert(files.every(file => !file.content.includes(config.platformUrl) && !file.content.includes(config.platformOrigin)
     && !file.content.includes('PLATFORM_KEY_NEVER_EXPORT')));
@@ -89,20 +90,67 @@ try {
   assert.equal(browserConfig.applicationDataViews[0].pageId, 'dashboard');
   assert.deepEqual(browserConfig.applicationDataViews[0].binding, dataSnapshot.pages[1].sections[0].applicationDataView);
 
+  const emailSnapshot=structuredClone(snapshot),emailFrom='noreply@example.com';
+  emailSnapshot.application.tables=[{id:'appointments',key:'appointments',name:'Appointments',fields:[
+    {id:'appointment_name',key:'name',name:'Name',type:'text',required:true},
+  ],permissions:[{operation:'read',access:'owner'},{operation:'create',access:'owner'}],notifications:[{
+    id:'appointment-created',connectionId:'customer-mail',event:{type:'created'},subject:'Appointment {{field:appointment_name}}',text:'Created {{record.id}}',
+  }]}];
+  emailSnapshot.integrationsMax={version:1,connections:[{id:'customer-mail',providerId:'resend',name:'Customer mail',enabled:true,
+    status:'configured',environments:['production'],config:{from:emailFrom},secrets:{apiKey:{
+      ref:`secret://website/${id}/customer-mail/apiKey/production`,updatedAt:'2026-10-09T10:00:00.000Z'}},events:[],
+    createdAt:'2026-10-09T10:00:00.000Z',updatedAt:'2026-10-09T10:00:00.000Z'}]};
+  const emailFiles=await compile(emailSnapshot,config),emailSchema=emailFiles.find(file=>file.path==='database/schema.sql').content;
+  assert.equal((emailSchema.match(/^begin;$/gm)??[]).length,1);assert.equal((emailSchema.match(/^commit;$/gm)??[]).length,1);
+  assert.match(emailSchema,/create table private[.]app_email_jobs/);assert.match(emailSchema,/create trigger app_email_rule_0/);
+  const emailPlan=JSON.parse(emailFiles.find(file=>file.path==='runtime-environment-plan.json').content);
+  assert.deepEqual(emailPlan.requirements.map(item=>item.key),['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SECRET_KEY','CRON_SECRET','TAYAR_RESEND_01_API_KEY']);
+  assert.equal(JSON.stringify(emailFiles).includes('re_fixture'),false);assert.equal(JSON.stringify(emailFiles).includes('secret://website/'),false);
+  assert(JSON.parse(emailFiles.find(file=>file.path==='vercel.json').content).rewrites.some(item=>item.source==='/api/application-email-worker'));
+  const emailRuntimeFile=join(dir,'email-runtime.cjs');await writeFile(emailRuntimeFile,emailFiles.find(file=>file.path==='api/application.js').content);
+  const emailHandler=(await import(pathToFileURL(emailRuntimeFile))).default;
+  const cronSecret='cron_fixture_123456789012345678901234567890';
+  Object.assign(process.env,{SUPABASE_URL:backend.url,SUPABASE_ANON_KEY:backend.publishableKey,
+    SUPABASE_SECRET_KEY:'sb_secret_fixture1234567890123456',CRON_SECRET:cronSecret,TAYAR_RESEND_01_API_KEY:'re_fixture1234567890123456'});
+  globalThis.fetch=async resource=>{assert.equal(String(resource),`${backend.url}/rest/v1/rpc/app_email_due`);return Response.json([]);};
+  const emailResponse=await emailHandler(new Request(`${origin}/api/application?tayarRoute=email-worker`,{headers:{authorization:`Bearer ${cronSecret}`}}));
+  assert.equal(emailResponse.status,200);assert.deepEqual(await emailResponse.json(),{scanned:0,accepted:0,retry:0,review:0,failed:0,idle:0,uncertain:0,unavailable:0});
+  for(const key of ['SUPABASE_URL','SUPABASE_ANON_KEY','SUPABASE_SECRET_KEY','CRON_SECRET','TAYAR_RESEND_01_API_KEY'])delete process.env[key];
+
   const bookingSnapshot = structuredClone(dataSnapshot);
   bookingSnapshot.application.tables[0].fields.push(
     { id: 'booking_resource', key: 'resource_id', name: 'Resource', type: 'uuid', required: true },
     { id: 'booking_start', key: 'starts_at', name: 'Start', type: 'datetime', required: true },
     { id: 'booking_end', key: 'ends_at', name: 'End', type: 'datetime', required: true });
   bookingSnapshot.application.tables[0].booking = { resourceFieldId: 'booking_resource', startFieldId: 'booking_start', endFieldId: 'booking_end' };
+  bookingSnapshot.application.tables[0].booking.schedule={timeZone:'Europe/Stockholm',weekly:[{day:1,startMinute:540,endMinute:1020}],maxDurationMinutes:120};
+  bookingSnapshot.application.tables[0].booking.recurrence={timeZone:'Europe/Stockholm',maxOccurrences:12};
   bookingSnapshot.pages[1].sections[0].applicationDataView.columns.push('booking_resource', 'booking_start', 'booking_end');
   const bookingFiles = await compile(bookingSnapshot, config);
   const bookingSchema = bookingFiles.find(file => file.path === 'database/schema.sql').content;
   assert.match(bookingSchema, /create extension if not exists btree_gist/);
+  assert.match(bookingSchema,/create trigger app_booking_schedule_0/);
+  assert.match(bookingSchema,/timezone\('Europe\/Stockholm'/);
+  assert.match(bookingSchema,/Application booking outside schedule/);
   assert.match(bookingSchema, /app_booking_overlap_0/); assert.match(bookingSchema, /app_booking_interval_0/);
   assert.deepEqual(JSON.parse(bookingFiles.find(file => file.path === 'application-definition.json').content).tables[0].booking,
     bookingSnapshot.application.tables[0].booking);
   assert.match(bookingFiles.find(file => file.path === 'api/application.js').content, /already booked/);
+  assert.match(bookingFiles.find(file => file.path === 'api/application.js').content, /booking-series/);
+
+  const reportSnapshot = structuredClone(dataSnapshot);
+  reportSnapshot.application.tables[0].fields.push({ id: 'record_amount', key: 'amount', name: 'Amount', type: 'number', required: true, defaultValue: 0 });
+  reportSnapshot.application.tables[0].reports = [
+    { id: 'record-count', name: 'Records', operation: 'count' },
+    { id: 'amount-total', name: 'Total', operation: 'sum', fieldId: 'record_amount' },
+  ];
+  reportSnapshot.pages[1].sections[0].applicationDataView.columns.push('record_amount');
+  const reportFiles = await compile(reportSnapshot, config), reportSchema = reportFiles.find(file => file.path === 'database/schema.sql').content;
+  assert.match(reportSchema, /create function public\.app_reports_0\(\) returns jsonb language sql stable security invoker/);
+  assert.match(reportSchema, /coalesce\(sum\("amount"\),0\)::text/);
+  assert.deepEqual(JSON.parse(reportFiles.find(file => file.path === 'application-definition.json').content).tables[0].reports,
+    reportSnapshot.application.tables[0].reports);
+  assert.match(reportFiles.find(file => file.path === 'api/application.js').content, /app_reports_/);
 
   const counterSnapshot = structuredClone(dataSnapshot);
   counterSnapshot.application.tables[0].fields.push({ id: 'record_qty', key: 'quantity', name: 'Quantity', type: 'number', required: true, defaultValue: 0 });
@@ -133,6 +181,25 @@ try {
     status:'configured',environments:['production'],config:{publishableKey:'pk_live_fixture123456789'},
     secrets:{secretKey:{ref:`secret://website/${id}/stripe-prod/secretKey/production`,updatedAt:'2026-10-04T10:00:00.000Z'}},
     events:[],createdAt:'2026-10-04T10:00:00.000Z',updatedAt:'2026-10-04T10:00:00.000Z'}]};
+  const paidSnapshot=structuredClone(transactionSnapshot);
+  paidSnapshot.integrationsMax=structuredClone(stripeSnapshot.integrationsMax);
+  paidSnapshot.application.roles=[{id:'refund_admin',name:'Refund administrator'}];
+  paidSnapshot.application.tables[0].fields.push({id:'item_price',key:'price_minor',name:'Price',type:'number',required:true,defaultValue:100});
+  paidSnapshot.application.tables[1].payment={provider:'stripe',currency:'sek',itemUnitAmountFieldId:'item_price',refundRoleId:'refund_admin'};
+  paidSnapshot.pages[1].sections[0].applicationDataView.actions.push('pay','refund');
+  const paidBefore=JSON.stringify(paidSnapshot),paidFiles=await compile(paidSnapshot,config);
+  assert.equal(JSON.stringify(paidSnapshot),paidBefore);assert.deepEqual(await compile(paidSnapshot,config),paidFiles);
+  const paidSchema=paidFiles.find(file=>file.path==='database/schema.sql').content;
+  assert.match(paidSchema,/private.app_order_quotes/);assert.match(paidSchema,/app_stripe_order_reserve_refund/);
+  assert.match(paidSchema,/app_order_refund_authorize_1/);assert.match(paidSchema,/Price administration role required/);
+  assert.equal((paidSchema.match(/^begin;/gm)||[]).length,1);assert.equal((paidSchema.match(/^commit;/gm)||[]).length,1);
+  const paidRoutes=JSON.parse(paidFiles[1].content).rewrites.map(item=>item.source);
+  for(const route of ['/api/stripe-webhook','/api/stripe-order/orders/checkout','/api/stripe-order/orders/refund'])assert(paidRoutes.includes(route));
+  const paidKeys=JSON.parse(paidFiles.find(file=>file.path==='runtime-environment-plan.json').content).requirements.map(item=>item.key);
+  for(const key of ['STRIPE_SECRET_KEY','STRIPE_WEBHOOK_SECRET','SUPABASE_SECRET_KEY'])assert(paidKeys.includes(key));
+  assert(paidFiles.every(file=>!file.content.includes('secret://website/')));
+  const unpaidConnection=structuredClone(paidSnapshot);delete unpaidConnection.integrationsMax;
+  await assert.rejects(compile(unpaidConnection,config),/unhandled capabilities/);
   const stripeFiles=await compile(stripeSnapshot,config);
   const stripeVercel=JSON.parse(stripeFiles[1].content);
   assert.deepEqual(stripeVercel.rewrites.map(item=>item.source),

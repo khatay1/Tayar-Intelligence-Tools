@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { build } from 'esbuild';
+import { createRequire } from 'node:module';
 
 const findChrome = () => {
   if (process.env.CHROME_BIN && existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
@@ -88,6 +89,38 @@ async function run(){
   await wait(()=>!bookingRoot.querySelector('.editor form'));
   check(bookingRoot.querySelectorAll('tbody tr').length===0,'relationship lookup account switch clears private UI');
   stopBooking();bookingHost.remove();
+  const seriesApp=structuredClone(bookingApp);seriesApp.tables[0].booking.recurrence={timeZone:'Europe/Stockholm',maxOccurrences:12};
+  let seriesCalls=0,seriesRows=[],seriesUser=owner;
+  const seriesRuntime={...bookingRuntime,auth:{currentUser:async()=>({id:seriesUser,is_anonymous:false}),currentRoles:async()=>[]},
+    list:async(tableId)=>tableId==='resources'?roomRows:seriesRows,
+    createBookingSeries:async(_table,values,repeat,_request,expected)=>{check(expected===owner,'series pins identity');check(repeat.count===3&&repeat.frequency==='weekly'&&repeat.interval===1,'series controls pass recurrence');seriesCalls++;if(seriesCalls===1)throw new ApplicationBookingRejected('conflict');seriesRows=[{...values,id:ids[0]}];return 'created'}};
+  const seriesHost=document.createElement('div');document.body.append(seriesHost);
+  const stopSeries=mountApplicationDataView(seriesHost,seriesApp,{tableId:'bookings',columns:bookingFields.map(field=>field.id),actions:['create'],pageSize:10},seriesRuntime,language,{projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'recurrence',sectionId:'series'});
+  const seriesRoot=seriesHost.shadowRoot,seriesIdle=()=>wait(()=>seriesRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const seriesButton=text=>[...seriesRoot.querySelectorAll('button')].find(button=>button.textContent===text&&!button.hidden&&!button.disabled);
+  await seriesIdle();seriesButton(copy.add).click();let seriesForm=seriesRoot.querySelector('.editor form');
+  await wait(()=>!seriesForm.elements.resource_id.disabled&&seriesForm.elements.resource_id.options.length>1);
+  seriesForm.elements.resource_id.value=ids[1];seriesForm.elements.starts_at.value='2026-10-24T10:00';seriesForm.elements.ends_at.value='2026-10-24T11:00';
+  const repeatToggle=seriesForm.querySelector('input[type=checkbox]'),repeatNumbers=seriesForm.querySelectorAll('fieldset input[type=number]');
+  repeatToggle.checked=true;repeatToggle.dispatchEvent(new Event('change'));repeatNumbers[0].value='99';
+  check(!seriesForm.checkValidity(),'repeat count is bounded');repeatToggle.checked=false;repeatToggle.dispatchEvent(new Event('change'));
+  check(seriesForm.checkValidity(),'disabled repeat controls cannot block a single booking');repeatToggle.checked=true;repeatToggle.dispatchEvent(new Event('change'));repeatNumbers[0].value='3';
+  seriesForm.requestSubmit();await seriesIdle();check(seriesCalls===1&&seriesRoot.querySelector('[role=status]').textContent===conflict,'series conflict retains localized feedback');
+  seriesForm.elements.starts_at.value='2026-10-24T12:00';seriesForm.elements.ends_at.value='2026-10-24T13:00';seriesForm.requestSubmit();await seriesIdle();
+  check(seriesCalls===2&&seriesRows.length===1&&!seriesRoot.querySelector('.editor form'),'corrected series saves through series runtime');stopSeries();seriesHost.remove();
+  const reportApp=structuredClone(app);reportApp.tables[0].fields.push({id:'amount',key:'amount',name:'Amount',type:'number',required:true});
+  reportApp.tables[0].reports=[{id:'total',name:'<img src=x onerror="window.reportXss=true">',operation:'sum',fieldId:'amount'}];
+  let reportUser=owner,reportFailure=false,reportSwitch=false;
+  const reportRuntime={...runtime,auth:{currentUser:async()=>({id:reportUser,is_anonymous:false}),currentRoles:async()=>[]},list:async()=>[{id:ids[0],name:'Report row',active:false,state:'open',amount:1}],
+    reports:async(_table,expected)=>{check(expected===owner,'report pins identity');if(reportFailure)throw Error('offline');if(reportSwitch)reportUser=ids[1];return [{id:'total',name:reportApp.tables[0].reports[0].name,value:'9007199254740993.01'}]}};
+  const reportHost=document.createElement('div');document.body.append(reportHost);
+  const stopReport=mountApplicationDataView(reportHost,reportApp,{...binding,actions:[]},reportRuntime,language,{projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'reports',sectionId:'totals'});
+  const reportRoot=reportHost.shadowRoot,reportIdle=()=>wait(()=>reportRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const refreshReport=()=>[...reportRoot.querySelectorAll('button')].find(button=>button.textContent===copy.refresh).click();
+  await reportIdle();check(reportRoot.querySelector('section').textContent.includes('9007199254740993.01'),'large decimal total stays exact');
+  check(!reportRoot.querySelector('section img')&&!window.reportXss,'report names render as text');reportFailure=true;refreshReport();await reportIdle();
+  check(!reportRoot.querySelector('section').textContent.includes('9007199254740993.01'),'failed refresh clears stale totals');
+  reportFailure=false;reportSwitch=true;refreshReport();await reportIdle();check(reportRoot.querySelectorAll('tbody tr').length===0&&reportRoot.querySelector('section').hidden,'account switch during reports clears private rows and totals');stopReport();reportHost.remove();
   const counterApp={...app,roles:[],tables:[{id:'stock_items',key:'stock_items',name:'Stock items',fields:[{id:'item_name',key:'name',name:'Name',type:'text',required:true},{id:'item_stock',key:'quantity',name:'Quantity',type:'number',required:true,defaultValue:0}],permissions:['read','update'].map(operation=>({operation,access:'owner'})),counter:{fieldId:'item_stock',minimum:0,maximum:100,integer:true}}]};
   let quantity=10,adjustments=0;const counterRequests=new Set();
   const counterRuntime={auth:{currentUser:async()=>({id:owner,is_anonymous:false}),currentRoles:async()=>[]},list:async()=>[{id:ids[0],name:'Generic product',quantity}],adjustCounter:async(_table,id,delta,requestId)=>{if(counterRequests.has(requestId))return 'already-created';if(quantity+delta<0||quantity+delta>100)throw new ApplicationCounterRejected();quantity+=delta;adjustments++;counterRequests.add(requestId);return 'created'},createOnce:async()=>{throw Error('unexpected create')},update:async()=>{},remove:async()=>{}};
@@ -141,14 +174,23 @@ async function run(){
 
  }
 }
-run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / reference selectors / generic counters / atomic transactions / private attachments / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
+run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / recurring series / exact reports / reference selectors / generic counters / atomic transactions / private attachments / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'data-view-fixture.ts' }, bundle: true, write: false,
     platform: 'browser', format: 'iife', target: 'es2020', alias: { '@': resolve('src') } });
   const html = '<!doctype html><html><body><p id="result">RUNNING</p><script src="/fixture.js"></script></body></html>';
   server = createServer((req, res) => { res.setHeader('content-type', req.url === '/fixture.js' ? 'text/javascript' : 'text/html'); res.end(req.url === '/fixture.js' ? result.outputFiles[0].text : html); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
-  const output = await new Promise((resolve, reject) => {
+  let output;
+  if (process.env.TAYAR_BROWSER_DRIVER_MODULE) {
+    const { chromium } = createRequire(import.meta.url)(process.env.TAYAR_BROWSER_DRIVER_MODULE);
+    const browser = await chromium.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox', '--no-zygote', '--single-process', '--disable-dev-shm-usage'] });
+    try {
+      const page = await browser.newPage(); await page.goto(url);
+      await page.waitForFunction(() => document.querySelector('#result')?.textContent !== 'RUNNING', { timeout: 35_000 });
+      output = await page.content();
+    } finally { await browser.close(); }
+  } else output = await new Promise((resolve, reject) => {
     const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--dump-dom', '--virtual-time-budget=15000', `--user-data-dir=${dir}`, url], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '', stderr = ''; const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Data view browser timed out')); }, 35_000);
     child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });

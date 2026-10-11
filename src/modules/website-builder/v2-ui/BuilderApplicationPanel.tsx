@@ -1,7 +1,9 @@
 import { BuilderApplicationFilesRule } from './BuilderApplicationFilesRule';
+import { BuilderApplicationReportsRule } from './BuilderApplicationReportsRule';
 import { BuilderApplicationNotificationsRule } from './BuilderApplicationNotificationsRule';
 import { BuilderApplicationCounterRule } from './BuilderApplicationCounterRule';
 import { BuilderApplicationTransactionRule } from './BuilderApplicationTransactionRule';
+import { BuilderApplicationPaymentRule } from './BuilderApplicationPaymentRule';
 import { BuilderApplicationWorkflowRule } from './BuilderApplicationWorkflowRule';
 import { BuilderApplicationFormulaRule } from './BuilderApplicationFormulaRule';
 import { useEffect, useRef, useState } from 'react';
@@ -103,6 +105,10 @@ export function BuilderApplicationPanel({ value, pages, cloudProjectId, loadSequ
         <BuilderApplicationCounterRule key={`counter:${JSON.stringify(table)}`} table={table} disabled={disabled} onSave={counter => { const next = { ...table }; if (counter) next.counter = counter; else delete next.counter; updateTable(next); }} />
         <BuilderApplicationTransactionRule key={`transaction:${JSON.stringify(table)}:${app.tables.length}`} table={table} tables={app.tables} disabled={disabled} onSave={transaction => { const next = { ...table }; if (transaction) next.transaction = transaction; else delete next.transaction; updateTable(next); }} />
         <BuilderApplicationBookingRule key={JSON.stringify(table)} table={table} disabled={disabled} onSave={booking => { const next = { ...table }; if (booking) next.booking = booking; else delete next.booking; updateTable(next); }} />
+        <BuilderApplicationReportsRule key={`reports:${JSON.stringify(table)}`} table={table} disabled={disabled || !app.auth.enabled || !table.permissions.some(rule => rule.operation === 'read')} onSave={reports => { const next = { ...table }; if (reports) next.reports = reports; else delete next.reports; updateTable(next); }} />
+        <BuilderApplicationPaymentRule key={`payment:${JSON.stringify(table)}:${JSON.stringify(app.roles)}:${JSON.stringify(app.tables)}`}
+          table={table} tables={app.tables} roles={app.roles} disabled={disabled || !app.auth.emailVerificationRequired}
+          onSave={payment => { const next = { ...table }; if (payment) next.payment = payment; else delete next.payment; updateTable(next); }} />
         <BuilderApplicationFilesRule key={`files:${JSON.stringify(table)}`} table={table} disabled={disabled || !app.auth.enabled} onSave={attachments => { const next = { ...table }; if (attachments) next.attachments = attachments; else delete next.attachments; updateTable(next); }} />
         <BuilderApplicationWorkflowRule key={`workflow:${JSON.stringify(table)}:${JSON.stringify(app.roles)}`} table={table} roles={app.roles} disabled={disabled} onSave={workflow => { const next = { ...table }; if (workflow) next.workflow = workflow; else delete next.workflow; updateTable(next); }} />
         <BuilderApplicationNotificationsRule key={`notifications:${scope}:${JSON.stringify(table)}`} table={table} disabled={disabled || !app.auth.enabled || !app.auth.emailVerificationRequired} onSave={notifications => { const next = { ...table }; if (notifications) next.notifications = notifications; else delete next.notifications; updateTable(next); }} />

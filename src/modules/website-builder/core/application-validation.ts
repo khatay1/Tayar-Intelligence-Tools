@@ -1,5 +1,7 @@
 import { APPLICATION_FILE_TYPES, APPLICATION_FILE_MAX_BYTES } from './application-files';
 import { validateApplicationEmailNotification } from './application-email-notifications';
+import { validApplicationBookingSchedule } from './application-booking-schedule';
+import { validBookingRecurrenceRule } from './application-booking-recurrence';
 import { APPLICATION_LIMITS, APPLICATION_SYSTEM_FIELDS, createApplicationDefinition, type ApplicationDefinition, type ApplicationTable } from './application-model';
 
 export interface ApplicationIssue { path: string; code: string; message: string }
@@ -47,7 +49,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'workflow', 'attachments', 'notifications'], path)) return;
+    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
@@ -100,10 +102,30 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (!validDefault) issue(`${fieldPath}.defaultValue`, 'invalid-default', 'The default must match the field type. Computed, relationship and structured defaults are not accepted.');
       }
     });
+    if (table.reports !== undefined) {
+      if (!authEnabled || !Array.isArray(table.reports) || !table.reports.length || table.reports.length > 8
+        || !Array.isArray(table.permissions) || !table.permissions.some(rule => object(rule) && rule.operation === 'read')) issue(`${path}.reports`, 'invalid-reports', 'Reports require Auth, read permission and 1–8 declarations.');
+      else {
+        const reportIds = new Set<string>();
+        table.reports.forEach((report, index) => {
+          const reportPath = `${path}.reports[${index}]`;
+          if (!shape(report, ['id', 'name', 'operation', 'fieldId'], reportPath)) return;
+          const field = Array.isArray(table.fields) && table.fields.find(field => object(field) && field.id === report.fieldId);
+          if (!id(report.id) || reportIds.has(String(report.id)) || !name(report.name) || !['count', 'sum', 'min', 'max', 'avg'].includes(String(report.operation))
+            || (report.operation === 'count' ? report.fieldId !== undefined : !object(field) || field.type !== 'number')) issue(reportPath, 'invalid-report', 'Reports need unique IDs, a name and an ordinary count or declared numeric field.');
+          reportIds.add(String(report.id));
+        });
+      }
+    }
     if (table.booking !== undefined) {
       const bookingPath = `${path}.booking`;
-      if (shape(table.booking, ['resourceFieldId', 'startFieldId', 'endFieldId', 'statusFieldId', 'blockingStatuses'], bookingPath)) {
+      if (shape(table.booking, ['resourceFieldId', 'startFieldId', 'endFieldId', 'statusFieldId', 'blockingStatuses', 'schedule', 'recurrence'], bookingPath)) {
         const rule = table.booking;
+        if (rule.recurrence !== undefined && (!validBookingRecurrenceRule(rule.recurrence)
+          || (object(rule.schedule) && rule.recurrence.timeZone !== rule.schedule.timeZone)
+          || !Array.isArray(table.permissions) || !['read', 'create'].every(operation => (table.permissions as unknown[]).some(permission => object(permission) && permission.operation === operation))))
+          issue(`${bookingPath}.recurrence`, 'invalid-booking-recurrence', 'Recurrence requires read/create access, a valid zone matching the schedule and a 2–52 occurrence limit.');
+        if (rule.schedule !== undefined && !validApplicationBookingSchedule(rule.schedule)) issue(`${bookingPath}.schedule`, 'invalid-booking-schedule', 'Booking schedule requires a valid time zone, non-overlapping weekly windows and a bounded duration.');
         const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
         const find = (fieldId: unknown) => fields.find(field => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
@@ -178,6 +200,22 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (!has(table, 'read') || !has(table, 'create') || !has(itemTable, 'read') || !has(itemTable, 'update') || !has(lineTable, 'read')
           || (object(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some(permission => object(permission) && permission.operation !== 'read'))) {
           issue(transactionPath, 'transaction-permissions', 'Transactions require parent read/create, item read/update and read-only line permissions.');
+        }
+      }
+    }
+    if(table.payment!==undefined){
+      const paymentPath=`${path}.payment`,rule=table.payment;
+      if(shape(rule,['provider','currency','itemUnitAmountFieldId','refundRoleId'],paymentPath)){
+        const transaction=object(table.transaction)?table.transaction:null;
+        const itemTable=transaction?tables.find(candidate=>object(candidate)&&candidate.id===transaction.itemTableId):null;
+        const amountField=object(itemTable)&&Array.isArray(itemTable.fields)
+          ?itemTable.fields.find(field=>object(field)&&field.id===rule.itemUnitAmountFieldId):null;
+        if(rule.provider!=='stripe'||!transaction||typeof rule.currency!=='string'||!/^[a-z]{3}$/.test(rule.currency)
+          ||!id(rule.itemUnitAmountFieldId)||!object(amountField)||amountField.type!=='number'||amountField.required!==true
+          ||amountField.formula!==undefined||amountField.id===(object(itemTable)&&object(itemTable.counter)?itemTable.counter.fieldId:null)
+          ||transaction.counterDirection!=='decrement'||!authEnabled||!object(auth)||auth.emailVerificationRequired!==true
+          ||!id(rule.refundRoleId)||!roleIds.has(String(rule.refundRoleId))){
+          issue(paymentPath,'invalid-payment','Stripe payment needs a transaction, a required ordinary item price in minor units, a currency and a declared refund role.');
         }
       }
     }

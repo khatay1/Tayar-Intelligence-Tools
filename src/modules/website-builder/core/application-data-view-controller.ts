@@ -6,8 +6,9 @@ import type { ApplicationDefinition } from './application-model';
 import { compileApplicationDataView, dataViewAllows, parseApplicationDataViewValues, type ApplicationDataViewBinding } from './application-data-view';
 import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
+import { expandApplicationBookingRecurrence } from './application-booking-recurrence';
 
-type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { files?: ReturnType<typeof createApplicationDataRuntime>['files'] };
+type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { reports?: ReturnType<typeof createApplicationDataRuntime>['reports']; createBookingSeries?: ReturnType<typeof createApplicationDataRuntime>['createBookingSeries']; files?: ReturnType<typeof createApplicationDataRuntime>['files']; payments?: ReturnType<typeof createApplicationDataRuntime>['payments'] };
 const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
@@ -35,13 +36,15 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles));
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' || action === 'pay' || action === 'refund' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles)
+      && (!(action === 'pay' || action === 'refund') || runtime.payments?.available)
+      && (action !== 'refund' || !!compiled.table.payment && roles.includes(compiled.table.payment.refundRoleId)));
   }
   async function fileWritesAllowed() {
     const user = await identity(), roles = await runtime.auth.currentRoles(); await identity();
     return dataViewAllows(compiled.table, 'update', user, roles);
   }
-  async function write(action: 'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition' | 'attachments', execute: () => Promise<unknown>) {
+  async function write(action: ApplicationDataViewBinding['actions'][number], execute: () => Promise<unknown>) {
     if (writing) throw new Error('A record operation is already in progress.');
     writing = true;
     try {
@@ -53,6 +56,50 @@ export function createApplicationDataViewController(definition: ApplicationDefin
   return {
     ...compiled,
     permissions,
+    async reports() {
+      await permissions();
+      if (!runtime.reports || !compiled.table.reports?.length) throw new Error('Reports are unavailable.');
+      try {
+        const result = await runtime.reports(compiled.table.id, owner!);
+        await identity(); return result;
+      } catch (error) {
+        // Also close the view when the runtime detects a post-response account
+        // switch before it can return the report payload.
+        try { await identity(); } catch { /* identity() marks the view closed */ }
+        throw error;
+      }
+    },
+    async paymentStatus(id: string) {
+      const actions = await permissions();
+      if (!actions.some(action => action === 'pay' || action === 'refund') || !runtime.payments) throw new Error('Payment status is unavailable.');
+      const status = await runtime.payments.status(compiled.table.id, rowId(id), owner!);
+      await identity(); return status;
+    },
+    async pay(id: string) {
+      const recordId = rowId(id);
+      let url: string | undefined;
+      await write('pay', async () => {
+        if (!runtime.payments) throw new Error('Checkout is unavailable.');
+        // One checkout identity per frozen order, including other tabs/pages
+        // and a cleared browser session. The server owns the reservation.
+        url = await runtime.payments.checkout(compiled.table.id, recordId, recordId, owner!);
+      });
+      return url!;
+    },
+    async refund(id: string, amount: number) {
+      const recordId = rowId(id);
+      if (!Number.isSafeInteger(amount) || amount < 1 || amount > 99_999_999_999) throw new Error('Invalid refund amount.');
+      await write('refund', async () => {
+        if (!durableScope || !runtime.payments) throw new Error('Durable refund is unavailable.');
+        submission = createDurableApplicationFormSubmission({ tableId: compiled.table.id, values: () => ({ recordId, amount }) }, {
+          createOnce: async (_tableId, _payload, requestId) => {
+            await runtime.payments!.refund(compiled.table.id, recordId, requestId, amount, owner!);
+            return 'created';
+          },
+        }, { key: `${durableScope.keyPrefix}:refund:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
+        if (await submission.submit([]) !== 'confirmed') throw new Error('Refund outcome is uncertain. Retry the same amount.');
+      });
+    },
     closed() { return disposed; },
     dispose() { disposed = true; pending = undefined; submission?.dispose(); },
     async load(page = 0, query = '') {
@@ -121,6 +168,17 @@ export function createApplicationDataViewController(definition: ApplicationDefin
         if (await submission.submit([]) !== 'confirmed') throw new Error('Application submission outcome is uncertain.');
       });
       pending = undefined;
+    },
+    async recur(input: Record<string, unknown>, repeat: unknown) {
+      const values = parseApplicationDataViewValues(compiled.table, input, true);
+      expandApplicationBookingRecurrence(compiled.table, values, repeat);
+      await write('create', async () => {
+        if (!durableScope || !runtime.createBookingSeries) throw new Error('Durable booking series is unavailable.');
+        submission = createDurableApplicationFormSubmission({ tableId: compiled.table.id, values: () => ({ values, repeat }) }, {
+          createOnce: (_table, _payload, requestId) => runtime.createBookingSeries!(compiled.table.id, values, repeat, requestId, owner!),
+        }, { key: `${durableScope.keyPrefix}:booking-series:${owner}`, storage: durableScope.storage, crypto: durableScope.crypto });
+        if (await submission.submit([]) !== 'confirmed') throw new Error('Booking series outcome is uncertain. Keep the same values and retry.');
+      });
     },
     async update(id: string, input: Record<string, unknown>) {
       const values = parseApplicationDataViewValues(compiled.table, input, false);

@@ -18,6 +18,7 @@ try {
   const { normalizeOwnedStripeOrderEvent: normalize, serveOwnedStripeWebhook: serve, verifyOwnedStripeWebhook: verify,
     compileOwnedStripeOrderSchema: compileSchema, createOwnedStripeOrderEventStore: rpcStore,
     reserveOwnedStripeOrder: reserve, bindOwnedStripeOrderSession: bindSession,
+    reserveOwnedStripeOrderRefund: reserveRefund,bindOwnedStripeOrderRefund:bindRefund,
     serveOwnedStripeOrderCheckout: checkout, serveOwnedStripeOrderRefund: requestRefund } = stripe;
   const session = { id: 'cs_live_fixture123456789', object: 'checkout.session', client_reference_id: projectId,
     payment_intent: 'pi_fixture123456789', payment_status: 'paid', amount_total: 2500, currency: 'sek',
@@ -40,9 +41,10 @@ try {
   assert.equal(normalize(event('refund.created', refund), { projectId, livemode: true }).status, 'refund-pending');
   assert.equal(normalize(event('refund.updated', { ...refund, status: 'succeeded' }), { projectId, livemode: true }).status, 'refunded');
   const charge = { id: 'ch_fixture123456789', object: 'charge', payment_intent: session.payment_intent, amount: 2500, amount_refunded: 500,
-    currency: 'sek', refunded: true, metadata: session.metadata };
+    currency: 'sek', refunded: false, metadata: session.metadata };
   assert.equal(normalize(event('charge.refunded', charge), { projectId, livemode: true }).status, 'partially-refunded');
-  assert.equal(normalize(event('charge.refunded', { ...charge, amount_refunded: 2500 }), { projectId, livemode: true }).status, 'refunded');
+  assert.throws(()=>normalize(event('charge.refunded',{...charge,refunded:true}),{projectId,livemode:true}),/completeness/);
+  assert.equal(normalize(event('charge.refunded', { ...charge, amount_refunded: 2500, refunded: true }), { projectId, livemode: true }).status, 'refunded');
   for (const invalid of [event('checkout.session.completed', { ...session, payment_status: 'unpaid' }),
     event('checkout.session.completed', { ...session, metadata: { ...session.metadata, tayar_order_id: 'foreign' } }),
     event('checkout.session.completed', { ...session, client_reference_id: orderId }), { ...event(), livemode: false },
@@ -79,16 +81,28 @@ try {
   const rpcCalls = [], mockClient = { async rpc(name, args) { rpcCalls.push([name, structuredClone(args)]);
     if (name === 'app_stripe_order_reserve') return { data: { orderId, status: 'pending', sessionId: null }, error: null };
     if (name === 'app_stripe_order_bind_session') return { data: true, error: null };
+    if(name==='app_stripe_order_reserve_refund')return{data:{operationId:args.p_operation_id,providerRefundId:null,
+      providerStatus:null,amount:args.p_amount},error:null};
+    if(name==='app_stripe_order_bind_refund')return{data:true,error:null};
     return { data: 'applied', error: null };
   } };
   assert.equal((await reserve(mockClient, { orderId, userId: projectId, environment: 'production', currency: 'sek', amountDue: 2500,
     operationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' })).status, 'pending');
   await bindSession(mockClient, { orderId, operationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', sessionId: session.id });
+  const refundReservation=await reserveRefund(mockClient,{orderId,userId:projectId,paymentIntentId:session.payment_intent,
+    amount:500,operationId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'});
+  assert.equal(refundReservation.providerRefundId,null);await bindRefund(mockClient,{orderId,
+    operationId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',providerRefundId:'re_fixture123456789',providerStatus:'pending'});
   assert.equal(await rpcStore(mockClient).apply(normalize(event(), { projectId, livemode: true })), 'applied');
-  assert.deepEqual(rpcCalls.map(call => call[0]), ['app_stripe_order_reserve', 'app_stripe_order_bind_session', 'app_stripe_order_apply_event']);
-  const token = 'header.payload.signature.fixture', operationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', actions = [], actionClient = { async rpc(name, args) {
-    actions.push([name, structuredClone(args)]); return name === 'app_stripe_order_reserve'
-      ? { data: { orderId, status: 'pending', sessionId: null }, error: null } : { data: true, error: null };
+  assert.deepEqual(rpcCalls.map(call => call[0]), ['app_stripe_order_reserve','app_stripe_order_bind_session',
+    'app_stripe_order_reserve_refund','app_stripe_order_bind_refund','app_stripe_order_apply_event']);
+  const token = 'header.payload.signature.fixture', operationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', actions = [];
+  let actionRefundBound=false;const actionClient = { async rpc(name, args) {
+    actions.push([name, structuredClone(args)]);if(name==='app_stripe_order_reserve')
+      return{data:{orderId,status:'pending',sessionId:null},error:null};
+    if(name==='app_stripe_order_reserve_refund')return{data:{operationId:args.p_operation_id,
+      providerRefundId:actionRefundBound?'re_fixture123456789':null,providerStatus:actionRefundBound?'pending':null,
+      amount:args.p_amount},error:null};if(name==='app_stripe_order_bind_refund')actionRefundBound=true;return{data:true,error:null};
   } };
   const actionInput = { projectId, applicationOrigin: origin, secretKey: 'sk_live_fixture123456789', client: actionClient,
     async authenticate(value) { return value === token ? { userId: projectId } : null; },
@@ -107,9 +121,25 @@ try {
     let actionReply = await checkout(actionRequest('/api/stripe-order-checkout', { checkoutId: 'buy', operationId, orderId }), actionInput);
     assert.equal(actionReply.status, 200); assert.deepEqual(await actionReply.json(), { url: 'https://checkout.stripe.com/c/pay/fixture-order' });
     assert.match(actions.find(item => String(item[0]).includes('checkout/sessions'))[2]['Idempotency-Key'], new RegExp(operationId));
+    let existingSessionStatus='open',readSessionCalls=0;
+    const resumeInput={...actionInput,client:{async rpc(name){assert.equal(name,'app_stripe_order_reserve');return{data:{orderId,status:'pending',sessionId:session.id},error:null};}},
+      async fetcher(url,init){readSessionCalls++;assert.equal(init.method,'GET');assert.equal(init.body,undefined);
+        assert.equal(String(url),`https://api.stripe.com/v1/checkout/sessions/${session.id}`);
+        return Response.json({...session,status:existingSessionStatus,mode:'payment',amount_total:2500,currency:'sek',livemode:true,
+          url:'https://checkout.stripe.com/c/pay/existing#stripe-fragment'});}};
+    const resumeRequest=()=>actionRequest('/api/stripe-order-checkout',{checkoutId:'buy',operationId,orderId});
+    const resumed=await checkout(resumeRequest(),resumeInput);assert.equal(resumed.status,200);
+    assert.equal((await resumed.json()).url,'https://checkout.stripe.com/c/pay/existing#stripe-fragment');
+    existingSessionStatus='expired';assert.equal((await checkout(resumeRequest(),resumeInput)).status,409);
+    assert.equal(readSessionCalls,2);
     actionReply = await requestRefund(actionRequest('/api/stripe-order-refund', { amount: 500, operationId, orderId }), actionInput);
     assert.equal(actionReply.status, 202); assert.deepEqual(await actionReply.json(), { status: 'pending' });
     assert.match(actions.find(item => String(item[0]).endsWith('/refunds'))[2]['Idempotency-Key'], new RegExp(operationId));
+    assert.deepEqual(actions.filter(item=>item[0]==='app_stripe_order_reserve_refund').map(item=>item[1].p_amount),[500]);
+    assert.equal(actions.filter(item=>item[0]==='app_stripe_order_bind_refund').length,1);
+    actionReply=await requestRefund(actionRequest('/api/stripe-order-refund',{amount:500,operationId,orderId}),actionInput);
+    assert.deepEqual(await actionReply.json(),{status:'pending'});
+    assert.equal(actions.filter(item=>String(item[0]).endsWith('/refunds')).length,1,'bound retry must not issue another refund');
     assert.equal((await checkout(actionRequest('/api/stripe-order-checkout', { checkoutId: 'buy', operationId, orderId }, 'wrong-token-that-is-long-enough'), actionInput)).status, 401);
     assert.equal((await checkout(actionRequest('/api/stripe-order-checkout?amount=1', { checkoutId: 'buy', operationId, orderId }), actionInput)).status, 403);
     assert.equal((await checkout(actionRequest('/api/stripe-order-checkout', { checkoutId: 'buy', operationId, orderId, amount: 1 }), actionInput)).status, 400);
@@ -146,15 +176,33 @@ try {
     assert.equal(await realStore.apply(paid), 'applied'); assert.equal(await realStore.apply(paid), 'duplicate');
     assert.equal(await realStore.apply({ ...paid, amount: 2400 }), 'conflict');
     assert.equal(await query(`select status||':'||amount_paid from private.app_stripe_order_payments where order_id='${orderId}';`), 'paid:2500');
+    const refundOperation='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    assert.equal((await reserveRefund(dbClient,{orderId,userId,paymentIntentId:session.payment_intent,amount:500,
+      operationId:refundOperation})).amount,500);
+    assert.equal((await reserveRefund(dbClient,{orderId,userId,paymentIntentId:session.payment_intent,amount:500,
+      operationId:refundOperation})).amount,500);
+    await assert.rejects(reserveRefund(dbClient,{orderId,userId,paymentIntentId:session.payment_intent,amount:2100,
+      operationId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'}));
+    await bindRefund(dbClient,{orderId,operationId:refundOperation,providerRefundId:refund.id,providerStatus:'pending'});
+    await bindRefund(dbClient,{orderId,operationId:refundOperation,providerRefundId:refund.id,providerStatus:'pending'});
+    const pendingEvent=normalize(event('refund.created',refund),{projectId,livemode:true});pendingEvent.eventId='evt_pendingfixture123456';
+    assert.equal(await realStore.apply(pendingEvent),'applied');
+    assert.equal(await query(`select status||':'||amount_refunded from private.app_stripe_order_payments where order_id='${orderId}';`),'refund-pending:0');
+    await assert.rejects(reserveRefund(dbClient,{orderId,userId,paymentIntentId:session.payment_intent,amount:2100,
+      operationId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'}));
     const refundEvent = normalize(event('refund.updated', { ...refund, status: 'succeeded' }), { projectId, livemode: true });
     refundEvent.eventId = 'evt_refundfixture123456';
     assert.equal(await realStore.apply(refundEvent), 'applied');
     assert.equal(await query(`select status||':'||amount_refunded from private.app_stripe_order_payments where order_id='${orderId}';`), 'partially-refunded:500');
-    const chargeEvent = normalize(event('charge.refunded', { ...charge, amount_refunded: 2500 }), { projectId, livemode: true });
+    const chargeEvent = normalize(event('charge.refunded', { ...charge, amount_refunded: 2500, refunded: true }), { projectId, livemode: true });
     chargeEvent.eventId = 'evt_chargefixture123456';
     assert.equal(await realStore.apply(chargeEvent), 'applied');
     assert.equal(await query(`select status||':'||amount_refunded from private.app_stripe_order_payments where order_id='${orderId}';`), 'refunded:2500');
-    assert.equal(await query(`select count(*) from private.app_stripe_order_events where order_id='${orderId}';`), '3');
+    assert.equal((await reserveRefund(dbClient,{orderId,userId,paymentIntentId:session.payment_intent,amount:500,
+      operationId:refundOperation})).providerRefundId,refund.id);
+    await assert.rejects(reserveRefund(dbClient,{orderId,userId,paymentIntentId:session.payment_intent,amount:1,
+      operationId:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'}));
+    assert.equal(await query(`select count(*) from private.app_stripe_order_events where order_id='${orderId}';`), '4');
     console.log('PASS PostgreSQL Stripe orders: private grants, verified reservation, immutable session, event replay/conflict and partial/full refunds');
   }
   console.log('PASS Stripe order webhook: raw-body signatures, replay/foreign isolation, paid/failed/refund normalization and server-only state input');

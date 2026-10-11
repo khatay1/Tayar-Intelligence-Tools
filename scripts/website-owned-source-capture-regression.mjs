@@ -57,7 +57,7 @@ try {
       assert.equal(capabilities.definition.auth.enabled, true);
       assert.equal(supabase.provider, 'supabase'); assert.equal(vercel.provider, 'vercel'); return verified; } };
   const source = await capture(args);
-  assert.deepEqual(source.files.map(file => file.path), ['HANDOVER.md', 'api/application.js', 'application-definition.json', 'database/schema.sql', 'package.json', 'vercel.json']);
+  assert.deepEqual(source.files.map(file => file.path), ['HANDOVER.md', 'api/application.js', 'application-definition.json', 'database/schema.sql', 'package.json', 'runtime-environment-plan.json', 'vercel.json']);
   assert.equal(source.capabilities.needs.auth, true);
   assert(source.files.every(file => !file.content.includes('PLATFORM_SECRET_NEVER_EXPORT')));
   assert.equal(await source.isCurrent(), true);
