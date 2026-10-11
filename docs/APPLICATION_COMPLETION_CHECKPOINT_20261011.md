@@ -1,6 +1,6 @@
 # Application completion checkpoint — 2026-10-11
 
-This checkpoint continues the customer application work after the Stripe order-ledger merge at `a6e4b95b`. Source changes are prepared for review; customer credentials and live deployments remain deferred to the final activation step.
+This checkpoint continues the customer application work after the Stripe order-ledger merge at `a6e4b95b`. PR #144 integrated that baseline. This follow-up closes the remaining agreed source features; customer credentials and live deployments remain deferred to the final activation step.
 
 ## Completed in the current source branch
 
@@ -20,11 +20,30 @@ This checkpoint continues the customer application work after the Stripe order-l
 - Real embedded PostgreSQL via PGlite: report owner isolation, exact decimals, anon/service-role denial and SECURITY DEFINER tamper refusal; booking overlap, RLS-hidden conflicts, full bulk-insert rollback and working-hours trigger/catalog checks.
 - Embedded PostgreSQL serializes connections; the existing native PostgreSQL concurrency test remains the CI check for simultaneous clients. The new report test also runs against a separate native PostgreSQL database in the release gate.
 
-## Remaining sequence
+## Follow-up source completion
 
-1. Verify and integrate the prepared source branch through the release gate.
-2. Implement the remaining financial reporting requirements: grouping/time-period comparisons and domain-specific ledgers beyond basic aggregates. Basic reports must not be described as a complete accounting system.
-3. Complete customer Preview end-to-end validation after final credential connection: sign-in, permissions, record writes, files, notifications, checkout, webhook replay and authorized refunds.
-4. Follow `docs/customer-runtime-key-handoff-plan.md` for the final approved Preview and Production credential transfer, deployment and activation. No real email, charge, refund or production cron was performed during this checkpoint.
+- Reports can group declared categorical fields and select day/week/month/year calendar periods in an IANA time zone, with offsets -120–0 and optional comparison against the previous complete period. Current periods can be incomplete.
+- Group results are capped at 100 with explicit truncation; totals still include every readable row. Null categories and previous-only categories are retained. Exact decimal changes use integer arithmetic rather than JavaScript floating-point values.
+- Authorized JSON downloads re-fetch reports with the pinned account identity; downloaded definitions and decimals contain no credentials.
+- A booking can reserve a primary resource and up to four additional resource types. Multiple types use distinct referenced tables, each with its own GiST exclusion constraint. One insert/update reserves all resources atomically.
+- Working hours support up to 366 unique date exceptions, including closures and special opening periods. Both the client and database guard use the same schedule semantics.
+- An explicit nonblocking waiting status retains a request without reserving the interval. Confirmation is a manual authorized update and must pass every resource exclusion and working-hours check. No automatic promotion or FIFO guarantee is claimed.
+- A selected-interval availability control uses an authenticated, pinned RPC. A private, exact-verified SECURITY DEFINER function checks declared create permission, resource read permission, permanent-user identity and working hours, then returns only occupied/free. It can detect conflicts hidden by booking RLS without returning booking identities or counts. Saving remains authoritative against races. Availability probes accept intervals up to 24 hours.
+- Additive edits regenerate availability functions when resource-table permissions change. Changing a deployed booking rule itself still requires a reviewed migration.
+- Source guidance and the editor/public controls retain these declarations in English, Arabic and Swedish.
 
-Recurring appointments remain individually editable/cancellable. Whole-series editing, live availability calendars and arbitrary recurrence patterns are not implemented. Social-channel integration remains a separate later plan.
+## Completion gate
+
+Local TypeScript, focused ESLint and application regressions passed. The new PostgreSQL and Chromium scenarios are included in the existing release gate. Merge is conditional on that gate passing; the pull request records the final run and commit.
+
+The payment/order audit found the required domain ledger already present: immutable server-priced order quotes, private durable Checkout linkage, idempotent webhook transitions, and atomic full/partial refund reservations. Generic analytics do not replace that ledger. Double-entry accounting, invoices and tax filing were not part of the accepted source-completion scope.
+
+## Final activation sequence
+
+1. Follow `docs/customer-runtime-key-handoff-plan.md` to connect customer accounts and transfer Preview credentials through the existing secure handoff. No credential values belong in chat, source, snapshots or reports.
+2. Deploy Preview and verify customer sign-in, denied permissions, writes, files, notification delivery, Checkout, webhook replay, authorized refunds, report isolation and multi-resource/waiting bookings.
+3. Independently verify Production bindings, transfer Production secrets, deploy and activate the supported worker schedule, then rotate temporary copies and verify final readiness.
+
+No real email, charge, refund, customer deployment or production cron was performed during source completion. Preview/Production end-to-end verification awaits the final credential connection agreed with the user.
+
+Recurring appointments remain individually editable/cancellable. Whole-series editing, automatic waitlist promotion, full live availability calendars and arbitrary recurrence patterns are outside this delivered implementation. Social-channel integration remains the separate later plan.

@@ -13,13 +13,13 @@ const resource = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', resource2 = 'bbbbbbbb-b
 let embeddedDatabase;
 try {
   const entry = join(dir, 'test.ts');
-  await writeFile(entry, ['application-model', 'application-validation', 'application-schema-sql', 'application-form-runtime', 'application-booking', 'application-data-view', 'application-data-runtime', 'application-booking-schedule', 'application-booking-schedule-sql']
+  await writeFile(entry, ['application-model', 'application-validation', 'application-schema-sql', 'application-form-runtime', 'application-booking', 'application-data-view', 'application-data-runtime', 'application-booking-schedule', 'application-booking-schedule-sql', 'application-booking-availability-sql']
     .map(name => `export * from ${JSON.stringify(resolve(`src/modules/website-builder/core/${name}`))};`).join('\n')
-    + `\nexport * from ${JSON.stringify(resolve('server/website-owned-supabase-catalog'))};\nexport * from ${JSON.stringify(resolve('server/website-owned-booking-schedule-catalog'))};`);
+    + `\nexport * from ${JSON.stringify(resolve('server/website-owned-booking-availability-catalog'))};\nexport * from ${JSON.stringify(resolve('server/website-owned-supabase-catalog'))};\nexport * from ${JSON.stringify(resolve('server/website-owned-booking-schedule-catalog'))};`);
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile: join(dir, 'test.cjs') });
   const { compileInitialApplicationSchema: compile, compileAdditiveApplicationMigration: migrate, readApplicationDefinition: validate,
     parseApplicationDataViewValues: parse, ApplicationBookingRejected: Rejected, createDurableApplicationFormSubmission: durable,
-    validApplicationBookingSchedule:validSchedule,applicationBookingWithinSchedule:withinSchedule,applicationBookingScheduleManifest:scheduleManifest,compileApplicationBookingSchedule:scheduleSQL,verifyOwnedBookingScheduleCatalog:verifySchedule,verifyOwnedSupabaseBookingConstraints: verify, createOwnedApplicationDataRuntime: runtimeFor } = require(join(dir, 'test.cjs'));
+    applicationBookingAvailabilityManifest:availabilityManifest, verifyOwnedBookingAvailabilityCatalog:verifyAvailability, validApplicationBookingSchedule:validSchedule,applicationBookingWithinSchedule:withinSchedule,applicationBookingScheduleManifest:scheduleManifest,compileApplicationBookingSchedule:scheduleSQL,verifyOwnedBookingScheduleCatalog:verifySchedule,verifyOwnedSupabaseBookingConstraints: verify, createOwnedApplicationDataRuntime: runtimeFor } = require(join(dir, 'test.cjs'));
   const fields = [
     { id: 'resource', key: 'resource_id', name: 'Resource', type: 'uuid', required: true },
     { id: 'start', key: 'starts_at', name: 'Start', type: 'datetime', required: true },
@@ -69,6 +69,32 @@ try {
   assert.equal(interval('2026-10-25T00:30Z','2026-10-25T01:30Z',sunday),false,'repeated local end must be after local start');
   assert.throws(()=>parse(scheduledTable,{...values,starts_at:'2026-10-09T06:00Z'},true),error=>error instanceof Rejected&&error.reason==='schedule');
   assert.doesNotThrow(()=>parse(scheduledTable,{...values,starts_at:'2026-10-09T06:00Z',status:'cancelled'},true));
+  const exceptions={...schedule,exceptions:[{date:'2026-10-09',windows:[]},{date:'2026-10-10',windows:[{startMinute:720,endMinute:780}]}]};
+  assert.equal(validSchedule(exceptions),true);
+  assert.equal(interval('2026-10-09T08:00Z','2026-10-09T09:00Z',exceptions),false,'date closure overrides weekly hours');
+  assert.equal(interval('2026-10-10T10:00Z','2026-10-10T11:00Z',exceptions),true,'special hours override closed weekday');
+  assert.equal(interval('2026-10-10T09:59Z','2026-10-10T10:59Z',exceptions),false);
+  for(const bad of [{date:'2026-02-30',windows:[]},{date:'0000-01-01',windows:[]},{date:'2026-10-09',windows:[{startMinute:900,endMinute:800}]}])
+    assert.equal(validSchedule({...schedule,exceptions:[bad]}),false);
+  assert.equal(validSchedule({...schedule,exceptions:[exceptions.exceptions[0],exceptions.exceptions[0]]}),false);
+  const sharedPermissions=['read','create','update'].map(operation=>({operation,access:'authenticated'}));
+  const directory=(id)=>({id,key:id,name:id,fields:[{id:id+'_name',key:'name',name:'Name',type:'text',required:true}],permissions:sharedPermissions});
+  const multiFields=[{...fields[0],type:'reference',referenceTableId:'doctors'},
+    {id:'room',key:'room_id',name:'Room',type:'reference',referenceTableId:'rooms',required:true},...fields.slice(1).map(field=>field.id==='status'?{...field,options:[...field.options,'waiting']}:field)];
+  const multiRule={...booking,additionalResourceFieldIds:['room'],waitlistStatus:'waiting',schedule:exceptions};
+  const multiTable={...table,fields:multiFields,booking:multiRule};
+  const multiApp={...app,tables:[directory('doctors'),directory('rooms'),multiTable]};
+  validate(multiApp);
+  assert.match(compile(multiApp).join('\n'),/app_booking_overlap_2_0/);
+  for(const rule of [{...multiRule,additionalResourceFieldIds:['resource']},{...multiRule,additionalResourceFieldIds:['room','room']},
+    {...multiRule,waitlistStatus:'confirmed'},{...multiRule,waitlistStatus:'missing'}])assert.throws(()=>validate({...multiApp,tables:[...multiApp.tables.slice(0,2),{...multiTable,booking:rule}]}));
+  assert.throws(()=>validate({...multiApp,tables:[...multiApp.tables.slice(0,2),{...multiTable,fields:multiFields.map(field=>field.id==='room'?{...field,referenceTableId:'doctors'}:field)}]}));
+  const probeRows=availabilityManifest(multiApp).map(item=>({...item,security_definer:item.definer,configuration:['search_path=""'],volatility:'s',kind:'f',result:'boolean',
+    arguments:'resources uuid[], starts_at timestamp with time zone, ends_at timestamp with time zone',owner:'postgres',anon_execute:false,authenticated_execute:true,service_execute:false}));
+  assert.equal(await verifyAvailability(multiApp,async()=>probeRows),true);
+  for(const change of [{source:'select true;'},{anon_execute:true},{service_execute:true},{security_definer:false},{configuration:['search_path=public']}])
+    assert.equal(await verifyAvailability(multiApp,async()=>[{...probeRows[0],...change},probeRows[1]]),false);
+  console.log('PASS date exceptions, distinct resource allocation, nonblocking waiting states and exact occupancy-probe authorization/catalog');
   const windows=applicationScheduleFixture();
   function applicationScheduleFixture(){const [manifest]=scheduleManifest(scheduledApp);return{...manifest,table_name:manifest.table,trigger_name:manifest.name,
     time_zone_available:true,security_definer:false,volatility:'v',kind:'f',result:'trigger',arguments:'',language:'plpgsql',owner:'postgres',
@@ -106,11 +132,16 @@ try {
   const originalFetch = globalThis.fetch;
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_booking_fixture' };
   const token = `a.${Buffer.from(JSON.stringify({ sub: owner, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.signature`;
-  let responseCode = '23P01', savedRow = null;
+  let responseCode = '23P01', savedRow = null, availabilityResult = false, availabilityReads=0;
   globalThis.fetch = async (resourceUrl, init) => {
     const url = new URL(String(resourceUrl)); assert.equal(url.origin, backend.url);
     if (url.pathname === '/auth/v1/token') return Response.json({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, user: { id: owner, is_anonymous: false } });
     if (url.pathname === '/auth/v1/user') return Response.json({ id: owner, is_anonymous: false });
+    if(url.pathname==='/rest/v1/rpc/app_booking_available_0') {
+      assert.equal(new Headers(init.headers).get('Authorization'),`Bearer ${token}`);
+      const body=JSON.parse(init.body);assert.deepEqual(body.resources,[resource]);assert.equal(body.starts_at,'2026-10-09T08:00:00.000Z');
+      availabilityReads++;return Response.json(availabilityResult);
+    }
     assert.equal(url.pathname, '/rest/v1/app_appointments');
     if (['POST', 'PATCH'].includes(init?.method)) return Response.json({ code: responseCode, message: responseCode === '23514' ? 'app_booking_interval_0 failed' : 'exclusion violation' }, { status: 409 });
     return Response.json(savedRow);
@@ -118,6 +149,12 @@ try {
   const sdk = runtimeFor(app, backend, backend.projectRef);
   try {
     await sdk.auth.signIn('test@example.com', 'test-password');
+    assert.equal(await sdk.bookingAvailable(table.id,values,owner),false);availabilityResult=true;
+    assert.equal(await sdk.bookingAvailable(table.id,values,owner),true);availabilityResult=null;
+    await assert.rejects(sdk.bookingAvailable(table.id,values,owner),/unavailable/);
+    await assert.rejects(sdk.bookingAvailable(table.id,values,other),/identity changed/);
+    await assert.rejects(sdk.bookingAvailable(table.id,{...values,resource_id:'invalid'},owner),/record ID/);
+    assert.equal(availabilityReads,3);
     await assert.rejects(sdk.createOnce(table.id, values, resource2, owner), error => error instanceof Rejected && error.reason === 'conflict');
     await assert.rejects(sdk.update(table.id, resource2, values, owner), error => error instanceof Rejected && error.reason === 'conflict');
     responseCode = '23514'; await assert.rejects(sdk.createOnce(table.id, values, resource2, owner), error => error instanceof Rejected && error.reason === 'interval');
@@ -224,6 +261,46 @@ select 'booking overlap, adjacency, different resources, cancellation and finite
     assert.equal(await verifySchedule(guardedApp,actualScheduleQuery),false);
     await query('alter table public.app_appointments drop constraint app_booking_overlap_0;');
     assert.equal(await verify(app, async querySql => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${querySql}) x;`))), false);
+    // Independent customer schema for multiple resource domains and occupancy.
+    await query('drop schema public cascade;drop schema private cascade;create schema public;grant usage on schema public to anon,authenticated,service_role;'+compile(multiApp).join('\n'));
+    await query(`insert into public.app_doctors(id,owner_id,name) values ('${resource}','${owner}','Doctor A'),('${resource2}','${owner}','Doctor B');
+      insert into public.app_rooms(id,owner_id,name) values ('${resource}','${owner}','Room A'),('${resource2}','${owner}','Room B');`);
+    const multiInsert=(doctor,room,status='confirmed',from='10:00',to='11:00',date='2026-10-10')=>
+      `insert into public.app_appointments(resource_id,room_id,starts_at,ends_at,status) values ('${doctor}','${room}','${date} ${from}Z','${date} ${to}Z','${status}');`;
+    const occupancy=(doctor,room,from='10:00',to='11:00',date='2026-10-10')=>`select public.app_booking_available_2(array['${doctor}'::uuid,'${room}'::uuid],'${date} ${from}Z','${date} ${to}Z');`;
+    assert.equal((await query(`${asUser(other)} ${occupancy(resource,resource)}`)).split('\n').at(-1),'t');
+    await query(`${asUser(owner)} ${multiInsert(resource,resource)}`);
+    assert.equal((await query(`${asUser(other)} select count(*) from public.app_appointments;`)).split('\n').at(-1),'0');
+    assert.equal((await query(`${asUser(other)} ${occupancy(resource,resource2)}`)).split('\n').at(-1),'f','hidden doctor conflict');
+    assert.equal((await query(`${asUser(other)} ${occupancy(resource2,resource)}`)).split('\n').at(-1),'f','hidden room conflict');
+    assert.equal((await query(`${asUser(other)} ${occupancy(resource2,resource2)}`)).split('\n').at(-1),'t');
+    await assert.rejects(query(`${asUser(other)} ${multiInsert(resource,resource2)}`),/exclusion constraint/);
+    await assert.rejects(query(`${asUser(other)} ${multiInsert(resource2,resource)}`),/exclusion constraint/);
+    await query(`${asUser(other)} ${multiInsert(resource,resource,'waiting')}`);
+    await assert.rejects(query(`${asUser(other)} update public.app_appointments set status='confirmed' where owner_id=auth.uid();`),/exclusion constraint/);
+    await query(`${asUser(owner)} update public.app_appointments set status='cancelled';`);
+    await query(`${asUser(other)} update public.app_appointments set status='confirmed' where owner_id=auth.uid();`);
+    await assert.rejects(query(`${asUser(owner)} ${multiInsert(resource2,resource2,'confirmed','08:00','09:00','2026-10-09')}`),/outside schedule/);
+    assert.equal((await query(`${asUser(owner)} ${occupancy(resource2,resource2,'08:00','09:00','2026-10-09')}`)).split('\n').at(-1),'f');
+    const beforeBulk=await query('select count(*) from public.app_appointments;');
+    await assert.rejects(query(`${asUser(owner)} insert into public.app_appointments(resource_id,room_id,starts_at,ends_at,status) values
+      ('${resource2}','${resource2}','2026-10-10 10:00Z','2026-10-10 11:00Z','confirmed'),
+      ('${resource2}','${resource}','2026-10-10 10:00Z','2026-10-10 11:00Z','confirmed');`),/exclusion constraint/);
+    assert.equal(await query('select count(*) from public.app_appointments;'),beforeBulk,'all resources/rows roll back atomically');
+    const actualCatalog=async input=>JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${input}) x;`));
+    assert.equal(await verify(multiApp,actualCatalog),true);
+    assert.equal(await verifySchedule(multiApp,actualCatalog),true);
+    assert.equal(await verifyAvailability(multiApp,actualCatalog),true);
+    await assert.rejects(query(`set role anon;${occupancy(resource,resource)}`),/permission denied/);
+    await assert.rejects(query(`set role service_role;${occupancy(resource,resource)}`),/permission denied/);
+    assert.equal((await query(`${asUser(owner)} select public.app_booking_available_2(array['cccccccc-cccc-4ccc-8ccc-cccccccccccc'::uuid,'${resource}'::uuid],'2026-10-10 10:00Z','2026-10-10 11:00Z') is null;`)).split('\n').at(-1),'t');
+    // Permission changes regenerate probes, including resource visibility checks.
+    const privateResources={...multiApp,tables:multiApp.tables.map(item=>item.id==='doctors'?{...item,permissions:item.permissions.map(permission=>permission.operation==='read'?{...permission,access:'owner'}:permission)}:item)};
+    await query(migrate(multiApp,privateResources).join('\n'));
+    assert.equal((await query(`${asUser(other)} select (${occupancy(resource2,resource2).slice(7,-1)}) is null;`)).split('\n').at(-1),'t','inaccessible resources disclose no occupancy');
+    await query('alter table public.app_appointments drop constraint app_booking_overlap_2_0;');
+    assert.equal(await verify(privateResources,actualCatalog),false);
+    console.log('PASS PostgreSQL multi-resource exclusion, atomic rollback, manual waitlist confirmation, date exceptions, hidden occupancy and permission-scoped probes');
     console.log(`PASS actual PostgreSQL: ${embedded ? 'isolated inserts/updates' : 'concurrent inserts/updates'}, invisible-row conflicts, cancellation, atomic series rollback, schedule guards, invalid intervals and removed-constraint refusal`);
   }
 } finally { await embeddedDatabase?.close(); await rm(dir, { recursive: true, force: true }); }

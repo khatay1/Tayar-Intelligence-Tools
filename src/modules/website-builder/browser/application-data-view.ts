@@ -1,4 +1,5 @@
 import { ApplicationCounterRejected } from '../core/application-counter';
+import { applicationReportDifference } from '../core/application-reports';
 import { ApplicationTransactionRejected } from '../core/application-transaction';
 import { ApplicationWorkflowRejected } from '../core/application-workflow';
 import { createApplicationReferenceInput } from './application-reference-input';
@@ -24,6 +25,13 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const reportCopy = ({ en: { title: 'Aggregate reports', scope: 'All records you can read. Search and page selection do not change totals.', error: 'Could not load totals. Refresh and try again.' },
     ar: { title: 'التقارير المجمّعة', scope: 'جميع السجلات المسموح لك بقراءتها. البحث واختيار الصفحة لا يغيّران الإجماليات.', error: 'تعذّر تحميل الإجماليات. حدّث وحاول مجددًا.' },
     sv: { title: 'Sammanställda rapporter', scope: 'Alla poster du får läsa. Sökning och sidval ändrar inte totalsummorna.', error: 'Kunde inte läsa totalsummorna. Uppdatera och försök igen.' } })[language];
+  const analyticsCopy = ({ en: { previous: 'Previous period', difference: 'Change', group: 'Group', empty: 'No value', limit: 'Only the first 100 groups are shown. Totals include all groups.', download: 'Download report (JSON)', period: 'Calendar period', partial: 'Current periods may be incomplete; the preceding period is complete.' },
+    ar: { previous: 'الفترة السابقة', difference: 'التغيير', group: 'المجموعة', empty: 'بدون قيمة', limit: 'تظهر أول 100 مجموعة فقط. الإجماليات تشمل جميع المجموعات.', download: 'تنزيل التقرير (JSON)', period: 'الفترة الزمنية', partial: 'قد تكون الفترة الحالية غير مكتملة؛ الفترة السابقة كاملة.' },
+    sv: { previous: 'Föregående period', difference: 'Förändring', group: 'Grupp', empty: 'Inget värde', limit: 'Endast de första 100 grupperna visas. Totalsummorna omfattar alla grupper.', download: 'Ladda ner rapport (JSON)', period: 'Kalenderperiod', partial: 'Aktuella perioder kan vara ofullständiga; föregående period är komplett.' } })[language];
+  const periodUnits = { en: { day: 'Day', week: 'Week', month: 'Month', year: 'Year' }, ar: { day: 'يوم', week: 'أسبوع', month: 'شهر', year: 'سنة' }, sv: { day: 'Dag', week: 'Vecka', month: 'Månad', year: 'År' } }[language];
+  const bookingCopy = { en: { wait: 'Join waiting list', note: 'A waiting-list entry does not reserve time. Confirmation requires an authorized update and a fresh conflict check.', check: 'Check availability', free: 'Available now. Saving confirms the reservation.', taken: 'This interval is unavailable. Choose another time or join the waiting list.' },
+    ar: { wait: 'الانضمام لقائمة الانتظار', note: 'طلب الانتظار لا يحجز الوقت. التأكيد يحتاج تعديلًا بصلاحية مناسبة وفحص التعارض مجددًا.', check: 'فحص الإتاحة', free: 'متاح الآن. الحفظ يؤكد الحجز.', taken: 'الفترة غير متاحة. اختر وقتًا آخر أو انضم لقائمة الانتظار.' },
+    sv: { wait: 'Gå med i väntelistan', note: 'En väntelistepost reserverar ingen tid. Bekräftelse kräver en behörig uppdatering och en ny konfliktkontroll.', check: 'Kontrollera tillgänglighet', free: 'Ledigt nu. Spara för att bekräfta bokningen.', taken: 'Intervallet är inte ledigt. Välj en annan tid eller gå med i väntelistan.' } }[language];
   const recurrenceCopy = ({ en: { enable: 'Repeat booking', count: 'Number of appointments', frequency: 'Frequency', daily: 'Daily', weekly: 'Weekly', interval: 'Every (days or weeks)', note: 'All appointments save together. Dates below use your device time zone; repetition follows the configured booking time zone.' },
     ar: { enable: 'تكرار الحجز', count: 'عدد المواعيد', frequency: 'التكرار', daily: 'يومي', weekly: 'أسبوعي', interval: 'كل (أيام أو أسابيع)', note: 'تُحفظ المواعيد كلها معًا. التواريخ أدناه بتوقيت جهازك؛ التكرار يتبع المنطقة الزمنية المحددة للحجز.' },
     sv: { enable: 'Upprepa bokning', count: 'Antal bokningar', frequency: 'Frekvens', daily: 'Dagligen', weekly: 'Varje vecka', interval: 'Var (dagar eller veckor)', note: 'Alla bokningar sparas tillsammans. Datumen nedan använder enhetens tidszon; upprepning följer bokningens tidszon.' } })[language];
@@ -108,7 +116,40 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
         const note = document.createElement('p'); note.textContent = reportResult ? reportCopy.scope : reportCopy.error; summaries.append(note);
         if (reportResult) for (const report of reportResult) {
           const line = document.createElement('p'); line.textContent = `${report.name}: ${report.value ?? '—'}`; summaries.append(line);
+          const configured = controller.table.reports.find(item => item.id === report.id)!;
+          if (configured.period) {
+            const info = document.createElement('p'); info.textContent = `${analyticsCopy.period}: ${periodUnits[configured.period.unit]} (${configured.period.offset}) · ${configured.period.timeZone}. ${analyticsCopy.partial}`; summaries.append(info);
+          }
+          if (report.previousValue !== undefined) {
+            const comparison = document.createElement('p'); comparison.textContent = `${analyticsCopy.previous}: ${report.previousValue ?? '—'} · ${analyticsCopy.difference}: ${applicationReportDifference(report.value, report.previousValue) ?? '—'}`; summaries.append(comparison);
+          }
+          if (report.groups) {
+            const grouped = document.createElement('table'), header = document.createElement('tr');
+            for (const text of [analyticsCopy.group, report.name, ...(report.previousValue !== undefined ? [analyticsCopy.previous, analyticsCopy.difference] : [])]) {
+              const cell = document.createElement('th'); cell.scope = 'col'; cell.textContent = text; header.append(cell);
+            }
+            grouped.append(header);
+            for (const group of report.groups) {
+              const row = document.createElement('tr');
+              for (const text of [group.key ?? analyticsCopy.empty, group.value ?? '—', ...(group.previousValue !== undefined ? [group.previousValue ?? '—', applicationReportDifference(group.value, group.previousValue) ?? '—'] : [])]) {
+                const cell = document.createElement('td'); cell.textContent = text; row.append(cell);
+              }
+              grouped.append(row);
+            }
+            summaries.append(grouped);
+            if (report.truncated) { const warning = document.createElement('p'); warning.textContent = analyticsCopy.limit; summaries.append(warning); }
+          }
         }
+        if (reportResult) summaries.append(button(analyticsCopy.download, () => {
+          if (busy) return; setBusy(true);
+          // Recheck the current account and fetch a fresh authorized snapshot at export.
+          void controller.reports().then(reports => {
+            if (disposed || current !== sequence || controller.closed()) return;
+            const url = URL.createObjectURL(new Blob([JSON.stringify({ version: 1, generatedAt: new Date().toISOString(), tableId: controller.table.id,
+              definitions: controller.table.reports, reports }, null, 2)], { type: 'application/json' }));
+            const link = document.createElement('a'); link.href = url; link.download = 'application-report.json'; link.click(); URL.revokeObjectURL(url);
+          }).catch(() => { clear(); status.textContent = reportCopy.error; }).finally(() => { if (!disposed) setBusy(false); });
+        }));
         summaries.hidden = false;
       }
       for (const row of result.rows) {
@@ -305,6 +346,29 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
         } else input.value = field.type === 'json' ? JSON.stringify(value) : String(value);
       }
       label.append(input); form.append(label); if (reference) form.append(reference.controls); inputs.set(field.key, input);
+    }
+    if (!row && controller.table.booking) {
+      const availability = document.createElement('p'); availability.setAttribute('role', 'status');
+      form.addEventListener('input', () => { availability.textContent = ''; });
+      form.addEventListener('change', () => { availability.textContent = ''; });
+      form.append(button(bookingCopy.check, () => {
+        if (busy || disposed) return;
+        const values = Object.fromEntries([...inputs].map(([key, input]) => [key, input.value]));
+        setBusy(true); availability.textContent = copy.loading;
+        void controller.bookingAvailable(values).then(free => {
+          if (!disposed) { setBusy(false); availability.textContent = free ? bookingCopy.free : bookingCopy.taken; }
+        }).catch((error: unknown) => {
+          if (!disposed) { if (controller.closed()) clear(); setBusy(false); availability.textContent = ''; status.textContent = failure(error); }
+        });
+      }), availability);
+    }
+    if (!row && controller.table.booking?.waitlistStatus) {
+      const rule = controller.table.booking, key = controller.table.fields.find(field => field.id === rule.statusFieldId)!.key;
+      form.append(button(bookingCopy.wait, () => {
+        if (busy) return;
+        const state = inputs.get(key); if (state) { state.value = rule.waitlistStatus!; status.textContent = bookingCopy.note; }
+      }));
+      const note = document.createElement('p'); note.textContent = bookingCopy.note; form.append(note);
     }
     let repeatControls: { enabled: HTMLInputElement; count: HTMLInputElement; interval: HTMLInputElement; frequency: HTMLSelectElement } | undefined;
     if (!row && controller.table.booking?.recurrence) {

@@ -25,10 +25,12 @@ export interface ApplicationPermission {
 }
 export interface ApplicationBookingRule {
   resourceFieldId: string;
+  additionalResourceFieldIds?: string[];
   startFieldId: string;
   endFieldId: string;
   statusFieldId?: string;
   blockingStatuses?: string[];
+  waitlistStatus?: string;
   schedule?: ApplicationBookingSchedule;
   recurrence?: { timeZone: string; maxOccurrences: number };
 }
@@ -36,6 +38,7 @@ export interface ApplicationBookingSchedule {
   timeZone: string;
   weekly: Array<{ day: number; startMinute: number; endMinute: number }>;
   maxDurationMinutes: number;
+  exceptions?: Array<{ date: string; windows: Array<{ startMinute: number; endMinute: number }> }>;
 }
 export interface ApplicationCounterRule { fieldId: string; minimum: number; maximum?: number; integer: boolean }
 /** Creates one parent record and one or more line records while changing every
@@ -94,7 +97,11 @@ export interface ApplicationTable {
   notifications?: ApplicationEmailNotification[];
   reports?: ApplicationReport[];
 }
-export interface ApplicationReport { id: string; name: string; operation: 'count' | 'sum' | 'min' | 'max' | 'avg'; fieldId?: string }
+export interface ApplicationReport {
+  id: string; name: string; operation: 'count' | 'sum' | 'min' | 'max' | 'avg'; fieldId?: string;
+  groupByFieldId?: string;
+  period?: { fieldId: string; unit: 'day' | 'week' | 'month' | 'year'; timeZone: string; offset: number; comparePrevious: boolean };
+}
 export interface ApplicationRole { id: string; name: string }
 export interface ApplicationPageAccess {
   pageId: string;

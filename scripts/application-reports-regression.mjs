@@ -17,7 +17,8 @@ try {
   await build({ entryPoints: [entry], outfile: join(dir, 'test.cjs'), platform: 'node', format: 'cjs', bundle: true });
   const { readApplicationDefinition: validate, compileInitialApplicationSchema: initial, compileAdditiveApplicationMigration: migrate,
     parseApplicationReports: parse, applicationReportsManifest: manifest, verifyOwnedReportsCatalog: verify,
-    createOwnedApplicationDataRuntime: runtimeFor, createApplicationDataViewController: controllerFor } = require(join(dir, 'test.cjs'));
+    createOwnedApplicationDataRuntime: runtimeFor, createApplicationDataViewController: controllerFor,
+    applicationReportDifference: difference } = require(join(dir, 'test.cjs'));
   const table = { id: 'orders', key: 'orders', name: 'Orders', fields: [
     { id: 'name', key: 'name', name: 'Name', type: 'text', required: true },
     { id: 'amount', key: 'amount', name: 'Amount', type: 'number', required: true, defaultValue: 0 },
@@ -50,6 +51,27 @@ try {
   for (const bad of [[...exact, { id: 'extra', value: '1' }], exact.slice(1), [{ id: 'record-count', value: '-1' }, ...exact.slice(1)],
     [{ id: 'record-count', value: '2.5' }, ...exact.slice(1)], [{ id: 'record-count', value: '2', extra: true }, ...exact.slice(1)],
     [{ id: 'record-count', value: '2' }, { id: 'amount-total', value: 'NaN' }, exact[2]]]) assert.throws(() => parse(table, bad));
+  assert.equal(difference('9007199254740993.01', '0.99'), '9007199254740992.02');
+  assert.equal(difference('-1.5', '2.25'), '-3.75'); assert.equal(difference('0', '0.00'), '0.00'); assert.equal(difference(null, '1'), null);
+  const advanced = structuredClone(app);
+  advanced.tables[0].fields.push({ id: 'category', key: 'category', name: 'Category', type: 'text', required: false },
+    { id: 'recorded', key: 'recorded', name: 'Date', type: 'datetime', required: false });
+  advanced.tables[0].reports[1].groupByFieldId = 'category';
+  advanced.tables[0].reports[1].period = { fieldId: 'recorded', unit: 'month', timeZone: 'Europe/Stockholm', offset: 0, comparePrevious: true };
+  advanced.tables[0].reports[2].period = { fieldId: 'recorded', unit: 'month', timeZone: 'Europe/Stockholm', offset: 0, comparePrevious: true };
+  validate(advanced);
+  for (const patch of [{ groupByFieldId: 'amount' }, { period: { ...advanced.tables[0].reports[1].period, offset: 1 } },
+    { period: { ...advanced.tables[0].reports[1].period, timeZone: 'UTC\'); drop table orders; --' } },
+    { period: { ...advanced.tables[0].reports[1].period, fieldId: 'name' } }]) {
+    const invalid = structuredClone(advanced); Object.assign(invalid.tables[0].reports[1], patch); assert.throws(() => validate(invalid));
+  }
+  const groupedResponse = [exact[0], { ...exact[1], previousValue: '1.25', groups: [{ key: '<script>bad</script>', value: exact[1].value, previousValue: '1.25' }], truncated: false },
+    { ...exact[2], previousValue: null }];
+  assert.equal(parse(advanced.tables[0], groupedResponse)[1].groups[0].key, '<script>bad</script>');
+  for (const patch of [{ groups: [{ key: 'A', value: '1', previousValue: '0' }, { key: 'A', value: '2', previousValue: '0' }] },
+    { truncated: true }, { previousValue: 'NaN' }, { groups: [{ key: {}, value: '1', previousValue: '0' }] }]) {
+    const invalid = structuredClone(groupedResponse); Object.assign(invalid[1], patch); assert.throws(() => parse(advanced.tables[0], invalid));
+  }
   const expected = manifest(app)[0];
   const goodCatalog = [{ name: expected.name, source: expected.source, security_definer: false, configuration: ['search_path='], volatility: 's', kind: 'f', result: 'jsonb', arguments: '', language: 'sql', owner: 'postgres', anon_execute: false, authenticated_execute: true, service_execute: false }];
   assert.equal(await verify(app, async () => goodCatalog), true);
@@ -123,6 +145,27 @@ try {
     await query('alter function public.app_reports_0() security definer;');
     assert.equal(await verify(app, catalogQuery), false);
     console.log('PASS actual PostgreSQL reports: exact decimals, RLS owner isolation, anonymous and service denial, catalog tamper refusal');
+    await query('alter function public.app_reports_0() security invoker;');
+    await query(migrate(app, advanced).join('\n'));
+    const calendar = "date_trunc('month',timezone('Europe/Stockholm',current_timestamp))";
+    const start = `timezone('Europe/Stockholm',${calendar})`, before = `timezone('Europe/Stockholm',${calendar}-interval '1 month')`, after = `timezone('Europe/Stockholm',${calendar}+interval '1 month')`;
+    await query(`insert into public.app_orders(owner_id,name,amount,category,recorded) values
+      ('${owner}','Current A',9007199254740993.01,'A',${start}),('${owner}','Current null',0.99,null,${start}),
+      ('${owner}','Previous A',10,'A',${before}),('${owner}','Previous only',7,'Previous only',${before}),
+      ('${owner}','Previous boundary',0.25,'A',${start}-interval '1 microsecond'),
+      ('${owner}','Next boundary',99,'Next',${after}),('${other}','Private current',888,'Private',${start});`);
+    const analytics = parse(advanced.tables[0], JSON.parse((await query(reportAs(owner))).split('\n').at(-1)));
+    assert.equal(analytics[1].value, '9007199254740994.00'); assert.equal(analytics[1].previousValue, '17.25');
+    assert.deepEqual(analytics[1].groups, [{ key: 'A', value: '9007199254740993.01', previousValue: '10.25' },
+      { key: 'Previous only', value: '0', previousValue: '7' }, { key: null, value: '0.99', previousValue: '0' }]);
+    assert.equal(analytics[1].truncated, false); assert.equal(await verify(advanced, catalogQuery), true);
+    await query(`insert into public.app_orders(owner_id,name,amount,category,recorded)
+      select '${owner}','Many',0,'Group '||g,${start} from generate_series(1,101) g;`);
+    const bounded = parse(advanced.tables[0], JSON.parse((await query(reportAs(owner))).split('\n').at(-1)));
+    assert.equal(bounded[1].groups.length, 100); assert.equal(bounded[1].truncated, true); assert.equal(bounded[1].value, '9007199254740994.00');
+    const privateAnalytics = parse(advanced.tables[0], JSON.parse((await query(reportAs(other))).split('\n').at(-1)));
+    assert.deepEqual(privateAnalytics[1].groups, [{ key: 'Private', value: '888', previousValue: '0' }]);
+    console.log('PASS PostgreSQL analytics: local calendar boundaries, current/previous/null groups, exact deltas, cross-owner denial and disclosed truncation');
   }
   console.log('PASS reports: strict declarations, invoker SQL and grants, exact numeric text, catalog tamper refusal, pinned SDK RPC and account-change refusal');
 } finally { globalThis.fetch = originalFetch; await embeddedDatabase?.close(); await rm(dir, { recursive: true, force: true }); }

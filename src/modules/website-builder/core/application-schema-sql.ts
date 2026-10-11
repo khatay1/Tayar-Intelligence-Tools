@@ -1,3 +1,4 @@
+import { compileApplicationBookingAvailability } from './application-booking-availability-sql';
 import { compileApplicationFilesSchema } from './application-files-sql';
 import { compileApplicationBookingSchedule } from './application-booking-schedule-sql';
 import { compileApplicationReports } from './application-reports-sql';
@@ -109,7 +110,8 @@ export function applicationBookingConstraintManifest(input: ApplicationDefinitio
     const rule = table.booking, start = field(rule.startFieldId), end = field(rule.endFieldId);
     const status = rule.statusFieldId ? field(rule.statusFieldId) : undefined;
     return [{ table: tableName(table), intervalName: `app_booking_interval_${index}`, overlapName: `app_booking_overlap_${index}`,
-      resource: field(rule.resourceFieldId), start, end, status, blockingStatuses: rule.blockingStatuses }];
+      resource: field(rule.resourceFieldId), additionalResources: (rule.additionalResourceFieldIds ?? []).map((id, slot) => ({ resource: field(id), overlapName: `app_booking_overlap_${index}_${slot}` })),
+      start, end, status, blockingStatuses: rule.blockingStatuses }];
   });
 }
 
@@ -120,13 +122,14 @@ function bookingConstraints(app: ApplicationDefinition, index: number): string[]
   const range = `tstzrange(${sqlName(rule.start)}, ${sqlName(rule.end)}, '[)')`;
   const where = rule.status ? ` where (${sqlName(rule.status)} in (${rule.blockingStatuses!.map(literal).join(', ')}))` : '';
   // Resolve the installed extension's namespace; never relocate customer extensions.
-  const exclusion = `alter table ${name} add constraint ${sqlName(rule.overlapName)} exclude using gist (${sqlName(rule.resource)} %I.gist_uuid_ops with =, ${range} with &&)${where};`;
+  const exclusions = [rule, ...rule.additionalResources].map(resource =>
+    `alter table ${name} add constraint ${sqlName(resource.overlapName)} exclude using gist (${sqlName(resource.resource)} %I.gist_uuid_ops with =, ${range} with &&)${where};`);
   return [
     `alter table ${name} add constraint ${sqlName(rule.intervalName)} check (isfinite(${sqlName(rule.start)}) and isfinite(${sqlName(rule.end)}) and ${sqlName(rule.start)} < ${sqlName(rule.end)});`,
     `do $booking$ declare extension_schema text; begin
   select n.nspname into strict extension_schema from pg_catalog.pg_extension e
     join pg_catalog.pg_namespace n on n.oid = e.extnamespace where e.extname = 'btree_gist';
-  execute format(${literal(exclusion)}, extension_schema);
+  ${exclusions.map(exclusion => `execute format(${literal(exclusion)}, extension_schema);`).join('\n  ')}
 end $booking$;`,
     ...compileApplicationBookingSchedule(app, index),
   ];
@@ -354,6 +357,7 @@ end $$;`);
   }
   for (const [tableIndex, table] of app.tables.entries()) {
     statements.push(...bookingConstraints(app, tableIndex));
+    statements.push(...compileApplicationBookingAvailability(app, tableIndex));
     statements.push(...compileApplicationCounterSchema(app, tableIndex));
     statements.push(...compileApplicationTransactionSchema(app, tableIndex));
     statements.push(...compileApplicationWorkflowSchema(app, tableIndex));
@@ -452,6 +456,7 @@ end $form_ledger$;`);
   }
   for (const [index, table] of after.tables.entries()) {
     const old = before.tables[index];
+    statements.push(...compileApplicationBookingAvailability(after, index));
     if (!old?.attachments && table.attachments) statements.push(...compileApplicationFilesSchema(after, index));
     else if (old?.attachments && JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)) statements.push(...compileApplicationFilesSchema(after, index, true));
     if (!old?.counter && table.counter) statements.push(...compileApplicationCounterSchema(after, index));

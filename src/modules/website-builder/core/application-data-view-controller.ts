@@ -8,7 +8,7 @@ import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
 import { expandApplicationBookingRecurrence } from './application-booking-recurrence';
 
-type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { reports?: ReturnType<typeof createApplicationDataRuntime>['reports']; createBookingSeries?: ReturnType<typeof createApplicationDataRuntime>['createBookingSeries']; files?: ReturnType<typeof createApplicationDataRuntime>['files']; payments?: ReturnType<typeof createApplicationDataRuntime>['payments'] };
+type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { bookingAvailable?: ReturnType<typeof createApplicationDataRuntime>['bookingAvailable']; reports?: ReturnType<typeof createApplicationDataRuntime>['reports']; createBookingSeries?: ReturnType<typeof createApplicationDataRuntime>['createBookingSeries']; files?: ReturnType<typeof createApplicationDataRuntime>['files']; payments?: ReturnType<typeof createApplicationDataRuntime>['payments'] };
 const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
@@ -56,6 +56,16 @@ export function createApplicationDataViewController(definition: ApplicationDefin
   return {
     ...compiled,
     permissions,
+    async bookingAvailable(values: Record<string, unknown>) {
+      if (!(await permissions()).includes('create') || !runtime.bookingAvailable) throw new Error('Booking availability is unavailable.');
+      try {
+        const result = await runtime.bookingAvailable(compiled.table.id, values, owner!);
+        await identity(); return result;
+      } catch (error) {
+        try { await identity(); } catch { /* Close on account changes. */ }
+        throw error;
+      }
+    },
     async reports() {
       await permissions();
       if (!runtime.reports || !compiled.table.reports?.length) throw new Error('Reports are unavailable.');

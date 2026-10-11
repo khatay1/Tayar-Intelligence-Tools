@@ -109,17 +109,35 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const reportIds = new Set<string>();
         table.reports.forEach((report, index) => {
           const reportPath = `${path}.reports[${index}]`;
-          if (!shape(report, ['id', 'name', 'operation', 'fieldId'], reportPath)) return;
+          if (!shape(report, ['id', 'name', 'operation', 'fieldId', 'groupByFieldId', 'period'], reportPath)) return;
           const field = Array.isArray(table.fields) && table.fields.find(field => object(field) && field.id === report.fieldId);
           if (!id(report.id) || reportIds.has(String(report.id)) || !name(report.name) || !['count', 'sum', 'min', 'max', 'avg'].includes(String(report.operation))
             || (report.operation === 'count' ? report.fieldId !== undefined : !object(field) || field.type !== 'number')) issue(reportPath, 'invalid-report', 'Reports need unique IDs, a name and an ordinary count or declared numeric field.');
           reportIds.add(String(report.id));
+          if (report.groupByFieldId !== undefined) {
+            const group = Array.isArray(table.fields) && table.fields.find(field => object(field) && field.id === report.groupByFieldId);
+            if (!object(group) || !['text', 'enum', 'boolean', 'uuid', 'reference'].includes(String(group.type)))
+              issue(reportPath, 'invalid-report-group', 'Report grouping requires a declared categorical field.');
+          }
+          if (report.period !== undefined) {
+            const period = report.period;
+            if (shape(period, ['fieldId', 'unit', 'timeZone', 'offset', 'comparePrevious'], `${reportPath}.period`)) {
+              const date = Array.isArray(table.fields) && table.fields.find(field => object(field) && field.id === period.fieldId);
+              let zone = false;
+              if (typeof period.timeZone === 'string' && period.timeZone.length <= 80 && /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(period.timeZone)) {
+                try { new Intl.DateTimeFormat('en', { timeZone: period.timeZone }).format(0); zone = true; } catch { /* invalid zone */ }
+              }
+              if (!object(date) || !['date', 'datetime'].includes(String(date.type)) || !['day', 'week', 'month', 'year'].includes(String(period.unit))
+                || !zone || !Number.isInteger(period.offset) || Number(period.offset) < -120 || Number(period.offset) > 0 || typeof period.comparePrevious !== 'boolean')
+                issue(reportPath, 'invalid-report-period', 'Report periods require a date field, valid time zone, calendar unit and offset -120–0.');
+            }
+          }
         });
       }
     }
     if (table.booking !== undefined) {
       const bookingPath = `${path}.booking`;
-      if (shape(table.booking, ['resourceFieldId', 'startFieldId', 'endFieldId', 'statusFieldId', 'blockingStatuses', 'schedule', 'recurrence'], bookingPath)) {
+      if (shape(table.booking, ['resourceFieldId', 'additionalResourceFieldIds', 'startFieldId', 'endFieldId', 'statusFieldId', 'blockingStatuses', 'waitlistStatus', 'schedule', 'recurrence'], bookingPath)) {
         const rule = table.booking;
         if (rule.recurrence !== undefined && (!validBookingRecurrenceRule(rule.recurrence)
           || (object(rule.schedule) && rule.recurrence.timeZone !== rule.schedule.timeZone)
@@ -129,6 +147,21 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
         const find = (fieldId: unknown) => fields.find(field => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (rule.waitlistStatus !== undefined) {
+          const state = find(rule.statusFieldId);
+          if (typeof rule.waitlistStatus !== 'string' || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus)
+            || !Array.isArray(rule.blockingStatuses) || rule.blockingStatuses.includes(rule.waitlistStatus)
+            || object(table.workflow) && table.workflow.fieldId === rule.statusFieldId)
+            issue(bookingPath, 'invalid-waitlist', 'Waiting lists need a declared nonblocking status outside protected workflow fields.');
+        }
+        if (rule.additionalResourceFieldIds !== undefined) {
+          const extras = rule.additionalResourceFieldIds;
+          const allocation = Array.isArray(extras) ? [resource, ...extras.map(find)] : [];
+          if (!Array.isArray(extras) || !extras.length || extras.length > 4 || new Set([rule.resourceFieldId, ...extras]).size !== extras.length + 1
+            || allocation.some(field => !field?.required || field.type !== 'reference')
+            || new Set(allocation.map(field => field?.referenceTableId)).size !== allocation.length)
+            issue(bookingPath, 'invalid-booking-resources', 'Additional resources require 1–4 distinct required references to separate resource tables.');
+        }
         if (!authEnabled || !id(rule.resourceFieldId) || !id(rule.startFieldId) || !id(rule.endFieldId)
           || new Set([rule.resourceFieldId, rule.startFieldId, rule.endFieldId]).size !== 3
           || !resource?.required || !['uuid', 'reference'].includes(String(resource.type))
