@@ -1,4 +1,6 @@
 import { verifyOwnedFilesCatalog } from './website-owned-files-catalog';
+import { verifyOwnedBookingScheduleCatalog } from './website-owned-booking-schedule-catalog';
+import { verifyOwnedReportsCatalog } from './website-owned-reports-catalog';
 import { verifyOwnedCounterCatalog } from './website-owned-counter-catalog';
 import { verifyOwnedTransactionCatalog } from './website-owned-transaction-catalog';
 import { verifyOwnedWorkflowCatalog } from './website-owned-workflow-catalog';
@@ -218,6 +220,8 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
     return seenTables.size === tables.size && seenPolicies.size === expectedPolicies.length
       && (!app.roles.length || await verifyRoleInfrastructure(query))
       && await verifyOwnedSupabaseBookingConstraints(app, query)
+      && await verifyOwnedBookingScheduleCatalog(app, query)
+      && await verifyOwnedReportsCatalog(app, query)
       && await verifyOwnedCounterCatalog(app, query)
       && await verifyOwnedTransactionCatalog(app, query)
       && await verifyOwnedWorkflowCatalog(app, query)

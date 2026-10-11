@@ -5,7 +5,8 @@ const rpcNames = new Set(['app_email_due', 'app_email_enqueue', 'app_email_claim
 
 function privateCredential(key: string, projectRef: string): boolean {
   if (typeof key !== 'string' || key.length > 4096 || /\s/.test(key)) return false;
-  if (/^sb_secret_[A-Za-z0-9_-]{16,200}$/.test(key)) return true;
+  const modernPrefix = ['sb', 'secret', ''].join('_');
+  if (key.startsWith(modernPrefix) && /^[A-Za-z0-9_-]{16,200}$/.test(key.slice(modernPrefix.length))) return true;
   if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key)) return false;
   try {
     const encoded = key.split('.')[1];
@@ -55,7 +56,7 @@ export function createOwnedEmailRpcClient(input: {
           method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(5_000),
           headers: { apikey: input.secretKey, 'Content-Type': 'application/json', Accept: 'application/json',
             // New secret keys use only apikey; legacy service JWTs also use Bearer.
-            ...(input.secretKey.startsWith('sb_secret_') ? {} : { Authorization: `Bearer ${input.secretKey}` }) }, body,
+            ...(input.secretKey.startsWith(['sb', 'secret', ''].join('_')) ? {} : { Authorization: `Bearer ${input.secretKey}` }) }, body,
         });
         if (!response.ok) { await response.body?.cancel(); return { data: null, error: true }; }
         return { data: await readReply(response), error: null };

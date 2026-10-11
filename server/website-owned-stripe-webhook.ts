@@ -115,9 +115,10 @@ export function normalizeOwnedStripeOrderEvent(value: JsonObject, expected: { pr
     status = provider.status === 'succeeded' ? 'refunded' : provider.status === 'pending' ? 'refund-pending'
       : ['failed', 'canceled'].includes(String(provider.status)) ? 'refund-failed' : (() => { throw new Error('Invalid refund status.'); })();
   } else {
-    if (provider.object !== 'charge' || provider.refunded !== true) throw new Error('Invalid refunded charge.');
+    if (provider.object !== 'charge' || typeof provider.refunded !== 'boolean') throw new Error('Invalid refunded charge.');
     total = amount(provider.amount_refunded); money = text(provider.currency, currency);
     providerPaymentId = text(provider.payment_intent, /^pi_[A-Za-z0-9]{8,200}$/);
+    if (provider.refunded !== (total === amount(provider.amount))) throw new Error('Invalid refund completeness.');
     status = total === amount(provider.amount) ? 'refunded' : 'partially-refunded';
   }
   return { eventId: id, eventType: type, eventCreatedAt: created, projectId, orderId, livemode: value.livemode,

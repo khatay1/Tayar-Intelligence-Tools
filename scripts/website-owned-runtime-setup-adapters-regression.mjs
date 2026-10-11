@@ -14,7 +14,7 @@ let requests=[];const fetcher=async(url,init={})=>{const target=String(url);requ
  if(target===`https://api.supabase.com/v1/projects/${projectRef}`)return Response.json(providerProject);
  if(target==='https://api.supabase.com/v1/organizations/customer-org/members')return Response.json([{user_id:'customer-user',role_name:'Owner'}]);
  if(target===`https://api.supabase.com/v1/projects/${projectRef}/api-keys?reveal=true`)return Response.json(publicKeys);
- if(target===`https://api.supabase.com/v1/projects/${projectRef}/database/query/read-only`){const query=JSON.parse(init.body).query;if(query.includes('app_schema_revisions'))return Response.json([{definition:application}],{status:201});if(query.includes("left(c.relname, 4)"))return Response.json([],{status:201});throw Error(`Unexpected SQL ${query}`);}
+ if(target===`https://api.supabase.com/v1/projects/${projectRef}/database/query/read-only`){const query=JSON.parse(init.body).query;if(query.includes('app_schema_revisions'))return Response.json([{definition:application}],{status:201});if(query.includes("left(c.relname, 4)")||query.includes("left(t.relname,4)"))return Response.json([],{status:201});throw Error(`Unexpected SQL ${query}`);}
  if(target===`https://${projectRef}.supabase.co/auth/v1/settings`)return Response.json({external:{email:false,anonymous_users:false},disable_signup:true,mailer_autoconfirm:false});
  if(target==='https://api.vercel.com/v2/user')return Response.json({user:{id:'user_customer'}});
  if(target===`https://api.vercel.com/v9/projects/${vercelProjectId}`)return Response.json(vercelProject);

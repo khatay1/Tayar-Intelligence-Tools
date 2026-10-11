@@ -1,4 +1,6 @@
-import { bindOwnedStripeOrderSession, reserveOwnedStripeOrder, type OwnedStripeOrderRpcClient } from './website-owned-stripe-order-store';
+import { bindOwnedStripeOrderRefund,bindOwnedStripeOrderSession,reserveOwnedStripeOrder,
+  reserveOwnedStripeOrderRefund,type OwnedStripeOrderRpcClient } from './website-owned-stripe-order-store';
+import type { ApplicationPaymentStatus } from '../src/modules/website-builder/core/application-payment-status';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const checkoutId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,159}$/;
@@ -12,6 +14,7 @@ export interface OwnedStripeOrderActionDependencies {
   authenticate(accessToken: string): Promise<{ userId: string } | null>;
   loadOrder(input: { orderId: string; userId: string; checkoutId: string }): Promise<{ amount: number; currency: string; returnPath: string } | null>;
   authorizeRefund(input: { orderId: string; userId: string; amount?: number }): Promise<{ paymentIntentId: string; amount: number } | null>;
+  loadStatus?(input: { orderId: string; userId: string }): Promise<ApplicationPaymentStatus | null>;
   fetcher?: typeof fetch;
 }
 
@@ -48,9 +51,9 @@ function validate(input: OwnedStripeOrderActionDependencies, request: Request, p
   if (!(request.headers.get('content-type') ?? '').toLowerCase().startsWith('application/json')) return 415;
   return 0;
 }
-async function stripeJson(fetcher: typeof fetch, url: string, secret: string, body: URLSearchParams, idempotencyKey: string) {
-  const response = await fetcher(url, { method: 'POST', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(10_000),
-    headers: { Authorization: `Bearer ${secret}`, Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded', 'Idempotency-Key': idempotencyKey }, body: body.toString() });
+async function stripeJson(fetcher: typeof fetch, url: string, secret: string, body?: URLSearchParams, idempotencyKey?: string) {
+  const response = await fetcher(url, { method: body ? 'POST' : 'GET', redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(10_000),
+    headers: { Authorization: `Bearer ${secret}`, Accept: 'application/json', ...(body ? { 'Content-Type': 'application/x-www-form-urlencoded', 'Idempotency-Key': idempotencyKey! } : {}) }, ...(body ? { body: body.toString() } : {}) });
   if (response.status !== 200 || Number(response.headers.get('content-length') ?? 0) > 131072) throw new Error();
   const raw = await response.text(); if (raw.length > 131072) throw new Error();
   const value: unknown = JSON.parse(raw); if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
@@ -70,6 +73,17 @@ export async function serveOwnedStripeOrderCheckout(request: Request, input: Own
     const reserved = await reserveOwnedStripeOrder(input.client, { orderId: body.orderId, userId: user.userId, environment: env,
       currency: order.currency, amountDue: order.amount, operationId: body.operationId });
     if (reserved.status !== 'pending') return reply(409, { error: 'state' });
+    if (reserved.sessionId) {
+      const existing = await stripeJson(input.fetcher ?? fetch, `https://api.stripe.com/v1/checkout/sessions/${reserved.sessionId}`, input.secretKey);
+      const metadata = existing.metadata as Record<string, unknown> | undefined;
+      if (existing.object !== 'checkout.session' || existing.id !== reserved.sessionId || existing.mode !== 'payment'
+        || existing.livemode !== (env === 'production') || existing.amount_total !== order.amount || existing.currency !== order.currency
+        || metadata?.tayar_project_id !== input.projectId || metadata?.tayar_order_id !== body.orderId) throw new Error();
+      if (existing.status !== 'open' || typeof existing.url !== 'string') return reply(409, { error: 'state' });
+      const target = new URL(existing.url);
+      if (target.origin !== 'https://checkout.stripe.com' || target.username || target.password) throw new Error();
+      return reply(200, { url: target.href });
+    }
     const success = new URL(order.returnPath, input.applicationOrigin); success.searchParams.set('checkout', 'success');
     const cancel = new URL(order.returnPath, input.applicationOrigin); cancel.searchParams.set('checkout', 'cancel');
     const form = new URLSearchParams({ mode: 'payment', success_url: success.href, cancel_url: cancel.href, client_reference_id: input.projectId,
@@ -86,6 +100,18 @@ export async function serveOwnedStripeOrderCheckout(request: Request, input: Own
   } catch { return reply(503, { error: 'unavailable' }); }
 }
 
+export async function serveOwnedStripeOrderStatus(request: Request, input: OwnedStripeOrderActionDependencies) {
+  try {
+    const invalid = validate(input, request, '/api/stripe-order-status'); if (invalid) return reply(invalid, { error: 'request' });
+    const user = await identity(request, input); if (!user) return reply(401, { error: 'identity' });
+    const body = await json(request);
+    if (Object.keys(body).join(',') !== 'orderId' || typeof body.orderId !== 'string' || !uuid.test(body.orderId)) return reply(400, { error: 'input' });
+    if (!input.loadStatus) throw new Error();
+    const status = await input.loadStatus({ orderId: body.orderId, userId: user.userId });
+    return status ? reply(200, { ...status }) : reply(403, { error: 'order' });
+  } catch { return reply(503, { error: 'unavailable' }); }
+}
+
 export async function serveOwnedStripeOrderRefund(request: Request, input: OwnedStripeOrderActionDependencies) {
   try {
     const invalid = validate(input, request, '/api/stripe-order-refund'); if (invalid) return reply(invalid, { error: 'request' });
@@ -97,12 +123,17 @@ export async function serveOwnedStripeOrderRefund(request: Request, input: Owned
     const authorized = await input.authorizeRefund({ orderId: body.orderId, userId: user.userId, ...(body.amount === undefined ? {} : { amount: body.amount as number }) });
     if (!authorized || !paymentId.test(authorized.paymentIntentId) || !Number.isSafeInteger(authorized.amount) || authorized.amount < 1
       || body.amount !== undefined && authorized.amount !== body.amount) return reply(403, { error: 'refund' });
+    const reserved=await reserveOwnedStripeOrderRefund(input.client,{orderId:body.orderId,userId:user.userId,
+      paymentIntentId:authorized.paymentIntentId,amount:authorized.amount,operationId:body.operationId});
+    if(reserved.providerRefundId)return reply(202,{status:reserved.providerStatus});
     const form = new URLSearchParams({ payment_intent: authorized.paymentIntentId, amount: String(authorized.amount),
       'metadata[tayar_project_id]': input.projectId, 'metadata[tayar_order_id]': body.orderId });
     const value = await stripeJson(input.fetcher ?? fetch, 'https://api.stripe.com/v1/refunds', input.secretKey, form,
       `tayar-refund:${input.projectId}:${body.orderId}:${body.operationId}`);
     if (value.object !== 'refund' || typeof value.id !== 'string' || !refundId.test(value.id)
       || !['pending', 'succeeded'].includes(String(value.status))) throw new Error();
+    await bindOwnedStripeOrderRefund(input.client,{orderId:body.orderId,operationId:body.operationId,
+      providerRefundId:value.id,providerStatus:value.status as 'pending'|'succeeded'});
     return reply(202, { status: value.status });
   } catch { return reply(503, { error: 'unavailable' }); }
 }

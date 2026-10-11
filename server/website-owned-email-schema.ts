@@ -144,3 +144,12 @@ grant execute on function ${schema}.${name}(${args}) to service_role;`)).join('\
 commit;
 `;
 }
+
+/** Queue DDL for composition into the generated application's single initial
+ * transaction. The standalone compiler remains available for isolated tests. */
+export function compileOwnedEmailQueueStatements(projectId: string): string[] {
+  const script = compileOwnedEmailQueueSchema(projectId).trim();
+  const lines = script.split('\n');
+  if (lines[0] !== 'begin;' || lines[lines.length - 1] !== 'commit;') throw new Error('Email queue transaction unavailable.');
+  return lines.slice(1, -1);
+}

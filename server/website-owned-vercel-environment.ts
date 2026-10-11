@@ -21,6 +21,32 @@ function verifiedHandoff(value:unknown,expectedVersion:number){
   return{handoffVersion:expectedVersion,environmentId:row.environmentId};
 }
 
+/** Proves one exact sensitive destination using metadata-only Vercel reads. */
+export async function verifyOwnedSecretInVercel(input:{accessToken:string;userId:string;accountId:string;
+  vercelProjectId:string;environmentId:string;environmentKey:string;target:'preview'|'production';gitBranch:string;
+  operationId:string;isCurrent():boolean|Promise<boolean>;fetcher?:typeof fetch;
+}):Promise<void>{
+  try{
+    if(typeof window!=='undefined'||!input.accessToken||input.accessToken.length>4096||/[\r\n]/.test(input.accessToken)
+      ||!provider.test(input.userId)||!provider.test(input.accountId)||!project.test(input.vercelProjectId)
+      ||!provider.test(input.environmentId)||!key.test(input.environmentKey)||!uuid.test(input.operationId)
+      ||!validBranch(input.gitBranch)||(input.target==='production'&&input.gitBranch!=='')||!await input.isCurrent())throw new Error();
+    const team=input.accountId!==input.userId?`&teamId=${encodeURIComponent(input.accountId)}`:'';
+    const response=await(input.fetcher??fetch)(`https://api.vercel.com/v10/projects/${input.vercelProjectId}/env?decrypt=false${team}`,{
+      method:'GET',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000),
+      headers:{Authorization:`Bearer ${input.accessToken}`,Accept:'application/json'}});
+    if(response.status!==200||Number(response.headers.get('content-length')??0)>262144||!await input.isCurrent())throw new Error();
+    const raw=await response.text();if(raw.length>262144)throw new Error();const payload=parseObject(raw);
+    if(!Array.isArray(payload.envs)||payload.envs.length>1000)throw new Error();
+    const matches=payload.envs.filter(value=>{if(!value||typeof value!=='object'||Array.isArray(value))return false;
+      const row=value as Record<string,unknown>,targets=Array.isArray(row.target)?row.target:[];
+      return row.id===input.environmentId&&row.key===input.environmentKey&&row.type==='sensitive'
+        &&targets.length===1&&targets[0]===input.target&&String(row.gitBranch??'')===input.gitBranch
+        &&row.comment===`Tayar handoff ${input.operationId}`;});
+    if(matches.length!==1||!await input.isCurrent())throw new Error();
+  }catch{throw new Error('Vercel secret destination unavailable.');}
+}
+
 /** Copies one Vault value into a write-only customer Vercel variable, verifies
  * destination metadata, then commits the receipt and erases Tayar's Vault copy. */
 export async function handoffOwnedSecretToVercel(input:{

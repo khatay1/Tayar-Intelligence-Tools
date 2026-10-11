@@ -63,8 +63,9 @@ runtime rows or resource samples enter snapshots. Reference fields now use actua
 and RLS, verify identity after responses, retain an existing out-of-page ID and
 render labels as text. Choices and related rows are never cached in snapshots.
 UUID-only fields still accept real operator-supplied IDs. Calendar grids, availability picking,
-recurrence, multi-resource booking and business-hours enforcement remain outside
+recurrence and multi-resource booking remain outside
 this adapter's scope.
+Optional native working-hour rules are described in the 2026-10-11 continuation.
 
 ## Generic quantity operations
 
@@ -266,6 +267,126 @@ Remaining primary work, in dependency order:
 
 Social integrations remain in the separate deferred plan. None of the pending
 items above is considered implemented by descriptive pages or ordinary CRUD.
+
+### Payment configuration and frozen quotes — 2026-10-10
+
+The editor now saves a Stripe payment rule on a decrementing native transaction:
+currency, an ordinary required item price in minor units, and an explicit refund
+role. The transaction captures item prices while holding the inventory locks,
+checks integral positive prices and quantities, and writes a private immutable
+order quote in the same transaction. Later catalog price changes cannot alter
+the captured total. Arabic and Swedish configuration text is included.
+
+This is a preparation checkpoint, not a completed payment flow. Ordinary initial
+schema provisioning and additive migrations reject payment rules unless an
+explicit owned runtime path supplies the ledger and actions. Owned source export
+also blocks these rules until Checkout, Webhook, Refund, trusted role checks and
+published payment controls are mounted. AI cannot cite payment evidence as a
+completed requirement yet. The owned payment access compiler now checks verified
+Auth users, exact quote ownership and the configured refund role. Its price
+trigger permits ordinary inventory changes but requires the refund administration
+role for authenticated price edits. A server-only client calls fixed ledger RPCs
+and definition-derived quote/refund RPCs, and authenticates sessions through the
+customer Auth endpoint. The owned runtime template now dispatches order Checkout,
+Refund and signed Webhook routes. The source-only payment package compiles route
+rewrites and ledger/access SQL for one outer transaction. A mocked route test
+verifies Auth, frozen quote reads, reservation, Stripe amount and saved return
+path. Pending refunds now reserve remaining funds without being counted as
+successful refunds. Published payment controls and source compiler mounting were
+completed in the continuation below. Customer catalog verification and
+final webhook credential handoff still block publication.
+
+Local transaction, owned source and TypeScript checks pass. The PostgreSQL
+fixture includes immutable pricing, private grants and rollback cases; it has
+not been executed against PostgreSQL locally. Real keys and real transactions
+remain deferred to final activation.
+
+### Published order payment continuation — 2026-10-10
+
+Native data views now support Pay order and Refund order actions in the editor
+and published English, Arabic and Swedish interface. Checkout takes its price
+from the frozen server quote; the browser supplies no checkout amount. One
+checkout identity per order works across pages and browser sessions. Refund
+requests use a durable, owner-scoped operation receipt and retain the same
+operation after an uncertain result. Role visibility is rechecked on every
+action; server authorization remains authoritative. Responses from a previous
+signed-in account are rejected before navigation or success feedback.
+An authenticated status endpoint exposes only the frozen currency/amount and
+payment/refund totals to the order owner or declared refund role. Provider IDs
+and receipts stay private. The localized status display reads committed server
+state; a success return URL never marks an order paid. Existing checkout sessions
+are retrieved and their amount, currency, project/order metadata and environment
+are checked before reuse. Closed sessions return a state conflict. Partial
+charge refunds accept Stripe's `refunded: false`, while full refunds require
+`refunded: true`; inconsistent completeness is rejected.
+
+The customer source compiler now includes the private quote/payment/refund
+schema, exact order route rewrites, signed webhook handler and required runtime
+variable names in one deterministic package. An order payment requires exactly
+one active Stripe connection. Source preparation performs no provider calls.
+The ordinary publish capability gate remains closed until privileged catalog,
+webhook registration and customer flow verification are complete. This source
+compiler exception does not enable production publishing.
+
+Explicit-amount refund retries remain valid after a webhook has completed a
+full refund; the locked reservation returns the original provider receipt and
+rejects a new operation against the fully refunded balance.
+
+PASS locally: the full application smoke suite, TypeScript, affected-source
+ESLint, payment SDK/controller and atomic transaction regressions,
+data-view regression, signed webhook regression, owned source determinism and
+runtime secret plan. These include same-origin enforcement, checkout destination
+validation, refund role denial, account changes and lost-response retry.
+Chrome is unavailable locally, so the real browser suite did not run.
+PostgreSQL checks remain in the optional isolated database suite; they did not
+run locally. No real checkout, refund, webhook registration or key upload was
+performed. Remaining application work includes advanced scheduling, safe
+aggregate reporting, fulfilment transitions and final customer activation.
+
+### Booking working hours and time zones — 2026-10-11
+
+Native booking rules can now include a schedule with an IANA time zone, up to
+28 non-overlapping weekly periods and an elapsed duration limit of 1–1440
+minutes. ISO weekdays are Monday 1 through Sunday 7; period endpoints are
+integer minutes in one local day, with 1440 meaning the following midnight.
+One booking must fit one complete period; it cannot span a lunch break. The
+editor supports multiple periods, reports invalid time zones/overlaps and
+preserves existing saved schedules. Arabic and Swedish configuration and
+published rejection messages are included. Published forms and data views
+display the schedule's zone, periods and duration limit.
+
+Both browser validation and the compiled PostgreSQL invoker trigger enforce
+working hours for blocking states. Cancellation/nonblocking states are exempt
+from the schedule check; interval validity and RLS remain enforced. UTC instants
+control elapsed duration while local wall times control the weekly periods.
+Spring daylight-saving jumps are handled with those semantics; bookings whose
+local end is equal to or before the local start across a repeated autumn hour
+are rejected. There is no conversion of an ambiguous local string to a guessed
+instant in this new schedule helper.
+
+Read-only customer catalog verification checks the exact guard body, empty
+search path, invoker security, revoked execution grants and active INSERT/UPDATE
+trigger attachment. A disabled, replaced or incorrectly attached guard cannot
+pass preflight. The selected time zone must also exist in PostgreSQL's zone
+catalog. Source export includes the same rule and trigger. Changing an
+already deployed booking rule still requires a separately reviewed migration;
+this continuation does not silently constrain existing customer records.
+
+Local regression covers valid/invalid definitions, opening/closing boundaries,
+millisecond overflow, duration limits, closed days, summer/winter offsets,
+midnight, daylight-saving transitions, cancellation and tampered catalog proof.
+Focused source, schema, generation, AI, data-view and model regressions passed,
+as did TypeScript, affected-source ESLint, the production build and generated
+bundle consistency checks.
+The optional PostgreSQL fixture covers real out-of-hours writes, partial updates,
+cancellation and a disabled guard. PostgreSQL and Chrome are unavailable locally,
+so those database/browser checks remain pending rather than reported as passed.
+No customer project was changed and no keys were uploaded.
+
+Remaining scheduling work: availability selection, holidays/exceptions,
+recurrence, multiple-resource allocation and waiting lists. Payment catalog and
+fulfilment verification, aggregate reporting and final customer activation also
+remain open. This continuation is not a declaration that the entire plan is done.
 
 ### Durable email transport foundation — 2026-10-09
 

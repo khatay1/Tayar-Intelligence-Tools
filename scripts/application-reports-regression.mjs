@@ -1,0 +1,128 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { build } from 'esbuild';
+import { spawn } from 'node:child_process';
+
+const dir = await mkdtemp(join(tmpdir(), 'tayar-reports-')), require = createRequire(import.meta.url), originalFetch = globalThis.fetch;
+const owner = '11111111-1111-4111-8111-111111111111', other = '22222222-2222-4222-8222-222222222222';
+let embeddedDatabase;
+try {
+  const entry = join(dir, 'entry.ts');
+  await writeFile(entry, ['application-validation', 'application-schema-sql', 'application-reports', 'application-reports-sql', 'application-data-runtime', 'application-data-view-controller']
+    .map(name => `export * from ${JSON.stringify(resolve(`src/modules/website-builder/core/${name}`))};`).join('\n')
+    + `\nexport * from ${JSON.stringify(resolve('server/website-owned-reports-catalog'))};`);
+  await build({ entryPoints: [entry], outfile: join(dir, 'test.cjs'), platform: 'node', format: 'cjs', bundle: true });
+  const { readApplicationDefinition: validate, compileInitialApplicationSchema: initial, compileAdditiveApplicationMigration: migrate,
+    parseApplicationReports: parse, applicationReportsManifest: manifest, verifyOwnedReportsCatalog: verify,
+    createOwnedApplicationDataRuntime: runtimeFor, createApplicationDataViewController: controllerFor } = require(join(dir, 'test.cjs'));
+  const table = { id: 'orders', key: 'orders', name: 'Orders', fields: [
+    { id: 'name', key: 'name', name: 'Name', type: 'text', required: true },
+    { id: 'amount', key: 'amount', name: 'Amount', type: 'number', required: true, defaultValue: 0 },
+  ], permissions: [{ operation: 'read', access: 'owner' }], reports: [
+    { id: 'record-count', name: 'Orders', operation: 'count' },
+    { id: 'amount-total', name: 'Total', operation: 'sum', fieldId: 'amount' },
+    { id: 'amount-average', name: 'Average', operation: 'avg', fieldId: 'amount' },
+  ] };
+  const app = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [], pageAccess: [], tables: [table] };
+  validate(app);
+  for (const bad of [
+    { ...app, auth: { ...app.auth, enabled: false } },
+    { ...app, tables: [{ ...table, reports: [{ id: 'x', name: 'X', operation: 'sum' }] }] },
+    { ...app, tables: [{ ...table, reports: [{ id: 'x', name: 'X', operation: 'count', fieldId: 'amount' }] }] },
+    { ...app, tables: [{ ...table, reports: [{ id: 'x', name: 'X', operation: 'min', fieldId: 'name' }] }] },
+  ]) assert.throws(() => validate(bad));
+  const schema = initial(app).join('\n');
+  assert.match(schema, /function public\.app_reports_0\(\) returns jsonb language sql stable security invoker/);
+  assert.match(schema, /revoke all on function public\.app_reports_0\(\) from public,anon,authenticated,service_role/);
+  assert.match(schema, /grant execute on function public\.app_reports_0\(\) to authenticated/);
+  assert.match(schema, /sum\("amount"\)/);
+  const reportSql = schema.slice(schema.indexOf('create function public.app_reports_0'));
+  assert.doesNotMatch(reportSql, /security definer/);
+  const changed = structuredClone(app); changed.tables[0].reports[1].name = 'Revenue';
+  assert.match(migrate(app, changed).join('\n'), /create or replace function public\.app_reports_0/);
+  const removed = structuredClone(app); delete removed.tables[0].reports;
+  assert.match(migrate(app, removed).join('\n'), /drop function public\.app_reports_0\(\)/);
+  const exact = [{ id: 'record-count', value: '2' }, { id: 'amount-total', value: '9007199254740993.01' }, { id: 'amount-average', value: null }];
+  assert.equal(parse(table, exact)[1].value, '9007199254740993.01');
+  for (const bad of [[...exact, { id: 'extra', value: '1' }], exact.slice(1), [{ id: 'record-count', value: '-1' }, ...exact.slice(1)],
+    [{ id: 'record-count', value: '2.5' }, ...exact.slice(1)], [{ id: 'record-count', value: '2', extra: true }, ...exact.slice(1)],
+    [{ id: 'record-count', value: '2' }, { id: 'amount-total', value: 'NaN' }, exact[2]]]) assert.throws(() => parse(table, bad));
+  const expected = manifest(app)[0];
+  const goodCatalog = [{ name: expected.name, source: expected.source, security_definer: false, configuration: ['search_path='], volatility: 's', kind: 'f', result: 'jsonb', arguments: '', language: 'sql', owner: 'postgres', anon_execute: false, authenticated_execute: true, service_execute: false }];
+  assert.equal(await verify(app, async () => goodCatalog), true);
+  assert.equal(await verify(app, async () => [{ ...goodCatalog[0], security_definer: true }]), false);
+  assert.equal(await verify(app, async () => [{ ...goodCatalog[0], source: `${expected.source} select 1` }]), false);
+  assert.equal(await verify(app, async () => [{ ...goodCatalog[0], anon_execute: true }]), false);
+
+  const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_reports_fixture' };
+  const token = `a.${Buffer.from(JSON.stringify({ sub: owner, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.signature`;
+  let identity = owner, switchAfterReport = false, calls = 0;
+  globalThis.fetch = async (resource, init) => {
+    const url = new URL(String(resource)); assert.equal(url.origin, backend.url);
+    if (url.pathname === '/auth/v1/token') return Response.json({ access_token: token, refresh_token: 'fixture', token_type: 'bearer', expires_in: 3600, user: { id: identity, is_anonymous: false } });
+    if (url.pathname === '/auth/v1/user') return Response.json({ id: identity, is_anonymous: false });
+    assert.equal(url.pathname, '/rest/v1/rpc/app_reports_0'); calls++;
+    assert.equal(new Headers(init.headers).get('authorization'), `Bearer ${token}`);
+    if (switchAfterReport) identity = other;
+    return Response.json(exact);
+  };
+  const runtime = runtimeFor(app, backend, backend.projectRef);
+  try {
+    await runtime.auth.signIn('owner@example.com', 'fixture');
+    assert.equal((await runtime.reports(table.id, owner))[1].value, '9007199254740993.01');
+    const controller = controllerFor(app, { tableId: table.id, columns: ['name', 'amount'], actions: [], pageSize: 10 }, runtime, crypto.randomUUID);
+    assert.equal((await controller.reports())[0].value, '2');
+    switchAfterReport = true;
+    await assert.rejects(controller.reports(), /identity changed/); assert.equal(controller.closed(), true);
+    const before = calls; await assert.rejects(runtime.reports(table.id, owner), /identity changed/); assert.equal(calls, before);
+  } finally { runtime.dispose(); }
+  if (process.argv.includes('--postgres') || process.argv.includes('--pglite')) {
+    let query;
+    if (process.argv.includes('--pglite')) {
+      const { PGlite } = require(process.env.TAYAR_PGLITE_MODULE ?? '@electric-sql/pglite');
+      embeddedDatabase = new PGlite();
+      query = async input => {
+        await embeddedDatabase.exec('reset role;');
+        const results = await embeddedDatabase.exec(input);
+        return results.flatMap(result => result.rows.map(row => Object.values(row).map(value => typeof value === 'object' ? JSON.stringify(value) : String(value)).join('|'))).join('\n');
+      };
+    } else {
+    const databaseUrl = process.env.TAYAR_REPORTS_TEST_DATABASE_URL;
+    const url = new URL(databaseUrl ?? 'http://invalid');
+    if (!['postgres:', 'postgresql:'].includes(url.protocol) || !['localhost', '127.0.0.1'].includes(url.hostname)
+      || url.pathname !== '/tayar_reports_test') throw Error('An isolated local tayar_reports_test database is required.');
+    query = input => new Promise((resolveQuery, reject) => {
+      const child = spawn('psql', [databaseUrl, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-A', '-t'], { stdio: ['pipe', 'pipe', 'pipe'] });
+      let output = '', error = ''; child.stdout.on('data', data => output += data); child.stderr.on('data', data => error += data);
+      child.on('error', reject); child.on('close', code => code === 0 ? resolveQuery(output.trim()) : reject(Error(error))); child.stdin.end(input);
+    });
+    }
+    await query(`do $$ begin create role anon; exception when duplicate_object then null; end $$;
+      do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
+      do $$ begin create role service_role; exception when duplicate_object then null; end $$;
+      create schema auth; create table auth.users(id uuid primary key, is_anonymous boolean default false);
+      insert into auth.users values ('${owner}',false),('${other}',false);
+      create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+      create function auth.jwt() returns jsonb language sql stable as $$ select jsonb_build_object('is_anonymous',coalesce(nullif(current_setting('request.jwt.claim.anonymous',true),''),'false')::boolean) $$;
+      grant usage on schema public,auth to anon,authenticated,service_role;\n${schema}`);
+    await query(`insert into public.app_orders(owner_id,name,amount) values ('${owner}','One',9007199254740993.01),('${owner}','Two',0.99),('${other}','Private',777);`);
+    const reportAs = user => `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false); select public.app_reports_0();`;
+    const ownerTotals = parse(table, JSON.parse((await query(reportAs(owner))).split('\n').at(-1)));
+    assert.equal(ownerTotals[0].value, '2'); assert.equal(ownerTotals[1].value, '9007199254740994.00');
+    const otherTotals = parse(table, JSON.parse((await query(reportAs(other))).split('\n').at(-1)));
+    assert.equal(otherTotals[0].value, '1'); assert.equal(otherTotals[1].value, '777');
+    await assert.rejects(query('set role anon; select public.app_reports_0();'), /permission denied/);
+    await assert.rejects(query('set role service_role; select public.app_reports_0();'), /permission denied/);
+    const anonymous = JSON.parse((await query(`set role authenticated; select set_config('request.jwt.claim.sub','${owner}',false); select set_config('request.jwt.claim.anonymous','true',false); select public.app_reports_0();`)).split('\n').at(-1));
+    assert.equal(parse(table, anonymous)[0].value, '0'); assert.equal(parse(table, anonymous)[1].value, '0');
+    const catalogQuery = async sql => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${sql}) x;`));
+    assert.equal(await verify(app, catalogQuery), true);
+    await query('alter function public.app_reports_0() security definer;');
+    assert.equal(await verify(app, catalogQuery), false);
+    console.log('PASS actual PostgreSQL reports: exact decimals, RLS owner isolation, anonymous and service denial, catalog tamper refusal');
+  }
+  console.log('PASS reports: strict declarations, invoker SQL and grants, exact numeric text, catalog tamper refusal, pinned SDK RPC and account-change refusal');
+} finally { globalThis.fetch = originalFetch; await embeddedDatabase?.close(); await rm(dir, { recursive: true, force: true }); }

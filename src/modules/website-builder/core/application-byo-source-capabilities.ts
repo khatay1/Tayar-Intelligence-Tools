@@ -25,7 +25,8 @@ const price=/^price_[A-Za-z0-9]{8,128}$/;
 
 /** A source compiler must satisfy every capability in the saved project, not
  * silently export static HTML for a page whose behavior needs a backend. */
-export function analyzeByoSourceCapabilities(snapshot: Record<string, unknown>, environment: 'preview' | 'production'): ByoSourceCapabilities {
+export function analyzeByoSourceCapabilities(snapshot: Record<string, unknown>, environment: 'preview' | 'production',
+  sourceOptions?: { stripeOrderRuntimeCompiled?: boolean }): ByoSourceCapabilities {
   if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)
     || !['preview', 'production'].includes(environment)
     || !Array.isArray(snapshot.pages) || !snapshot.pages.length || snapshot.pages.length > 100) {
@@ -68,8 +69,9 @@ export function analyzeByoSourceCapabilities(snapshot: Record<string, unknown>, 
   }
   blockers.push(...websiteProjectLinkIssues(snapshot.pages, typeof snapshot.homePageId === 'string' ? snapshot.homePageId : undefined).map(issue => issue.message));
   const definition = readApplicationDefinition(snapshot.application, ids);
-  if (definition.tables.some(table => table.notifications?.length))
-    blockers.push('Saved email notification rules require verified customer-owned credentials, database triggers and a scheduled worker before publishing.');
+  const hasEmailNotifications = definition.tables.some(table => table.notifications?.length);
+  const hasOrderPayments = definition.tables.some(table=>table.payment);
+  if(hasOrderPayments && !sourceOptions?.stripeOrderRuntimeCompiled)blockers.push('Order payment rules need the customer-owned Stripe order runtime and webhook before publishing.');
   for (const page of snapshot.pages) preparePublishedApplicationDataViews(definition, page.id, page.sections as WebsiteSection[]);
   const privatePages = definition.pageAccess.some(rule => rule.access !== 'public');
   const auth = definition.auth.enabled || privatePages || definition.roles.length > 0;
@@ -85,9 +87,15 @@ export function analyzeByoSourceCapabilities(snapshot: Record<string, unknown>, 
   const integrationProviders=[...new Set(active.map(connection=>connection.providerId))].sort();
   const issues=validateEditorIntegrations({version:1,connections:active});
   if(issues.length)blockers.push('Active integrations contain invalid configuration or credential references.');
-  if(active.some(connection=>connection.providerId!=='stripe'))
+  if(active.some(connection=>connection.providerId!=='stripe'&&!(hasEmailNotifications&&connection.providerId==='resend')))
     blockers.push('External integrations other than Stripe checkout still need a customer-owned runtime adapter.');
+  const resend=active.filter(connection=>connection.providerId==='resend');
+  if(hasEmailNotifications&&resend.length<1)
+    blockers.push('Saved email notifications require an enabled Resend connection and scheduled worker for this environment.');
+  if(resend.some(connection=>(connection.events?.length??0)>0))
+    blockers.push('Saved email notifications use database rules and cannot also use generic Resend events.');
   const stripe=active.filter(connection=>connection.providerId==='stripe');
+  if(hasOrderPayments && stripe.length!==1)blockers.push('Order payments require exactly one enabled Stripe connection for this environment.');
   if(stripe.some(connection=>(connection.events?.length??0)>0))
     blockers.push('Stripe event automation is not deployed yet; checkout buttons are supported without integration events.');
   if(stripeCheckouts.length&&stripe.length!==1)
