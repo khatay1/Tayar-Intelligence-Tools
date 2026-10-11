@@ -25,7 +25,14 @@ open PR #146 head `b1d326665f43f5e15e0bbfd9817990ab6fc1de3b`.
 - A local real Chromium attempt was blocked by the execution environment's
   Unix-socket restrictions (`socket() failed: Operation not permitted`). This
   is NOT a passing browser check. Required real-browser verification is in CI.
-- Release Gate for the repaired PR is pending. Do not merge until it passes.
+- CI on `f11e8a7484c0f8ff5a8de43ea22790d2b74acffd` passed every
+  en/ar/sv data-view browser assertion, but profile removal failed because
+  Chromium children were still writing. Commit
+  `3eac7716bb6623dc735c8b5f03107a8cbf0fef4c` stops the full process group
+  and retries only transient directory cleanup. An earlier single-process
+  Chromium launch crashed and was removed; normal process isolation remains.
+- Final Release Gate including the advisor repair is pending on PR #146.
+  Do not merge until it passes. All phase-zero source fixes are one batch.
 
 ## Infrastructure observations (not activation claims)
 
@@ -55,6 +62,25 @@ open PR #146 head `b1d326665f43f5e15e0bbfd9817990ab6fc1de3b`.
 - Advisor references: https://supabase.com/docs/guides/database/database-linter
 
 ## Next action
+
+Advisor repair batch prepared as part of PR #146:
+
+- CLI-generated migration `20261011183711_phase_zero_advisor_hardening.sql`
+  adds the 16 verified referencing-column indexes. Bounded lock/statement waits,
+  one transaction, and a scheduler-source guard prevent partial/drifted changes.
+- The constant scheduler readiness function becomes SECURITY INVOKER using
+  ALTER, preserving its ACL and the existing scheduling safety trigger.
+- Embedded PostgreSQL (PGlite 0.5.2) regression passed: all indexes cover their
+  declared columns, a repeat apply is safe, RLS/ACL/FKs remain identical, allowed
+  roles still see false, anon is denied, scheduled publication stays disabled,
+  and source drift aborts the entire migration. Native PostgreSQL is added to
+  Release Gate using a separate synthetic fixture database.
+- Public ingestion functions validate input/quotas/rate limits and retain the
+  published-site/owner trigger. Custom-domain resolver filters verified domains
+  and live projects. Secret wrapper delegates to the owner-locked private
+  implementation; admin RPCs delegate to identity-based is_admin. Those entry
+  points require their existing elevated access and are not blanket-revoked.
+- No live database migration or production promotion has been applied yet.
 
 Run Release Gate on the repaired PR head and merge only when successful.
 Then finish the scoped database advisor review/index migration and verify

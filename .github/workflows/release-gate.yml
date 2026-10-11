@@ -98,6 +98,14 @@ jobs:
           set -o pipefail
           timeout 40s npm run smoke:website-builder:data-views:browser 2>&1 | tee /tmp/tayar-data-view-browser.log
 
+      - name: Platform advisor migration regression
+        env:
+          TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
+          TAYAR_ADVISOR_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_advisor_test
+        run: |
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_advisor_test;'
+          timeout 45s node scripts/phase-zero-advisor-regression.mjs --postgres
+
       - name: Preserve data view browser failure
         if: failure() && steps.data-view-browser.outcome == 'failure'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
