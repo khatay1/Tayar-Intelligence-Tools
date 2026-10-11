@@ -212,7 +212,7 @@ run().then(()=>document.querySelector('#result').textContent='PASS application d
   const url = `http://127.0.0.1:${server.address().port}`;
   // dump-dom can finish while asynchronous UI checks are still running. Wait
   // for the real browser's terminal result, with a wall-clock failure deadline.
-  const child = spawn(chrome, ['--headless', '--no-sandbox', '--no-zygote', '--single-process', '--disable-gpu', '--disable-dev-shm-usage', `--user-data-dir=${dir}`, url], { stdio: ['ignore', 'ignore', 'pipe'] });
+  const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', `--user-data-dir=${dir}`, url], { stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer;
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
   let marker;
