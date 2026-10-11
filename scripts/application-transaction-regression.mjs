@@ -244,6 +244,9 @@ try {
     // Earlier suites create a minimal Auth table; payment access checks real Auth state.
     await query(`alter table auth.users add column if not exists email_confirmed_at timestamptz;
       alter table auth.users add column if not exists banned_until timestamptz;
+      create or replace function auth.role() returns text language sql stable as $$
+        select coalesce(nullif(current_setting('request.jwt.claim.role',true),''),nullif(current_setting('role',true),'none'))
+      $$;
       update auth.users set email_confirmed_at=clock_timestamp(),banned_until=null,is_anonymous=false
       where id in ('${owner}','${other}');`);
     await query(paymentSql);
