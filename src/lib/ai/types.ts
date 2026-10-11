@@ -98,7 +98,6 @@ export const DEFAULT_MODELS: Record<string, string> = {
   'ai-chat': 'gemini-3.6-flash',
   'website-builder': 'gemini-3.6-flash',
   'code-assistant': 'gemini-3.6-flash',
-  'social-hub': 'gemini-3.6-flash',
 };
 
 export function getDefaultModel(tool: string): string {

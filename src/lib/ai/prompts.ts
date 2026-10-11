@@ -3,7 +3,7 @@
 
 export type ToolId =
   | 'cv-builder' | 'cover-letter' | 'ai-writer'
-  | 'document-ai' | 'study-assistant' | 'translator' | 'ai-chat' | 'website-builder' | 'code-assistant' | 'social-hub';
+  | 'document-ai' | 'study-assistant' | 'translator' | 'ai-chat' | 'website-builder' | 'code-assistant';
 
 export interface PromptTemplate {
   system: string;
@@ -1233,14 +1233,6 @@ Return ONLY the patch JSON object.`;
       }
       return `Create the Tayar website plan and builder specification for this request:\n${input.prompt || ''}\n\nGENERATION LIMITS:\n${JSON.stringify(input.limits || { maxPages: 6, maxSectionsPerPage: 80 })}\n\nReturn ONLY the JSON object.`;
     },
-  },
-  'social-hub': {
-    system: `You draft concise customer-service replies for an authorized human operator.
-Use only facts contained in the supplied conversation and contact context. Never invent prices, promises, refunds, policies, delivery dates or completed actions.
-Do not request passwords, one-time codes, payment card data or other secrets. If the request needs an unavailable fact or human decision, say so plainly and ask one focused question.
-Match the customer's language and tone while remaining professional. Return only the proposed reply text with no labels, analysis, markdown or quotation marks.
-Every output is an unapproved draft. Never claim it was sent or that an action occurred.`,
-    user: (input) => `Draft the next reply for this conversation.\n\nCONTACT CONTEXT:\n${JSON.stringify(input.contact || {}, null, 2)}\n\nRECENT MESSAGES:\n${JSON.stringify(input.messages || [], null, 2)}\n\nOPERATOR GUIDANCE:\n${String(input.guidance || 'Answer helpfully using only the conversation facts.')}\n\nReturn only the reply draft.`,
   },
   'ai-chat': {
     system: `You are Tayar, a helpful AI assistant integrated into the Tayar Intelligence Tools platform.

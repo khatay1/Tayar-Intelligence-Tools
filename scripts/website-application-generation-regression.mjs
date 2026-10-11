@@ -84,6 +84,25 @@ try {
   assert.equal(dashboard.state.AiStage, 'ready');
   assert.deepEqual(dashboard.state.Pages[2].sections[0].applicationDataView, dataView);
   assert.deepEqual(dashboard.checkpoints.at(-1)[1].pages[2].sections[0].applicationDataView, dataView);
+  const readOnlyResponse = { ...response,
+    requirements: [{ id: 'record-reader', summary: 'Users can read their saved records.', capability: 'records', evidence: ['view:appointments:read'] }],
+    application: { ...application, pageAccess: [], tables: [{ ...table, permissions: [{ operation: 'read', access: 'owner' }] }] },
+    pages: [{ name: 'Records', slug: 'records', sections: [{ type: 'features', title: 'My records', applicationDataView: { ...dataView, actions: [] } }] }],
+  };
+  for (const prompt of ['Build a data dashboard', 'بدي لوحة بيانات', 'Bygg datapanel']) {
+    const reader = await run(readOnlyResponse, 6, prompt);
+    assert.equal(reader.state.AiStage, 'ready', prompt);
+    assert.deepEqual(reader.state.Pages[0].sections[0].applicationDataView.actions, []);
+    assert.deepEqual(reader.state.Application.requirements.items[0].evidence, ['view:appointments:read']);
+    let approvals = 0;
+    const readerArgs = { ...deliveryArgs, application: reader.state.Application, pages: reader.state.Pages,
+      setDeliveryConfig: updater => { approvals++; updater(deliveryConfig); } };
+    globalThis.window.alert = () => {};
+    createDeliveryActions(readerArgs).approveForDelivery();
+    assert.equal(approvals, 1, 'a real read-only dashboard can be approved');
+    createDeliveryActions({ ...readerArgs, pages: reader.state.Pages.map(page => ({ ...page, sections: [] })) }).approveForDelivery();
+    assert.equal(approvals, 1, 'removing the read-only binding invalidates approval');
+  }
   for (const invalid of [
     { ...dashboardResponse, application: undefined },
     { ...dashboardResponse, pages: [...response.pages, { ...dashboardResponse.pages[2], sections: [{ type: 'features', applicationDataView: { ...dataView, credentials: 'forbidden' } }] }] },

@@ -92,14 +92,6 @@ jobs:
           psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_reports_test;'
           timeout 45s node scripts/application-reports-regression.mjs --postgres
 
-      - name: Social Hub database regression
-        env:
-          TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
-          TAYAR_SOCIAL_HUB_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_social_hub_test
-        run: |
-          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_social_hub_test;'
-          timeout 45s node scripts/social-hub-regression.mjs --postgres
-
       - name: Application data view browser regression
         id: data-view-browser
         run: |

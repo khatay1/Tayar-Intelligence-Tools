@@ -74,6 +74,7 @@ export function prepareGeneratedApplication(
       if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
       if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       if (view.table.transaction && view.binding.actions.includes('transact')) transactionViews++;
+      evidence.add(`view:${view.table.id}:read`);
       for (const action of view.binding.actions) evidence.add(`view:${view.table.id}:${action}`);
       if (view.table.booking && view.binding.actions.includes('create')) evidence.add(`booking:${view.table.id}`);
       if (view.table.counter && view.binding.actions.includes('adjust')) evidence.add(`counter:${view.table.id}`);
