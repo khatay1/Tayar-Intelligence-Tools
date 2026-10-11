@@ -241,6 +241,11 @@ try {
     assert.equal(await verify(app, async text => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${text}) x;`))), false);
     console.log('PASS actual PostgreSQL generic transactions: multi-row rollback, deterministic locks, concurrency, replay, line denial and catalog drift');
     await query('drop schema private cascade; drop schema public cascade; create schema public; grant usage on schema public to anon,authenticated,service_role;');
+    // Earlier suites create a minimal Auth table; payment access checks real Auth state.
+    await query(`alter table auth.users add column if not exists email_confirmed_at timestamptz;
+      alter table auth.users add column if not exists banned_until timestamptz;
+      update auth.users set email_confirmed_at=clock_timestamp(),banned_until=null,is_anonymous=false
+      where id in ('${owner}','${other}');`);
     await query(paymentSql);
     await query(`insert into public.app_products(id,owner_id,name,price_minor) values('${itemA}','${owner}','A',125);`);
     await query(`${asUser(owner)} select public.app_adjust_counter_0('${itemA}',10,gen_random_uuid());`);
@@ -258,6 +263,11 @@ try {
     assert.equal(await query(`set role service_role;select public.app_order_payment_status_1('${priced.id}','${owner}')->>'status';`),'unpaid');
     assert.equal(await query(`set role service_role;select public.app_order_payment_status_1('${priced.id}','${other}') is null;`),'t');
     await assert.rejects(query(`set role authenticated;select public.app_order_payment_status_1('${priced.id}','${owner}');`),/permission denied/);
+    await query(`update auth.users set email_confirmed_at=null where id='${owner}';`);
+    assert.equal(await query(`set role service_role;select public.app_order_quote_1('${priced.id}','${owner}') is null;`),'t');
+    await query(`update auth.users set email_confirmed_at=clock_timestamp(),banned_until=clock_timestamp()+interval '1 hour' where id='${owner}';`);
+    assert.equal(await query(`set role service_role;select public.app_order_payment_status_1('${priced.id}','${owner}') is null;`),'t');
+    await query(`update auth.users set banned_until=null where id='${owner}';`);
 
     await assert.rejects(query(`${asUser(owner)} update public.app_products set price_minor=500 where id='${itemA}';`),/Price administration role required/);
     await query(`update public.app_products set price_minor=125 where id='${itemA}';`);
