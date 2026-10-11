@@ -34,7 +34,7 @@ try {
       formFields: [{ id: 'date_input', name: 'visit_date', label: 'Date', type: 'date', required: true }],
       applicationFormBinding: { operation: 'create', tableId: 'appointments', fields: [{ formFieldId: 'date_input', tableFieldId: 'visit_date' }] } }] },
   ] };
-  async function run(json, maxPages = 6, prompt = 'Build saved records with a patient portal') {
+  async function run(json, maxPages = 6, prompt = 'Build saved records with a patient portal', agentMode = false) {
     globalThis.__generationResponse = { json };
     globalThis.window = { confirm: () => true };
     const state = {}, checkpoints = [];
@@ -48,7 +48,7 @@ try {
       buildProjectSnapshot: () => ({ application: { old: true } }), pushProjectCheckpoint: (...data) => checkpoints.push(data), requestGeneratedImage: async () => { throw new Error(); },
     };
     for (const key of ['Application','ActivePageId','AiBusy','AiCandidatePreview','AiError','AiIntent','AiMessages','AiPatchReview','AiPlan','AiPrompt','AiQualityReview','AiStage','AiUndoSnapshot','Brand','HeaderConfig','HomePageId','Pages','Saved','Sections','SelectedElementId','SelectedId','Seo','SiteName','Theme']) args[`set${key}`] = setter(key);
-    await createAIGenerationHandler(args)();
+    await createAIGenerationHandler(args)(agentMode);
     return { state, checkpoints };
   }
   const built = await run(response);
@@ -62,6 +62,37 @@ try {
   assert.equal(built.state.Pages[1].sections[0].formFields[0].name, 'visit_date');
   assert.deepEqual(built.checkpoints.at(-1)[1].application, built.state.Application);
   assert.match(built.state.AiMessages.at(-1).content, /No backend has been provisioned/);
+  const projectSpecification = {
+    version: 1, intent: 'Let patients authenticate and submit appointment requests.',
+    actors: [{ id: 'patient', name: 'Patient' }],
+    entities: [{ id: 'appointments', scope: 'owner', classification: 'restricted' }],
+    requirements: [
+      { id: 'account-access', origin: 'inferred', acceptanceCriteria: ['A patient can authenticate before accessing the portal.'] },
+      { id: 'booking-page', origin: 'explicit', acceptanceCriteria: ['An authenticated patient can open the booking page.'] },
+      { id: 'saved-request', origin: 'explicit', acceptanceCriteria: ['A valid appointment request is saved for its owner.'] },
+    ],
+    operations: [
+      { id: 'sign-in', summary: 'Authenticate a patient.', actorIds: ['patient'], entityIds: [], requirementIds: ['account-access'], dependsOn: [], execution: 'native', transactional: false },
+      { id: 'open-booking', summary: 'Open the protected booking page.', actorIds: ['patient'], entityIds: [], requirementIds: ['booking-page'], dependsOn: ['sign-in'], execution: 'native', transactional: false },
+      { id: 'create-request', summary: 'Create an owner-scoped appointment request.', actorIds: ['patient'], entityIds: ['appointments'], requirementIds: ['saved-request'], dependsOn: ['sign-in'], execution: 'native', transactional: true },
+    ],
+    rules: [{ id: 'appointment-owner', summary: 'Patients can submit and read only their own requests.', operationIds: ['create-request'] }],
+    tenancy: { mode: 'single' }, integrations: [],
+    privacy: [{ entityId: 'appointments', purpose: 'Fulfil the patient appointment request.', retentionDays: 365 }], decisions: [],
+  };
+  const missingAgentSpec = await run(response, 6, 'Build saved records with a patient portal', true);
+  assert.equal(missingAgentSpec.state.AiStage, 'error');
+  assert.equal(missingAgentSpec.state.Application, undefined);
+  assert.equal(missingAgentSpec.checkpoints.length, 0);
+  const agentBuild = await run({ ...response, projectSpecification }, 6, 'Build saved records with a patient portal', true);
+  assert.equal(agentBuild.state.AiStage, 'ready');
+  assert.deepEqual(agentBuild.state.Application.requirements.specification, projectSpecification);
+  const invalidAgentSpec = await run({ ...response, projectSpecification: { ...projectSpecification,
+    operations: projectSpecification.operations.map((operation, index) => index ? operation : { ...operation, execution: 'custom' }) } }, 6, 'Build saved records with a patient portal', true);
+  assert.equal(invalidAgentSpec.state.AiStage, 'error');
+  assert.equal(invalidAgentSpec.state.Application, undefined);
+  assert.equal(invalidAgentSpec.state.Pages, undefined);
+  assert.equal(invalidAgentSpec.checkpoints.length, 0);
   const deliveryConfig = { clientName: '', clientEmail: '', projectCode: '', status: 'review', dueDate: '', handoffNotes: '', whiteLabel: true, approvedAt: null, approvedFingerprint: '', deliveredAt: null };
   let deliveryMutations = 0, alerts = 0;
   globalThis.window.alert = () => { alerts++; };

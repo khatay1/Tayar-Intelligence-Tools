@@ -152,7 +152,7 @@ export function createAIGenerationHandler({
         .map(connection => ({ id: connection.id, providerId: connection.providerId, name: connection.name }));
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', availableIntegrations, limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
+        { action: 'generate', availableIntegrations, limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Analyze this project's explicit and necessary inferred requirements without assuming a business sector or template. For applications, return projectSpecification with actors, schema entities, observable acceptance criteria, operation dependencies, business rules, tenancy, privacy and deferred integration scopes. Report unresolved conflicts and unsupported execution instead of omitting requirements. Include imagePrompt values where useful. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 16000, signal: abortController.signal },
       );
@@ -260,7 +260,7 @@ export function createAIGenerationHandler({
       const emailConnectionIds = new Set(availableIntegrations
         .filter(connection => connection.providerId === 'resend')
         .map(connection => connection.id));
-      const nextApplication = prepareGeneratedApplication(generated, nextPages, prompt, emailConnectionIds);
+      const nextApplication = prepareGeneratedApplication(generated, nextPages, prompt, emailConnectionIds, agentMode);
       nextPages = normalizeGeneratedPageLinks(nextPages);
 
       let agentImagesGenerated = 0;

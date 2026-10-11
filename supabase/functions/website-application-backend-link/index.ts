@@ -48,9 +48,125 @@ var APPLICATION_FILE_TYPES = [
 ];
 var APPLICATION_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
-// src/modules/website-builder/core/application-email-notifications.ts
-var identifier = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
+// src/modules/website-builder/core/project-specification.ts
 var object = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var identifier = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
+var text = (value, limit = 800) => typeof value === "string" && !!value.trim() && value.length <= limit;
+function projectSpecificationIssues(value, application) {
+  const issues = [];
+  const fail = (path, message) => {
+    issues.push(`${path}: ${message}`);
+  };
+  function shape(input, keys, path) {
+    if (!object(input)) {
+      fail(path, "Expected a specification object.");
+      return false;
+    }
+    if (Object.keys(input).some((key) => !keys.includes(key))) fail(path, "Unknown specification property.");
+    return true;
+  }
+  function list(input, path, limit = 100) {
+    if (!Array.isArray(input) || input.length > limit) {
+      fail(path, "Invalid or oversized specification list.");
+      return [];
+    }
+    return input;
+  }
+  function catalog(input, path, keys, key = "id") {
+    const used = /* @__PURE__ */ new Set();
+    return list(input, path).filter((item, index) => {
+      const at = `${path}[${index}]`;
+      if (!shape(item, keys, at)) return false;
+      if (!identifier(item[key]) || used.has(String(item[key]))) fail(at, "IDs must be valid and unique.");
+      else used.add(item[key]);
+      return true;
+    });
+  }
+  function references(input, known, path, required = false) {
+    const entries = list(input, path);
+    if (required && !entries.length) fail(path, "At least one reference is required.");
+    if (new Set(entries).size !== entries.length || entries.some((id2) => !identifier(id2) || !known.has(id2))) fail(path, "Unknown or duplicate reference.");
+    return entries.filter(identifier);
+  }
+  if (!shape(value, ["version", "intent", "actors", "entities", "requirements", "operations", "rules", "tenancy", "integrations", "privacy", "decisions"], "specification")) return issues;
+  if (value.version !== 1 || !text(value.intent, 2e3)) fail("specification", "Version 1 and a nonempty project intent are required.");
+  const tableIds = new Set((Array.isArray(application.tables) ? application.tables : []).filter(object).map((table) => table.id));
+  const roleIds = new Set((Array.isArray(application.roles) ? application.roles : []).filter(object).map((role) => role.id));
+  const requirementIds = new Set((Array.isArray(application.requirements?.items) ? application.requirements.items : []).filter(object).map((item) => item.id));
+  const actors = catalog(value.actors, "actors", ["id", "name", "roleId"]);
+  if (!actors.length) fail("actors", "Define the people or systems using this project.");
+  for (const actor of actors) if (!text(actor.name, 160) || actor.roleId !== void 0 && !roleIds.has(actor.roleId)) fail(`actors.${actor.id}`, "Actor name or application role is invalid.");
+  const actorIds = new Set(actors.map((actor) => actor.id));
+  const entities = catalog(value.entities, "entities", ["id", "scope", "classification"]);
+  for (const entity of entities) if (!tableIds.has(entity.id) || !["global", "owner", "organization", "branch"].includes(String(entity.scope)) || !["public", "internal", "confidential", "restricted"].includes(String(entity.classification))) fail(`entities.${entity.id}`, "Unknown schema entity, scope or sensitivity.");
+  for (const table of tableIds) if (!entities.some((entity) => entity.id === table)) fail(`entities.${table}`, "Every application table needs a scope and sensitivity classification.");
+  const entityIds = new Set(entities.map((entity) => entity.id));
+  const requirements = catalog(value.requirements, "requirements", ["id", "origin", "acceptanceCriteria"]);
+  for (const item of requirements) {
+    if (!requirementIds.has(item.id) || !["explicit", "inferred"].includes(String(item.origin))) fail(`requirements.${item.id}`, "Requirement must reference the existing manifest and declare its origin.");
+    const criteria = list(item.acceptanceCriteria, `requirements.${item.id}.acceptanceCriteria`, 20);
+    if (!criteria.length || criteria.some((criterion) => !text(criterion))) fail(`requirements.${item.id}`, "Define observable acceptance criteria; a page or button alone is not completion.");
+  }
+  for (const id2 of requirementIds) if (!requirements.some((item) => item.id === id2)) fail(`requirements.${id2}`, "Missing requirement acceptance criteria.");
+  const operations = catalog(value.operations, "operations", ["id", "summary", "actorIds", "entityIds", "requirementIds", "dependsOn", "execution", "transactional"]);
+  const operationIds = new Set(operations.map((operation) => operation.id));
+  const covered = /* @__PURE__ */ new Set();
+  const graph = /* @__PURE__ */ new Map();
+  for (const operation of operations) {
+    const at = `operations.${operation.id}`;
+    if (!text(operation.summary) || typeof operation.transactional !== "boolean" || !["native", "custom"].includes(String(operation.execution))) fail(at, "Invalid operation contract.");
+    references(operation.actorIds, actorIds, `${at}.actorIds`, true);
+    references(operation.entityIds, entityIds, `${at}.entityIds`);
+    references(operation.requirementIds, requirementIds, `${at}.requirementIds`, true).forEach((id2) => covered.add(id2));
+    graph.set(String(operation.id), references(operation.dependsOn, operationIds, `${at}.dependsOn`));
+    if (operation.execution === "custom") fail(at, "Custom code requires an isolated execution adapter before generation can apply this project.");
+  }
+  for (const id2 of requirementIds) if (!covered.has(String(id2))) fail(`requirements.${id2}`, "No implementation operation covers this requirement.");
+  const visited = /* @__PURE__ */ new Set(), visiting = /* @__PURE__ */ new Set();
+  const visit = (id2) => {
+    if (visiting.has(id2)) {
+      fail(`operations.${id2}`, "Cyclic implementation dependencies.");
+      return;
+    }
+    if (visited.has(id2)) return;
+    visiting.add(id2);
+    for (const dependency of graph.get(id2) ?? []) visit(dependency);
+    visiting.delete(id2);
+    visited.add(id2);
+  };
+  for (const id2 of graph.keys()) visit(id2);
+  for (const rule of catalog(value.rules, "rules", ["id", "summary", "operationIds"])) {
+    if (!text(rule.summary)) fail(`rules.${rule.id}`, "Describe the business rule.");
+    references(rule.operationIds, operationIds, `rules.${rule.id}.operationIds`, true);
+  }
+  if (shape(value.tenancy, ["mode", "organizationEntityId", "branchEntityId"], "tenancy")) {
+    const tenancy = value.tenancy;
+    if (!["single", "organizations", "branches"].includes(String(tenancy.mode))) fail("tenancy", "Invalid tenancy mode.");
+    if (tenancy.mode !== "single" && !entityIds.has(tenancy.organizationEntityId)) fail("tenancy", "Organization projects need an organization entity.");
+    if (tenancy.mode === "branches" && !entityIds.has(tenancy.branchEntityId)) fail("tenancy", "Branch projects need a branch entity.");
+    if (tenancy.mode === "single" && (tenancy.organizationEntityId !== void 0 || tenancy.branchEntityId !== void 0)) fail("tenancy", "Contradictory tenancy references.");
+    if (tenancy.mode !== "single" || entities.some((entity) => ["organization", "branch"].includes(String(entity.scope)))) fail("tenancy", "Organization/branch isolation needs executable membership policies before delivery.");
+  }
+  for (const integration of catalog(value.integrations, "integrations", ["id", "purpose", "operationIds", "scopes", "activation"])) {
+    if (!text(integration.purpose) || integration.activation !== "deferred") fail(`integrations.${integration.id}`, "Only deferred, credential-free integration plans belong in a specification.");
+    const scopes = list(integration.scopes, `integrations.${integration.id}.scopes`, 30);
+    if (!scopes.length || scopes.some((scope) => !text(scope, 160))) fail(`integrations.${integration.id}`, "Declare required permission scopes without credentials.");
+    references(integration.operationIds, operationIds, `integrations.${integration.id}.operationIds`, true);
+  }
+  const privacy = catalog(value.privacy, "privacy", ["entityId", "purpose", "retentionDays"], "entityId");
+  for (const entry of privacy) if (!entityIds.has(entry.entityId) || !text(entry.purpose) || entry.retentionDays !== null && (!Number.isInteger(entry.retentionDays) || Number(entry.retentionDays) < 1 || Number(entry.retentionDays) > 36500)) fail(`privacy.${entry.entityId}`, "Invalid entity purpose or retention plan.");
+  for (const entity of entities) if (["confidential", "restricted"].includes(String(entity.classification)) && !privacy.some((entry) => entry.entityId === entity.id)) fail(`privacy.${entity.id}`, "Sensitive entities need explicit privacy planning.");
+  for (const decision of catalog(value.decisions, "decisions", ["id", "kind", "summary", "operationIds", "blocking"])) {
+    if (!["missing", "conflict", "unsupported"].includes(String(decision.kind)) || !text(decision.summary) || typeof decision.blocking !== "boolean") fail(`decisions.${decision.id}`, "Invalid unresolved decision.");
+    references(decision.operationIds, operationIds, `decisions.${decision.id}.operationIds`);
+    if (decision.blocking === true || decision.kind === "conflict" || decision.kind === "unsupported") fail(`decisions.${decision.id}`, `Unresolved project requirement: ${decision.summary}`);
+  }
+  return issues;
+}
+
+// src/modules/website-builder/core/application-email-notifications.ts
+var identifier2 = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
+var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function applicationEmailTemplateParts(value, fields) {
   const parts = [];
   let cursor = 0;
@@ -73,10 +189,10 @@ function applicationEmailTemplateParts(value, fields) {
   return parts;
 }
 function validateApplicationEmailNotification(value, table) {
-  if (!object(value) || Object.keys(value).sort().join(",") !== "connectionId,event,id,subject,text" || typeof value.id !== "string" || !identifier.test(value.id) || typeof value.connectionId !== "string" || !identifier.test(value.connectionId) || typeof value.subject !== "string" || !value.subject.trim() || value.subject.length > 200 || Array.from(value.subject).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) || typeof value.text !== "string" || !value.text.trim() || value.text.length > 16e3 || value.text.includes("\0")) return "Invalid email notification rule.";
+  if (!object2(value) || Object.keys(value).sort().join(",") !== "connectionId,event,id,subject,text" || typeof value.id !== "string" || !identifier2.test(value.id) || typeof value.connectionId !== "string" || !identifier2.test(value.connectionId) || typeof value.subject !== "string" || !value.subject.trim() || value.subject.length > 200 || Array.from(value.subject).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) || typeof value.text !== "string" || !value.text.trim() || value.text.length > 16e3 || value.text.includes("\0")) return "Invalid email notification rule.";
   if (!table.permissions.some((permission) => permission.operation === "read" && permission.access === "owner")) return "Email recipients require owner read access.";
   const event = value.event;
-  if (!object(event)) return "Unknown email notification event.";
+  if (!object2(event)) return "Unknown email notification event.";
   if (event.type === "created" && Object.keys(event).join(",") === "type") {
     if (!table.permissions.some((permission) => permission.operation === "create" && permission.access !== "public")) return "Email source write unavailable.";
   } else if (event.type === "transition" && Object.keys(event).sort().join(",") === "transitionId,type") {
@@ -94,16 +210,16 @@ function validateApplicationEmailNotification(value, table) {
 }
 
 // src/modules/website-builder/core/application-booking-schedule.ts
-var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validApplicationBookingSchedule(value) {
-  if (!object2(value) || Object.keys(value).some((key) => !["maxDurationMinutes", "timeZone", "weekly", "exceptions"].includes(key)) || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
+  if (!object3(value) || Object.keys(value).some((key) => !["maxDurationMinutes", "timeZone", "weekly", "exceptions"].includes(key)) || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
   } catch {
     return false;
   }
   for (const window2 of value.weekly) {
-    if (!object2(window2) || Object.keys(window2).sort().join(",") !== "day,endMinute,startMinute" || !Number.isInteger(window2.day) || Number(window2.day) < 1 || Number(window2.day) > 7 || !Number.isInteger(window2.startMinute) || Number(window2.startMinute) < 0 || !Number.isInteger(window2.endMinute) || Number(window2.endMinute) > 1440 || Number(window2.endMinute) <= Number(window2.startMinute)) return false;
+    if (!object3(window2) || Object.keys(window2).sort().join(",") !== "day,endMinute,startMinute" || !Number.isInteger(window2.day) || Number(window2.day) < 1 || Number(window2.day) > 7 || !Number.isInteger(window2.startMinute) || Number(window2.startMinute) < 0 || !Number.isInteger(window2.endMinute) || Number(window2.endMinute) > 1440 || Number(window2.endMinute) <= Number(window2.startMinute)) return false;
   }
   const windows = value.weekly;
   if (windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
@@ -111,10 +227,10 @@ function validApplicationBookingSchedule(value) {
     if (!Array.isArray(value.exceptions) || value.exceptions.length > 366) return false;
     const dates = /* @__PURE__ */ new Set();
     for (const exception of value.exceptions) {
-      if (!object2(exception) || Object.keys(exception).sort().join(",") !== "date,windows" || typeof exception.date !== "string" || (!/^\d{4}-\d{2}-\d{2}$/.test(exception.date) || exception.date.startsWith("0000-")) || !Number.isFinite(Date.parse(exception.date)) || new Date(exception.date).toISOString().slice(0, 10) !== exception.date || dates.has(exception.date) || !Array.isArray(exception.windows) || exception.windows.length > 4) return false;
+      if (!object3(exception) || Object.keys(exception).sort().join(",") !== "date,windows" || typeof exception.date !== "string" || (!/^\d{4}-\d{2}-\d{2}$/.test(exception.date) || exception.date.startsWith("0000-")) || !Number.isFinite(Date.parse(exception.date)) || new Date(exception.date).toISOString().slice(0, 10) !== exception.date || dates.has(exception.date) || !Array.isArray(exception.windows) || exception.windows.length > 4) return false;
       dates.add(exception.date);
       for (const window2 of exception.windows) {
-        if (!object2(window2) || Object.keys(window2).sort().join(",") !== "endMinute,startMinute" || !Number.isInteger(window2.startMinute) || !Number.isInteger(window2.endMinute) || Number(window2.startMinute) < 0 || Number(window2.endMinute) > 1440 || Number(window2.startMinute) >= Number(window2.endMinute)) return false;
+        if (!object3(window2) || Object.keys(window2).sort().join(",") !== "endMinute,startMinute" || !Number.isInteger(window2.startMinute) || !Number.isInteger(window2.endMinute) || Number(window2.startMinute) < 0 || Number(window2.endMinute) > 1440 || Number(window2.startMinute) >= Number(window2.endMinute)) return false;
       }
       const special = exception.windows;
       if (special.some((left, index) => special.some((right, other) => other > index && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
@@ -124,9 +240,9 @@ function validApplicationBookingSchedule(value) {
 }
 
 // src/modules/website-builder/core/application-booking-recurrence.ts
-var object3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object4 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validBookingRecurrenceRule(value) {
-  if (!object3(value) || Object.keys(value).sort().join(",") !== "maxOccurrences,timeZone" || typeof value.timeZone !== "string" || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || value.timeZone.length > 80 || !Number.isInteger(value.maxOccurrences) || Number(value.maxOccurrences) < 2 || Number(value.maxOccurrences) > 52) return false;
+  if (!object4(value) || Object.keys(value).sort().join(",") !== "maxOccurrences,timeZone" || typeof value.timeZone !== "string" || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || value.timeZone.length > 80 || !Number.isInteger(value.maxOccurrences) || Number(value.maxOccurrences) < 2 || Number(value.maxOccurrences) > 52) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
     return true;
@@ -143,15 +259,15 @@ function createApplicationDefinition() {
 }
 
 // src/modules/website-builder/core/application-validation.ts
-var object4 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-var identifier2 = (value) => typeof value === "string" && /^[a-z][a-z0-9_]{0,47}$/.test(value);
+var object5 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var identifier3 = (value) => typeof value === "string" && /^[a-z][a-z0-9_]{0,47}$/.test(value);
 var id = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
 var name = (value) => typeof value === "string" && value.trim().length > 0 && value.length <= 160;
 function validateApplicationDefinition(value, pageIds) {
   const issues = [];
   const issue = (path, code, message) => issues.push({ path, code, message });
   function shape(item, keys, path) {
-    if (!object4(item)) {
+    if (!object5(item)) {
       issue(path, "invalid-object", "Expected an application configuration object.");
       return false;
     }
@@ -192,12 +308,12 @@ function validateApplicationDefinition(value, pageIds) {
     for (const key of ["enabled", "signUpEnabled", "emailVerificationRequired"]) if (typeof auth[key] !== "boolean") issue(`application.auth.${key}`, "invalid-boolean", "Expected a boolean setting.");
     if (auth.signUpEnabled && !auth.enabled) issue("application.auth", "auth-disabled", "Enable authentication before allowing registration.");
   }
-  const authEnabled = object4(auth) && auth.enabled === true;
+  const authEnabled = object5(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
     if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
-    if (!identifier2(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
+    if (!identifier3(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
     if (!name(table.name)) issue(`${path}.name`, "invalid-name", "A table requires a display name.");
   });
@@ -209,14 +325,14 @@ function validateApplicationDefinition(value, pageIds) {
     if (rule.access !== "role" && rule.roleId !== void 0) issue(`${path}.roleId`, "unexpected-role", "Role restrictions require role-based access.");
   }
   tables.forEach((table, tableIndex) => {
-    if (!object4(table)) return;
+    if (!object5(table)) return;
     const path = `application.tables[${tableIndex}]`;
     const keys = new Set(APPLICATION_SYSTEM_FIELDS);
     list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field, fieldIndex) => {
       const fieldPath = `${path}.fields[${fieldIndex}]`;
       if (!shape(field, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId", "formula"], fieldPath)) return;
       identity(field.id, `${fieldPath}.id`);
-      if (!identifier2(field.key) || keys.has(field.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
+      if (!identifier3(field.key) || keys.has(field.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
       else keys.add(field.key);
       if (!name(field.name)) issue(`${fieldPath}.name`, "invalid-name", "A field requires a display name.");
       if (!["text", "number", "boolean", "date", "datetime", "uuid", "json", "enum", "reference"].includes(String(field.type))) issue(`${fieldPath}.type`, "invalid-type", "Unsupported field type.");
@@ -225,7 +341,7 @@ function validateApplicationDefinition(value, pageIds) {
       if (field.type !== "reference" && field.referenceTableId !== void 0) issue(fieldPath, "unexpected-reference", "Only reference fields can target a table.");
       if (field.formula !== void 0) {
         const formulaPath = `${fieldPath}.formula`, formula = field.formula;
-        if (!shape(formula, ["operation", "fieldIds"], formulaPath) || field.type !== "number" || field.required !== true || field.defaultValue !== void 0 || !["sum", "subtract", "multiply"].includes(String(formula.operation)) || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20 || formula.operation !== "sum" && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length || formula.fieldIds.some((sourceId) => sourceId === field.id || !table.fields.some((source) => object4(source) && source.id === sourceId && source.type === "number" && source.required === true && source.formula === void 0))) {
+        if (!shape(formula, ["operation", "fieldIds"], formulaPath) || field.type !== "number" || field.required !== true || field.defaultValue !== void 0 || !["sum", "subtract", "multiply"].includes(String(formula.operation)) || !Array.isArray(formula.fieldIds) || formula.fieldIds.length < 2 || formula.fieldIds.length > 20 || formula.operation !== "sum" && formula.fieldIds.length !== 2 || new Set(formula.fieldIds).size !== formula.fieldIds.length || formula.fieldIds.some((sourceId) => sourceId === field.id || !table.fields.some((source) => object5(source) && source.id === sourceId && source.type === "number" && source.required === true && source.formula === void 0))) {
           issue(formulaPath, "invalid-formula", "A formula needs a required numeric result and 2\u201320 distinct required numeric source fields.");
         }
       }
@@ -239,24 +355,24 @@ function validateApplicationDefinition(value, pageIds) {
       }
     });
     if (table.reports !== void 0) {
-      if (!authEnabled || !Array.isArray(table.reports) || !table.reports.length || table.reports.length > 8 || !Array.isArray(table.permissions) || !table.permissions.some((rule) => object4(rule) && rule.operation === "read")) issue(`${path}.reports`, "invalid-reports", "Reports require Auth, read permission and 1\u20138 declarations.");
+      if (!authEnabled || !Array.isArray(table.reports) || !table.reports.length || table.reports.length > 8 || !Array.isArray(table.permissions) || !table.permissions.some((rule) => object5(rule) && rule.operation === "read")) issue(`${path}.reports`, "invalid-reports", "Reports require Auth, read permission and 1\u20138 declarations.");
       else {
         const reportIds = /* @__PURE__ */ new Set();
         table.reports.forEach((report, index) => {
           const reportPath = `${path}.reports[${index}]`;
           if (!shape(report, ["id", "name", "operation", "fieldId", "groupByFieldId", "period"], reportPath)) return;
-          const field = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === report.fieldId);
-          if (!id(report.id) || reportIds.has(String(report.id)) || !name(report.name) || !["count", "sum", "min", "max", "avg"].includes(String(report.operation)) || (report.operation === "count" ? report.fieldId !== void 0 : !object4(field) || field.type !== "number")) issue(reportPath, "invalid-report", "Reports need unique IDs, a name and an ordinary count or declared numeric field.");
+          const field = Array.isArray(table.fields) && table.fields.find((field2) => object5(field2) && field2.id === report.fieldId);
+          if (!id(report.id) || reportIds.has(String(report.id)) || !name(report.name) || !["count", "sum", "min", "max", "avg"].includes(String(report.operation)) || (report.operation === "count" ? report.fieldId !== void 0 : !object5(field) || field.type !== "number")) issue(reportPath, "invalid-report", "Reports need unique IDs, a name and an ordinary count or declared numeric field.");
           reportIds.add(String(report.id));
           if (report.groupByFieldId !== void 0) {
-            const group = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === report.groupByFieldId);
-            if (!object4(group) || !["text", "enum", "boolean", "uuid", "reference"].includes(String(group.type)))
+            const group = Array.isArray(table.fields) && table.fields.find((field2) => object5(field2) && field2.id === report.groupByFieldId);
+            if (!object5(group) || !["text", "enum", "boolean", "uuid", "reference"].includes(String(group.type)))
               issue(reportPath, "invalid-report-group", "Report grouping requires a declared categorical field.");
           }
           if (report.period !== void 0) {
             const period = report.period;
             if (shape(period, ["fieldId", "unit", "timeZone", "offset", "comparePrevious"], `${reportPath}.period`)) {
-              const date = Array.isArray(table.fields) && table.fields.find((field2) => object4(field2) && field2.id === period.fieldId);
+              const date = Array.isArray(table.fields) && table.fields.find((field2) => object5(field2) && field2.id === period.fieldId);
               let zone = false;
               if (typeof period.timeZone === "string" && period.timeZone.length <= 80 && /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(period.timeZone)) {
                 try {
@@ -266,7 +382,7 @@ function validateApplicationDefinition(value, pageIds) {
                   zone = false;
                 }
               }
-              if (!object4(date) || !["date", "datetime"].includes(String(date.type)) || !["day", "week", "month", "year"].includes(String(period.unit)) || !zone || !Number.isInteger(period.offset) || Number(period.offset) < -120 || Number(period.offset) > 0 || typeof period.comparePrevious !== "boolean")
+              if (!object5(date) || !["date", "datetime"].includes(String(date.type)) || !["day", "week", "month", "year"].includes(String(period.unit)) || !zone || !Number.isInteger(period.offset) || Number(period.offset) < -120 || Number(period.offset) > 0 || typeof period.comparePrevious !== "boolean")
                 issue(reportPath, "invalid-report-period", "Report periods require a date field, valid time zone, calendar unit and offset -120\u20130.");
             }
           }
@@ -277,15 +393,15 @@ function validateApplicationDefinition(value, pageIds) {
       const bookingPath = `${path}.booking`;
       if (shape(table.booking, ["resourceFieldId", "additionalResourceFieldIds", "startFieldId", "endFieldId", "statusFieldId", "blockingStatuses", "waitlistStatus", "schedule", "recurrence"], bookingPath)) {
         const rule = table.booking;
-        if (rule.recurrence !== void 0 && (!validBookingRecurrenceRule(rule.recurrence) || object4(rule.schedule) && rule.recurrence.timeZone !== rule.schedule.timeZone || !Array.isArray(table.permissions) || !["read", "create"].every((operation) => table.permissions.some((permission) => object4(permission) && permission.operation === operation))))
+        if (rule.recurrence !== void 0 && (!validBookingRecurrenceRule(rule.recurrence) || object5(rule.schedule) && rule.recurrence.timeZone !== rule.schedule.timeZone || !Array.isArray(table.permissions) || !["read", "create"].every((operation) => table.permissions.some((permission) => object5(permission) && permission.operation === operation))))
           issue(`${bookingPath}.recurrence`, "invalid-booking-recurrence", "Recurrence requires read/create access, a valid zone matching the schedule and a 2\u201352 occurrence limit.");
         if (rule.schedule !== void 0 && !validApplicationBookingSchedule(rule.schedule)) issue(`${bookingPath}.schedule`, "invalid-booking-schedule", "Booking schedule requires a valid time zone, non-overlapping weekly windows and a bounded duration.");
-        const fields = Array.isArray(table.fields) ? table.fields.filter(object4) : [];
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object5) : [];
         const find = (fieldId) => fields.find((field) => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
         if (rule.waitlistStatus !== void 0) {
           const state = find(rule.statusFieldId);
-          if (typeof rule.waitlistStatus !== "string" || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus) || !Array.isArray(rule.blockingStatuses) || rule.blockingStatuses.includes(rule.waitlistStatus) || object4(table.workflow) && table.workflow.fieldId === rule.statusFieldId)
+          if (typeof rule.waitlistStatus !== "string" || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus) || !Array.isArray(rule.blockingStatuses) || rule.blockingStatuses.includes(rule.waitlistStatus) || object5(table.workflow) && table.workflow.fieldId === rule.statusFieldId)
             issue(bookingPath, "invalid-waitlist", "Waiting lists need a declared nonblocking status outside protected workflow fields.");
         }
         if (rule.additionalResourceFieldIds !== void 0) {
@@ -310,35 +426,35 @@ function validateApplicationDefinition(value, pageIds) {
       if (!shape(rule, ["maxBytes", "mimeTypes"], filePath) || !authEnabled || !Number.isSafeInteger(rule.maxBytes) || Number(rule.maxBytes) < 1 || Number(rule.maxBytes) > APPLICATION_FILE_MAX_BYTES || !Array.isArray(rule.mimeTypes) || !rule.mimeTypes.length || rule.mimeTypes.length > APPLICATION_FILE_TYPES.length || new Set(rule.mimeTypes).size !== rule.mimeTypes.length || rule.mimeTypes.some((type) => !APPLICATION_FILE_TYPES.includes(type))) {
         issue(filePath, "invalid-files", "Attachments need Auth, a size limit up to 25 MiB and declared download-safe MIME types.");
       }
-      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
+      if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object5(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object5(rule2) && rule2.operation === "update")) issue(filePath, "files-permissions", "Attachments require read and update permissions.");
     }
     if (table.counter !== void 0) {
       const counterPath = `${path}.counter`;
       if (shape(table.counter, ["fieldId", "minimum", "maximum", "integer"], counterPath)) {
         const rule = table.counter;
-        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object4(field2) && field2.id === rule.fieldId) : void 0;
-        if (!authEnabled || !id(rule.fieldId) || !object4(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
+        const field = Array.isArray(table.fields) ? table.fields.find((field2) => object5(field2) && field2.id === rule.fieldId) : void 0;
+        if (!authEnabled || !id(rule.fieldId) || !object5(field) || field.type !== "number" || field.required !== true || typeof rule.minimum !== "number" || !Number.isFinite(rule.minimum) || Math.abs(rule.minimum) > 1e12 || field.defaultValue !== rule.minimum || typeof rule.integer !== "boolean" || rule.integer === true && !Number.isSafeInteger(rule.minimum) || rule.maximum !== void 0 && (typeof rule.maximum !== "number" || !Number.isFinite(rule.maximum) || rule.maximum < Number(rule.minimum) || Math.abs(rule.maximum) > 1e12 || rule.integer === true && !Number.isSafeInteger(rule.maximum))) {
           issue(counterPath, "invalid-counter", "A counter needs Auth, a required numeric field defaulting to its finite minimum, and valid optional bounds.");
         }
-        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object4(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule2) => object5(rule2) && rule2.operation === "read") || !table.permissions.some((rule2) => object5(rule2) && rule2.operation === "update")) issue(counterPath, "counter-permissions", "Counter adjustment requires explicit read and update permissions.");
       }
     }
     if (table.transaction !== void 0) {
       const transactionPath = `${path}.transaction`;
       if (shape(table.transaction, ["itemTableId", "lineTableId", "lineTransactionFieldId", "lineItemFieldId", "lineQuantityFieldId", "counterDirection"], transactionPath)) {
         const rule = table.transaction;
-        const itemTable = tables.find((candidate) => object4(candidate) && candidate.id === rule.itemTableId);
-        const lineTable = tables.find((candidate) => object4(candidate) && candidate.id === rule.lineTableId);
-        const lineFields = object4(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object4) : [];
+        const itemTable = tables.find((candidate) => object5(candidate) && candidate.id === rule.itemTableId);
+        const lineTable = tables.find((candidate) => object5(candidate) && candidate.id === rule.lineTableId);
+        const lineFields = object5(lineTable) && Array.isArray(lineTable.fields) ? lineTable.fields.filter(object5) : [];
         const transactionField = lineFields.find((field) => field.id === rule.lineTransactionFieldId);
         const itemField = lineFields.find((field) => field.id === rule.lineItemFieldId);
         const quantityField = lineFields.find((field) => field.id === rule.lineQuantityFieldId);
         const distinct = /* @__PURE__ */ new Set([rule.lineTransactionFieldId, rule.lineItemFieldId, rule.lineQuantityFieldId]);
-        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object4(itemTable) || !object4(itemTable.counter) || !object4(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || quantityField.formula !== void 0 || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
+        if (!authEnabled || !id(rule.itemTableId) || !id(rule.lineTableId) || rule.itemTableId === table.id || rule.lineTableId === table.id || rule.itemTableId === rule.lineTableId || !object5(itemTable) || !object5(itemTable.counter) || !object5(lineTable) || distinct.size !== 3 || !id(rule.lineTransactionFieldId) || !id(rule.lineItemFieldId) || !id(rule.lineQuantityFieldId) || transactionField?.type !== "reference" || transactionField.required !== true || transactionField.referenceTableId !== table.id || itemField?.type !== "reference" || itemField.required !== true || itemField.referenceTableId !== rule.itemTableId || quantityField?.type !== "number" || quantityField.required !== true || quantityField.formula !== void 0 || !["decrement", "increment"].includes(String(rule.counterDirection)) || table.booking !== void 0 || table.counter !== void 0) {
           issue(transactionPath, "invalid-transaction", "A transaction needs Auth, a counter item table and a separate line table with required parent, item and numeric quantity fields.");
         }
-        const has = (candidate, operation) => object4(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object4(permission) && permission.operation === operation);
-        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object4(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object4(permission) && permission.operation !== "read")) {
+        const has = (candidate, operation) => object5(candidate) && Array.isArray(candidate.permissions) && candidate.permissions.some((permission) => object5(permission) && permission.operation === operation);
+        if (!has(table, "read") || !has(table, "create") || !has(itemTable, "read") || !has(itemTable, "update") || !has(lineTable, "read") || object5(lineTable) && Array.isArray(lineTable.permissions) && lineTable.permissions.some((permission) => object5(permission) && permission.operation !== "read")) {
           issue(transactionPath, "transaction-permissions", "Transactions require parent read/create, item read/update and read-only line permissions.");
         }
       }
@@ -346,10 +462,10 @@ function validateApplicationDefinition(value, pageIds) {
     if (table.payment !== void 0) {
       const paymentPath = `${path}.payment`, rule = table.payment;
       if (shape(rule, ["provider", "currency", "itemUnitAmountFieldId", "refundRoleId"], paymentPath)) {
-        const transaction = object4(table.transaction) ? table.transaction : null;
-        const itemTable = transaction ? tables.find((candidate) => object4(candidate) && candidate.id === transaction.itemTableId) : null;
-        const amountField = object4(itemTable) && Array.isArray(itemTable.fields) ? itemTable.fields.find((field) => object4(field) && field.id === rule.itemUnitAmountFieldId) : null;
-        if (rule.provider !== "stripe" || !transaction || typeof rule.currency !== "string" || !/^[a-z]{3}$/.test(rule.currency) || !id(rule.itemUnitAmountFieldId) || !object4(amountField) || amountField.type !== "number" || amountField.required !== true || amountField.formula !== void 0 || amountField.id === (object4(itemTable) && object4(itemTable.counter) ? itemTable.counter.fieldId : null) || transaction.counterDirection !== "decrement" || !authEnabled || !object4(auth) || auth.emailVerificationRequired !== true || !id(rule.refundRoleId) || !roleIds.has(String(rule.refundRoleId))) {
+        const transaction = object5(table.transaction) ? table.transaction : null;
+        const itemTable = transaction ? tables.find((candidate) => object5(candidate) && candidate.id === transaction.itemTableId) : null;
+        const amountField = object5(itemTable) && Array.isArray(itemTable.fields) ? itemTable.fields.find((field) => object5(field) && field.id === rule.itemUnitAmountFieldId) : null;
+        if (rule.provider !== "stripe" || !transaction || typeof rule.currency !== "string" || !/^[a-z]{3}$/.test(rule.currency) || !id(rule.itemUnitAmountFieldId) || !object5(amountField) || amountField.type !== "number" || amountField.required !== true || amountField.formula !== void 0 || amountField.id === (object5(itemTable) && object5(itemTable.counter) ? itemTable.counter.fieldId : null) || transaction.counterDirection !== "decrement" || !authEnabled || !object5(auth) || auth.emailVerificationRequired !== true || !id(rule.refundRoleId) || !roleIds.has(String(rule.refundRoleId))) {
           issue(paymentPath, "invalid-payment", "Stripe payment needs a transaction, a required ordinary item price in minor units, a currency and a declared refund role.");
         }
       }
@@ -358,9 +474,9 @@ function validateApplicationDefinition(value, pageIds) {
       const workflowPath = `${path}.workflow`;
       if (shape(table.workflow, ["fieldId", "transitions"], workflowPath)) {
         const workflow = table.workflow;
-        const field = Array.isArray(table.fields) ? table.fields.find((candidate) => object4(candidate) && candidate.id === workflow.fieldId) : void 0;
-        const options = object4(field) && Array.isArray(field.options) ? field.options.filter((value2) => typeof value2 === "string") : [];
-        if (!authEnabled || !id(workflow.fieldId) || !object4(field) || field.type !== "enum" || field.required !== true || typeof field.defaultValue !== "string" || !options.includes(field.defaultValue)) {
+        const field = Array.isArray(table.fields) ? table.fields.find((candidate) => object5(candidate) && candidate.id === workflow.fieldId) : void 0;
+        const options = object5(field) && Array.isArray(field.options) ? field.options.filter((value2) => typeof value2 === "string") : [];
+        if (!authEnabled || !id(workflow.fieldId) || !object5(field) || field.type !== "enum" || field.required !== true || typeof field.defaultValue !== "string" || !options.includes(field.defaultValue)) {
           issue(workflowPath, "invalid-workflow", "A workflow needs Auth and a required enum state field with a declared default state.");
         }
         const transitionIds = /* @__PURE__ */ new Set();
@@ -382,7 +498,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (transition.access === "role" && !roleIds.has(String(transition.roleId))) issue(`${transitionPath}.roleId`, "missing-role", "Role workflow access requires an existing role.");
           if (transition.access !== "role" && transition.roleId !== void 0) issue(`${transitionPath}.roleId`, "unexpected-role", "Only role transitions can specify a role.");
         });
-        if (!Array.isArray(table.permissions) || !table.permissions.some((rule) => object4(rule) && rule.operation === "read") || !table.permissions.some((rule) => object4(rule) && rule.operation === "update")) issue(workflowPath, "workflow-permissions", "Workflow transitions require explicit read and update permissions.");
+        if (!Array.isArray(table.permissions) || !table.permissions.some((rule) => object5(rule) && rule.operation === "read") || !table.permissions.some((rule) => object5(rule) && rule.operation === "update")) issue(workflowPath, "workflow-permissions", "Workflow transitions require explicit read and update permissions.");
       }
     }
     const permissionKeys = /* @__PURE__ */ new Set();
@@ -396,19 +512,19 @@ function validateApplicationDefinition(value, pageIds) {
       if (permissionKeys.has(key)) issue(permissionPath, "duplicate-permission", "Duplicate permission rule.");
       permissionKeys.add(key);
     });
-    if (Array.isArray(table.permissions) && table.permissions.some((p) => object4(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object4(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
+    if (Array.isArray(table.permissions) && table.permissions.some((p) => object5(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object5(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
   });
   let notificationCount = 0;
   tables.forEach((table, index) => {
-    if (!object4(table) || table.notifications === void 0) return;
+    if (!object5(table) || table.notifications === void 0) return;
     const path = `application.tables[${index}]`, rulePath = `${path}.notifications`;
     const rules = list(table.notifications, 50, rulePath);
     notificationCount += rules.length;
-    if (!authEnabled || !object4(auth) || auth.emailVerificationRequired !== true) issue(rulePath, "email-auth-required", "Email notifications require authentication and verified email addresses.");
+    if (!authEnabled || !object5(auth) || auth.emailVerificationRequired !== true) issue(rulePath, "email-auth-required", "Email notifications require authentication and verified email addresses.");
     const validTable = !issues.some((item) => item.path === path || item.path.startsWith(`${path}.`));
     rules.forEach((rule, ruleIndex) => {
       const itemPath = `${rulePath}[${ruleIndex}]`;
-      if (object4(rule)) identity(rule.id, `${itemPath}.id`);
+      if (object5(rule)) identity(rule.id, `${itemPath}.id`);
       if (validTable) {
         const error = validateApplicationEmailNotification(rule, table);
         if (error) issue(itemPath, "invalid-email-notification", error);
@@ -418,7 +534,7 @@ function validateApplicationDefinition(value, pageIds) {
   if (notificationCount > 50) issue("application.tables", "too-many-email-notifications", "An application supports at most 50 email notification rules.");
   const lineTables = /* @__PURE__ */ new Set();
   tables.forEach((table, index) => {
-    if (!object4(table) || !object4(table.transaction)) return;
+    if (!object5(table) || !object5(table.transaction)) return;
     const line = String(table.transaction.lineTableId);
     if (lineTables.has(line)) issue(`application.tables[${index}].transaction.lineTableId`, "duplicate-transaction-line-table", "A line table can belong to only one native transaction.");
     lineTables.add(line);
@@ -431,7 +547,7 @@ function validateApplicationDefinition(value, pageIds) {
     else protectedPages.add(rule.pageId);
     access(rule, path, false);
   });
-  if (value.requirements !== void 0 && shape(value.requirements, ["version", "request", "items"], "application.requirements")) {
+  if (value.requirements !== void 0 && shape(value.requirements, ["version", "request", "items", "specification"], "application.requirements")) {
     const manifest = value.requirements;
     if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
     if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
@@ -465,18 +581,18 @@ function validateApplicationDefinition(value, pageIds) {
           if (match[3] || pageIds && !pageIds.has(match[2])) issue(evidencePath, "missing-page", "Page evidence requires an existing page.");
           return;
         }
-        const table = tables.find((candidate) => object4(candidate) && candidate.id === match[2]);
-        if (!object4(table)) {
+        const table = tables.find((candidate) => object5(candidate) && candidate.id === match[2]);
+        if (!object5(table)) {
           issue(evidencePath, "missing-table", "Requirement evidence requires an existing table.");
           return;
         }
-        if (match[1] === "booking" && !object4(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
-        if (match[1] === "counter" && !object4(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
-        if (match[1] === "transaction" && !object4(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
-        if (match[1] === "files" && !object4(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
-        if (match[1] === "workflow" && !object4(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
-        if (match[1] === "formula" && !table.fields.some((field) => object4(field) && object4(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
-        if (match[1] === "payment" && !object4(table.payment)) issue(evidencePath, "missing-payment", "Payment evidence requires a native payment rule.");
+        if (match[1] === "booking" && !object5(table.booking)) issue(evidencePath, "missing-booking", "Booking evidence requires a native booking rule.");
+        if (match[1] === "counter" && !object5(table.counter)) issue(evidencePath, "missing-counter", "Counter evidence requires a native counter rule.");
+        if (match[1] === "transaction" && !object5(table.transaction)) issue(evidencePath, "missing-transaction", "Transaction evidence requires a native transaction rule.");
+        if (match[1] === "files" && !object5(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
+        if (match[1] === "workflow" && !object5(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
+        if (match[1] === "formula" && !table.fields.some((field) => object5(field) && object5(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
+        if (match[1] === "payment" && !object5(table.payment)) issue(evidencePath, "missing-payment", "Payment evidence requires a native payment rule.");
         if (match[1] === "email" && (!Array.isArray(table.notifications) || !table.notifications.length)) issue(evidencePath, "missing-email", "Email evidence requires a declared notification rule.");
         if (match[1] === "reports" && (!Array.isArray(table.reports) || !table.reports.length)) issue(evidencePath, "missing-reports", "Report evidence requires a declared aggregate report.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
@@ -484,6 +600,9 @@ function validateApplicationDefinition(value, pageIds) {
       });
     });
     if (!Array.isArray(manifest.items) || !manifest.items.length) issue("application.requirements.items", "missing-requirements", "An application requirements manifest cannot be empty.");
+    if (manifest.specification !== void 0) for (const message of projectSpecificationIssues(manifest.specification, value)) {
+      issue("application.requirements.specification", "invalid-specification", message);
+    }
   }
   return issues;
 }

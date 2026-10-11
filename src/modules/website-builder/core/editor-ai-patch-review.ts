@@ -8,6 +8,7 @@ export interface AIWebsitePageGeneration {
 }
 
 export interface AIWebsiteGeneration {
+  projectSpecification?: import('./project-specification').ProjectSpecification;
   projectKind?: 'website' | 'application';
   application?: import('./application-model').ApplicationDefinition;
   unsupportedFeatures?: string[];

@@ -1,4 +1,5 @@
 import { APPLICATION_FILE_TYPES, APPLICATION_FILE_MAX_BYTES } from './application-files';
+import { projectSpecificationIssues } from './project-specification';
 import { validateApplicationEmailNotification } from './application-email-notifications';
 import { validApplicationBookingSchedule } from './application-booking-schedule';
 import { validBookingRecurrenceRule } from './application-booking-recurrence';
@@ -334,7 +335,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     else protectedPages.add(rule.pageId);
     access(rule, path, false);
   });
-  if (value.requirements !== undefined && shape(value.requirements, ['version', 'request', 'items'], 'application.requirements')) {
+  if (value.requirements !== undefined && shape(value.requirements, ['version', 'request', 'items', 'specification'], 'application.requirements')) {
     const manifest = value.requirements;
     if (manifest.version !== 1) issue('application.requirements.version', 'unsupported-version', 'Unsupported requirements manifest version.');
     if (typeof manifest.request !== 'string' || !manifest.request.trim() || manifest.request.length > 4000) issue('application.requirements.request', 'invalid-request', 'Requirements need the original nonempty request.');
@@ -372,6 +373,9 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
       });
     });
     if (!Array.isArray(manifest.items) || !manifest.items.length) issue('application.requirements.items', 'missing-requirements', 'An application requirements manifest cannot be empty.');
+    if (manifest.specification !== undefined) for (const message of projectSpecificationIssues(manifest.specification, value as unknown as ApplicationDefinition)) {
+      issue('application.requirements.specification', 'invalid-specification', message);
+    }
   }
   return issues;
 }
