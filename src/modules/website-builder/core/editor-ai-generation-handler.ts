@@ -12,6 +12,7 @@ import type { AIQualityReview,AIWebsiteGeneration,AIWebsitePageGeneration,AIWebs
 import type { AIBuilderMessage,AIBuilderStage } from '../core/editor-ai-scope';
 import type { SectionType,WebsiteBrand,WebsiteSection,WebsiteSEO } from '../core/types';
 import { normalizeTheme } from '../core/website-builder-config';
+import { getEditorIntegrationsHostConfig } from './editor-integrations-host-store';
 import type { AIWebsiteCandidatePreview,AIWebsiteUndoSnapshot,WebsiteFooterConfig,WebsiteHeaderConfig,WebsitePage,WebsiteProductionConfig,WebsiteSiteEnhancements,WebsiteSymbol,WebsiteTheme } from '../core/website-builder-model';
 import type { WebsiteCmsState } from '../core/website-cms';
 import type { WebsiteLocalizationConfig } from '../core/website-localization';
@@ -146,9 +147,12 @@ export function createAIGenerationHandler({
 
     try {
       const maxGeneratedPages = Math.max(1, Math.min(100, Math.floor(billingEntitlements.maxPages || 1)));
+      const availableIntegrations = getEditorIntegrationsHostConfig().connections
+        .filter(connection => connection.enabled && connection.status !== 'disabled')
+        .map(connection => ({ id: connection.id, providerId: connection.providerId, name: connection.name }));
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
+        { action: 'generate', availableIntegrations, limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Build this as a complete production-ready website. Include strong SEO direction and imagePrompt values for the most important visual sections. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 16000, signal: abortController.signal },
       );
@@ -253,7 +257,10 @@ export function createAIGenerationHandler({
 
       // Validate the complete application before mutating any editor state.
       // Page access uses response slugs; resolve them to the retained native IDs.
-      const nextApplication = prepareGeneratedApplication(generated, nextPages, prompt);
+      const emailConnectionIds = new Set(availableIntegrations
+        .filter(connection => connection.providerId === 'resend')
+        .map(connection => connection.id));
+      const nextApplication = prepareGeneratedApplication(generated, nextPages, prompt, emailConnectionIds);
       nextPages = normalizeGeneratedPageLinks(nextPages);
 
       let agentImagesGenerated = 0;

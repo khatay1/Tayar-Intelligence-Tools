@@ -47,3 +47,10 @@ The payment/order audit found the required domain ledger already present: immuta
 No real email, charge, refund, customer deployment or production cron was performed during source completion. Preview/Production end-to-end verification awaits the final credential connection agreed with the user.
 
 Recurring appointments remain individually editable/cancellable. Whole-series editing, automatic waitlist promotion, full live availability calendars and arbitrary recurrence patterns are outside this delivered implementation. Social-channel integration remains the separate later plan.
+
+## Requirement coverage gate follow-up
+
+- Generation now verifies requested native payment, notification, report and advanced booking capabilities against executable bindings before changing the project. Unsupported or missing capabilities fail atomically rather than producing a descriptive substitute.
+- Delivery approval recomputes requirement evidence from the current project. A read-only bound records view supplies read evidence without inventing create/update/delete actions; removing the view invalidates approval. Regression coverage includes English, Arabic and Swedish read-only generation and stale delivery evidence.
+- Social Hub work is preserved separately on `deferred/social-hub-foundation-20261011`. Its UI, endpoints, migration and deployment entries are excluded from the current completion pull request, following the agreed later-phase scope.
+- Source checks do not activate provider credentials, deployments, emails or payments. Preview and Production verification still follow the final activation sequence above.

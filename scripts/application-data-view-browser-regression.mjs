@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { build } from 'esbuild';
-import { createRequire } from 'node:module';
 
 const findChrome = () => {
   if (process.env.CHROME_BIN && existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
@@ -193,29 +192,50 @@ async function run(){
 
  }
 }
-run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / recurring series / exact reports / reference selectors / generic counters / atomic transactions / private attachments / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack);`;
+run().then(()=>document.querySelector('#result').textContent='PASS application data view browser CRUD / search / pagination / role controls / XSS / datetime / booking conflicts / recurring series / exact reports / reference selectors / generic counters / atomic transactions / private attachments / account switch in en-ar-sv').catch(error=>document.querySelector('#result').textContent='FAIL '+error.stack).then(()=>fetch('/result',{method:'POST',body:document.querySelector('#result').textContent}));`;
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'data-view-fixture.ts' }, bundle: true, write: false,
     platform: 'browser', format: 'iife', target: 'es2020', alias: { '@': resolve('src') } });
   const html = '<!doctype html><html><body><p id="result">RUNNING</p><script src="/fixture.js"></script></body></html>';
-  server = createServer((req, res) => { res.setHeader('content-type', req.url === '/fixture.js' ? 'text/javascript' : 'text/html'); res.end(req.url === '/fixture.js' ? result.outputFiles[0].text : html); });
+  let complete;
+  const completion = new Promise(resolve => { complete = resolve; });
+  server = createServer((req, res) => {
+    if (req.url === '/result' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => { res.end(); complete(body); });
+      return;
+    }
+    res.setHeader('content-type', req.url === '/fixture.js' ? 'text/javascript' : 'text/html');
+    res.end(req.url === '/fixture.js' ? result.outputFiles[0].text : html);
+  });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const url = `http://127.0.0.1:${server.address().port}`;
-  let output;
-  if (process.env.TAYAR_BROWSER_DRIVER_MODULE) {
-    const { chromium } = createRequire(import.meta.url)(process.env.TAYAR_BROWSER_DRIVER_MODULE);
-    const browser = await chromium.launch({ executablePath: chrome, headless: true, args: ['--no-sandbox', '--no-zygote', '--single-process', '--disable-dev-shm-usage'] });
-    try {
-      const page = await browser.newPage(); await page.goto(url);
-      await page.waitForFunction(() => document.querySelector('#result')?.textContent !== 'RUNNING', { timeout: 35_000 });
-      output = await page.content();
-    } finally { await browser.close(); }
-  } else output = await new Promise((resolve, reject) => {
-    const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--dump-dom', '--virtual-time-budget=15000', `--user-data-dir=${dir}`, url], { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '', stderr = ''; const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Data view browser timed out')); }, 35_000);
-    child.stdout.on('data', chunk => { stdout += chunk; }); child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
-    child.on('error', error => { clearTimeout(timer); reject(error); }); child.on('exit', code => { clearTimeout(timer); if (code) reject(new Error(stderr)); else resolve(stdout); });
-  });
-  const marker = /<p id="result">([\s\S]*?)<\/p>/.exec(output)?.[1];
+  // dump-dom can finish while asynchronous UI checks are still running. Wait
+  // for the real browser's terminal result, with a wall-clock failure deadline.
+  const detached = process.platform !== 'win32';
+  const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', `--user-data-dir=${dir}`, url], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '', timer;
+  child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
+  let marker;
+  try {
+    marker = await Promise.race([completion, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Data view browser timed out: ${stderr}`)), 35_000);
+      child.once('error', reject);
+      child.once('exit', code => reject(new Error(`Browser exited before completing checks (${code}): ${stderr}`)));
+    })]);
+  } finally {
+    clearTimeout(timer);
+    if (child.pid) {
+      const exited = child.exitCode === null && child.signalCode === null
+        ? new Promise(resolve => child.once('exit', resolve)) : Promise.resolve();
+      // Renderer/network children can keep writing the profile after the parent
+      // exits. Stop the entire process group before removing its directory.
+      if (detached) {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+      } else spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+      await exited;
+    }
+  }
   if (!marker?.startsWith('PASS')) throw new Error(marker ?? 'Browser did not return a result');
   console.log(marker);
-} finally { await new Promise(resolve => server ? server.close(resolve) : resolve()); await rm(dir, { recursive: true, force: true }); }
+} finally { server?.closeAllConnections(); await new Promise(resolve => server ? server.close(resolve) : resolve()); await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }

@@ -108,7 +108,7 @@ export interface ApplicationPageAccess {
   access: Exclude<ApplicationAccess, 'owner'>;
   roleId?: string;
 }
-export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow' | 'formula' | 'files';
+export type ApplicationRequirementCapability = 'page' | 'auth' | 'form' | 'records' | 'booking' | 'counter' | 'transaction' | 'workflow' | 'formula' | 'files' | 'payment' | 'email' | 'reports';
 export interface ApplicationRequirement {
   id: string;
   summary: string;

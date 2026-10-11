@@ -479,7 +479,7 @@ function validateApplicationDefinition(value, pageIds) {
     if (manifest.version !== 1) issue("application.requirements.version", "unsupported-version", "Unsupported requirements manifest version.");
     if (typeof manifest.request !== "string" || !manifest.request.trim() || manifest.request.length > 4e3) issue("application.requirements.request", "invalid-request", "Requirements need the original nonempty request.");
     const requirementIds = /* @__PURE__ */ new Set();
-    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula", "files"]);
+    const capabilities = /* @__PURE__ */ new Set(["page", "auth", "form", "records", "booking", "counter", "transaction", "workflow", "formula", "files", "payment", "email", "reports"]);
     list(manifest.items, APPLICATION_LIMITS.requirements, "application.requirements.items").forEach((item, index) => {
       const path = `application.requirements.items[${index}]`;
       if (!shape(item, ["id", "summary", "capability", "evidence"], path)) return;
@@ -499,7 +499,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
           return;
         }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments|pay|refund))?$/.exec(entry);
         if (!match) {
           issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
           return;
@@ -519,6 +519,9 @@ function validateApplicationDefinition(value, pageIds) {
         if (match[1] === "files" && !object4(table.attachments)) issue(evidencePath, "missing-files", "Files evidence requires an attachment rule.");
         if (match[1] === "workflow" && !object4(table.workflow)) issue(evidencePath, "missing-workflow", "Workflow evidence requires a native workflow rule.");
         if (match[1] === "formula" && !table.fields.some((field) => object4(field) && object4(field.formula))) issue(evidencePath, "missing-formula", "Formula evidence requires a server-computed field.");
+        if (match[1] === "payment" && !object4(table.payment)) issue(evidencePath, "missing-payment", "Payment evidence requires a native payment rule.");
+        if (match[1] === "email" && (!Array.isArray(table.notifications) || !table.notifications.length)) issue(evidencePath, "missing-email", "Email evidence requires a declared notification rule.");
+        if (match[1] === "reports" && (!Array.isArray(table.reports) || !table.reports.length)) issue(evidencePath, "missing-reports", "Report evidence requires a declared aggregate report.");
         if (match[1] === "view" && !match[3]) issue(evidencePath, "missing-action", "Data-view evidence requires an action.");
         if (match[1] !== "view" && match[3]) issue(evidencePath, "unexpected-action", "Only data-view evidence can include an action.");
       });
