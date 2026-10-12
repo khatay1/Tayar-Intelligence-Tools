@@ -39,13 +39,14 @@ end $$;`,
   ];
 }
 
-function accessCondition(access: Exclude<ApplicationAccess, 'public'>, roleId: string | undefined): string {
-  if (access === 'owner') return 'owner = actor';
+function accessCondition(access: Exclude<ApplicationAccess, 'public'>, roleId: string | undefined, owner = 'owner'): string {
+  if (access === 'owner') return `${owner} = actor`;
   if (access === 'role') return `(select private.app_has_role(${literal(roleId!)}))`;
   return 'true';
 }
 
 function effectAssignment(table: ApplicationTable, effect: ApplicationWorkflowEffect): string {
+  if (effect.operation === 'related') return '';
   const field = table.fields.find(candidate => candidate.id === effect.fieldId)!;
   if (effect.operation === 'timestamp') return `${quoted(field.key)}=pg_catalog.transaction_timestamp()`;
   if (effect.operation === 'increment') return `${quoted(field.key)}=${quoted(field.key)}+${String(effect.amount)}`;
@@ -67,10 +68,34 @@ export function compileApplicationWorkflowSchema(input: ApplicationDefinition, i
     permitted:=${accessCondition(transition.access, transition.roleId)};
   `).join('') + `else permitted:=false; end if;`;
   const updateBranches = workflow.transitions.map((transition, transitionIndex) => `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
-    update ${fullTable} set ${quoted(field.key)}=requested_to${(transition.effects ?? []).map(effect => `,${effectAssignment(table, effect)}`).join('')} where id=${inner}.record_id;
+    update ${fullTable} set ${quoted(field.key)}=requested_to${(transition.effects ?? []).filter(effect => effect.operation !== 'related').map(effect => `,${effectAssignment(table, effect)}`).join('')} where id=${inner}.record_id;
+    ${(transition.effects ?? []).filter(effect => effect.operation === 'related').map(effect => {
+      const relation = table.fields.find(candidate => candidate.id === effect.referenceFieldId)!;
+      const target = app.tables.find(candidate => candidate.id === relation.referenceTableId)!;
+      const targetField = target.fields.find(candidate => candidate.id === effect.fieldId)!;
+      const change = effect.change;
+      const value = change.operation === 'timestamp' ? 'pg_catalog.transaction_timestamp()'
+        : change.operation === 'increment' ? `${quoted(targetField.key)}+${String(change.amount)}`
+          : change.value === null ? 'null' : typeof change.value === 'string' ? literal(change.value) : String(change.value);
+      return `update public.${quoted(`app_${target.key}`)} set ${quoted(targetField.key)}=${value} where id=related_record;`;
+    }).join('\n    ')}
   `).join('') + `else raise exception 'Application workflow transition unavailable'; end if;`;
+  const relatedBranches = workflow.transitions.map((transition, transitionIndex) => {
+    const effect = (transition.effects ?? []).find(candidate => candidate.operation === 'related');
+    if (!effect || effect.operation !== 'related') return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then null;`;
+    const relation = table.fields.find(candidate => candidate.id === effect.referenceFieldId)!;
+    const target = app.tables.find(candidate => candidate.id === relation.referenceTableId)!;
+    const targetName = `app_${target.key}`;
+    const targetTable = `public.${quoted(targetName)}`;
+    const permissions = (operation: 'read' | 'update') => target.permissions.filter(rule => rule.operation === operation)
+      .map(rule => rule.access === 'public' ? 'true' : accessCondition(rule.access, rule.roleId, 'related_owner')).join(' or ') || 'false';
+    return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
+    select id,owner_id into related_record,related_owner from ${targetTable}
+      where id=(select ${quoted(relation.key)} from ${fullTable} where id=${inner}.record_id) for update;
+    if not found or not (${permissions('read')}) or not (${permissions('update')}) then raise exception 'Application workflow transition unavailable'; end if;`;
+  }).join('') + `else raise exception 'Application workflow transition unavailable'; end if;`;
   const statement = `create ${existing ? 'or replace ' : ''}function public.${inner}(record_id uuid, transition_id text, request_id uuid) returns text language plpgsql security definer set search_path = '' as $$
-declare actor uuid:=(select auth.uid()); owner uuid; current_state text; requested_to text; allowed_from text[]; permitted boolean; claimed uuid; prior private.app_workflow_requests%rowtype;
+declare actor uuid:=(select auth.uid()); owner uuid; related_owner uuid; related_record uuid; current_state text; requested_to text; allowed_from text[]; permitted boolean; claimed uuid; prior private.app_workflow_requests%rowtype;
 begin
   if actor is null or (((select auth.jwt())->>'is_anonymous')::boolean) is true or record_id is null or request_id is null then raise exception 'Application workflow transition unavailable'; end if;
   ${branches}
@@ -84,6 +109,7 @@ begin
   if not found or not current_state=any(allowed_from) or not (${permission('read')}) or not (${permission('update')}) then raise exception 'Application workflow transition unavailable'; end if;
   ${accessBranches}
   if not permitted then raise exception 'Application workflow transition unavailable'; end if;
+  ${relatedBranches}
   insert into private.app_workflow_requests(actor_id,request_id,table_name,record_id,transition_id,from_state,to_state)
     values(actor,${inner}.request_id,${literal(tableName)},${inner}.record_id,${inner}.transition_id,current_state,requested_to)
     on conflict on constraint app_workflow_requests_pkey do nothing returning app_workflow_requests.request_id into claimed;

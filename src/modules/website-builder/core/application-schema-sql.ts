@@ -472,7 +472,20 @@ end $form_ledger$;`);
       }
     }
     if (!old?.workflow && table.workflow) statements.push(...compileApplicationWorkflowSchema(after, index));
-    else if (old?.workflow && JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)) statements.push(...compileApplicationWorkflowSchema(after, index, true));
+    else if (old?.workflow && (
+      JSON.stringify(old.permissions) !== JSON.stringify(table.permissions)
+      || JSON.stringify(old.workflow) !== JSON.stringify(table.workflow)
+      || (JSON.stringify(old.fields) !== JSON.stringify(table.fields)
+        && table.workflow?.transitions.some(transition => transition.effects?.some(effect => effect.operation === 'related')))
+      || after.tables.some(target => {
+        const referenced = table.workflow?.transitions.some(transition => transition.effects?.some(effect => {
+          if (effect.operation !== 'related') return false;
+          return table.fields.find(field => field.id === effect.referenceFieldId)?.referenceTableId === target.id;
+        }));
+        const priorTarget = before.tables.find(candidate => candidate.id === target.id);
+        return referenced && priorTarget && JSON.stringify(priorTarget) !== JSON.stringify(target);
+      })
+    )) statements.push(...compileApplicationWorkflowSchema(after, index, true));
     if (JSON.stringify(old?.reports) !== JSON.stringify(table.reports)) {
       if (table.reports?.length) statements.push(...compileApplicationReports(after, index, !!old?.reports?.length));
       else if (old?.reports?.length) statements.push(`drop function public.app_reports_${index}();`);
