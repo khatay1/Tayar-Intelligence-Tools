@@ -106,7 +106,7 @@ try {
       ? `formula:${featureTable.id}` : `${reference.feature.capability}:${featureTable.id}`;
     const requirements = [
       { id: 'account-access', summary: 'Users can securely access their workspace.', capability: 'auth', evidence: ['auth'] },
-      { id: 'overview-page', summary: 'Users can open the project overview.', capability: 'page', evidence: [`page:${pageId}`] },
+      { id: 'overview-page', summary: 'Users can open the project overview.', capability: 'page', evidence: ['page:overview'] },
       { id: 'records-view', summary: `Users can read ${reference.domain} records.`, capability: 'records', evidence: [`view:${table.id}:read`] },
       { id: `primary-${reference.feature.capability}`, summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
         capability: reference.feature.capability, evidence: [featureEvidence] },
