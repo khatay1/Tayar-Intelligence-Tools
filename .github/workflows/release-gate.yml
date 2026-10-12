@@ -59,6 +59,9 @@ jobs:
       - name: Application reference project generation regression
         run: node scripts/application-reference-projects-regression.mjs
 
+      - name: Isolated custom code execution boundary regression
+        run: node scripts/isolated-code-execution-regression.mjs
+
       - name: Localization and published storage regression
         run: node scripts/website-builder-localization-regression.mjs
 
