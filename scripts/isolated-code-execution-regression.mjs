@@ -6,9 +6,12 @@ import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 
 const dir = await mkdtemp(join(tmpdir(), 'tayar-isolated-code-'));
+let nodeBuffer;
 try {
   const outfile = join(dir, 'isolated-code.cjs');
   await build({ entryPoints: ['server/isolated-code-execution.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
+  nodeBuffer = globalThis.Buffer;
+  globalThis.Buffer = undefined;
   const { runIsolatedCustomCode, IsolatedExecutionError } = (await import(pathToFileURL(outfile))).default;
   const request = { source: 'export default input => ({ total: input.a + input.b })', input: { a: 2, b: 5 }, timeoutMs: 150 };
   const created = [], counters = { stopped: 0 };
@@ -53,5 +56,6 @@ try {
   assert.equal(counters.stopped, 3, 'oversized output must stop its sandbox');
   console.log('Isolated custom code execution boundary regression passed.');
 } finally {
+  if (nodeBuffer) globalThis.Buffer = nodeBuffer;
   await rm(dir, { recursive: true, force: true });
 }

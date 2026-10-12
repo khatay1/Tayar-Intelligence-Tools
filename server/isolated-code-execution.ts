@@ -51,6 +51,9 @@ export interface IsolatedExecutionRequest {
   timeoutMs?: number;
 }
 
+const utf8Encoder = new TextEncoder();
+const utf8Bytes = (value: string): number => utf8Encoder.encode(value).byteLength;
+
 function jsonBytes(value: unknown, maxDepth: number): number | null {
   const ancestors = new Set<object>();
   const visit = (entry: unknown, depth: number): boolean => {
@@ -71,7 +74,7 @@ function jsonBytes(value: unknown, maxDepth: number): number | null {
   try {
     if (!visit(value, 0)) return null;
     const serialized = JSON.stringify(value);
-    return typeof serialized === 'string' ? Buffer.byteLength(serialized, 'utf8') : null;
+    return typeof serialized === 'string' ? utf8Bytes(serialized) : null;
   } catch {
     return null;
   }
@@ -83,7 +86,7 @@ export async function runIsolatedCustomCode(
 ): Promise<unknown> {
   if (!adapter) throw new IsolatedExecutionError('adapter-unavailable');
   if (!request || typeof request.source !== 'string' || !request.source.trim()
-    || Buffer.byteLength(request.source, 'utf8') > ISOLATED_CODE_LIMITS.maxSourceBytes) {
+    || utf8Bytes(request.source) > ISOLATED_CODE_LIMITS.maxSourceBytes) {
     throw new IsolatedExecutionError('invalid-request');
   }
   const inputSize = jsonBytes(request.input, ISOLATED_CODE_LIMITS.maxJsonDepth);
