@@ -184,7 +184,9 @@ Branch `feature/atomic-multi-record-workflows-20261012` extends the existing
 atomic workflow engine from one related row to up to four distinct related
 tables per transition, with one row per table, stable target lock order,
 per-target permission checks and transaction rollback. The AI contract and
-generated runtime bundles are updated from their source generators. Focused
+generated runtime bundles are updated from their source generators. The
+Release Gate also exposed a stale application-page browser bundle; it was
+regenerated from `scripts/build-application-page-browser.mjs`. Focused
 workflow, schema, AI, catalog, type, lint and generated-artifact checks passed
 locally; the actual PostgreSQL constraint-rollback regression still requires
 the Release Gate `--postgres` job.
