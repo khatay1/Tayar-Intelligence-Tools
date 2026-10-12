@@ -231,6 +231,13 @@ provider behavior is verified against a controlled activation sandbox and
 explicitly wired to the server-side application runtime. No customer code can
 reach this adapter today.
 
+The Website Builder AI undo path now has a direct behavioral regression in
+Release Gate. It verifies restoration of the complete captured page, site,
+brand, SEO, theme, header and reusable-symbol state; confirms restored
+collections are detached from the saved snapshot; and rejects stale-project or
+in-progress undo attempts without applying project data. This supplements the
+durable whole-project checkpoints used by full AI builds.
+
 ## Honest completion boundary
 
 Phase one structured analysis is merged, but broader inferred-requirement depth

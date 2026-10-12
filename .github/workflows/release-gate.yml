@@ -77,6 +77,9 @@ jobs:
       - name: AI quality and design system regression
         run: node scripts/website-design-system-regression.mjs
 
+      - name: Website Builder AI undo regression
+        run: node scripts/website-builder-ai-undo-regression.mjs
+
       - name: Website Builder browser regression
         run: timeout 75s npm run smoke:website-builder:browser
 

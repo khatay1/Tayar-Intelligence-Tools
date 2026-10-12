@@ -16,7 +16,7 @@
     "build:website-supabase-connection": "node scripts/build-website-supabase-connection.mjs",
     "preflight:website-builder:infrastructure-activation": "node scripts/build-website-github-connection.mjs --check && node scripts/build-website-supabase-connection.mjs --check && node scripts/build-website-vercel-connection.mjs --check && node scripts/build-website-owned-application-runtime-template.mjs --check && node scripts/build-website-byo-publish-function.mjs --check && node scripts/website-infrastructure-activation-preflight.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "smoke:website-builder": "node scripts/website-builder-smoke-split-runner.mjs && node scripts/website-builder-ai-request-regression.mjs && node scripts/website-builder-ai-loader-regression.mjs && node scripts/website-builder-history-regression.mjs && node scripts/website-builder-snapshot-regression.mjs && node scripts/website-builder-ai-audit-regression.mjs",
+    "smoke:website-builder": "node scripts/website-builder-smoke-split-runner.mjs && node scripts/website-builder-ai-request-regression.mjs && node scripts/website-builder-ai-loader-regression.mjs && node scripts/website-builder-history-regression.mjs && node scripts/website-builder-ai-undo-regression.mjs && node scripts/website-builder-snapshot-regression.mjs && node scripts/website-builder-ai-audit-regression.mjs",
     "smoke:website-builder:browser": "node scripts/website-builder-browser-regression-launcher.mjs",
     "launch:website-builder": "node scripts/website-builder-smoke-split-runner.mjs && node scripts/website-builder-launch.mjs",
     "smoke:site-polish": "node scripts/site-polish-smoke.mjs",
