@@ -146,7 +146,9 @@ ESLint and affected generated bundle consistency passed locally. The PostgreSQL
 concurrency and rollback assertions are part of Release Gate; no local isolated
 PostgreSQL fixture is configured. The first PR gate identified a stale generated
 Supabase Edge deployment bundle; it was regenerated from its trusted entry
-source and its consistency check now passes.
+source and its consistency check now passes. The subsequent gate found the
+application backend Edge bundle stale as well; it too was regenerated and its
+source consistency check passes.
 
 PR #151 Release Gate run `38264726749` failed in Project health only because
 `supabase/functions/website-byo-publish/index.ts` was stale after the workflow
@@ -156,6 +158,12 @@ recompiles affected workflow functions when workflow effects, relation fields,
 or referenced-table permissions/fields change. Focused workflow/schema
 regressions, TypeScript, scoped ESLint, and whitespace checks pass. The PR still
 needs this generated artifact and migration fix, then a fresh Release Gate.
+
+After that update, Release Gate run `38265495032` found the application backend
+link Edge bundle stale. Refreshed the backend-link and application-release
+bundles, along with the affected Auth/page, runtime, owned-runtime and BYO
+bundles. Their seven source-consistency checks pass locally; the PR needs these
+last refreshed bundles before another Release Gate run.
 
 ## Honest completion boundary
 
