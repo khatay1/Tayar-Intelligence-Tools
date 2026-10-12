@@ -208,12 +208,30 @@ production migrations to silence the check; reconcile the historical source
 mapping before enabling preview migration validation. Production has not been
 deployed from this branch.
 
+## Custom code — isolated execution boundary
+
+The server now defines a provider-neutral, one-shot execution contract for
+untrusted custom code. Each adapter invocation must create a fresh Node 22 VM
+with network access denied, persistence disabled, one vCPU, and a bounded
+timeout. Requests and results must be finite JSON within strict size and depth
+limits. The boundary stops the sandbox after success, failure, timeout or
+oversized output and returns stable error codes without forwarding provider
+errors.
+
+Release Gate now runs a regression for the policy contract, missing-adapter
+fail-closed behavior, request/output bounds, timeouts and cleanup. This is not
+yet a Vercel Sandbox adapter, live VM execution, or a mounted application
+capability. Custom operations remain rejected during project generation until
+an adapter is implemented, verified against the provider, and explicitly wired
+to the server-side application runtime. No credentials, provider account, or
+customer code execution was activated.
+
 ## Honest completion boundary
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
-require incremental implementation and evidence, especially safe isolated custom
-code execution, safe repair/rollback, and diverse full reference-project
-verification. The seven reference projects currently have generated-contract
-coverage; that is not evidence that each is a complete customer-ready product.
-Final provider activation remains phase eight.
+require incremental implementation and evidence, especially a verified provider
+adapter for the custom execution boundary, safe repair/rollback, and diverse
+full reference-project verification. The seven reference projects currently
+have generated-contract coverage; that is not evidence that each is a complete
+customer-ready product. Final provider activation remains phase eight.
