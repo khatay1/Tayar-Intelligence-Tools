@@ -139,7 +139,8 @@ try {
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
     assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
       `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
-    const featureCoverageApplication = structuredClone(prepared);
+    const featureCoverageApplication = structuredClone(reference.definition);
+    featureCoverageApplication.requirements = structuredClone(prepared.requirements);
     const primaryFeatureRequirement = featureCoverageApplication.requirements.items.find(item => item.id === 'records-view');
     primaryFeatureRequirement.summary = `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`;
     primaryFeatureRequirement.capability = reference.feature.capability;
