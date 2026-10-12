@@ -268,7 +268,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (!transitions.length) issue(`${workflowPath}.transitions`, 'missing-transitions', 'A workflow needs at least one transition.');
         transitions.forEach((transition, transitionIndex) => {
           const transitionPath = `${workflowPath}.transitions[${transitionIndex}]`;
-          if (!shape(transition, ['id', 'label', 'from', 'to', 'access', 'roleId'], transitionPath)) return;
+          if (!shape(transition, ['id', 'label', 'from', 'to', 'access', 'roleId', 'effects'], transitionPath)) return;
           if (!id(transition.id) || transitionIds.has(String(transition.id))) issue(`${transitionPath}.id`, 'invalid-id', 'Workflow transition IDs must be valid and unique.');
           else transitionIds.add(String(transition.id));
           if (!name(transition.label)) issue(`${transitionPath}.label`, 'invalid-name', 'A workflow transition requires a label.');
@@ -282,6 +282,46 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
           if (!['authenticated', 'owner', 'role'].includes(String(transition.access))) issue(`${transitionPath}.access`, 'invalid-access', 'Workflow transitions require authenticated, owner or role access.');
           if (transition.access === 'role' && !roleIds.has(String(transition.roleId))) issue(`${transitionPath}.roleId`, 'missing-role', 'Role workflow access requires an existing role.');
           if (transition.access !== 'role' && transition.roleId !== undefined) issue(`${transitionPath}.roleId`, 'unexpected-role', 'Only role transitions can specify a role.');
+          if (transition.effects !== undefined) {
+            const effectFields = new Set<string>();
+            const effects = list(transition.effects, 20, `${transitionPath}.effects`);
+            if (!effects.length) issue(`${transitionPath}.effects`, 'missing-effects', 'Workflow effects must contain at least one bounded change.');
+            effects.forEach((effect, effectIndex) => {
+              const effectPath = `${transitionPath}.effects[${effectIndex}]`;
+              if (!object(effect)) { issue(effectPath, 'invalid-object', 'Expected a workflow effect object.'); return; }
+              const allowed = effect.operation === 'set' ? ['operation', 'fieldId', 'value']
+                : effect.operation === 'increment' ? ['operation', 'fieldId', 'amount'] : ['operation', 'fieldId'];
+              if (Object.keys(effect).some(key => !allowed.includes(key))) issue(effectPath, 'unknown-property', 'Unsupported workflow effect property.');
+              const effectField = Array.isArray(table.fields) ? table.fields.find(candidate => object(candidate) && candidate.id === effect.fieldId) : undefined;
+              if (!['set', 'increment', 'timestamp'].includes(String(effect.operation)) || !id(effect.fieldId) || effectFields.has(String(effect.fieldId))
+                || !object(effectField) || effectField.id === workflow.fieldId || effectField.formula !== undefined
+                || object(table.counter) && effectField.id === table.counter.fieldId) {
+                issue(effectPath, 'invalid-effect-field', 'Effects require distinct ordinary fields outside workflow, formula and protected counter fields.');
+                return;
+              }
+              effectFields.add(String(effect.fieldId));
+              if (effect.operation === 'increment') {
+                if (effectField.type !== 'number' || effectField.required !== true || typeof effect.amount !== 'number'
+                  || !Number.isFinite(effect.amount) || effect.amount === 0 || Math.abs(effect.amount) > 1_000_000_000_000) {
+                  issue(effectPath, 'invalid-increment-effect', 'Increment effects require a required number field and a finite nonzero bounded amount.');
+                }
+              } else if (effect.operation === 'timestamp') {
+                if (effectField.type !== 'datetime') issue(effectPath, 'invalid-timestamp-effect', 'Timestamp effects require a datetime field.');
+              } else if (effect.operation === 'set') {
+                const effectValue = effect.value;
+                const valid = effectValue === null ? effectField.required !== true
+                  : effectField.type === 'number' ? typeof effectValue === 'number' && Number.isFinite(effectValue)
+                  : effectField.type === 'boolean' ? typeof effectValue === 'boolean'
+                  : effectField.type === 'text' ? typeof effectValue === 'string' && effectValue.length <= 4000
+                  : effectField.type === 'enum' ? typeof effectValue === 'string' && Array.isArray(effectField.options) && effectField.options.includes(effectValue)
+                  : effectField.type === 'date' ? typeof effectValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(effectValue)
+                  : effectField.type === 'datetime' ? typeof effectValue === 'string' && Number.isFinite(Date.parse(effectValue))
+                  : ['uuid', 'reference'].includes(String(effectField.type)) ? typeof effectValue === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(effectValue)
+                  : false;
+                if (!valid) issue(effectPath, 'invalid-set-effect', 'Set effects require a bounded literal matching the declared field type.');
+              }
+            });
+          }
         });
         if (!Array.isArray(table.permissions) || !table.permissions.some(rule => object(rule) && rule.operation === 'read')
           || !table.permissions.some(rule => object(rule) && rule.operation === 'update')) issue(workflowPath, 'workflow-permissions', 'Workflow transitions require explicit read and update permissions.');
