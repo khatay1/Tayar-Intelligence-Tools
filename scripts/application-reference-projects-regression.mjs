@@ -103,7 +103,8 @@ try {
           : item.booking ? ['create'] : [], pageSize: 10 },
     })) };
     const featureAction = reference.feature.action;
-    const featureView = page.sections.find(section => section.applicationDataView.tableId === featureTable.id).applicationDataView;
+    const coveragePage = structuredClone(page);
+    const featureView = coveragePage.sections.find(section => section.applicationDataView.tableId === featureTable.id).applicationDataView;
     assert.doesNotThrow(() => compileApplicationDataView(reference.definition, featureView),
       `${reference.domain} primary data view compiles`);
     const featureEvidence = reference.feature.capability === 'formula'
@@ -134,7 +135,7 @@ try {
     const prepared = prepareGeneratedApplication({ projectKind: 'application', application: structuredClone(reference.definition), requirements, projectSpecification }, [page],
       `Create a secure ${reference.domain} application with a project overview and record access.`, new Set(), true);
     assert.doesNotThrow(() => validate(prepared), `${reference.domain} generated application remains valid`);
-    const coverage = buildApplicationRequirementCoverage(prepared, [page]);
+    const coverage = buildApplicationRequirementCoverage(prepared, [coveragePage]);
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
     assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
       `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
@@ -144,12 +145,12 @@ try {
       summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
       capability: reference.feature.capability, evidence: [featureEvidence],
     }] };
-    const coverageWithPrimaryFeature = buildApplicationRequirementCoverage(featureCoverageApplication, [page]);
+    const coverageWithPrimaryFeature = buildApplicationRequirementCoverage(featureCoverageApplication, [coveragePage]);
     const featureCoverage = coverageWithPrimaryFeature.find(row => row.requirementId === `primary-${reference.feature.capability}`);
     assert.equal(featureCoverage?.tests[0]?.id, `contract:${featureEvidence}`);
     assert.equal(featureCoverage?.deliveryStatus, 'contract-verified',
       `${reference.domain} primary capability is backed by its compiled data view: ${JSON.stringify(featureCoverage)}`);
-    const unboundFeaturePage = structuredClone(page);
+    const unboundFeaturePage = structuredClone(coveragePage);
     const featureSection = unboundFeaturePage.sections.find(section => section.applicationDataView.tableId === featureTable.id);
     if (featureAction) featureSection.applicationDataView.actions = featureSection.applicationDataView.actions.filter(action => action !== featureAction);
     else featureSection.applicationDataView.columns = featureSection.applicationDataView.columns.filter(id => id !== featureTable.fields.find(field => field.formula)?.id);
