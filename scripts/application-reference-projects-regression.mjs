@@ -13,10 +13,11 @@ try {
     `export { compileInitialApplicationSchema } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql'))};`,
     `export { prepareGeneratedApplication } from ${JSON.stringify(resolve('src/modules/website-builder/core/editor-generated-application'))};`,
     `export { buildApplicationRequirementCoverage } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-requirements'))};`,
+    `export { compileApplicationDataView } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-data-view'))};`
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile, alias: { '@': resolve('src') } });
   const { readApplicationDefinition: validate, compileInitialApplicationSchema: compile,
-    prepareGeneratedApplication, buildApplicationRequirementCoverage } = (await import(pathToFileURL(outfile))).default;
+    prepareGeneratedApplication, buildApplicationRequirementCoverage, compileApplicationDataView } = (await import(pathToFileURL(outfile))).default;
   const field = (id, type, required = true, extra = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, type, required, ...extra });
   const permissions = (operations = ['read', 'create', 'update']) => operations.map(operation => ({ operation, access: 'owner' }));
   const table = (id, fields, options = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, fields, permissions: permissions(), ...options });
@@ -102,6 +103,9 @@ try {
           : item.booking ? ['create'] : [], pageSize: 10 },
     })) };
     const featureAction = reference.feature.action;
+    const featureView = page.sections.find(section => section.applicationDataView.tableId === featureTable.id).applicationDataView;
+    assert.doesNotThrow(() => compileApplicationDataView(reference.definition, featureView),
+      `${reference.domain} primary data view compiles`);
     const featureEvidence = reference.feature.capability === 'formula'
       ? `formula:${featureTable.id}` : `${reference.feature.capability}:${featureTable.id}`;
     const requirements = [
