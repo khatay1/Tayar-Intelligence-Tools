@@ -10865,9 +10865,18 @@ var quoted3 = (value) => `"${value}"`;
 var literal7 = (value) => `'${value.replace(/'/g, "''")}'`;
 function applicationWorkflowInfrastructure() {
   return [
-    "create table if not exists private.app_workflow_requests (actor_id uuid not null, request_id uuid not null, table_name text not null, record_id uuid not null, transition_id text not null, from_state text not null, to_state text not null, primary key(actor_id, request_id));",
+    "create table if not exists private.app_workflow_requests (actor_id uuid not null, request_id uuid not null, table_name text not null, record_id uuid not null, transition_id text not null, from_state text not null, to_state text not null, created_at timestamptz not null default pg_catalog.transaction_timestamp(), primary key(actor_id, request_id));",
+    "alter table private.app_workflow_requests add column if not exists created_at timestamptz not null default pg_catalog.transaction_timestamp();",
+    "create index if not exists app_workflow_requests_record_created_idx on private.app_workflow_requests(table_name,record_id,created_at desc);",
     "alter table private.app_workflow_requests enable row level security;",
     "revoke all on private.app_workflow_requests from public, anon, authenticated;",
+    `create or replace function private.app_workflow_request_immutable() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  raise exception 'Workflow audit records are immutable';
+end $$;`,
+    "revoke all on function private.app_workflow_request_immutable() from public, anon, authenticated;",
+    "drop trigger if exists app_workflow_request_immutable on private.app_workflow_requests;",
+    "create trigger app_workflow_request_immutable before update or delete on private.app_workflow_requests for each row execute function private.app_workflow_request_immutable();",
     "create table if not exists private.app_workflow_context (transaction_id bigint primary key, actor_id uuid not null, table_name text not null, record_id uuid not null, field_name text not null, from_state text not null, to_state text not null);",
     "alter table private.app_workflow_context enable row level security;",
     "revoke all on private.app_workflow_context from public, anon, authenticated;",
@@ -15816,27 +15825,29 @@ var functionsSql4 = `select n.nspname as schema_name,p.proname as function_name,
   p.prosrc as source,p.proconfig as configuration,r.rolname as owner_name,has_function_privilege('anon',p.oid,'EXECUTE') as anon_execute,
   has_function_privilege('authenticated',p.oid,'EXECUTE') as authenticated_execute
 from pg_proc p join pg_namespace n on n.oid=p.pronamespace join pg_language l on l.oid=p.prolang join pg_roles r on r.oid=p.proowner
-where n.nspname in ('private','public') and (p.proname='app_workflow_write_guard' or left(p.proname,24)='app_transition_workflow_')`;
+where n.nspname in ('private','public') and (p.proname in ('app_workflow_write_guard','app_workflow_request_immutable') or left(p.proname,24)='app_transition_workflow_')`;
 var tablesSql2 = `select t.relname as name,t.relkind as kind,t.relrowsecurity as rls,
   has_table_privilege('anon',t.oid,'SELECT,INSERT,UPDATE,DELETE') as anon_all,
   has_table_privilege('authenticated',t.oid,'SELECT,INSERT,UPDATE,DELETE') as authenticated_all,
   has_any_column_privilege('anon',t.oid,'SELECT,INSERT,UPDATE') as anon_columns,
   has_any_column_privilege('authenticated',t.oid,'SELECT,INSERT,UPDATE') as authenticated_columns,
+  exists(select 1 from pg_index i join pg_class x on x.oid=i.indexrelid join pg_namespace xn on xn.oid=x.relnamespace
+    where xn.nspname='private' and x.relname='app_workflow_requests_record_created_idx' and i.indrelid=t.oid) as audit_index,
   (select jsonb_object_agg(a.attname,jsonb_build_object('required',a.attnotnull,'type',a.atttypid::regtype::text)) from pg_attribute a where a.attrelid=t.oid and a.attnum>0 and not a.attisdropped) as fields,
   (select pg_get_constraintdef(c.oid) from pg_constraint c where c.conrelid=t.oid and c.contype='p') as primary_key
 from pg_class t join pg_namespace n on n.oid=t.relnamespace where n.nspname='private' and t.relname in ('app_workflow_requests','app_workflow_context')`;
-var guardsSql2 = `select t.relname as name,g.tgenabled as enabled,g.tgtype as type,g.tgargs as arguments,
+var guardsSql2 = `select t.relname as name,n.nspname as table_schema,g.tgenabled as enabled,g.tgtype as type,g.tgargs as arguments,
  pn.nspname as function_schema,p.proname as function_name
 from pg_class t join pg_namespace n on n.oid=t.relnamespace join pg_trigger g on g.tgrelid=t.oid
 join pg_proc p on p.oid=g.tgfoid join pg_namespace pn on pn.oid=p.pronamespace
-where n.nspname='public' and g.tgname='app_workflow_guard' and not g.tgisinternal`;
+where (n.nspname='public' and g.tgname='app_workflow_guard' or n.nspname='private' and g.tgname='app_workflow_request_immutable') and not g.tgisinternal`;
 async function verifyOwnedWorkflowCatalog(input, query) {
   try {
     const app = readApplicationDefinition(input), workflows = app.tables.filter((table) => table.workflow);
     if (!workflows.length) return true;
     const [functions, tables, guards] = await Promise.all([query(functionsSql4), query(tablesSql2), query(guardsSql2)]);
     const manifest = applicationWorkflowFunctionManifest(app);
-    if (!Array.isArray(functions) || functions.length !== manifest.length || !Array.isArray(tables) || tables.length !== 2 || !Array.isArray(guards) || guards.length !== workflows.length) return false;
+    if (!Array.isArray(functions) || functions.length !== manifest.length || !Array.isArray(tables) || tables.length !== 2 || !Array.isArray(guards) || guards.length !== workflows.length + 1) return false;
     const seen = /* @__PURE__ */ new Set();
     for (const row2 of functions) {
       if (!object13(row2)) return false;
@@ -15845,14 +15856,14 @@ async function verifyOwnedWorkflowCatalog(input, query) {
       seen.add(key2);
     }
     const definitions = {
-      app_workflow_requests: { actor_id: "uuid", request_id: "uuid", table_name: "text", record_id: "uuid", transition_id: "text", from_state: "text", to_state: "text" },
+      app_workflow_requests: { actor_id: "uuid", request_id: "uuid", table_name: "text", record_id: "uuid", transition_id: "text", from_state: "text", to_state: "text", created_at: "timestamp with time zone" },
       app_workflow_context: { transaction_id: "bigint", actor_id: "uuid", table_name: "text", record_id: "uuid", field_name: "text", from_state: "text", to_state: "text" }
     };
     const privateSeen = /* @__PURE__ */ new Set();
     for (const row2 of tables) {
       if (!object13(row2)) return false;
       const fields = definitions[String(row2.name)];
-      if (!fields || privateSeen.has(String(row2.name)) || row2.kind !== "r" || row2.rls !== true || row2.anon_all !== false || row2.authenticated_all !== false || row2.anon_columns !== false || row2.authenticated_columns !== false || !object13(row2.fields) || Object.keys(row2.fields).length !== Object.keys(fields).length || row2.primary_key !== (row2.name === "app_workflow_requests" ? "PRIMARY KEY (actor_id, request_id)" : "PRIMARY KEY (transaction_id)")) return false;
+      if (!fields || privateSeen.has(String(row2.name)) || row2.kind !== "r" || row2.rls !== true || row2.anon_all !== false || row2.authenticated_all !== false || row2.anon_columns !== false || row2.authenticated_columns !== false || !object13(row2.fields) || Object.keys(row2.fields).length !== Object.keys(fields).length || row2.name === "app_workflow_requests" && row2.audit_index !== true || row2.primary_key !== (row2.name === "app_workflow_requests" ? "PRIMARY KEY (actor_id, request_id)" : "PRIMARY KEY (transaction_id)")) return false;
       for (const [key2, type2] of Object.entries(fields)) {
         const field2 = row2.fields[key2];
         if (!object13(field2) || field2.required !== true || field2.type !== type2) return false;
@@ -15861,12 +15872,14 @@ async function verifyOwnedWorkflowCatalog(input, query) {
     }
     for (const table of workflows) {
       const field2 = table.fields.find((item) => item.id === table.workflow.fieldId);
-      const rows = guards.filter((row3) => object13(row3) && row3.name === `app_${table.key}`);
+      const rows = guards.filter((row3) => object13(row3) && row3.table_schema === "public" && row3.name === `app_${table.key}`);
       if (rows.length !== 1 || !object13(rows[0])) return false;
       const row2 = rows[0];
       const hex = Array.from(new TextEncoder().encode(`${field2.key}\0${field2.defaultValue}\0`), (byte) => byte.toString(16).padStart(2, "0")).join("");
       if (row2.enabled !== "O" || row2.type !== 23 || row2.function_schema !== "private" || row2.function_name !== "app_workflow_write_guard" || row2.arguments !== `\\x${hex}`) return false;
     }
+    const immutable = guards.filter((row2) => object13(row2) && row2.table_schema === "private" && row2.name === "app_workflow_requests");
+    if (immutable.length !== 1 || !object13(immutable[0]) || immutable[0].enabled !== "O" || immutable[0].type !== 27 || immutable[0].function_schema !== "private" || immutable[0].function_name !== "app_workflow_request_immutable" || immutable[0].arguments !== "\\x") return false;
     return true;
   } catch {
     return false;
