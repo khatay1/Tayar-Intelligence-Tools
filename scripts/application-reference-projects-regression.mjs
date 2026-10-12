@@ -13,10 +13,11 @@ try {
     `export { compileInitialApplicationSchema } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql'))};`,
     `export { prepareGeneratedApplication } from ${JSON.stringify(resolve('src/modules/website-builder/core/editor-generated-application'))};`,
     `export { buildApplicationRequirementCoverage } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-requirements'))};`,
+    `export { compileApplicationDataView } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-data-view'))};`
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile, alias: { '@': resolve('src') } });
   const { readApplicationDefinition: validate, compileInitialApplicationSchema: compile,
-    prepareGeneratedApplication, buildApplicationRequirementCoverage } = (await import(pathToFileURL(outfile))).default;
+    prepareGeneratedApplication, buildApplicationRequirementCoverage, compileApplicationDataView } = (await import(pathToFileURL(outfile))).default;
   const field = (id, type, required = true, extra = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, type, required, ...extra });
   const permissions = (operations = ['read', 'create', 'update']) => operations.map(operation => ({ operation, access: 'owner' }));
   const table = (id, fields, options = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, fields, permissions: permissions(), ...options });
@@ -75,13 +76,13 @@ try {
   });
 
   const references = [
-    { domain: 'retail', definition: app(products, retailOrders, retailLines), expected: /app_create_transaction_1/ },
-    { domain: 'restaurant', definition: app(menu, restaurantOrders), expected: /app_transition_workflow_1/ },
-    { domain: 'school', definition: app(students, assessments), expected: /"total_score"/ },
-    { domain: 'clinic', definition: app(clinicians, appointments), expected: /app_booking/ },
-    { domain: 'government', definition: app(cases), expected: /app_workflow_guard/ },
-    { domain: 'factory', definition: app(materials, workOrders, issues), expected: /app_create_transaction_1/ },
-    { domain: 'custom-research', definition: app(samples), expected: /"metadata" jsonb/ },
+    { domain: 'retail', definition: app(products, retailOrders, retailLines), expected: /app_create_transaction_1/, feature: { capability: 'transaction', tableId: 'orders', action: 'transact' } },
+    { domain: 'restaurant', definition: app(menu, restaurantOrders), expected: /app_transition_workflow_1/, feature: { capability: 'workflow', tableId: 'kitchen-tickets', action: 'transition' } },
+    { domain: 'school', definition: app(students, assessments), expected: /"total_score"/, feature: { capability: 'formula', tableId: 'assessments', action: null } },
+    { domain: 'clinic', definition: app(clinicians, appointments), expected: /app_booking/, feature: { capability: 'booking', tableId: 'appointments', action: 'create' } },
+    { domain: 'government', definition: app(cases), expected: /app_workflow_guard/, feature: { capability: 'workflow', tableId: 'permit-cases', action: 'transition' } },
+    { domain: 'factory', definition: app(materials, workOrders, issues), expected: /app_create_transaction_1/, feature: { capability: 'transaction', tableId: 'work-orders', action: 'transact' } },
+    { domain: 'custom-research', definition: app(samples), expected: /"metadata" jsonb/, feature: { capability: 'workflow', tableId: 'research-samples', action: 'transition' } },
   ];
 
   for (const reference of references) {
@@ -93,8 +94,21 @@ try {
 
     const table = reference.definition.tables[0];
     const pageId = `${reference.domain}-overview`;
-    const page = { id: pageId, name: 'Overview', slug: 'overview', sections: [{ id: `${reference.domain}-records`, type: 'features', title: 'Records',
-      applicationDataView: { tableId: table.id, columns: [table.fields[0].id], actions: [], pageSize: 10 } }] };
+    const featureTable = reference.definition.tables.find(item => item.id === reference.feature.tableId);
+    assert.ok(featureTable, `${reference.domain} primary feature table exists`);
+    const page = { id: pageId, name: 'Overview', slug: 'overview', sections: reference.definition.tables.map(item => ({
+      id: `${reference.domain}-${item.id}-records`, type: 'features', title: item.name,
+      applicationDataView: { tableId: item.id, columns: item.fields.map(field => field.id),
+        actions: item.transaction ? ['transact'] : item.workflow ? ['transition'] : item.attachments ? ['attachments']
+          : item.booking ? ['create'] : [], pageSize: 10 },
+    })) };
+    const featureAction = reference.feature.action;
+    const coveragePage = structuredClone(page);
+    const featureView = coveragePage.sections.find(section => section.applicationDataView.tableId === featureTable.id).applicationDataView;
+    assert.doesNotThrow(() => compileApplicationDataView(reference.definition, featureView),
+      `${reference.domain} primary data view compiles`);
+    const featureEvidence = reference.feature.capability === 'formula'
+      ? `formula:${featureTable.id}` : `${reference.feature.capability}:${featureTable.id}`;
     const requirements = [
       { id: 'account-access', summary: 'Users can securely access their workspace.', capability: 'auth', evidence: ['auth'] },
       { id: 'overview-page', summary: 'Users can open the project overview.', capability: 'page', evidence: ['page:overview'] },
@@ -121,10 +135,31 @@ try {
     const prepared = prepareGeneratedApplication({ projectKind: 'application', application: structuredClone(reference.definition), requirements, projectSpecification }, [page],
       `Create a secure ${reference.domain} application with a project overview and record access.`, new Set(), true);
     assert.doesNotThrow(() => validate(prepared), `${reference.domain} generated application remains valid`);
-    const coverage = buildApplicationRequirementCoverage(prepared, [page]);
+    const coverage = buildApplicationRequirementCoverage(prepared, [coveragePage]);
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
     assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
       `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
+    const featureCoverageApplication = structuredClone(reference.definition);
+    featureCoverageApplication.requirements = {
+      version: 1, request: `Reference ${reference.domain} primary capability coverage.`,
+      items: [{
+        id: 'primary-feature',
+        summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
+        capability: reference.feature.capability, evidence: [featureEvidence],
+      }],
+    };
+    const coverageWithPrimaryFeature = buildApplicationRequirementCoverage(featureCoverageApplication, [coveragePage]);
+    const featureCoverage = coverageWithPrimaryFeature.find(row => row.requirementId === 'primary-feature');
+    assert.equal(featureCoverage?.tests[0]?.id, `contract:${featureEvidence}`);
+    assert.equal(featureCoverage?.deliveryStatus, 'contract-verified',
+      `${reference.domain} primary capability is backed by its compiled data view: ${JSON.stringify(featureCoverage)}`);
+    const unboundFeaturePage = structuredClone(coveragePage);
+    const featureSection = unboundFeaturePage.sections.find(section => section.applicationDataView.tableId === featureTable.id);
+    if (featureAction) featureSection.applicationDataView.actions = featureSection.applicationDataView.actions.filter(action => action !== featureAction);
+    else featureSection.applicationDataView.columns = featureSection.applicationDataView.columns.filter(id => id !== featureTable.fields.find(field => field.formula)?.id);
+    const unboundCoverage = buildApplicationRequirementCoverage(featureCoverageApplication, [unboundFeaturePage]);
+    assert.equal(unboundCoverage.find(row => row.requirementId === 'primary-feature')?.deliveryStatus, 'blocked',
+      `${reference.domain} missing primary feature binding blocks coverage`);
     assert.deepEqual(prepared.requirements.specification, projectSpecification, `${reference.domain} retains its validated project specification`);
 
     const brokenPage = structuredClone(page);
