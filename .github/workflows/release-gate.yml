@@ -53,22 +53,6 @@ jobs:
       - name: Project health
         run: npm run health:project
 
-      - name: Capture final Node 22 runtime bundles for diagnosis
-        if: always()
-        run: |
-          node scripts/build-website-owned-application-runtime-template.mjs
-          node scripts/build-website-byo-publish-function.mjs
-
-      - name: Upload final Node 22 runtime bundles for diagnosis
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: final-node22-runtime-bundles
-          path: |
-            server/generated/website-owned-application-runtime-template.ts
-            supabase/functions/website-byo-publish/index.ts
-          if-no-files-found: error
-
       - name: Coding Assistance smoke
         run: npm run smoke:code-assistant
 
