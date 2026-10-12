@@ -96,12 +96,17 @@ try {
   const deliveryConfig = { clientName: '', clientEmail: '', projectCode: '', status: 'review', dueDate: '', handoffNotes: '', whiteLabel: true, approvedAt: null, approvedFingerprint: '', deliveredAt: null };
   let deliveryMutations = 0, alerts = 0;
   globalThis.window.alert = () => { alerts++; };
-  const deliveryArgs = { pages: built.state.Pages, deliveryConfig, approvalCurrent: false, siteName: 'App', getLaunchReadiness: () => ({ score: 0, checks: [], auditPoints: 0 }), siteAudit: { score: 0, errors: [], warnings: [] }, publishedUrl: 'https://example.test', previewUrl: '', deliveryUsage: {}, setDeliveryConfig: updater => { deliveryMutations++; updater(deliveryConfig); }, setSaved: () => {}, buildDeliveryFingerprint: () => 'verified', requireBillingFeature: () => true, l: text => text };
+  const deliveryArgs = { pages: built.state.Pages, deliveryConfig, approvalCurrent: false, siteName: 'App', getLaunchReadiness: () => ({ score: 0, checks: [], auditPoints: 0 }), siteAudit: { score: 0, errors: [], warnings: [] }, publishedUrl: 'https://example.test', previewUrl: '', deliveryUsage: { pages: built.state.Pages.length, sections: 0, elements: 0, forms: 0, releases: 0, leads: 0, analyticsEvents: 0 }, setDeliveryConfig: updater => { deliveryMutations++; updater(deliveryConfig); }, setSaved: () => {}, buildDeliveryFingerprint: () => 'verified', requireBillingFeature: () => true, l: text => text };
   createDeliveryActions({ ...deliveryArgs, application }).approveForDelivery();
   assert.equal(deliveryMutations, 0, 'applications without a verified requirement manifest cannot be approved');
   createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).approveForDelivery();
   assert.equal(deliveryMutations, 1, 'verified application requirements allow approval');
   assert.match(createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).buildDeliveryReport(), /REQUIREMENT COVERAGE MATRIX[\s\S]*Requirement: account-access[\s\S]*Delivery status: contract-verified/);
+  const deliveryReport = createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).buildDeliveryReport();
+  assert.match(deliveryReport, /DELIVERY EVIDENCE[\s\S]*Project definition: Present \(\d+ pages\)[\s\S]*Requirement contracts: \d+\/\d+ passed; 0 blocked requirements[\s\S]*Build artifact: Not verified by this report[\s\S]*Published URL recorded; deployment health not verified[\s\S]*Live runtime and external services: Not verified by this report/);
+  const unverifiedReport = createDeliveryActions({ ...deliveryArgs, publishedUrl: '', application: built.state.Application }).buildDeliveryReport();
+  assert.match(unverifiedReport, /Deployment: Not published/);
+  assert.match(unverifiedReport, /Build artifact: Not verified by this report/);
   createDeliveryActions({ ...deliveryArgs, pages: built.state.Pages.filter(page => page.slug !== 'booking'), application: built.state.Application }).approveForDelivery();
   assert.equal(deliveryMutations, 1, 'stale requirement evidence cannot approve a changed application');
   createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).markProjectDelivered();

@@ -129,7 +129,11 @@ private transition audit records without exposing sensitive transition details
 through client access. PostgreSQL assertions verify timestamp presence,
 immutability and catalog integrity in Release Gate.
 
-## Business logic — active atomic related-record workflow batch
+## Business logic — atomic related-record workflow merged
+
+PR #151 merged to `main` as
+`2fb4952b3421a335d7aa7e4a95e2b2d92d1bb5af`. PR Release Gate run
+38266169172 and main Release Gate run 38266516500 both passed.
 
 The existing guarded workflow transition can now apply one bounded mutation to
 a related record selected by a required reference, in the same PostgreSQL
@@ -141,20 +145,26 @@ states, formula outputs, counters, arbitrary expressions, fan-out and self-table
 references remain unsupported and fail closed. The AI generation contract now
 describes this exact executable capability.
 
-Focused workflow/schema regressions, TypeScript, scoped ESLint and whitespace
-checks pass locally. The PostgreSQL concurrency and rollback assertions run in
-Release Gate; no local isolated PostgreSQL fixture is configured. PR #151
-Release Gate run `38264726749` found a stale BYO Supabase deployment bundle;
-run `38265495032` then found a stale application backend link bundle. Both were
-regenerated from source. The application release, Auth/page, runtime,
-owned-runtime and BYO bundles were refreshed and all seven source-consistency
-checks pass locally. Run `38265950582` caught malformed uploaded content in the
-application-release bundle during Lint; the locally generated file passes
-ESLint, and its transfer is being corrected before another gate run.
+Focused workflow/schema regressions, TypeScript, scoped ESLint and generated
+bundle consistency passed locally. Release Gate verified the actual PostgreSQL
+atomic mutation and denied-target rollback. Earlier PR gates identified stale
+generated Supabase BYO, application backend-link and application-release
+bundles; all were regenerated from their trusted source scripts before the
+passing PR and main gates.
 
 The additive schema migrator recompiles affected workflow functions when
 workflow effects, relation fields, or referenced-table permissions/fields
 change.
+
+## Deployment and delivery — active evidence-report batch
+
+Client delivery reports now separate the editable project definition and
+current requirement contract results from build-artifact verification,
+deployment health and live runtime/provider checks. A recorded published URL is
+reported as a URL, not proof of healthy deployment; build and external service
+status remain explicitly unverified because this report has no fresh execution
+attestations. The real application-generation/delivery regression, TypeScript
+and focused ESLint passed locally.
 
 ## Honest completion boundary
 
