@@ -284,31 +284,52 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
           if (transition.access !== 'role' && transition.roleId !== undefined) issue(`${transitionPath}.roleId`, 'unexpected-role', 'Only role transitions can specify a role.');
           if (transition.effects !== undefined) {
             const effectFields = new Set<string>();
+            let relatedEffects = 0;
             const effects = list(transition.effects, 20, `${transitionPath}.effects`);
             if (!effects.length) issue(`${transitionPath}.effects`, 'missing-effects', 'Workflow effects must contain at least one bounded change.');
             effects.forEach((effect, effectIndex) => {
               const effectPath = `${transitionPath}.effects[${effectIndex}]`;
               if (!object(effect)) { issue(effectPath, 'invalid-object', 'Expected a workflow effect object.'); return; }
-              const allowed = effect.operation === 'set' ? ['operation', 'fieldId', 'value']
-                : effect.operation === 'increment' ? ['operation', 'fieldId', 'amount'] : ['operation', 'fieldId'];
+              const related = effect.operation === 'related';
+              if (related && ++relatedEffects > 1) issue(effectPath, 'too-many-related-effects', 'A transition can update at most one related row atomically.');
+              const change = related && object(effect.change) ? effect.change : effect;
+              const allowed = related ? ['operation', 'referenceFieldId', 'fieldId', 'change']
+                : effect.operation === 'set' ? ['operation', 'fieldId', 'value']
+                  : effect.operation === 'increment' ? ['operation', 'fieldId', 'amount'] : ['operation', 'fieldId'];
               if (Object.keys(effect).some(key => !allowed.includes(key))) issue(effectPath, 'unknown-property', 'Unsupported workflow effect property.');
-              const effectField = Array.isArray(table.fields) ? table.fields.find(candidate => object(candidate) && candidate.id === effect.fieldId) : undefined;
-              if (!['set', 'increment', 'timestamp'].includes(String(effect.operation)) || !id(effect.fieldId) || effectFields.has(String(effect.fieldId))
+              if (related && (!object(effect.change) || Object.keys(effect.change).some(key => !['operation', 'value', 'amount'].includes(key)))) issue(`${effectPath}.change`, 'invalid-related-change', 'A related effect needs one bounded set, increment or timestamp change.');
+              const referenceField = related && Array.isArray(table.fields) ? table.fields.find(candidate => object(candidate) && candidate.id === effect.referenceFieldId) : undefined;
+              const targetTable = related && object(referenceField) && referenceField.type === 'reference' && Array.isArray(value.tables)
+                ? value.tables.find(candidate => object(candidate) && candidate.id === referenceField.referenceTableId) : undefined;
+              const effectField = related && object(targetTable) && Array.isArray(targetTable.fields)
+                ? targetTable.fields.find(candidate => object(candidate) && candidate.id === effect.fieldId)
+                : Array.isArray(table.fields) ? table.fields.find(candidate => object(candidate) && candidate.id === effect.fieldId) : undefined;
+              const fieldKey = `${related ? String(referenceField?.id ?? 'invalid') : table.id}:${String(effect.fieldId)}`;
+              if (related && (effectFields.has(fieldKey) || !object(referenceField) || referenceField.type !== 'reference' || referenceField.required !== true
+                || !object(targetTable) || targetTable.id === table.id
+                || !Array.isArray(targetTable.permissions) || !targetTable.permissions.some(rule => object(rule) && rule.operation === 'read')
+                || !targetTable.permissions.some(rule => object(rule) && rule.operation === 'update'))) {
+                issue(effectPath, 'invalid-related-target', 'Related effects require one required reference to another table with declared read and update permissions.');
+              }
+              const operation = String(change.operation);
+              if ((!related && !['set', 'increment', 'timestamp'].includes(operation)) || (related && !['set', 'increment', 'timestamp'].includes(operation))
+                || !id(effect.fieldId) || effectFields.has(fieldKey)
                 || !object(effectField) || effectField.id === workflow.fieldId || effectField.formula !== undefined
-                || object(table.counter) && effectField.id === table.counter.fieldId) {
+                || object(related ? targetTable : table) && object((related ? targetTable : table).counter) && effectField.id === (related ? targetTable : table).counter.fieldId
+                || object(related ? targetTable : table) && object((related ? targetTable : table).workflow) && effectField.id === (related ? targetTable : table).workflow.fieldId) {
                 issue(effectPath, 'invalid-effect-field', 'Effects require distinct ordinary fields outside workflow, formula and protected counter fields.');
                 return;
               }
-              effectFields.add(String(effect.fieldId));
-              if (effect.operation === 'increment') {
-                if (effectField.type !== 'number' || effectField.required !== true || typeof effect.amount !== 'number'
-                  || !Number.isFinite(effect.amount) || effect.amount === 0 || Math.abs(effect.amount) > 1_000_000_000_000) {
+              effectFields.add(fieldKey);
+              if (operation === 'increment') {
+                if (effectField.type !== 'number' || effectField.required !== true || typeof change.amount !== 'number'
+                  || !Number.isFinite(change.amount) || change.amount === 0 || Math.abs(change.amount) > 1_000_000_000_000) {
                   issue(effectPath, 'invalid-increment-effect', 'Increment effects require a required number field and a finite nonzero bounded amount.');
                 }
-              } else if (effect.operation === 'timestamp') {
+              } else if (operation === 'timestamp') {
                 if (effectField.type !== 'datetime') issue(effectPath, 'invalid-timestamp-effect', 'Timestamp effects require a datetime field.');
-              } else if (effect.operation === 'set') {
-                const effectValue = effect.value;
+              } else if (operation === 'set') {
+                const effectValue = change.value;
                 const valid = effectValue === null ? effectField.required !== true
                   : effectField.type === 'number' ? typeof effectValue === 'number' && Number.isFinite(effectValue)
                   : effectField.type === 'boolean' ? typeof effectValue === 'boolean'

@@ -116,9 +116,10 @@ schema, backend verification, release endpoint, owned source, BYO Edge,
 generation/coverage and all generated-artifact consistency checks passed
 locally. The PostgreSQL concurrency/effect assertion runs in Release Gate.
 
-## Business logic — active workflow audit hardening batch
+## Business logic — workflow audit history merged
 
-Branch: `feature/workflow-audit-history-20261012`.
+PR #150 merged to `main` as `829cd67036cba3192937dd95ee15941bca6e68e3`.
+PR Release Gate 38245758281 and main Release Gate 38246046180 passed.
 
 Workflow receipts now carry a server transaction timestamp, are indexed by
 record and time for audit history retrieval, and reject updates/deletes at the
@@ -128,11 +129,28 @@ private transition audit records without exposing sensitive transition details
 through client access. PostgreSQL assertions verify timestamp presence,
 immutability and catalog integrity in Release Gate.
 
+## Business logic — active atomic related-record workflow batch
+
+The existing guarded workflow transition can now apply one bounded mutation to
+a related record selected by a required reference, in the same PostgreSQL
+transaction as the source state change and immutable idempotency receipt. It
+supports typed set, bounded increment and transaction timestamp changes; target
+rows are locked and checked against their own declared read/update permissions.
+Missing targets or denied permissions abort the entire operation. Workflow
+states, formula outputs, counters, arbitrary expressions, fan-out and self-table
+references remain unsupported and fail closed. The AI generation contract now
+describes this exact executable capability.
+
+Focused workflow, schema and real generation-handler regressions, TypeScript,
+ESLint and affected generated bundle consistency passed locally. The PostgreSQL
+concurrency and rollback assertions are part of Release Gate; no local isolated
+PostgreSQL fixture is configured.
+
 ## Honest completion boundary
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
-require incremental implementation and evidence,
-especially cross-record declarative operations and isolated custom code execution,
-requirement-to-test coverage results, safe repair/rollback and diverse full
-reference-project verification. Final provider activation remains phase eight.
+require incremental implementation and evidence, especially safe isolated custom
+code execution, requirement-specific test outcomes, safe repair/rollback and
+diverse full reference-project verification. Final provider activation remains
+phase eight.

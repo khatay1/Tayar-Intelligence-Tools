@@ -278,6 +278,7 @@ try {
   const { promptManager } = require(join(dir, 'prompts.cjs'));
   const messages = promptManager.buildMessages('website-builder', { action: 'generate', prompt: 'Build seven pages', limits: { maxPages: 25, maxSectionsPerPage: 80 } });
   assert.match(messages.at(-1).content, /"maxPages":25/, 'Model must receive the real page allowance');
+  assert.match(messages.map(message => message.content).join('\n'), /"operation":"related".*"referenceFieldId".*"change"/s, 'AI contract must describe the executable atomic related-record effect');
   for (const json of [
     completeBrochure,
     { projectKind: 'website', pages: [completeBrochure.pages[0], { name: 'Missing', sections: [] }] },
