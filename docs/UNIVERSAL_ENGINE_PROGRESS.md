@@ -156,15 +156,27 @@ The additive schema migrator recompiles affected workflow functions when
 workflow effects, relation fields, or referenced-table permissions/fields
 change.
 
-## Deployment and delivery — active evidence-report batch
+## Deployment and delivery — evidence reporting merged
 
 Client delivery reports now separate the editable project definition and
 current requirement contract results from build-artifact verification,
 deployment health and live runtime/provider checks. A recorded published URL is
 reported as a URL, not proof of healthy deployment; build and external service
 status remain explicitly unverified because this report has no fresh execution
-attestations. The real application-generation/delivery regression, TypeScript
-and focused ESLint passed locally.
+attestations. PR #152 merged to `main` as
+`7ef664d5e27ee2771955880625e264979a297577`; PR Release Gate run 38267122879
+and main Release Gate run 38267488592 both passed. The real
+application-generation/delivery regression, TypeScript and focused ESLint
+passed locally.
+
+## Reference projects — synthetic backend-contract coverage in progress
+
+The application-generation smoke suite now covers seven synthetic reference
+definitions: retail, restaurant, school, clinic, government, factory and custom
+research. Each definition is validated and compiled to schema SQL; assertions
+check row-level security, owner isolation and its expected native backend
+feature. Invalid transaction permissions and booking resources are rejected.
+These are backend contract fixtures, not complete end-to-end reference products.
 
 ## Honest completion boundary
 
