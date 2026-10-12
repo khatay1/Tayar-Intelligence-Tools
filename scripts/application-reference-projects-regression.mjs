@@ -139,14 +139,13 @@ try {
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
     assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
       `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
-    const featureCoverageApplication = structuredClone(reference.definition);
-    featureCoverageApplication.requirements = { items: [{
-      id: `primary-${reference.feature.capability}`,
-      summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
-      capability: reference.feature.capability, evidence: [featureEvidence],
-    }] };
+    const featureCoverageApplication = structuredClone(prepared);
+    const primaryFeatureRequirement = featureCoverageApplication.requirements.items.find(item => item.id === 'records-view');
+    primaryFeatureRequirement.summary = `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`;
+    primaryFeatureRequirement.capability = reference.feature.capability;
+    primaryFeatureRequirement.evidence = [featureEvidence];
     const coverageWithPrimaryFeature = buildApplicationRequirementCoverage(featureCoverageApplication, [coveragePage]);
-    const featureCoverage = coverageWithPrimaryFeature.find(row => row.requirementId === `primary-${reference.feature.capability}`);
+    const featureCoverage = coverageWithPrimaryFeature.find(row => row.requirementId === 'records-view');
     assert.equal(featureCoverage?.tests[0]?.id, `contract:${featureEvidence}`);
     assert.equal(featureCoverage?.deliveryStatus, 'contract-verified',
       `${reference.domain} primary capability is backed by its compiled data view: ${JSON.stringify(featureCoverage)}`);
@@ -155,7 +154,7 @@ try {
     if (featureAction) featureSection.applicationDataView.actions = featureSection.applicationDataView.actions.filter(action => action !== featureAction);
     else featureSection.applicationDataView.columns = featureSection.applicationDataView.columns.filter(id => id !== featureTable.fields.find(field => field.formula)?.id);
     const unboundCoverage = buildApplicationRequirementCoverage(featureCoverageApplication, [unboundFeaturePage]);
-    assert.equal(unboundCoverage.find(row => row.requirementId === `primary-${reference.feature.capability}`)?.deliveryStatus, 'blocked',
+    assert.equal(unboundCoverage.find(row => row.requirementId === 'records-view')?.deliveryStatus, 'blocked',
       `${reference.domain} missing primary feature binding blocks coverage`);
     assert.deepEqual(prepared.requirements.specification, projectSpecification, `${reference.domain} retains its validated project specification`);
 
