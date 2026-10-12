@@ -108,8 +108,6 @@ try {
       { id: 'account-access', summary: 'Users can securely access their workspace.', capability: 'auth', evidence: ['auth'] },
       { id: 'overview-page', summary: 'Users can open the project overview.', capability: 'page', evidence: ['page:overview'] },
       { id: 'records-view', summary: `Users can read ${reference.domain} records.`, capability: 'records', evidence: [`view:${table.id}:read`] },
-      { id: `primary-${reference.feature.capability}`, summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
-        capability: reference.feature.capability, evidence: [featureEvidence] },
     ];
     const projectSpecification = {
       version: 1, intent: `Create a secure ${reference.domain} application with an overview and owner-scoped records.`,
@@ -122,9 +120,6 @@ try {
         { id: 'authenticate', summary: 'Authenticate the project user.', actorIds: ['user'], entityIds: [], requirementIds: ['account-access'], dependsOn: [], execution: 'native', transactional: false },
         { id: 'open-overview', summary: 'Open the generated overview page.', actorIds: ['user'], entityIds: [], requirementIds: ['overview-page'], dependsOn: ['authenticate'], execution: 'native', transactional: false },
         { id: 'read-records', summary: `Read owner-scoped ${reference.domain} records.`, actorIds: ['user'], entityIds: [table.id], requirementIds: ['records-view'], dependsOn: ['authenticate', 'open-overview'], execution: 'native', transactional: false },
-        { id: `use-primary-${reference.feature.capability}`, summary: `Use the declared ${reference.feature.capability} capability.`, actorIds: ['user'],
-          entityIds: [featureTable.id], requirementIds: [`primary-${reference.feature.capability}`], dependsOn: ['authenticate', 'open-overview'],
-          execution: 'native', transactional: ['transaction', 'workflow'].includes(reference.feature.capability) },
       ],
       rules: [{ id: 'owner-scoped-records', summary: 'Users can read only records allowed by the declared owner policy.', operationIds: ['read-records'] }],
       tenancy: { mode: 'single' }, integrations: [],
@@ -139,7 +134,14 @@ try {
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
     assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
       `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
-    const featureCoverage = coverage.find(row => row.requirementId === `primary-${reference.feature.capability}`);
+    const featureCoverageApplication = structuredClone(prepared);
+    featureCoverageApplication.requirements.items.push({
+      id: `primary-${reference.feature.capability}`,
+      summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
+      capability: reference.feature.capability, evidence: [featureEvidence],
+    });
+    const coverageWithPrimaryFeature = buildApplicationRequirementCoverage(featureCoverageApplication, [page]);
+    const featureCoverage = coverageWithPrimaryFeature.find(row => row.requirementId === `primary-${reference.feature.capability}`);
     assert.equal(featureCoverage?.tests[0]?.id, `contract:${featureEvidence}`);
     assert.equal(featureCoverage?.deliveryStatus, 'contract-verified',
       `${reference.domain} primary capability is backed by its compiled data view: ${JSON.stringify(featureCoverage)}`);
@@ -147,7 +149,7 @@ try {
     const featureSection = unboundFeaturePage.sections.find(section => section.applicationDataView.tableId === featureTable.id);
     if (featureAction) featureSection.applicationDataView.actions = featureSection.applicationDataView.actions.filter(action => action !== featureAction);
     else featureSection.applicationDataView.columns = featureSection.applicationDataView.columns.filter(id => id !== featureTable.fields.find(field => field.formula)?.id);
-    const unboundCoverage = buildApplicationRequirementCoverage(prepared, [unboundFeaturePage]);
+    const unboundCoverage = buildApplicationRequirementCoverage(featureCoverageApplication, [unboundFeaturePage]);
     assert.equal(unboundCoverage.find(row => row.requirementId === `primary-${reference.feature.capability}`)?.deliveryStatus, 'blocked',
       `${reference.domain} missing primary feature binding blocks coverage`);
     assert.deepEqual(prepared.requirements.specification, projectSpecification, `${reference.domain} retains its validated project specification`);
