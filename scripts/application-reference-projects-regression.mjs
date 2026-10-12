@@ -11,9 +11,12 @@ try {
   await writeFile(entry, [
     `export { readApplicationDefinition } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-validation'))};`,
     `export { compileInitialApplicationSchema } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql'))};`,
+    `export { prepareGeneratedApplication } from ${JSON.stringify(resolve('src/modules/website-builder/core/editor-generated-application'))};`,
+    `export { buildApplicationRequirementCoverage } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-requirements'))};`,
   ].join('\n'));
-  await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { readApplicationDefinition: validate, compileInitialApplicationSchema: compile } = (await import(pathToFileURL(outfile))).default;
+  await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile, alias: { '@': resolve('src') } });
+  const { readApplicationDefinition: validate, compileInitialApplicationSchema: compile,
+    prepareGeneratedApplication, buildApplicationRequirementCoverage } = (await import(pathToFileURL(outfile))).default;
   const field = (id, type, required = true, extra = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, type, required, ...extra });
   const permissions = (operations = ['read', 'create', 'update']) => operations.map(operation => ({ operation, access: 'owner' }));
   const table = (id, fields, options = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, fields, permissions: permissions(), ...options });
@@ -87,6 +90,48 @@ try {
     assert.match(schema, /enable row level security/, `${reference.domain} tables keep RLS enabled`);
     assert.match(schema, /owner_id = \(select auth\.uid\(\)\)/, `${reference.domain} owner data is isolated`);
     assert.match(schema, reference.expected, `${reference.domain} emits its expected native backend behavior`);
+
+    const table = reference.definition.tables[0];
+    const pageId = `${reference.domain}-overview`;
+    const page = { id: pageId, name: 'Overview', slug: 'overview', sections: [{ id: `${reference.domain}-records`, type: 'features', title: 'Records',
+      applicationDataView: { tableId: table.id, columns: [table.fields[0].id], actions: [], pageSize: 10 } }] };
+    const requirements = [
+      { id: 'account-access', summary: 'Users can securely access their workspace.', capability: 'auth', evidence: ['auth'] },
+      { id: 'overview-page', summary: 'Users can open the project overview.', capability: 'page', evidence: ['page:overview'] },
+      { id: 'records-view', summary: `Users can read ${reference.domain} records.`, capability: 'records', evidence: [`view:${table.id}:read`] },
+    ];
+    const projectSpecification = {
+      version: 1, intent: `Create a secure ${reference.domain} application with an overview and owner-scoped records.`,
+      actors: [{ id: 'user', name: 'Project user' }],
+      entities: reference.definition.tables.map(item => ({ id: item.id, scope: 'owner',
+        classification: ['clinic', 'government'].includes(reference.domain) ? 'restricted'
+          : reference.domain === 'school' || reference.domain === 'custom-research' ? 'confidential' : 'internal' })),
+      requirements: requirements.map(item => ({ id: item.id, origin: 'explicit', acceptanceCriteria: [`${item.summary} The current generated project provides its declared implementation.`] })),
+      operations: [
+        { id: 'authenticate', summary: 'Authenticate the project user.', actorIds: ['user'], entityIds: [], requirementIds: ['account-access'], dependsOn: [], execution: 'native', transactional: false },
+        { id: 'open-overview', summary: 'Open the generated overview page.', actorIds: ['user'], entityIds: [], requirementIds: ['overview-page'], dependsOn: ['authenticate'], execution: 'native', transactional: false },
+        { id: 'read-records', summary: `Read owner-scoped ${reference.domain} records.`, actorIds: ['user'], entityIds: [table.id], requirementIds: ['records-view'], dependsOn: ['authenticate', 'open-overview'], execution: 'native', transactional: false },
+      ],
+      rules: [{ id: 'owner-scoped-records', summary: 'Users can read only records allowed by the declared owner policy.', operationIds: ['read-records'] }],
+      tenancy: { mode: 'single' }, integrations: [],
+      privacy: reference.definition.tables.filter(() => ['clinic', 'government', 'school', 'custom-research'].includes(reference.domain))
+        .map(item => ({ entityId: item.id, purpose: `Operate the ${reference.domain} application.`, retentionDays: 365 })),
+      decisions: [],
+    };
+    const prepared = prepareGeneratedApplication({ projectKind: 'application', application: structuredClone(reference.definition), requirements, projectSpecification }, [page],
+      `Create a secure ${reference.domain} application with a project overview and record access.`, new Set(), true);
+    assert.doesNotThrow(() => validate(prepared), `${reference.domain} generated application remains valid`);
+    const coverage = buildApplicationRequirementCoverage(prepared, [page]);
+    assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
+    assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
+      `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
+    assert.deepEqual(prepared.requirements.specification, projectSpecification, `${reference.domain} retains its validated project specification`);
+
+    const brokenPage = structuredClone(page);
+    brokenPage.sections[0].applicationDataView.tableId = 'missing-table';
+    assert.throws(() => prepareGeneratedApplication({ projectKind: 'application', application: structuredClone(reference.definition), requirements, projectSpecification },
+      [brokenPage], `Create a secure ${reference.domain} application`, new Set(), true), /data view|table|invalid/i,
+    `${reference.domain} rejects an unbound record view before applying the application`);
   }
 
   const generatedOnly = { ...references[0].definition, tables: references[0].definition.tables.map(item => ({ ...item })) };
