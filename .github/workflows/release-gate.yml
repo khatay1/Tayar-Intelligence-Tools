@@ -62,6 +62,9 @@ jobs:
       - name: Isolated custom code execution boundary regression
         run: node scripts/isolated-code-execution-regression.mjs
 
+      - name: Vercel Sandbox execution adapter regression
+        run: node scripts/vercel-sandbox-execution-adapter-regression.mjs
+
       - name: Localization and published storage regression
         run: node scripts/website-builder-localization-regression.mjs
 

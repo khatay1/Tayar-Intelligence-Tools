@@ -218,13 +218,18 @@ limits. The boundary stops the sandbox after success, failure, timeout or
 oversized output and returns stable error codes without forwarding provider
 errors.
 
-Release Gate now runs a regression for the policy contract, missing-adapter
-fail-closed behavior, request/output bounds, timeouts and cleanup. This is not
-yet a Vercel Sandbox adapter, live VM execution, or a mounted application
-capability. Custom operations remain rejected during project generation until
-an adapter is implemented, verified against the provider, and explicitly wired
-to the server-side application runtime. No credentials, provider account, or
-customer code execution was activated.
+Release Gate now runs regressions for the policy contract, missing-adapter
+fail-closed behavior, request/output bounds, timeouts, cleanup, and a mocked
+Vercel Sandbox REST adapter. The adapter requests an empty network allowlist,
+ephemeral Node 22 VMs, bounded resources and lifetime, and sends no environment,
+repository, mount or customer credential fields. Its HTTP contract is covered
+with mocked requests and responses only. No Vercel account, credential or live
+VM was used, and the adapter is not mounted into an application route.
+
+Custom operations remain rejected during project generation until this
+provider behavior is verified against a controlled activation sandbox and
+explicitly wired to the server-side application runtime. No customer code can
+reach this adapter today.
 
 ## Honest completion boundary
 
