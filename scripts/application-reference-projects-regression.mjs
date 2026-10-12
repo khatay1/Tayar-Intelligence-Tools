@@ -80,7 +80,7 @@ try {
     { domain: 'restaurant', definition: app(menu, restaurantOrders), expected: /app_transition_workflow_1/, feature: { capability: 'workflow', tableId: 'kitchen-tickets', action: 'transition' } },
     { domain: 'school', definition: app(students, assessments), expected: /"total_score"/, feature: { capability: 'formula', tableId: 'assessments', action: null } },
     { domain: 'clinic', definition: app(clinicians, appointments), expected: /app_booking/, feature: { capability: 'booking', tableId: 'appointments', action: 'create' } },
-    { domain: 'government', definition: app(cases), expected: /app_workflow_guard/, feature: { capability: 'files', tableId: 'permit-cases', action: 'attachments' } },
+    { domain: 'government', definition: app(cases), expected: /app_workflow_guard/, feature: { capability: 'workflow', tableId: 'permit-cases', action: 'transition' } },
     { domain: 'factory', definition: app(materials, workOrders, issues), expected: /app_create_transaction_1/, feature: { capability: 'transaction', tableId: 'work-orders', action: 'transact' } },
     { domain: 'custom-research', definition: app(samples), expected: /"metadata" jsonb/, feature: { capability: 'workflow', tableId: 'research-samples', action: 'transition' } },
   ];
