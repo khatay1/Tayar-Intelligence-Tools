@@ -111,7 +111,7 @@ try {
     assert.ok(replies.some(reply => reply.endsWith('already-transitioned')));
     assert.equal(await query(`select state from public.app_orders where id='${row}';`), 'approved');
     assert.equal(await query(`select name||':'||attempts::text||':'||(approved_at is not null)::text from public.app_orders where id='${row}';`), 'Approved order:2:true');
-    assert.equal(await query(`select count(*)||':'||(bool_and(created_at is not null))::text from private.app_workflow_requests where table_name='app_orders' and record_id='${row}';`), '2:true');
+    assert.equal(await query(`select count(*)||':'||(bool_and(created_at is not null))::text from private.app_workflow_requests where table_name='app_orders' and record_id='${row}';`), '1:true');
     await assert.rejects(query(`update private.app_workflow_requests set to_state='tampered' where actor_id='${owner}' and request_id='${request}';`), /Workflow audit records are immutable/);
     await assert.rejects(query(`delete from private.app_workflow_requests where actor_id='${owner}' and request_id='${request}';`), /Workflow audit records are immutable/);
     await assert.rejects(query(`${asUser(owner)} select public.app_transition_workflow_0('${row}','approve',gen_random_uuid());`), /unavailable/);
@@ -122,6 +122,8 @@ try {
     await assert.rejects(query(`${asUser(owner)} select * from private.app_workflow_requests;`), /permission denied/);
     const catalogQuery = async sql => JSON.parse(await query(`select coalesce(json_agg(x),'[]') from (${sql}) x;`));
     assert.equal(await verify(app, catalogQuery), true, 'Actual function, receipt and trigger catalog matches');
+    await query('alter table private.app_workflow_requests disable trigger app_workflow_request_immutable;');
+    assert.equal(await verify(app, catalogQuery), false, 'Disabled audit immutability trigger blocks readiness');
     await query('alter table public.app_orders disable trigger app_workflow_guard;');
     assert.equal(await verify(app, catalogQuery), false);
     console.log('PASS PostgreSQL workflows: permissions, atomic retries and effects, immutable timestamped audit receipts, direct-write guard and catalog drift');
