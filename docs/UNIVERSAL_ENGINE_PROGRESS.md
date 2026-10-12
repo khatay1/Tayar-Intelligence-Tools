@@ -74,9 +74,11 @@ Verified locally after this change:
 - Application runtime, backend-link, release, owned runtime and BYO publish
   generated artifacts were regenerated from source and passed consistency checks.
 
-## Autonomous QA — active coverage batch
+## Autonomous QA — coverage matrix merged
 
-Branch: `feature/requirement-coverage-matrix-20261011`.
+PR #148 merged to `main` as
+`c59444be414f383f9f9786257ad7e02822539aad`. PR Release Gate
+38219553289 and main Release Gate 38219830834 passed.
 
 The existing requirement verifier now builds explicit coverage rows:
 Requirement → Implementation → Contract Test → Result → Delivery Status. It
@@ -92,13 +94,32 @@ service verification. Applications cannot be marked delivered while unpublished
 or while a launch-readiness check fails. Brochure compatibility is unchanged.
 
 Focused TypeScript, ESLint, coverage-matrix and real generation/delivery
-regressions passed locally. Release Gate is still required before merge.
+regressions passed, followed by both full gates.
+
+## Business logic — active declarative workflow batch
+
+Branch: `feature/declarative-workflow-effects-20261012`.
+
+The existing atomic workflow engine now supports optional bounded same-record
+effects on each transition: a typed literal assignment, a bounded numeric
+increment, or a server transaction timestamp. Effects run in the same locked
+PostgreSQL transaction as the guarded state change and the existing idempotency
+receipt. They cannot target the state field, formulas, protected counters,
+duplicate fields, unknown fields or arbitrary expressions/code.
+
+Validation enforces closed shapes, field/type compatibility and a maximum of 20
+effects. Existing workflows remain compatible. The AI generation contract may
+use only these declared primitives and must report cross-record logic as
+unsupported rather than inventing execution. TypeScript, ESLint, workflow,
+schema, backend verification, release endpoint, owned source, BYO Edge,
+generation/coverage and all generated-artifact consistency checks passed
+locally. The PostgreSQL concurrency/effect assertion runs in Release Gate.
 
 ## Honest completion boundary
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
 require incremental implementation and evidence,
-especially isolated custom code execution, generalized atomic workflows,
+especially cross-record declarative operations and isolated custom code execution,
 requirement-to-test coverage results, safe repair/rollback and diverse full
 reference-project verification. Final provider activation remains phase eight.

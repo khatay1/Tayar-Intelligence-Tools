@@ -66,7 +66,13 @@ export interface ApplicationWorkflowTransition {
   to: string;
   access: Exclude<ApplicationAccess, 'public'>;
   roleId?: string;
+  /** Bounded same-record changes executed atomically with the state transition. */
+  effects?: ApplicationWorkflowEffect[];
 }
+export type ApplicationWorkflowEffect =
+  | { operation: 'set'; fieldId: string; value: string | number | boolean | null }
+  | { operation: 'increment'; fieldId: string; amount: number }
+  | { operation: 'timestamp'; fieldId: string };
 /** A guarded enum state machine. The state field can only change through the
  * generated atomic transition RPC, never through ordinary record updates. */
 export interface ApplicationWorkflowRule {

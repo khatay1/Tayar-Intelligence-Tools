@@ -19,9 +19,13 @@ try {
     createApplicationDataViewController: controllerFor, verifyOwnedWorkflowCatalog: verify } = createRequire(import.meta.url)(join(dir, 'test.cjs'));
   const table = { id: 'orders', key: 'orders', name: 'Orders', fields: [
     { id: 'name', key: 'name', name: 'Name', type: 'text', required: true },
+    { id: 'attempts', key: 'attempts', name: 'Attempts', type: 'number', required: true, defaultValue: 0 },
+    { id: 'approved-at', key: 'approved_at', name: 'Approved at', type: 'datetime', required: false },
     { id: 'state', key: 'state', name: 'State', type: 'enum', required: true, options: ['pending', 'approved', 'done'], defaultValue: 'pending' }],
     permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'owner' })),
-    workflow: { fieldId: 'state', transitions: [{ id: 'approve', label: 'Approve', from: ['pending'], to: 'approved', access: 'owner' },
+    workflow: { fieldId: 'state', transitions: [{ id: 'approve', label: 'Approve', from: ['pending'], to: 'approved', access: 'owner', effects: [
+      { operation: 'set', fieldId: 'name', value: 'Approved order' }, { operation: 'increment', fieldId: 'attempts', amount: 2 },
+      { operation: 'timestamp', fieldId: 'approved-at' }] },
       { id: 'finish', label: 'Finish', from: ['approved'], to: 'done', access: 'owner' }] } };
   const app = { version: 1, roles: [], pageAccess: [], auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, tables: [table] };
   validate(app);
@@ -32,8 +36,17 @@ try {
       .map(change => ({ ...table.workflow, transitions: [{ ...table.workflow.transitions[0], ...change }] }))]) {
     assert.throws(() => validate({ ...app, tables: [{ ...table, workflow }] }));
   }
+  for (const effects of [[], [{ operation: 'increment', fieldId: 'attempts', amount: 0 }],
+    [{ operation: 'timestamp', fieldId: 'name' }], [{ operation: 'set', fieldId: 'attempts', value: 'two' }],
+    [{ operation: 'set', fieldId: 'state', value: 'done' }], [{ operation: 'set', fieldId: 'missing', value: 'x' }],
+    [{ operation: 'set', fieldId: 'name', value: 'x', secret: 'no' }],
+    [{ operation: 'set', fieldId: 'name', value: 'x' }, { operation: 'set', fieldId: 'name', value: 'y' }]]) {
+    const workflow = { ...table.workflow, transitions: [{ ...table.workflow.transitions[0], effects }] };
+    assert.throws(() => validate({ ...app, tables: [{ ...table, workflow }] }));
+  }
   const before = { ...app, tables: [{ ...table, workflow: undefined }] };
   assert.match(migrate(before, app).join('\n'), /create trigger app_workflow_guard/);
+  assert.match(compile(app).join('\n'), /set "state"=requested_to,"name"='Approved order',"attempts"="attempts"\+2,"approved_at"=pg_catalog\.transaction_timestamp\(\)/);
   assert.throws(() => migrate(app, before), /reviewed/);
   const permissions = migrate(app, { ...app, tables: [{ ...table, permissions: table.permissions.map(item => ({ ...item, access: 'authenticated' })) }] }).join('\n');
   assert.match(permissions, /create or replace function public.app_transition_workflow_0/);
@@ -93,6 +106,7 @@ try {
     const replies = await Promise.all([1, 2].map(() => query(`${asUser(owner)} select public.app_transition_workflow_0('${row}','approve','${request}');`)));
     assert.ok(replies.some(reply => reply.endsWith('already-transitioned')));
     assert.equal(await query(`select state from public.app_orders where id='${row}';`), 'approved');
+    assert.equal(await query(`select name||':'||attempts::text||':'||(approved_at is not null)::text from public.app_orders where id='${row}';`), 'Approved order:2:true');
     await assert.rejects(query(`${asUser(owner)} select public.app_transition_workflow_0('${row}','approve',gen_random_uuid());`), /unavailable/);
     await assert.rejects(query(`${asUser(owner)} select public.app_transition_workflow_0('${row}','finish','${request}');`), /identity mismatch/);
     const competing = await Promise.allSettled([1, 2].map(() => query(`${asUser(owner)} select public.app_transition_workflow_0('${row}','finish',gen_random_uuid());`)));
