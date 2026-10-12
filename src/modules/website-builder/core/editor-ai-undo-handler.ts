@@ -30,7 +30,7 @@ interface AIUndoContext {
 }
 
 export function createAIUndoHandler({
-  aiUndoSnapshot, aiBusy, aiUndoContextRef, aiProjectIdentityIsCurrent,
+  aiUndoSnapshot, aiBusy, aiUndoContextRef, aiProjectIdentityIsCurrent, pushProjectCheckpoint,
   setAiUndoSnapshot, setAiStage, setAiMessages, setPages, setActivePageId,
   setHomePageId, setSections, setSelectedId, setSelectedElementId, setSiteName,
   setBrand, setSeo, setTheme, setHeaderConfig, setSymbols, setSaved, l,
