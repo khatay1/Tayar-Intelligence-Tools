@@ -6,9 +6,18 @@ const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 export function applicationWorkflowInfrastructure(): string[] {
   return [
-    'create table if not exists private.app_workflow_requests (actor_id uuid not null, request_id uuid not null, table_name text not null, record_id uuid not null, transition_id text not null, from_state text not null, to_state text not null, primary key(actor_id, request_id));',
+    'create table if not exists private.app_workflow_requests (actor_id uuid not null, request_id uuid not null, table_name text not null, record_id uuid not null, transition_id text not null, from_state text not null, to_state text not null, created_at timestamptz not null default pg_catalog.transaction_timestamp(), primary key(actor_id, request_id));',
+    'alter table private.app_workflow_requests add column if not exists created_at timestamptz not null default pg_catalog.transaction_timestamp();',
+    'create index if not exists app_workflow_requests_record_created_idx on private.app_workflow_requests(table_name,record_id,created_at desc);',
     'alter table private.app_workflow_requests enable row level security;',
     'revoke all on private.app_workflow_requests from public, anon, authenticated;',
+    `create or replace function private.app_workflow_request_immutable() returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  raise exception 'Workflow audit records are immutable';
+end $$;`,
+    'revoke all on function private.app_workflow_request_immutable() from public, anon, authenticated;',
+    'drop trigger if exists app_workflow_request_immutable on private.app_workflow_requests;',
+    'create trigger app_workflow_request_immutable before update or delete on private.app_workflow_requests for each row execute function private.app_workflow_request_immutable();',
     'create table if not exists private.app_workflow_context (transaction_id bigint primary key, actor_id uuid not null, table_name text not null, record_id uuid not null, field_name text not null, from_state text not null, to_state text not null);',
     'alter table private.app_workflow_context enable row level security;',
     'revoke all on private.app_workflow_context from public, anon, authenticated;',

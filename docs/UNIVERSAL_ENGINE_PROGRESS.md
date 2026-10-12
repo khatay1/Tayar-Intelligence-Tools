@@ -98,7 +98,8 @@ regressions passed, followed by both full gates.
 
 ## Business logic — active declarative workflow batch
 
-Branch: `feature/declarative-workflow-effects-20261012`.
+PR #149 merged to `main` as `09e5406891d9af32b68cbed19352888d9f1ba524`.
+PR Release Gate 38244010970 and main Release Gate 38244295671 both passed.
 
 The existing atomic workflow engine now supports optional bounded same-record
 effects on each transition: a typed literal assignment, a bounded numeric
@@ -114,6 +115,18 @@ unsupported rather than inventing execution. TypeScript, ESLint, workflow,
 schema, backend verification, release endpoint, owned source, BYO Edge,
 generation/coverage and all generated-artifact consistency checks passed
 locally. The PostgreSQL concurrency/effect assertion runs in Release Gate.
+
+## Business logic — active workflow audit hardening batch
+
+Branch: `feature/workflow-audit-history-20261012`.
+
+Workflow receipts now carry a server transaction timestamp, are indexed by
+record and time for audit history retrieval, and reject updates/deletes at the
+database trigger layer. The owned workflow catalog verifier checks the new
+column, index, function and immutable trigger. This strengthens the existing
+private transition audit records without exposing sensitive transition details
+through client access. PostgreSQL assertions verify timestamp presence,
+immutability and catalog integrity in Release Gate.
 
 ## Honest completion boundary
 
