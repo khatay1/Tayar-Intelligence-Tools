@@ -111,6 +111,10 @@ export function buildDeliveryReportText({
   const approval = deliveryConfig.approvedAt
     ? `${new Date(deliveryConfig.approvedAt).toLocaleString()}${approvalCurrent ? ' (current build)' : ' (site changed after approval)'}`
     : 'Not approved';
+  const requirementTests = requirementCoverage.flatMap(row => row.tests);
+  const passedContracts = requirementTests.filter(test => test.result === 'passed').length;
+  const blockedRequirements = requirementCoverage.filter(row => row.deliveryStatus === 'blocked').length;
+  const pageCount = Number.isSafeInteger(deliveryUsage.pages) && deliveryUsage.pages >= 0 ? deliveryUsage.pages : 0;
   return [
     deliveryConfig.whiteLabel ? 'Website Delivery Report' : 'Tayar Website Builder — Client Delivery Report',
     '',
@@ -127,6 +131,15 @@ export function buildDeliveryReportText({
     `Delivered: ${deliveryConfig.deliveredAt ? new Date(deliveryConfig.deliveredAt).toLocaleString() : 'No'}`,
     `Live URL: ${publishedUrl || 'Not published'}`,
     `Share preview: ${previewUrl || 'Not created'}`,
+    '',
+    'DELIVERY EVIDENCE',
+    `Project definition: ${pageCount ? `Present (${pageCount} pages)` : 'Not evidenced by this report'}`,
+    `Requirement contracts: ${requirementCoverage.length
+      ? `${passedContracts}/${requirementTests.length} passed; ${blockedRequirements} blocked requirements`
+      : 'No application requirement matrix supplied'}`,
+    'Build artifact: Not verified by this report',
+    `Deployment: ${publishedUrl ? 'Published URL recorded; deployment health not verified' : 'Not published'}`,
+    'Live runtime and external services: Not verified by this report',
     '',
     'USAGE',
     `Pages: ${deliveryUsage.pages}`,
