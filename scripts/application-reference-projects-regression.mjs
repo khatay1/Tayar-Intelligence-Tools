@@ -75,13 +75,13 @@ try {
   });
 
   const references = [
-    { domain: 'retail', definition: app(products, retailOrders, retailLines), expected: /app_create_transaction_1/ },
-    { domain: 'restaurant', definition: app(menu, restaurantOrders), expected: /app_transition_workflow_1/ },
-    { domain: 'school', definition: app(students, assessments), expected: /"total_score"/ },
-    { domain: 'clinic', definition: app(clinicians, appointments), expected: /app_booking/ },
-    { domain: 'government', definition: app(cases), expected: /app_workflow_guard/ },
-    { domain: 'factory', definition: app(materials, workOrders, issues), expected: /app_create_transaction_1/ },
-    { domain: 'custom-research', definition: app(samples), expected: /"metadata" jsonb/ },
+    { domain: 'retail', definition: app(products, retailOrders, retailLines), expected: /app_create_transaction_1/, feature: { capability: 'transaction', tableId: 'orders', action: 'transact' } },
+    { domain: 'restaurant', definition: app(menu, restaurantOrders), expected: /app_transition_workflow_1/, feature: { capability: 'workflow', tableId: 'kitchen-tickets', action: 'transition' } },
+    { domain: 'school', definition: app(students, assessments), expected: /"total_score"/, feature: { capability: 'formula', tableId: 'assessments', action: null } },
+    { domain: 'clinic', definition: app(clinicians, appointments), expected: /app_booking/, feature: { capability: 'booking', tableId: 'appointments', action: 'create' } },
+    { domain: 'government', definition: app(cases), expected: /app_workflow_guard/, feature: { capability: 'files', tableId: 'permit-cases', action: 'attachments' } },
+    { domain: 'factory', definition: app(materials, workOrders, issues), expected: /app_create_transaction_1/, feature: { capability: 'transaction', tableId: 'work-orders', action: 'transact' } },
+    { domain: 'custom-research', definition: app(samples), expected: /"metadata" jsonb/, feature: { capability: 'workflow', tableId: 'research-samples', action: 'transition' } },
   ];
 
   for (const reference of references) {
@@ -93,12 +93,23 @@ try {
 
     const table = reference.definition.tables[0];
     const pageId = `${reference.domain}-overview`;
-    const page = { id: pageId, name: 'Overview', slug: 'overview', sections: [{ id: `${reference.domain}-records`, type: 'features', title: 'Records',
-      applicationDataView: { tableId: table.id, columns: [table.fields[0].id], actions: [], pageSize: 10 } }] };
+    const featureTable = reference.definition.tables.find(item => item.id === reference.feature.tableId);
+    assert.ok(featureTable, `${reference.domain} primary feature table exists`);
+    const page = { id: pageId, name: 'Overview', slug: 'overview', sections: reference.definition.tables.map(item => ({
+      id: `${reference.domain}-${item.id}-records`, type: 'features', title: item.name,
+      applicationDataView: { tableId: item.id, columns: item.fields.map(field => field.id),
+        actions: item.transaction ? ['transact'] : item.workflow ? ['transition'] : item.attachments ? ['attachments']
+          : item.booking ? ['create'] : [], pageSize: 10 },
+    })) };
+    const featureAction = reference.feature.action;
+    const featureEvidence = reference.feature.capability === 'formula'
+      ? `formula:${featureTable.id}` : `${reference.feature.capability}:${featureTable.id}`;
     const requirements = [
       { id: 'account-access', summary: 'Users can securely access their workspace.', capability: 'auth', evidence: ['auth'] },
-      { id: 'overview-page', summary: 'Users can open the project overview.', capability: 'page', evidence: ['page:overview'] },
+      { id: 'overview-page', summary: 'Users can open the project overview.', capability: 'page', evidence: [`page:${pageId}`] },
       { id: 'records-view', summary: `Users can read ${reference.domain} records.`, capability: 'records', evidence: [`view:${table.id}:read`] },
+      { id: `primary-${reference.feature.capability}`, summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
+        capability: reference.feature.capability, evidence: [featureEvidence] },
     ];
     const projectSpecification = {
       version: 1, intent: `Create a secure ${reference.domain} application with an overview and owner-scoped records.`,
@@ -111,6 +122,9 @@ try {
         { id: 'authenticate', summary: 'Authenticate the project user.', actorIds: ['user'], entityIds: [], requirementIds: ['account-access'], dependsOn: [], execution: 'native', transactional: false },
         { id: 'open-overview', summary: 'Open the generated overview page.', actorIds: ['user'], entityIds: [], requirementIds: ['overview-page'], dependsOn: ['authenticate'], execution: 'native', transactional: false },
         { id: 'read-records', summary: `Read owner-scoped ${reference.domain} records.`, actorIds: ['user'], entityIds: [table.id], requirementIds: ['records-view'], dependsOn: ['authenticate', 'open-overview'], execution: 'native', transactional: false },
+        { id: `use-primary-${reference.feature.capability}`, summary: `Use the declared ${reference.feature.capability} capability.`, actorIds: ['user'],
+          entityIds: [featureTable.id], requirementIds: [`primary-${reference.feature.capability}`], dependsOn: ['authenticate', 'open-overview'],
+          execution: 'native', transactional: ['transaction', 'workflow'].includes(reference.feature.capability) },
       ],
       rules: [{ id: 'owner-scoped-records', summary: 'Users can read only records allowed by the declared owner policy.', operationIds: ['read-records'] }],
       tenancy: { mode: 'single' }, integrations: [],
@@ -125,6 +139,17 @@ try {
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
     assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
       `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
+    const featureCoverage = coverage.find(row => row.requirementId === `primary-${reference.feature.capability}`);
+    assert.equal(featureCoverage?.tests[0]?.id, `contract:${featureEvidence}`);
+    assert.equal(featureCoverage?.deliveryStatus, 'contract-verified',
+      `${reference.domain} primary capability is backed by its compiled data view: ${JSON.stringify(featureCoverage)}`);
+    const unboundFeaturePage = structuredClone(page);
+    const featureSection = unboundFeaturePage.sections.find(section => section.applicationDataView.tableId === featureTable.id);
+    if (featureAction) featureSection.applicationDataView.actions = featureSection.applicationDataView.actions.filter(action => action !== featureAction);
+    else featureSection.applicationDataView.columns = featureSection.applicationDataView.columns.filter(id => id !== featureTable.fields.find(field => field.formula)?.id);
+    const unboundCoverage = buildApplicationRequirementCoverage(prepared, [unboundFeaturePage]);
+    assert.equal(unboundCoverage.find(row => row.requirementId === `primary-${reference.feature.capability}`)?.deliveryStatus, 'blocked',
+      `${reference.domain} missing primary feature binding blocks coverage`);
     assert.deepEqual(prepared.requirements.specification, projectSpecification, `${reference.domain} retains its validated project specification`);
 
     const brokenPage = structuredClone(page);
