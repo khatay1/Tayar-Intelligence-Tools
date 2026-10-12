@@ -134,12 +134,12 @@ try {
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
     assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
       `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
-    const featureCoverageApplication = structuredClone(prepared);
-    featureCoverageApplication.requirements.items.push({
+    const featureCoverageApplication = structuredClone(reference.definition);
+    featureCoverageApplication.requirements = { items: [{
       id: `primary-${reference.feature.capability}`,
       summary: `Users can use the ${reference.feature.capability} capability in ${reference.domain}.`,
       capability: reference.feature.capability, evidence: [featureEvidence],
-    });
+    }] };
     const coverageWithPrimaryFeature = buildApplicationRequirementCoverage(featureCoverageApplication, [page]);
     const featureCoverage = coverageWithPrimaryFeature.find(row => row.requirementId === `primary-${reference.feature.capability}`);
     assert.equal(featureCoverage?.tests[0]?.id, `contract:${featureEvidence}`);
