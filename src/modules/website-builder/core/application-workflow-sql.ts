@@ -67,35 +67,45 @@ export function compileApplicationWorkflowSchema(input: ApplicationDefinition, i
   const accessBranches = workflow.transitions.map((transition, transitionIndex) => `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
     permitted:=${accessCondition(transition.access, transition.roleId)};
   `).join('') + `else permitted:=false; end if;`;
-  const updateBranches = workflow.transitions.map((transition, transitionIndex) => `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
-    update ${fullTable} set ${quoted(field.key)}=requested_to${(transition.effects ?? []).filter(effect => effect.operation !== 'related').map(effect => `,${effectAssignment(table, effect)}`).join('')} where id=${inner}.record_id;
-    ${(transition.effects ?? []).filter(effect => effect.operation === 'related').map(effect => {
+  let relatedVariableIndex = 0;
+  const relatedEffectsByTransition = workflow.transitions.map(transition => (transition.effects ?? [])
+    .filter((effect): effect is Extract<ApplicationWorkflowEffect, { operation: 'related' }> => effect.operation === 'related')
+    .map(effect => {
       const relation = table.fields.find(candidate => candidate.id === effect.referenceFieldId)!;
       const target = app.tables.find(candidate => candidate.id === relation.referenceTableId)!;
+      return { effect, relation, target };
+    })
+    .sort((left, right) => left.target.key < right.target.key ? -1 : left.target.key > right.target.key ? 1
+      : left.relation.id < right.relation.id ? -1 : left.relation.id > right.relation.id ? 1 : 0)
+    .map(item => ({ ...item, variableIndex: relatedVariableIndex++ })));
+  const relatedDeclarations = relatedEffectsByTransition.flat().map(({ variableIndex }) =>
+    `related_record_${variableIndex} uuid; related_owner_${variableIndex} uuid;`).join(' ');
+  const updateBranches = workflow.transitions.map((transition, transitionIndex) => `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
+    update ${fullTable} set ${quoted(field.key)}=requested_to${(transition.effects ?? []).filter(effect => effect.operation !== 'related').map(effect => `,${effectAssignment(table, effect)}`).join('')} where id=${inner}.record_id;
+    ${relatedEffectsByTransition[transitionIndex].map(({ effect, target, variableIndex }) => {
       const targetField = target.fields.find(candidate => candidate.id === effect.fieldId)!;
       const change = effect.change;
       const value = change.operation === 'timestamp' ? 'pg_catalog.transaction_timestamp()'
         : change.operation === 'increment' ? `${quoted(targetField.key)}+${String(change.amount)}`
           : change.value === null ? 'null' : typeof change.value === 'string' ? literal(change.value) : String(change.value);
-      return `update public.${quoted(`app_${target.key}`)} set ${quoted(targetField.key)}=${value} where id=related_record;`;
+      return `update public.${quoted(`app_${target.key}`)} set ${quoted(targetField.key)}=${value} where id=related_record_${variableIndex};`;
     }).join('\n    ')}
   `).join('') + `else raise exception 'Application workflow transition unavailable'; end if;`;
   const relatedBranches = workflow.transitions.map((transition, transitionIndex) => {
-    const effect = (transition.effects ?? []).find(candidate => candidate.operation === 'related');
-    if (!effect || effect.operation !== 'related') return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then null;`;
-    const relation = table.fields.find(candidate => candidate.id === effect.referenceFieldId)!;
-    const target = app.tables.find(candidate => candidate.id === relation.referenceTableId)!;
-    const targetName = `app_${target.key}`;
-    const targetTable = `public.${quoted(targetName)}`;
-    const permissions = (operation: 'read' | 'update') => target.permissions.filter(rule => rule.operation === operation)
-      .map(rule => rule.access === 'public' ? 'true' : accessCondition(rule.access, rule.roleId, 'related_owner')).join(' or ') || 'false';
-    return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
-    select id,owner_id into related_record,related_owner from ${targetTable}
+    const effects = relatedEffectsByTransition[transitionIndex];
+    if (!effects.length) return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then null;`;
+    const checks = effects.map(({ relation, target, variableIndex }) => {
+      const targetTable = `public.${quoted(`app_${target.key}`)}`;
+      const permissions = (operation: 'read' | 'update') => target.permissions.filter(rule => rule.operation === operation)
+        .map(rule => rule.access === 'public' ? 'true' : accessCondition(rule.access, rule.roleId, `related_owner_${variableIndex}`)).join(' or ') || 'false';
+      return `select id,owner_id into related_record_${variableIndex},related_owner_${variableIndex} from ${targetTable}
       where id=(select ${quoted(relation.key)} from ${fullTable} where id=${inner}.record_id) for update;
     if not found or not (${permissions('read')}) or not (${permissions('update')}) then raise exception 'Application workflow transition unavailable'; end if;`;
+    }).join('\n    ');
+    return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then\n    ${checks}`;
   }).join('') + `else raise exception 'Application workflow transition unavailable'; end if;`;
   const statement = `create ${existing ? 'or replace ' : ''}function public.${inner}(record_id uuid, transition_id text, request_id uuid) returns text language plpgsql security definer set search_path = '' as $$
-declare actor uuid:=(select auth.uid()); owner uuid; related_owner uuid; related_record uuid; current_state text; requested_to text; allowed_from text[]; permitted boolean; claimed uuid; prior private.app_workflow_requests%rowtype;
+declare actor uuid:=(select auth.uid()); owner uuid; ${relatedDeclarations} current_state text; requested_to text; allowed_from text[]; permitted boolean; claimed uuid; prior private.app_workflow_requests%rowtype;
 begin
   if actor is null or (((select auth.jwt())->>'is_anonymous')::boolean) is true or record_id is null or request_id is null then raise exception 'Application workflow transition unavailable'; end if;
   ${branches}

@@ -178,6 +178,29 @@ check row-level security, owner isolation and its expected native backend
 feature. Invalid transaction permissions and booking resources are rejected.
 These are backend contract fixtures, not complete end-to-end reference products.
 
+## Current checkpoint — bounded multi-record workflows
+
+Branch `feature/atomic-multi-record-workflows-20261012` extends the existing
+atomic workflow engine from one related row to up to four distinct related
+tables per transition, with one row per table, stable target lock order,
+per-target permission checks and transaction rollback. The AI contract and
+generated runtime bundles are updated from their source generators. The
+Release Gate also exposed a stale application-page browser bundle; it was
+regenerated from `scripts/build-application-page-browser.mjs`. Focused
+workflow, schema, AI, catalog, type, lint and generated-artifact checks passed
+locally; the actual PostgreSQL constraint-rollback regression still requires
+the Release Gate `--postgres` job.
+
+The Supabase Preview migration check remains blocked by migration history drift:
+the connected production database has 46 recorded versions absent from the
+current local migration filenames, while 58 local versions are not recorded by
+their current version. Several logical migration names exist on both sides with
+different timestamps. This is historical drift, not a single stale migration.
+Do not rewrite database history, add no-op migration placeholders, or apply
+production migrations to silence the check; reconcile the historical source
+mapping before enabling preview migration validation. Production has not been
+deployed from this branch.
+
 ## Honest completion boundary
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
