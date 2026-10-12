@@ -144,7 +144,18 @@ describes this exact executable capability.
 Focused workflow, schema and real generation-handler regressions, TypeScript,
 ESLint and affected generated bundle consistency passed locally. The PostgreSQL
 concurrency and rollback assertions are part of Release Gate; no local isolated
-PostgreSQL fixture is configured.
+PostgreSQL fixture is configured. The first PR gate identified a stale generated
+Supabase Edge deployment bundle; it was regenerated from its trusted entry
+source and its consistency check now passes.
+
+PR #151 Release Gate run `38264726749` failed in Project health only because
+`supabase/functions/website-byo-publish/index.ts` was stale after the workflow
+model change. Regenerated it from `scripts/build-website-byo-publish-function.mjs`;
+its exact bundle check now passes locally. The additive schema migrator also
+recompiles affected workflow functions when workflow effects, relation fields,
+or referenced-table permissions/fields change. Focused workflow/schema
+regressions, TypeScript, scoped ESLint, and whitespace checks pass. The PR still
+needs this generated artifact and migration fix, then a fresh Release Gate.
 
 ## Honest completion boundary
 

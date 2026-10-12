@@ -64,6 +64,12 @@ try {
   assert.throws(() => validate({ ...app, tables: [table, noTargetUpdate] }), /Related effects require/);
   const before = { ...app, tables: [{ ...table, workflow: undefined }, stockTable] };
   assert.match(migrate(before, app).join('\n'), /create trigger app_workflow_guard/);
+  const changedEffect = structuredClone(app);
+  changedEffect.tables[0].workflow.transitions[0].effects.at(-1).change.amount = -3;
+  assert.throws(() => migrate(app, changedEffect), /workflow rules/);
+  const changedTargetPermissions = structuredClone(app);
+  changedTargetPermissions.tables[1].permissions = changedTargetPermissions.tables[1].permissions.map(rule => ({ ...rule, access: 'authenticated' }));
+  assert.match(migrate(app, changedTargetPermissions).join('\n'), /create or replace function public\.app_transition_workflow_0/);
   const schema = compile(app).join('\n');
   assert.match(schema, /set "state"=requested_to,"name"='Approved order',"attempts"="attempts"\+2,"approved_at"=pg_catalog\.transaction_timestamp\(\)/);
   assert.match(schema, /created_at timestamptz not null default pg_catalog\.transaction_timestamp\(\)/);
