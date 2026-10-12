@@ -141,29 +141,20 @@ states, formula outputs, counters, arbitrary expressions, fan-out and self-table
 references remain unsupported and fail closed. The AI generation contract now
 describes this exact executable capability.
 
-Focused workflow, schema and real generation-handler regressions, TypeScript,
-ESLint and affected generated bundle consistency passed locally. The PostgreSQL
-concurrency and rollback assertions are part of Release Gate; no local isolated
-PostgreSQL fixture is configured. The first PR gate identified a stale generated
-Supabase Edge deployment bundle; it was regenerated from its trusted entry
-source and its consistency check now passes. The subsequent gate found the
-application backend Edge bundle stale as well; it too was regenerated and its
-source consistency check passes.
+Focused workflow/schema regressions, TypeScript, scoped ESLint and whitespace
+checks pass locally. The PostgreSQL concurrency and rollback assertions run in
+Release Gate; no local isolated PostgreSQL fixture is configured. PR #151
+Release Gate run `38264726749` found a stale BYO Supabase deployment bundle;
+run `38265495032` then found a stale application backend link bundle. Both were
+regenerated from source. The application release, Auth/page, runtime,
+owned-runtime and BYO bundles were refreshed and all seven source-consistency
+checks pass locally. Run `38265950582` caught malformed uploaded content in the
+application-release bundle during Lint; the locally generated file passes
+ESLint, and its transfer is being corrected before another gate run.
 
-PR #151 Release Gate run `38264726749` failed in Project health only because
-`supabase/functions/website-byo-publish/index.ts` was stale after the workflow
-model change. Regenerated it from `scripts/build-website-byo-publish-function.mjs`;
-its exact bundle check now passes locally. The additive schema migrator also
-recompiles affected workflow functions when workflow effects, relation fields,
-or referenced-table permissions/fields change. Focused workflow/schema
-regressions, TypeScript, scoped ESLint, and whitespace checks pass. The PR still
-needs this generated artifact and migration fix, then a fresh Release Gate.
-
-After that update, Release Gate run `38265495032` found the application backend
-link Edge bundle stale. Refreshed the backend-link and application-release
-bundles, along with the affected Auth/page, runtime, owned-runtime and BYO
-bundles. Their seven source-consistency checks pass locally; the PR needs these
-last refreshed bundles before another Release Gate run.
+The additive schema migrator recompiles affected workflow functions when
+workflow effects, relation fields, or referenced-table permissions/fields
+change.
 
 ## Honest completion boundary
 
