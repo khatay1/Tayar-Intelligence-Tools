@@ -56,6 +56,9 @@ jobs:
       - name: Coding Assistance smoke
         run: npm run smoke:code-assistant
 
+      - name: Application reference project generation regression
+        run: node scripts/application-reference-projects-regression.mjs
+
       - name: Localization and published storage regression
         run: node scripts/website-builder-localization-regression.mjs
 

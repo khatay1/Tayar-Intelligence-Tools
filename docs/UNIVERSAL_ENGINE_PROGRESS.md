@@ -169,27 +169,34 @@ and main Release Gate run 38267488592 both passed. The real
 application-generation/delivery regression, TypeScript and focused ESLint
 passed locally.
 
-## Reference projects — synthetic backend-contract coverage in progress
+## Reference projects — generated-contract coverage
 
-The application-generation smoke suite now covers seven synthetic reference
-definitions: retail, restaurant, school, clinic, government, factory and custom
-research. Each definition is validated and compiled to schema SQL; assertions
-check row-level security, owner isolation and its expected native backend
-feature. Invalid transaction permissions and booking resources are rejected.
-These are backend contract fixtures, not complete end-to-end reference products.
+The regression covers seven synthetic definitions: retail, restaurant, school,
+clinic, government, factory and custom research. Each model is validated and
+compiled to schema SQL, then passed through the real application preparation
+path with a structured project specification and a bound overview data view.
+Current requirement coverage must pass for authentication, page access and
+record reading; a broken table binding must fail before the project is applied.
+The check also verifies RLS, owner isolation and each model's expected native
+backend feature. Invalid transaction permissions and booking resources fail
+closed. Release Gate now runs this focused regression. These are generated
+contract fixtures, not complete end-to-end customer products or live provider
+proof.
 
-## Current checkpoint — bounded multi-record workflows
+## Business logic — bounded multi-record workflows merged
 
-Branch `feature/atomic-multi-record-workflows-20261012` extends the existing
-atomic workflow engine from one related row to up to four distinct related
+PR #154 merged to `main` as
+`d09a03559292e5559b0d6ff8373f572eaf88be11`. PR Release Gate run
+38276567066 and main Release Gate run 38277439123 both passed.
+
+The existing atomic workflow engine now supports up to four distinct related
 tables per transition, with one row per table, stable target lock order,
 per-target permission checks and transaction rollback. The AI contract and
-generated runtime bundles are updated from their source generators. The
-Release Gate also exposed a stale application-page browser bundle; it was
-regenerated from `scripts/build-application-page-browser.mjs`. Focused
-workflow, schema, AI, catalog, type, lint and generated-artifact checks passed
-locally; the actual PostgreSQL constraint-rollback regression still requires
-the Release Gate `--postgres` job.
+generated runtime bundles were updated from their source generators. Release
+Gate also exposed a stale application-page browser bundle; it was regenerated
+from `scripts/build-application-page-browser.mjs`. PostgreSQL constraint
+rollback, the other application database regressions, production build,
+dependency audit and whitespace checks passed in both gates.
 
 The Supabase Preview migration check remains blocked by migration history drift:
 the connected production database has 46 recorded versions absent from the
@@ -206,6 +213,7 @@ deployed from this branch.
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
 require incremental implementation and evidence, especially safe isolated custom
-code execution, requirement-specific test outcomes, safe repair/rollback and
-diverse full reference-project verification. Final provider activation remains
-phase eight.
+code execution, safe repair/rollback, and diverse full reference-project
+verification. The seven reference projects currently have generated-contract
+coverage; that is not evidence that each is a complete customer-ready product.
+Final provider activation remains phase eight.
