@@ -9,11 +9,15 @@ const capabilityPrefix: Record<string, string> = {
   payment: 'payment:', email: 'email:', reports: 'reports:',
 };
 
-/** Recompute evidence from the current editable project; saved claims never prove completion by themselves. */
-export function applicationRequirementIssues(application: ApplicationDefinition | undefined, pages: WebsitePage[]): string[] {
-  if (!application || (!application.auth.enabled && !application.tables.length)) return [];
-  const manifest = application.requirements;
-  if (!manifest?.items.length) return ['This application has no verified requirements manifest.'];
+export interface ApplicationRequirementCoverageRow {
+  requirementId: string;
+  requirement: string;
+  implementation: string[];
+  tests: Array<{ id: string; kind: 'contract'; result: 'passed' | 'failed'; detail: string }>;
+  deliveryStatus: 'blocked' | 'contract-verified';
+}
+
+function currentImplementationEvidence(application: ApplicationDefinition, pages: WebsitePage[]): Set<string> {
   const evidence = new Set<string>();
   if (application.auth.enabled) evidence.add('auth');
   for (const page of pages) {
@@ -24,7 +28,7 @@ export function applicationRequirementIssues(application: ApplicationDefinition 
           compileApplicationCreateForm(application, section, section.applicationFormBinding);
           evidence.add(`form:${section.applicationFormBinding.tableId}`);
           if (application.tables.find(table => table.id === section.applicationFormBinding!.tableId)?.booking) evidence.add(`booking:${section.applicationFormBinding.tableId}`);
-        } catch { /* The existing application/form validation reports the detailed error. */ }
+        } catch { /* A failed compiler contract is intentionally absent from coverage. */ }
       }
       if (section.applicationDataView) {
         try {
@@ -39,15 +43,63 @@ export function applicationRequirementIssues(application: ApplicationDefinition 
           if (view.table.fields.some(field => field.formula && view.binding.columns.includes(field.id))) evidence.add(`formula:${view.table.id}`);
           if (view.table.payment && view.binding.actions.some(action => action === 'pay' || action === 'refund')) evidence.add(`payment:${view.table.id}`);
           if (view.table.reports?.length) evidence.add(`reports:${view.table.id}`);
-        } catch { /* The existing application/view validation reports the detailed error. */ }
+        } catch { /* A failed compiler contract is intentionally absent from coverage. */ }
       }
     }
   }
   for (const table of application.tables) if (table.notifications?.length) evidence.add(`email:${table.id}`);
-  return manifest.items.flatMap(item => {
+  return evidence;
+}
+
+/** Requirement → implementation → executable contract check → result → delivery status.
+ * Contract verification proves the current generated definition compiles against
+ * the current pages. It deliberately does not claim deployment or live-provider success. */
+export function buildApplicationRequirementCoverage(
+  application: ApplicationDefinition | undefined,
+  pages: WebsitePage[],
+): ApplicationRequirementCoverageRow[] {
+  const manifest = application?.requirements;
+  if (!application || !manifest?.items.length) return [];
+  const current = currentImplementationEvidence(application, pages);
+  const operations = manifest.specification?.operations ?? [];
+  return manifest.items.map(item => {
     const prefix = capabilityPrefix[item.capability];
     const matching = item.evidence.some(entry => prefix === 'auth' ? entry === 'auth' : entry.startsWith(prefix));
-    const missing = item.evidence.filter(entry => !evidence.has(entry));
-    return matching && !missing.length ? [] : [`Requirement "${item.summary}" is no longer backed by the current project.`];
+    const tests = item.evidence.map(reference => ({
+      id: `contract:${reference}`,
+      kind: 'contract' as const,
+      result: current.has(reference) ? 'passed' as const : 'failed' as const,
+      detail: current.has(reference)
+        ? `Current project compiles implementation reference ${reference}.`
+        : `Current project does not compile implementation reference ${reference}.`,
+    }));
+    const operationIds = operations.filter(operation => operation.requirementIds.includes(item.id)).map(operation => `operation:${operation.id}`);
+    const passed = matching && tests.length > 0 && tests.every(test => test.result === 'passed');
+    return {
+      requirementId: item.id,
+      requirement: item.summary,
+      implementation: [...item.evidence, ...operationIds],
+      tests,
+      deliveryStatus: passed ? 'contract-verified' : 'blocked',
+    };
   });
+}
+
+export function formatApplicationRequirementCoverage(rows: ApplicationRequirementCoverageRow[]): string[] {
+  return rows.flatMap(row => [
+    `Requirement: ${row.requirementId} — ${row.requirement}`,
+    `  Implementation: ${row.implementation.join(', ') || 'Missing'}`,
+    `  Test: ${row.tests.map(test => test.id).join(', ') || 'Missing'}`,
+    `  Result: ${row.tests.length && row.tests.every(test => test.result === 'passed') ? 'passed' : 'failed'}`,
+    `  Delivery status: ${row.deliveryStatus}`,
+  ]);
+}
+
+/** Recompute evidence from the current editable project; saved claims never prove completion by themselves. */
+export function applicationRequirementIssues(application: ApplicationDefinition | undefined, pages: WebsitePage[]): string[] {
+  if (!application || (!application.auth.enabled && !application.tables.length)) return [];
+  const manifest = application.requirements;
+  if (!manifest?.items.length) return ['This application has no verified requirements manifest.'];
+  return buildApplicationRequirementCoverage(application, pages).flatMap(row => row.deliveryStatus === 'contract-verified'
+    ? [] : [`Requirement "${row.requirement}" is no longer backed by a passing current-project contract test.`]);
 }

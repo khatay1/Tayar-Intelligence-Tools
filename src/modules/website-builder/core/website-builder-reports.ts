@@ -1,4 +1,6 @@
 import type { WebsiteDeliveryConfig } from './delivery-config';
+import type { ApplicationRequirementCoverageRow } from './application-requirements';
+import { formatApplicationRequirementCoverage } from './application-requirements';
 
 interface AuditSummary {
   score: number;
@@ -40,6 +42,7 @@ export interface DeliveryReportContext {
   previewUrl: string;
   deliveryUsage: DeliveryUsageSummary;
   localize: (value: string) => string;
+  requirementCoverage?: ApplicationRequirementCoverageRow[];
 }
 
 export interface V1LaunchReportContext {
@@ -102,6 +105,7 @@ export function buildDeliveryReportText({
   previewUrl,
   deliveryUsage,
   localize,
+  requirementCoverage = [],
 }: DeliveryReportContext) {
   const due = deliveryConfig.dueDate || 'Not set';
   const approval = deliveryConfig.approvedAt
@@ -135,6 +139,7 @@ export function buildDeliveryReportText({
     '',
     'LAUNCH CHECKS',
     ...launchReadiness.checks.map((item) => `- ${item.ok ? '[x]' : '[ ]'} ${localize(item.label)}`),
+    ...(requirementCoverage.length ? ['', 'REQUIREMENT COVERAGE MATRIX', ...formatApplicationRequirementCoverage(requirementCoverage)] : []),
     '',
     'AUDIT ERRORS',
     ...(siteAudit.errors.length ? siteAudit.errors.map((item) => `- ${item}`) : ['- None']),

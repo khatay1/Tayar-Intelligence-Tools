@@ -35,9 +35,11 @@ services are distinct delivery states.
   200; an invalid published-site API path returned the expected 400. These probes
   do not claim that unconfigured customer services are live.
 
-## Phase one — active batch
+## Phase one — structured specification merged
 
-Branch: `feature/universal-project-specification-20261011`.
+PR #147 merged to `main` as
+`f30ad8e37c3b1c547b212f14a3e8f5ae93f891e3`. PR Release Gate
+38168336221 and main Release Gate 38168604276 both passed.
 
 Implemented a domain-neutral `ProjectSpecification` attached to the existing
 `ApplicationRequirementManifest`. It references the existing generated schema,
@@ -70,13 +72,33 @@ Verified locally after this change:
 - Application foundation, release upload/endpoint, backend link, published
   runtime, owned source/runtime binding and BYO Edge regressions passed.
 - Application runtime, backend-link, release, owned runtime and BYO publish
-  generated artifacts were regenerated from source. Release Gate is required
-  once after the stable commit and before merge.
+  generated artifacts were regenerated from source and passed consistency checks.
+
+## Autonomous QA — active coverage batch
+
+Branch: `feature/requirement-coverage-matrix-20261011`.
+
+The existing requirement verifier now builds explicit coverage rows:
+Requirement → Implementation → Contract Test → Result → Delivery Status. It
+recomputes evidence from the current project and executes the existing form/data
+view compilers; saved AI claims cannot create a passing row. Specification
+operation IDs are included as traceability metadata, while test results come
+only from current executable contracts.
+
+Removed pages, invalid bindings and missing native actions produce failed tests
+and block approval. Delivery reports include the matrix and use
+`contract-verified`, which intentionally does not claim deployment or live
+service verification. Applications cannot be marked delivered while unpublished
+or while a launch-readiness check fails. Brochure compatibility is unchanged.
+
+Focused TypeScript, ESLint, coverage-matrix and real generation/delivery
+regressions passed locally. Release Gate is still required before merge.
 
 ## Honest completion boundary
 
-Phase one is not complete until this batch passes Release Gate and merges.
-Phases two through seven still require incremental implementation and evidence,
+Phase one structured analysis is merged, but broader inferred-requirement depth
+will continue to evolve with the generator. Phases two through seven still
+require incremental implementation and evidence,
 especially isolated custom code execution, generalized atomic workflows,
 requirement-to-test coverage results, safe repair/rollback and diverse full
 reference-project verification. Final provider activation remains phase eight.

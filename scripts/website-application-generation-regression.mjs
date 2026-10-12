@@ -101,13 +101,16 @@ try {
   assert.equal(deliveryMutations, 0, 'applications without a verified requirement manifest cannot be approved');
   createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).approveForDelivery();
   assert.equal(deliveryMutations, 1, 'verified application requirements allow approval');
+  assert.match(createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).buildDeliveryReport(), /REQUIREMENT COVERAGE MATRIX[\s\S]*Requirement: account-access[\s\S]*Delivery status: contract-verified/);
   createDeliveryActions({ ...deliveryArgs, pages: built.state.Pages.filter(page => page.slug !== 'booking'), application: built.state.Application }).approveForDelivery();
   assert.equal(deliveryMutations, 1, 'stale requirement evidence cannot approve a changed application');
   createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).markProjectDelivered();
   assert.equal(deliveryMutations, 1, 'unapproved current builds cannot be marked delivered');
   createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, application: built.state.Application }).markProjectDelivered();
   assert.equal(deliveryMutations, 2, 'approved verified applications can be marked delivered');
-  assert.equal(alerts, 3);
+  createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, publishedUrl: '', application: built.state.Application }).markProjectDelivered();
+  assert.equal(deliveryMutations, 2, 'an unpublished application cannot be marked delivered');
+  assert.equal(alerts, 4);
   const dataView = { tableId: 'appointments', columns: ['visit_date'], actions: ['update', 'delete'], pageSize: 10 };
   const dashboardResponse = { ...response, requirements: [{ id: 'record-editor', summary: 'Users can update saved records.', capability: 'records', evidence: ['view:appointments:update'] }], application: { ...application, tables: [{ ...table, permissions: [...table.permissions, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] }] },
     pages: [...response.pages, { name: 'Records', slug: 'records', sections: [{ type: 'features', title: 'My records', applicationDataView: dataView }] }] };

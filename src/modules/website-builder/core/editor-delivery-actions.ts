@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { WebsiteDeliveryConfig } from './delivery-config';
 import type { ApplicationDefinition } from './application-model';
-import { applicationRequirementIssues } from './application-requirements';
+import { applicationRequirementIssues, buildApplicationRequirementCoverage } from './application-requirements';
 import { normalizeSlug } from './project-identifiers';
 import { downloadTextFile } from './website-builder-rendering';
 import { buildDeliveryReportText } from './website-builder-reports';
@@ -74,6 +74,15 @@ export function createDeliveryActions({
       window.alert(l('Approve the current build before marking it delivered.'));
       return;
     }
+    const isApplication = !!application && (application.auth.enabled || application.tables.length > 0);
+    if (isApplication && !publishedUrl) {
+      window.alert(l('Publish and verify the application before marking it delivered.'));
+      return;
+    }
+    if (isApplication && getLaunchReadiness().checks.some(check => !check.ok)) {
+      window.alert(l('Complete every launch readiness check before marking the application delivered.'));
+      return;
+    }
     if (!publishedUrl && !window.confirm(l('This project is not currently published. Mark it delivered anyway?'))) return;
     setDeliveryConfig((current) => ({ ...current, status: 'delivered', deliveredAt: new Date().toISOString() }));
     setSaved(false);
@@ -90,6 +99,7 @@ export function createDeliveryActions({
       previewUrl,
       deliveryUsage,
       localize: l,
+      requirementCoverage: buildApplicationRequirementCoverage(application, pages),
     });
   }
 
