@@ -284,14 +284,13 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
           if (transition.access !== 'role' && transition.roleId !== undefined) issue(`${transitionPath}.roleId`, 'unexpected-role', 'Only role transitions can specify a role.');
           if (transition.effects !== undefined) {
             const effectFields = new Set<string>();
-            let relatedEffects = 0;
+            const relatedTargetTables = new Set<string>();
             const effects = list(transition.effects, 20, `${transitionPath}.effects`);
             if (!effects.length) issue(`${transitionPath}.effects`, 'missing-effects', 'Workflow effects must contain at least one bounded change.');
             effects.forEach((effect, effectIndex) => {
               const effectPath = `${transitionPath}.effects[${effectIndex}]`;
               if (!object(effect)) { issue(effectPath, 'invalid-object', 'Expected a workflow effect object.'); return; }
               const related = effect.operation === 'related';
-              if (related && ++relatedEffects > 1) issue(effectPath, 'too-many-related-effects', 'A transition can update at most one related row atomically.');
               const change = related && object(effect.change) ? effect.change : effect;
               const allowed = related ? ['operation', 'referenceFieldId', 'fieldId', 'change']
                 : effect.operation === 'set' ? ['operation', 'fieldId', 'value']
@@ -301,6 +300,11 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
               const referenceField = related && Array.isArray(table.fields) ? table.fields.find(candidate => object(candidate) && candidate.id === effect.referenceFieldId) : undefined;
               const targetTable = related && object(referenceField) && referenceField.type === 'reference' && Array.isArray(value.tables)
                 ? value.tables.find(candidate => object(candidate) && candidate.id === referenceField.referenceTableId) : undefined;
+              if (related && object(targetTable)) {
+                if (relatedTargetTables.has(String(targetTable.id))) issue(effectPath, 'duplicate-related-table', 'A transition can update one row per related table.');
+                else if (relatedTargetTables.size >= 4) issue(effectPath, 'too-many-related-effects', 'A transition can update at most four related tables atomically.');
+                else relatedTargetTables.add(String(targetTable.id));
+              }
               const effectField = related && object(targetTable) && Array.isArray(targetTable.fields)
                 ? targetTable.fields.find(candidate => object(candidate) && candidate.id === effect.fieldId)
                 : Array.isArray(table.fields) ? table.fields.find(candidate => object(candidate) && candidate.id === effect.fieldId) : undefined;

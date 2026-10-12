@@ -73,8 +73,8 @@ export type ApplicationWorkflowEffect =
   | { operation: 'set'; fieldId: string; value: string | number | boolean | null }
   | { operation: 'increment'; fieldId: string; amount: number }
   | { operation: 'timestamp'; fieldId: string }
-  /** One required reference selects the related row; authorization and mutation
-   * run in the same transaction as the source state transition. */
+  /** One required reference selects one row in a distinct related table; up to
+   * four targets are authorized, locked and mutated atomically with the source. */
   | { operation: 'related'; referenceFieldId: string; fieldId: string; change:
       | { operation: 'set'; value: string | number | boolean | null }
       | { operation: 'increment'; amount: number }
