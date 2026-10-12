@@ -9,6 +9,7 @@ interface AIUndoContext {
   aiBusy: boolean;
   aiUndoContextRef: MutableRefObject<EditorAIAsyncContext | null>;
   aiProjectIdentityIsCurrent: (context: EditorAIAsyncContext) => boolean;
+  pushProjectCheckpoint: (label: string, snapshot?: Record<string, unknown>) => void;
   setAiUndoSnapshot: Dispatch<SetStateAction<AIWebsiteUndoSnapshot | null>>;
   setAiStage: Dispatch<SetStateAction<AIBuilderStage>>;
   setAiMessages: Dispatch<SetStateAction<AIBuilderMessage[]>>;
@@ -29,7 +30,7 @@ interface AIUndoContext {
 }
 
 export function createAIUndoHandler({
-  aiUndoSnapshot, aiBusy, aiUndoContextRef, aiProjectIdentityIsCurrent,
+  aiUndoSnapshot, aiBusy, aiUndoContextRef, aiProjectIdentityIsCurrent, pushProjectCheckpoint,
   setAiUndoSnapshot, setAiStage, setAiMessages, setPages, setActivePageId,
   setHomePageId, setSections, setSelectedId, setSelectedElementId, setSiteName,
   setBrand, setSeo, setTheme, setHeaderConfig, setSymbols, setSaved, l,
@@ -48,6 +49,7 @@ export function createAIUndoHandler({
     }
 
     const snapshot = aiUndoSnapshot;
+    pushProjectCheckpoint('Before undo AI change');
     const restoredPages = JSON.parse(JSON.stringify(snapshot.pages)) as WebsitePage[];
     const restoredActive = restoredPages.find((page) => page.id === snapshot.activePageId) || restoredPages[0];
     setPages(restoredPages);

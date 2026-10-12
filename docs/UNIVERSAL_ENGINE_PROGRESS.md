@@ -235,8 +235,9 @@ The Website Builder AI undo path now has a direct behavioral regression in
 Release Gate. It verifies restoration of the complete captured page, site,
 brand, SEO, theme, header and reusable-symbol state; confirms restored
 collections are detached from the saved snapshot; and rejects stale-project or
-in-progress undo attempts without applying project data. This supplements the
-durable whole-project checkpoints used by full AI builds.
+in-progress undo attempts without applying project data. Before a valid undo,
+the current project is now checkpointed so the history panel can restore an
+accidentally reverted AI result.
 
 ## Honest completion boundary
 

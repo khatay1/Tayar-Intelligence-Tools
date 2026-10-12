@@ -33,6 +33,7 @@ function makeHandler({ projectIsCurrent = true, busy = false } = {}) {
     aiBusy: busy,
     aiUndoContextRef: { current: context },
     aiProjectIdentityIsCurrent: () => projectIsCurrent,
+    pushProjectCheckpoint: label => calls.push(['checkpoint', label]),
     setAiUndoSnapshot: (value) => { undoSnapshot = typeof value === 'function' ? value(undoSnapshot) : value; calls.push(['undoSnapshot', undoSnapshot]); },
     setAiStage: dispatch('stage'), setAiMessages: (update) => calls.push(['messages', update([])]),
     setPages: dispatch('pages'), setActivePageId: dispatch('activePageId'), setHomePageId: dispatch('homePageId'),
@@ -45,6 +46,7 @@ function makeHandler({ projectIsCurrent = true, busy = false } = {}) {
 
 const successful = makeHandler();
 successful.handler();
+assert.deepEqual(successful.calls[0], ['checkpoint', 'Before undo AI change'], 'current project is checkpointed before undo mutates state');
 const restored = Object.fromEntries(successful.calls.filter(([name]) => name !== 'messages').map(([name, value]) => [name, value]));
 assert.deepEqual(restored.pages, original.pages);
 assert.equal(restored.activePageId, original.activePageId);
