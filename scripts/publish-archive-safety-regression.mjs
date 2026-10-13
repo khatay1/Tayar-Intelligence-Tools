@@ -53,6 +53,9 @@ assert.deepEqual(removedPaths, valid.fileManifest.map(item => `${valid.storagePr
 
 let projectWrites = 0;
 let liveWrites = 0;
+let failProjectWrite = false;
+let routeVerified = false;
+let publishedStateWrites = 0;
 let restores = 0;
 let snapshots = 0;
 let staleRemovals = 0;
@@ -70,7 +73,10 @@ const rollback = hookHarness('src/modules/website-builder/core/editor-rollback-h
   '../core/editor-project-lifecycle': { saveLocalWebsiteProject: () => {} },
   '../core/publish-version-archive-validation': validation,
   '../core/published-site-validation': names,
-  '../services/projectCloudService': { updateWebsiteProjectPublicationState: async () => { projectWrites++; return { error: null }; } },
+  '../services/projectCloudService': { updateWebsiteProjectPublicationState: async () => {
+    projectWrites++;
+    return failProjectWrite ? { data: null, error: { message: 'Project metadata update failed' } } : { data: { updated_at: '2026-01-02' }, error: null };
+  } },
   '../services/publishedWebsiteService': {
     snapshotPublishedWebsiteFiles: async () => { snapshots++; return { files: new Map() }; },
     removeStalePublishedWebsiteFiles: async () => { staleRemovals++; liveEvents.push('remove stale'); },
@@ -78,7 +84,7 @@ const rollback = hookHarness('src/modules/website-builder/core/editor-rollback-h
       ? { data: null, error: null }
       : { data: new Blob([(invalidArchivedIndex && path.endsWith('/index.html')) || (invalidLiveIndex && path === 'owner/project/index.html') ? 'broken html' : '<html>old</html>'], { type: 'text/html' }), error: null },
     uploadPublishedWebsiteBlob: async () => { liveWrites++; liveEvents.push('upload'); return { error: failLiveUpload ? { message: 'Upload failed' } : null }; },
-    verifyPublishedRoute: async () => false,
+    verifyPublishedRoute: async () => routeVerified,
     restorePublishedWebsiteSnapshot: async () => { restores++; },
   },
 }, { window: { confirm: () => true }, Blob }).exports;
@@ -89,6 +95,9 @@ const handler = rollback.createRollbackPublishVersionHandler({
   user: { id: 'owner' }, cloudProjectId: 'project', publishBusy: false, previewBusy: false,
   projectTeamAccess: { canPublish: true }, buildProjectData: () => ({}),
   l: value => value, setPublishBusy: () => {}, setPublishError: value => { errorText = value; },
+  setPublishedUrl: () => { publishedStateWrites++; }, setPublishedAt: () => { publishedStateWrites++; },
+  setLastPublishedVersionId: () => { publishedStateWrites++; }, setLastPublishedFingerprint: () => { publishedStateWrites++; },
+  setCloudProjects: () => { publishedStateWrites++; }, setAutoSaveStatus: () => { publishedStateWrites++; },
   verifyLiveDeployment: async () => true,
 });
 await handler({
@@ -147,4 +156,23 @@ await handler({
 });
 assert.equal(staleRemovals, 0, 'unverified live index must retain old routes until rollback');
 assert.equal(restores, 1, 'unverified live index restores the previous snapshot');
-console.log('PASS publication rollback: project-scoped archive, stored manifest matching, archive preflight, safe cleanup, route verification before state commit');
+invalidLiveIndex = false;
+routeVerified = true;
+failProjectWrite = true;
+projectWrites = 0;
+liveWrites = 0;
+restores = 0;
+staleRemovals = 0;
+publishedStateWrites = 0;
+errorText = '';
+await handler({
+  id: 'release', project_id: 'project', user_id: 'owner', storage_prefix: valid.storagePrefix,
+  file_manifest: [{ name: 'index.html', contentType: 'text/html' }], created_at: '2026-01-01', published_url: 'https://example.test/index.html',
+});
+assert.equal(liveWrites, 1, 'archive reaches live storage before publication metadata commit');
+assert.equal(staleRemovals, 1, 'verified replacement removes stale files before committing metadata');
+assert.equal(projectWrites, 1, 'publication metadata commit is attempted once');
+assert.equal(restores, 1, 'failed publication metadata commit restores the previous live snapshot');
+assert.equal(publishedStateWrites, 0, 'failed metadata commit leaves editor publication state unchanged');
+assert.match(errorText, /previous live website was restored automatically/);
+console.log('PASS publication rollback: archive validation, upload/route verification, failed state-commit recovery and editor-state safety');
