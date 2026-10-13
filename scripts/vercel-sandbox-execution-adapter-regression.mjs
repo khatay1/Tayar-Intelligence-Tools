@@ -17,6 +17,7 @@ try {
   const calls = [];
   let resultText = JSON.stringify({ value: 7 });
   let exitCode = '0';
+  let oversizedCommandResponse = false;
   const fetcher = async (input, init = {}) => {
     const url = new URL(input);
     const method = init.method ?? 'GET';
@@ -26,6 +27,7 @@ try {
       return Response.json({ session: { id: 'sbx_test_1' } }, { status: 201 });
     }
     if (url.pathname.endsWith('/cmd') && method === 'POST') {
+      if (oversizedCommandResponse) return new Response('x'.repeat(70 * 1024), { status: 201 });
       return Response.json({ command: { id: 'cmd_test_1' } }, { status: 201 });
     }
     if (url.pathname.endsWith('/cmd/cmd_test_1') && method === 'GET') {
@@ -73,6 +75,12 @@ try {
   exitCode = '1';
   await assert.rejects(runIsolatedCustomCode(request, adapter), error => error.code === 'execution-failed');
   assert.equal(calls.filter(call => call.url.pathname.endsWith('/stop')).length, 1, 'failed commands must stop the VM');
+
+  calls.length = 0;
+  oversizedCommandResponse = true;
+  await assert.rejects(runIsolatedCustomCode(request, adapter), error => error.code === 'execution-failed');
+  assert.equal(calls.filter(call => call.url.pathname.endsWith('/stop')).length, 1, 'oversized provider responses must stop the VM');
+  oversizedCommandResponse = false;
 
   calls.length = 0;
   exitCode = '0';

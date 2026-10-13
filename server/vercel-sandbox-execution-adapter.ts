@@ -10,6 +10,7 @@ const SESSION_STARTUP_ALLOWANCE_MS = 30_000;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const COMMAND_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const UTF8 = new TextEncoder();
+const MAX_API_RESPONSE_BYTES = 64 * 1024;
 
 export interface VercelSandboxAdapterConfig {
   token: string;
@@ -24,6 +25,39 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+async function boundedResponseText(response: Response): Promise<string> {
+  const declaredLength = Number(response.headers.get('content-length'));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_API_RESPONSE_BYTES) {
+    await response.body?.cancel().catch(() => {});
+    throw new Error('Vercel Sandbox response was invalid.');
+  }
+  if (!response.body) throw new Error('Vercel Sandbox response was invalid.');
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let complete = false;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_API_RESPONSE_BYTES) throw new Error('Vercel Sandbox response was invalid.');
+      chunks.push(value);
+    }
+    complete = true;
+  } finally {
+    if (!complete) await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
 function query(teamId?: string, extra: Record<string, string> = {}): string {
   const params = new URLSearchParams(extra);
   if (teamId) params.set('teamId', teamId);
@@ -34,7 +68,7 @@ function query(teamId?: string, extra: Record<string, string> = {}): string {
 async function responseJson(response: Response): Promise<Record<string, unknown>> {
   if (!response.ok) throw new Error('Vercel Sandbox request failed.');
   try {
-    const value = record(await response.json());
+    const value = record(JSON.parse(await boundedResponseText(response)));
     if (!value) throw new Error();
     return value;
   } catch {
