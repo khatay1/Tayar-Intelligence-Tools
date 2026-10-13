@@ -200,11 +200,18 @@ metadata commit fails: the previous live snapshot is restored and editor
 publication state stays unchanged. This is a recovery contract test, not proof
 of a live provider restore.
 
-The next evidence gap remains end-to-end execution of each reference
-application's declared primary feature through its generated page/runtime, then
-controlled isolated activation of the custom-code Sandbox. Production migration
-history and provider activation remain separate final-stage work; no production
-database or credentials are touched by the new PostgreSQL fixtures.
+The generated PostgreSQL schemas now also execute each reference project's
+primary feature: retail/factory inventory transactions, restaurant/government
+workflow transitions, school formula calculation, clinic booking and overlap
+rejection, and research-sample analysis. The seven scenarios passed the full
+Release Gate in PR #164. This verifies generated database behavior, not the
+generated page/browser/backend integration or a complete customer-ready product.
+
+The next evidence gap is to exercise these features through the generated page
+and application runtime, then run controlled isolated activation of the
+custom-code Sandbox. Production migration history and provider activation stay
+separate final-stage work; these PostgreSQL fixtures touch no production
+database or credentials.
 
 
 ## Business logic — bounded multi-record workflows merged
