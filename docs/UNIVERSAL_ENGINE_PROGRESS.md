@@ -239,11 +239,12 @@ clinic browser flows. These are representative paths, not full end-to-end tests
 for every project type.
 
 The remaining evidence gap is interaction coverage for additional project
-behaviors and controlled verification of the repository's Vercel Sandbox REST
-adapter, followed by wiring custom execution into the application runtime. The
-live Vercel adapter smoke remains deferred until the user provides the key.
-Production migration history and provider activation stay separate final-stage
-work; these fixtures touch no production database or credentials.
+behaviors and wiring the now-live-verified Vercel adapter into the server-side
+application runtime behind a reviewed, bounded operation contract. Customer
+execution remains disabled until that integration and its authorization,
+cleanup, timeout and release regressions pass. Production migration history and
+provider activation stay separate final-stage work; these fixtures touch no
+production database or credentials.
 
 
 ## Business logic — bounded multi-record workflows merged
@@ -311,6 +312,17 @@ expression with deny-all networking and a 10-second execution limit, suppresses
 provider error details, and is excluded from CI/Release Gate. It has not yet
 been run against Vercel, so the repository-adapter live verification remains
 open until that command completes successfully.
+
+## Custom code — live repository adapter verified
+
+The opt-in live smoke completed successfully on 2026-10-13 against main commit
+`f999dc64d90fc4f69f177d7013497f6262fe8172` (workflow run
+[38480702220](https://github.com/khatay1/Tayar-Intelligence-Tools/actions/runs/38480702220)).
+The repository adapter created a deny-all, non-persistent Node 22 sandbox,
+executed the deterministic fixture, validated its result, and stopped the
+sandbox. This closes the live REST-adapter verification gap. It does not enable
+customer execution: the adapter remains unmounted, custom operations remain
+rejected during generation, and no customer code or credentials were involved.
 
 The Website Builder AI undo path now has a direct behavioral regression in
 Release Gate. It verifies restoration of the complete captured page, site,
