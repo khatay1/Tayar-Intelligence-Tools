@@ -16,6 +16,7 @@ let providerStatus;
 let providerPhase = 'not-started';
 let smokePhase = 'prepare';
 let providerFetchError = false;
+let providerErrorCode;
 try {
   smokePhase = 'build';
   await build({
@@ -43,6 +44,16 @@ try {
     try {
       const response = await fetch(input, init);
       providerStatus = response.status;
+      if (!response.ok) {
+        try {
+          const payload = await response.clone().json();
+          const nestedError = payload?.error && typeof payload.error === 'object' ? payload.error : null;
+          const candidate = nestedError?.code ?? payload?.code ?? payload?.errorCode;
+          if (typeof candidate === 'string' && /^[a-z0-9_-]{1,64}$/i.test(candidate)) {
+            providerErrorCode = candidate.toLowerCase();
+          }
+        } catch {}
+      }
       return response;
     } catch {
       providerFetchError = true;
@@ -72,7 +83,8 @@ try {
       : providerPhase !== 'not-started' ? `provider-${providerPhase}-no-response` : null;
   const safeCode = providerCode
     || (error?.code && /^[a-z0-9-]{1,48}$/.test(error.code) ? error.code : `smoke-${smokePhase}-failed`);
-  console.error(`Live Vercel Sandbox adapter smoke failed (${safeCode}). Provider details were suppressed.`);
+  const diagnosticCode = providerErrorCode ? `${safeCode}:${providerErrorCode}` : safeCode;
+  console.error(`Live Vercel Sandbox adapter smoke failed (${diagnosticCode}). Provider details were suppressed.`);
   process.exitCode = 1;
 } finally {
   await rm(directory, { recursive: true, force: true }).catch(() => {});
