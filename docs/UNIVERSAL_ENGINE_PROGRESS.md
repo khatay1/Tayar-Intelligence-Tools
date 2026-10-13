@@ -216,24 +216,26 @@ check; it does not simulate browser interaction or prove live provider access.
 
 Release Gate boots a rendered application page with its real browser
 bootstrap in headless Chrome and verifies that the generated data view reads and
-displays a fixture record. It clicks a generated workflow transition, executes
-it through the actual application runtime against a local mocked Supabase RPC,
-and confirms the returned state is rendered in the page. It also opens the
-generated inventory transaction form, loads a fixture product, stages a
-quantity, submits through the actual private runtime against a mocked RPC, and
-confirms the created order is rendered. The generated booking view now loads a
-fixture resource, checks availability through its runtime RPC, submits a
-reservation, and verifies the created row in the page. A formula-backed
-view also creates a row using its ordinary input fields, keeps the generated
-total out of the editable form, and displays the mocked database-computed total.
-These are interaction proofs for one workflow, transaction, booking, and
-formula path, not coverage of all seven reference projects. Project-specific
-workflow paths remain to be exercised through generated pages.
+displays a fixture record. It clicks both guarded actions in a generated kitchen
+workflow (queued → cooking → ready), executes them through the actual application
+runtime against local mocked Supabase RPC responses, and verifies each returned
+state in the rendered page. It also opens the generated inventory transaction
+form, loads a fixture product, stages a quantity, submits through the actual
+private runtime against a mocked RPC, and confirms the created order is rendered.
+The generated booking view loads a fixture resource, checks availability through
+its runtime RPC, submits a reservation, and verifies the created row in the page.
+A formula-backed view creates a row using its ordinary input fields, keeps the
+generated total out of the editable form, and displays the mocked database-
+computed total. These are interaction proofs for one kitchen workflow,
+transaction, booking, and formula path, not coverage of all seven reference
+projects. The other project-specific workflows still need generated-page
+coverage.
 
-The remaining evidence gap is project-specific workflow coverage and controlled
-isolated activation of the custom-code Sandbox. Production migration history
-and provider activation stay separate final-stage work; these fixtures touch no
-production database or credentials.
+The remaining evidence gap is broader project-specific workflow coverage and
+controlled verification of the repository's Vercel Sandbox REST adapter, followed
+by wiring custom execution into the application runtime. Production migration
+history and provider activation stay separate final-stage work; these fixtures
+touch no production database or credentials.
 
 
 ## Business logic — bounded multi-record workflows merged
