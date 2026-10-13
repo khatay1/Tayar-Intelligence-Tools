@@ -65,15 +65,13 @@ try {
   assert.deepEqual(result, { ok: true, result: 43 });
   console.log('Live Vercel Sandbox adapter smoke passed; one-shot sandbox cleanup completed.');
 } catch (error) {
-  const safeCode = error?.code && /^[a-z0-9-]{1,48}$/.test(error.code)
-    ? error.code
-    : providerFetchError
-      ? `provider-transport-${providerPhase}`
-      : Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599
-        ? `provider-${providerPhase}-http-${providerStatus}`
-        : providerPhase !== 'not-started'
-          ? `provider-${providerPhase}-no-response`
-          : `smoke-${smokePhase}-failed`;
+  const providerCode = providerFetchError
+    ? `provider-transport-${providerPhase}`
+    : Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599
+      ? `provider-${providerPhase}-http-${providerStatus}`
+      : providerPhase !== 'not-started' ? `provider-${providerPhase}-no-response` : null;
+  const safeCode = providerCode
+    || (error?.code && /^[a-z0-9-]{1,48}$/.test(error.code) ? error.code : `smoke-${smokePhase}-failed`);
   console.error(`Live Vercel Sandbox adapter smoke failed (${safeCode}). Provider details were suppressed.`);
   process.exitCode = 1;
 } finally {
