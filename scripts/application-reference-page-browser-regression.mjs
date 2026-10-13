@@ -43,7 +43,7 @@ try {
       req.on('end', () => { res.end(); complete(body); });
       return;
     }
-remove page bundle endpoint    if (req.url === '/mock.js' || req.url === '/harness.js') {
+    if (req.url === '/mock.js' || req.url === '/harness.js') {
       res.setHeader('content-type', 'text/javascript; charset=utf-8');
       res.end(req.url === '/mock.js' ? mockFetch : harness); return;
     }
