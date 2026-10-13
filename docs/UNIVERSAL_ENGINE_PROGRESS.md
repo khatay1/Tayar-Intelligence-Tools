@@ -221,10 +221,12 @@ it through the actual application runtime against a local mocked Supabase RPC,
 and confirms the returned state is rendered in the page. It also opens the
 generated inventory transaction form, loads a fixture product, stages a
 quantity, submits through the actual private runtime against a mocked RPC, and
-confirms the created order is rendered. These are interaction proofs for one
-workflow path and one transaction path, not coverage of all seven reference
-projects. Booking and formula interactions and project-specific workflow paths
-remain to be exercised through generated pages.
+confirms the created order is rendered. The generated booking view now loads a
+fixture resource, checks availability through its runtime RPC, submits a
+reservation, and verifies the created row in the page. These are interaction
+proofs for one workflow, transaction, and booking path, not coverage of all
+seven reference projects. Formula interactions and project-specific workflow
+paths remain to be exercised through generated pages.
 
 The next evidence gap is to extend those feature interactions through generated
 pages and the application runtime, then run controlled isolated activation of
