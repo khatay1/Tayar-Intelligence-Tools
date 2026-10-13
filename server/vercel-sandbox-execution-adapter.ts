@@ -137,7 +137,7 @@ export function createVercelSandboxExecutionAdapter(
           runtime: 'node22',
           networkPolicy: { mode: 'custom', allowedDomains: [], allowedCIDRs: [], deniedCIDRs: [] },
           resources: { vcpus: '1', memory: '4096' },
-          timeout: String(lifetime),
+          timeout: lifetime,
           persistent: false,
           ports: [],
         }),
