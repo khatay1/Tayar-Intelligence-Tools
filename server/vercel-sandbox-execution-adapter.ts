@@ -139,10 +139,11 @@ export function createVercelSandboxExecutionAdapter(
         signal: AbortSignal.timeout(SESSION_STARTUP_ALLOWANCE_MS),
         body: JSON.stringify({
           projectId: config.projectId,
+          region: 'iad1',
           runtime: 'node22',
           networkPolicy: { mode: 'custom', allowedDomains: [], allowedCIDRs: [], deniedCIDRs: [] },
-          resources: { vcpus: '1', memory: '2048' },
-          timeout: String(lifetime),
+          resources: { vcpus: 1, memory: 2048 },
+          timeout: lifetime,
           persistent: false,
           ports: [],
         }),
