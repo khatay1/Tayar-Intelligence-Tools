@@ -223,8 +223,9 @@ approved; and a research sample advances received → analysed → archived. Eac
 resulting state is verified in the rendered page. The same browser regression
 opens the generated inventory transaction form, loads a fixture product, submits
 a quantity and confirms the created order; checks availability and creates a
-booking; and creates a formula-backed row while keeping the computed total out
-of the editable form. This covers representative restaurant, government, and
+booking, then rechecks the same interval and verifies the unavailable state
+without attempting a second reservation; and creates a formula-backed row
+while keeping the computed total out of the editable form. This covers representative restaurant, government, and
 research workflow paths plus one transaction, booking, and formula path. It is
 not coverage of all seven reference projects; other project-specific pages and
 operations still need generated-page verification.
