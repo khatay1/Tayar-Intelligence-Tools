@@ -175,7 +175,89 @@ try {
   const invalidBookingResource = { ...references[3].definition, tables: references[3].definition.tables.map(item => ({ ...item, fields: item.fields.map(field => ({ ...field })) })) };
   invalidBookingResource.tables[1].fields[1].type = 'text';
   assert.throws(() => validate(invalidBookingResource), /booking|resource|reference|field/i, 'invalid clinic booking resources fail closed');
-  console.log(`PASS ${references.length} synthetic reference application contracts: retail, restaurant, school, clinic, government, factory, custom research`);
+
+  if (process.argv.includes('--postgres')) {
+    const databaseUrl = process.env.TAYAR_BOOKING_TEST_DATABASE_URL;
+    const url = new URL(databaseUrl ?? 'http://invalid');
+    if (!['postgres:', 'postgresql:'].includes(url.protocol) || !['localhost', '127.0.0.1'].includes(url.hostname)
+      || url.pathname !== '/tayar_booking_test') throw Error('An isolated local tayar_booking_test database is required.');
+    const { spawn } = await import('node:child_process');
+    const query = sql => new Promise((resolveQuery, reject) => {
+      const child = spawn('psql', [databaseUrl, '-X', '-q', '-v', 'ON_ERROR_STOP=1', '-A', '-t'], { stdio: ['pipe', 'pipe', 'pipe'] });
+      let output = '', error = '';
+      child.stdout.on('data', data => output += data);
+      child.stderr.on('data', data => error += data);
+      child.on('error', reject);
+      child.on('close', code => code ? reject(Error(error || output)) : resolveQuery(output.trim()));
+      child.stdin.end(sql);
+    });
+    const ownerId = '11111111-1111-4111-8111-111111111111';
+    const otherOwnerId = '22222222-2222-4222-8222-222222222222';
+    const resetSql = [
+      'drop schema if exists private cascade;',
+      'drop schema if exists public cascade;',
+      'create schema public;',
+      'create extension if not exists btree_gist with schema public;',
+      'grant usage on schema public to anon, authenticated, service_role;',
+      "create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;",
+    ].join('\n');
+    for (const role of ['anon', 'authenticated', 'service_role']) {
+      await query("do $$ begin if not exists (select 1 from pg_roles where rolname = '" + role + "') then create role " + role + "; end if; end $$;");
+    }
+    await query('create schema if not exists auth;');
+    for (const reference of references) {
+      await query(resetSql);
+      await query(compile(reference.definition).join('\n'));
+      const table = reference.definition.tables[0];
+      const tableName = 'app_' + table.key;
+      const values = [];
+      const otherValues = [];
+      const columns = [];
+      for (const item of table.fields) {
+        if (!item.required || item.formula || item.defaultValue !== undefined) continue;
+        let value;
+        let otherValue;
+        if (item.type === 'text' || item.type === 'email' || item.type === 'url' || item.type === 'phone') {
+          value = "'" + ('runtime-' + reference.domain + '-' + item.id + '-' + ownerId.slice(0, 8)).replaceAll("'", "''") + "'";
+          otherValue = "'" + ('runtime-' + reference.domain + '-' + item.id + '-' + otherOwnerId.slice(0, 8)).replaceAll("'", "''") + "'";
+        } else if (item.type === 'number' || item.type === 'currency') value = '1';
+        else if (item.type === 'boolean') value = 'true';
+        else if (item.type === 'enum') value = "'" + String(item.options?.[0] ?? '').replaceAll("'", "''") + "'";
+        else if (item.type === 'date') value = "'2026-10-12'";
+        else if (item.type === 'datetime') value = "'2026-10-12T10:00:00Z'";
+        else if (item.type === 'time') value = "'10:00:00'";
+        else if (item.type === 'json') value = "'{}'::jsonb";
+        else if (item.type === 'reference') throw Error(reference.domain + ' primary fixture unexpectedly requires a referenced row.');
+        else throw Error(reference.domain + ' primary fixture has unsupported required field type ' + item.type);
+        otherValue ??= value;
+        columns.push(item.key);
+        values.push(value);
+        otherValues.push(otherValue);
+      }
+      const columnSql = columns.length ? ', ' + columns.join(', ') : '';
+      const valueSql = values.length ? ', ' + values.join(', ') : '';
+      const otherValueSql = otherValues.length ? ', ' + otherValues.join(', ') : '';
+      await query("insert into public." + tableName + " (id, owner_id" + columnSql + ") values ('" + ownerId + "', '" + ownerId + "'" + valueSql + "), ('" + otherOwnerId + "', '" + otherOwnerId + "'" + otherValueSql + ");");
+      const ownerCount = await query("set role authenticated; set request.jwt.claim.sub = '" + ownerId + "'; select count(*) from public." + tableName + "; reset role;");
+      const otherCount = await query("set role authenticated; set request.jwt.claim.sub = '" + otherOwnerId + "'; select count(*) from public." + tableName + "; reset role;");
+      assert.equal(ownerCount, '1', reference.domain + ' authenticated owner sees only their row');
+      assert.equal(otherCount, '1', reference.domain + ' second owner sees only their row');
+      try {
+        await query("set role authenticated; set request.jwt.claim.sub = '" + ownerId + "'; update public." + tableName + " set owner_id = '" + otherOwnerId + "' where id = '" + ownerId + "'; reset role;");
+      } catch (error) {
+        assert.match(error.message, /permission denied|row-level security|new row violates|immutable application record identity/i,
+          reference.domain + ' transfer rejection is caused by an access guard');
+      }
+      assert.equal(await query("select count(*) from public." + tableName + " where id = '" + ownerId + "' and owner_id = '" + ownerId + "';"), '1',
+        reference.domain + ' denied or filtered tenant transfer leaves the original record intact');
+      assert.equal(await query("select count(*) from public." + tableName + " where id = '" + ownerId + "' and owner_id = '" + otherOwnerId + "';"), '0',
+        reference.domain + ' never transfers the record to another owner');
+    }
+    await query('drop schema if exists private cascade; drop schema if exists public cascade; create schema public;');
+    console.log('PASS PostgreSQL reference-project runtime isolation: generated schemas apply and owner RLS denies cross-tenant reads/transfers for all seven projects');
+  }
+
+  console.log(`PASS ${references.length} synthetic reference application contracts and runtime fixtures: retail, restaurant, school, clinic, government, factory, custom research`);
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
