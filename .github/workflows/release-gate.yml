@@ -67,6 +67,14 @@ jobs:
       - name: Vercel Sandbox execution adapter regression
         run: node scripts/vercel-sandbox-execution-adapter-regression.mjs
 
+      - name: Live Vercel Sandbox adapter smoke
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'codex/live-vercel-project-request-20261014'
+        env:
+          VERCEL_TOKEN: ${{ secrets.vercel_token }}
+          VERCEL_TEAM_ID: team_dxtUwkdzIKpmkmE2GFEaMWn1
+          VERCEL_PROJECT_ID: prj_Va68HaopapL5mCzXkQsnJ7X7Kr7V
+        run: npm run smoke:vercel-sandbox:live
+
       - name: Localization and published storage regression
         run: node scripts/website-builder-localization-regression.mjs
 
