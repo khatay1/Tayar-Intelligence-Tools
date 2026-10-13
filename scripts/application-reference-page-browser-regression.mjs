@@ -19,6 +19,7 @@ const findChrome = () => {
 };
 const dir = await mkdtemp(join(tmpdir(), 'tayar-reference-page-browser-'));
 let server, proxy;
+const sockets = new Set();
 try {
   let html = '', mockFetch = '', harness = '', complete;
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
@@ -42,6 +43,8 @@ try {
     }
     res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(html);
   });
+  server.keepAliveTimeout = 1000;
+  server.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
   await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
   const url = 'https://' + projectId + '.apps.tayar.se';
   const proxyScript = "require('net').createServer(socket=>{const upstream=require('net').connect(" + server.address().port + ",'127.0.0.1');socket.pipe(upstream);upstream.pipe(socket)}).listen(443,'127.0.0.1',()=>console.log('ready'))";
@@ -145,6 +148,7 @@ try {
 } finally {
   if (proxy?.pid) { try { process.kill(-proxy.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; } }
   server?.closeAllConnections();
+  for (const socket of sockets) socket.destroy();
   await new Promise(resolveClose => server ? server.close(resolveClose) : resolveClose());
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
