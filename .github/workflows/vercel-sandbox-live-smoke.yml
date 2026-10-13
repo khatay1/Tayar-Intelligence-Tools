@@ -1,0 +1,49 @@
+name: Vercel Sandbox live adapter smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/vercel-sandbox-live-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-sandbox-live-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  adapter-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Require stored Vercel token
+        env:
+          VERCEL_TOKEN: ${{ secrets.vercel_token }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::GitHub Actions secret vercel_token is missing"
+            exit 1
+          fi
+
+      - name: Run live adapter smoke
+        env:
+          VERCEL_TOKEN: ${{ secrets.vercel_token }}
+        run: npm run smoke:vercel-sandbox:live
