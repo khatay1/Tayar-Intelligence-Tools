@@ -18,6 +18,8 @@ try {
   let resultText = JSON.stringify({ value: 7 });
   let exitCode = '0';
   let oversizedCommandResponse = false;
+  let failedCommandResponse = false;
+  let failedResponseCancelled = false;
   const fetcher = async (input, init = {}) => {
     const url = new URL(input);
     const method = init.method ?? 'GET';
@@ -31,6 +33,13 @@ try {
       return Response.json({ command: { id: 'cmd_test_1' } }, { status: 201 });
     }
     if (url.pathname.endsWith('/cmd/cmd_test_1') && method === 'GET') {
+      if (failedCommandResponse) {
+        const bodyStream = new ReadableStream({
+          start(controller) { controller.enqueue(new TextEncoder().encode('private provider error')); },
+          cancel() { failedResponseCancelled = true; },
+        });
+        return new Response(bodyStream, { status: 503 });
+      }
       return Response.json({ command: { exitCode } });
     }
     if (url.pathname.endsWith('/cmd/cmd_test_1/logs') && method === 'GET') {
@@ -75,6 +84,13 @@ try {
   exitCode = '1';
   await assert.rejects(runIsolatedCustomCode(request, adapter), error => error.code === 'execution-failed');
   assert.equal(calls.filter(call => call.url.pathname.endsWith('/stop')).length, 1, 'failed commands must stop the VM');
+
+  calls.length = 0;
+  failedCommandResponse = true;
+  await assert.rejects(runIsolatedCustomCode(request, adapter), error => error.code === 'execution-failed');
+  assert.equal(failedResponseCancelled, true, 'failed provider response bodies must be cancelled');
+  assert.equal(calls.filter(call => call.url.pathname.endsWith('/stop')).length, 1, 'failed provider responses must stop the VM');
+  failedCommandResponse = false;
 
   calls.length = 0;
   oversizedCommandResponse = true;

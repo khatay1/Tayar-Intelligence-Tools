@@ -65,8 +65,15 @@ function query(teamId?: string, extra: Record<string, string> = {}): string {
   return value ? `?${value}` : '';
 }
 
+async function discardResponseBody(response: Response): Promise<void> {
+  await response.body?.cancel().catch(() => {});
+}
+
 async function responseJson(response: Response): Promise<Record<string, unknown>> {
-  if (!response.ok) throw new Error('Vercel Sandbox request failed.');
+  if (!response.ok) {
+    await discardResponseBody(response);
+    throw new Error('Vercel Sandbox request failed.');
+  }
   try {
     const value = record(JSON.parse(await boundedResponseText(response)));
     if (!value) throw new Error();
@@ -98,7 +105,10 @@ function createRunnerArgs(source: string, input: unknown): string[] {
 }
 
 async function readStdout(response: Response, maxBytes: number): Promise<string> {
-  if (!response.ok || !response.body) throw new Error('Vercel Sandbox logs were unavailable.');
+  if (!response.ok || !response.body) {
+    await discardResponseBody(response);
+    throw new Error('Vercel Sandbox logs were unavailable.');
+  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let pending = '';
