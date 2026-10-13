@@ -66,16 +66,18 @@ export async function runPublishedCustomOperation(
     if (!reservationId) throw new PublishedCustomOperationError('unavailable');
     const startedAt = Date.now();
     let result: unknown;
+    let executionFailed = false;
     let executionError: unknown;
     try {
       result = await runIsolatedCustomCode({ source: operation.source, input: request.input }, dependencies.adapter);
     } catch (error) {
+      executionFailed = true;
       executionError = error;
     }
     let completed = false;
     try { completed = await dependencies.completeUsage(reservationId, request, Date.now() - startedAt); } catch { /* keep the reservation until its expiry */ }
     if (!completed) throw new PublishedCustomOperationError('unavailable');
-    if (executionError) throw executionError;
+    if (executionFailed) throw executionError;
     return result;
   } catch (error) {
     if (error instanceof PublishedCustomOperationError) throw error;
