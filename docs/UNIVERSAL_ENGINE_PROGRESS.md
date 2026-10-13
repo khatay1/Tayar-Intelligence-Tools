@@ -333,10 +333,17 @@ release. Authorization must pass before source resolution, and a durable usage
 reservation must pass before a sandbox is created. The feature defaults off,
 rejects release mismatches and extra request fields, and maps provider failures
 to stable public codes. Release Gate covers ordering, disabled/unauthorized/
-unreserved denial, release mismatch and sandbox cleanup. This contract is not
-mounted in a customer route; generation still rejects custom operations and no
-usage store or customer execution has been enabled. The next dependency is a
-durable reservation implementation plus runtime authorization integration.
+unreserved denial, release mismatch and sandbox cleanup. The existing atomic
+per-user usage meter now has a dedicated custom-execution policy and bounded
+monthly limits (free 0, Pro 10, Business 50); it is seeded disabled by default.
+The server quota adapter validates the tool policy and effective plan before
+reserving usage, and finalizes the reservation after a sandbox attempt so
+failed customer code still consumes the bounded execution allowance. Release
+Gate covers reservation configuration, disabled-policy denial, finalization
+and clamped duration metadata. These additions are source-only and have not
+been applied to a live database. The orchestration contract remains unmounted;
+generation still rejects custom operations. Runtime authentication/release
+integration and the production migration remain pending.
 
 The Website Builder AI undo path now has a direct behavioral regression in
 Release Gate. It verifies restoration of the complete captured page, site,
