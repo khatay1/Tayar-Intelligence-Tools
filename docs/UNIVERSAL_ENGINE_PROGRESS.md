@@ -207,6 +207,13 @@ rejection, and research-sample analysis. The seven scenarios passed the full
 Release Gate in PR #164. This verifies generated database behavior, not the
 generated page/browser/backend integration or a complete customer-ready product.
 
+The seven fixtures now also pass through the real saved-project HTML renderer and
+private application-page bootstrap preparation. The regression verifies that
+each rendered page receives its actual project definition and correctly bound
+primary data view, including the declared transaction, workflow, booking or
+formula field. This closes the generated HTML-to-runtime-configuration handoff
+check; it does not simulate browser interaction or prove live provider access.
+
 The next evidence gap is to exercise these features through the generated page
 and application runtime, then run controlled isolated activation of the
 custom-code Sandbox. Production migration history and provider activation stay

@@ -13,11 +13,15 @@ try {
     `export { compileInitialApplicationSchema } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql'))};`,
     `export { prepareGeneratedApplication } from ${JSON.stringify(resolve('src/modules/website-builder/core/editor-generated-application'))};`,
     `export { buildApplicationRequirementCoverage } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-requirements'))};`,
-    `export { compileApplicationDataView } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-data-view'))};`
+    `export { compileApplicationDataView } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-data-view'))};`,
+    `export { renderWebsiteApplicationSnapshot } from ${JSON.stringify(resolve('src/modules/website-builder/services/websiteApplicationRenderService'))};`,
+    `export { preparePublishedApplicationDataViews } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-published-data-views'))};`,
+    `export { addApplicationPageBootstrap } from ${JSON.stringify(resolve('src/modules/website-builder/services/websiteApplicationPageBootstrapService'))};`
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile, alias: { '@': resolve('src') } });
   const { readApplicationDefinition: validate, compileInitialApplicationSchema: compile,
-    prepareGeneratedApplication, buildApplicationRequirementCoverage, compileApplicationDataView } = (await import(pathToFileURL(outfile))).default;
+    prepareGeneratedApplication, buildApplicationRequirementCoverage, compileApplicationDataView,
+    renderWebsiteApplicationSnapshot, preparePublishedApplicationDataViews, addApplicationPageBootstrap } = (await import(pathToFileURL(outfile))).default;
   const field = (id, type, required = true, extra = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, type, required, ...extra });
   const permissions = (operations = ['read', 'create', 'update']) => operations.map(operation => ({ operation, access: 'owner' }));
   const table = (id, fields, options = {}) => ({ id, key: id.replaceAll('-', '_'), name: id, fields, permissions: permissions(), ...options });
@@ -161,6 +165,33 @@ try {
     assert.equal(unboundCoverage.find(row => row.requirementId === 'primary-feature')?.deliveryStatus, 'blocked',
       `${reference.domain} missing primary feature binding blocks coverage`);
     assert.deepEqual(prepared.requirements.specification, projectSpecification, `${reference.domain} retains its validated project specification`);
+
+    const snapshot = { application: reference.definition, homePageId: pageId, pages: [structuredClone(page)],
+      siteName: `Reference ${reference.domain}`, siteUrl: 'https://reference.invalid' };
+    const renderedPages = await renderWebsiteApplicationSnapshot(snapshot);
+    assert.equal(renderedPages.length, 1, `${reference.domain} renders one generated application page`);
+    const publishedViews = preparePublishedApplicationDataViews(reference.definition, pageId, page.sections);
+    const runtimeResponse = await addApplicationPageBootstrap(new Response(renderedPages[0].content, {
+      headers: { 'content-type': 'text/html; charset=utf-8' },
+    }), {
+      language: 'en', returnPath: '/account', applicationOrigin: 'https://reference.invalid',
+      definition: reference.definition, paths: ['/overview'], pageId, applicationForms: [],
+      applicationDataViews: publishedViews,
+      backend: { url: 'https://reference.supabase.co', projectRef: 'reference', publishableKey: 'sb_publishable_fixture' },
+    });
+    const runtimeHtml = await runtimeResponse.text();
+    assert.match(runtimeHtml, /data-tayar-application-runtime/, `${reference.domain} page receives the real application runtime bootstrap`);
+    const encodedConfig = /data-application="([^"]+)"/.exec(runtimeHtml)?.[1];
+    assert.ok(encodedConfig, `${reference.domain} runtime config is attached to rendered HTML`);
+    const runtimeConfig = JSON.parse(encodedConfig.replaceAll('&quot;', '"').replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>').replaceAll('&amp;', '&'));
+    const primaryView = runtimeConfig.applicationDataViews.find(view => view.sectionId === `${reference.domain}-${featureTable.id}-records`);
+    assert.equal(primaryView?.binding.tableId, featureTable.id, `${reference.domain} runtime binds its primary feature table`);
+    if (featureAction) assert.ok(primaryView.binding.actions.includes(featureAction),
+      `${reference.domain} generated page exposes its declared ${featureAction} operation`);
+    else assert.ok(primaryView.binding.columns.includes(featureTable.fields.find(item => item.formula).id),
+      'school runtime page includes its calculated total field');
+    assert.deepEqual(runtimeConfig.definition, reference.definition, `${reference.domain} runtime uses the generated project definition`);
 
     const brokenPage = structuredClone(page);
     brokenPage.sections[0].applicationDataView.tableId = 'missing-table';
