@@ -64,6 +64,9 @@ jobs:
       - name: Isolated custom code execution boundary regression
         run: node scripts/isolated-code-execution-regression.mjs
 
+      - name: Published custom operation authorization and quota gate regression
+        run: node scripts/website-application-custom-operation-regression.mjs
+
       - name: Vercel Sandbox execution adapter regression
         run: node scripts/vercel-sandbox-execution-adapter-regression.mjs
 
