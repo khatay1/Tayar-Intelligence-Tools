@@ -13,7 +13,7 @@ try {
     `export { compileInitialApplicationSchema } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql'))};`,
     `export { prepareGeneratedApplication } from ${JSON.stringify(resolve('src/modules/website-builder/core/editor-generated-application'))};`,
     `export { buildApplicationRequirementCoverage } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-requirements'))};`,
-    `export { compileApplicationDataView } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-data-view'))};`
+    `export { compileApplicationDataView } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-data-view'))};`,
     `export { renderWebsiteApplicationSnapshot } from ${JSON.stringify(resolve('src/modules/website-builder/services/websiteApplicationRenderService'))};`,
     `export { preparePublishedApplicationDataViews } from ${JSON.stringify(resolve('src/modules/website-builder/core/application-published-data-views'))};`,
     `export { addApplicationPageBootstrap } from ${JSON.stringify(resolve('src/modules/website-builder/services/websiteApplicationPageBootstrapService'))};`
