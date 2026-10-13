@@ -55,7 +55,7 @@ try {
   assert.equal(createCall.body.runtime, 'node22');
   assert.equal(createCall.body.projectId, 'prj_test');
   assert.equal(createCall.body.persistent, false);
-  assert.equal(createCall.body.timeout, 31000, 'VM expiry includes bounded startup time');
+  assert.equal(createCall.body.timeout, '31000', 'VM expiry is serialized as the API expects and includes bounded startup time');
   for (const key of ['env', 'source', 'mounts', 'networkId']) assert.equal(key in createCall.body, false);
 
   const commandCall = calls.find(call => call.url.pathname.endsWith('/cmd') && call.method === 'POST');
