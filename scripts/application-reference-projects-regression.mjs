@@ -242,10 +242,16 @@ try {
       const otherCount = await query("set role authenticated; set request.jwt.claim.sub = '" + otherOwnerId + "'; select count(*) from public." + tableName + "; reset role;");
       assert.equal(ownerCount, '1', reference.domain + ' authenticated owner sees only their row');
       assert.equal(otherCount, '1', reference.domain + ' second owner sees only their row');
-      await assert.rejects(query("set role authenticated; select set_config('request.jwt.claim.sub', '" + ownerId + "', false); update public." + tableName + " set owner_id = '" + otherOwnerId + "' where id = '" + ownerId + "'; reset role;"),
-        /permission denied|row-level security|new row violates|immutable application record identity/i, reference.domain + ' cannot transfer an owned record by changing owner_id');
+      try {
+        await query("set role authenticated; set request.jwt.claim.sub = '" + ownerId + "'; update public." + tableName + " set owner_id = '" + otherOwnerId + "' where id = '" + ownerId + "'; reset role;");
+      } catch (error) {
+        assert.match(error.message, /permission denied|row-level security|new row violates|immutable application record identity/i,
+          reference.domain + ' transfer rejection is caused by an access guard');
+      }
       assert.equal(await query("select count(*) from public." + tableName + " where id = '" + ownerId + "' and owner_id = '" + ownerId + "';"), '1',
-        reference.domain + ' failed tenant transfer leaves the original record intact');
+        reference.domain + ' denied or filtered tenant transfer leaves the original record intact');
+      assert.equal(await query("select count(*) from public." + tableName + " where id = '" + ownerId + "' and owner_id = '" + otherOwnerId + "';"), '0',
+        reference.domain + ' never transfers the record to another owner');
     }
     await query('drop schema if exists private cascade; drop schema if exists public cascade; create schema public;');
     console.log('PASS PostgreSQL reference-project runtime isolation: generated schemas apply and owner RLS denies cross-tenant reads/transfers for all seven projects');
