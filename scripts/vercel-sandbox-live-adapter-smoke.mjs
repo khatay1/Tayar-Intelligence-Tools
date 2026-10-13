@@ -27,7 +27,8 @@ try {
     platform: 'node',
     format: 'cjs',
     outdir: directory,
-    entryNames: '[name].cjs',
+    entryNames: '[name]',
+    outExtension: { '.js': '.cjs' },
   });
 
   smokePhase = 'load-adapter';
