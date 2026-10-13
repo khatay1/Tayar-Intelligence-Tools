@@ -14,8 +14,10 @@ if (typeof token !== 'string' || !token.trim()) {
 const directory = await mkdtemp(join(tmpdir(), 'tayar-vercel-live-smoke-'));
 let providerStatus;
 let providerPhase = 'not-started';
+let smokePhase = 'prepare';
 let providerFetchError = false;
 try {
+  smokePhase = 'build';
   await build({
     entryPoints: [
       'server/isolated-code-execution.ts',
@@ -28,6 +30,7 @@ try {
     entryNames: '[name].cjs',
   });
 
+  smokePhase = 'load-adapter';
   const boundaryModule = (await import(pathToFileURL(join(directory, 'isolated-code-execution.cjs')))).default;
   const adapterModule = (await import(pathToFileURL(join(directory, 'vercel-sandbox-execution-adapter.cjs')))).default;
   const fetcher = async (input, init) => {
@@ -50,12 +53,14 @@ try {
     fetcher,
     ...(process.env.VERCEL_TEAM_ID ? { teamId: process.env.VERCEL_TEAM_ID } : {}),
   });
+  smokePhase = 'execute';
   const result = await boundaryModule.runIsolatedCustomCode({
     source: 'return { ok: input.marker === "tayar-adapter-smoke", result: input.value + 1 };',
     input: { marker: 'tayar-adapter-smoke', value: 42 },
     timeoutMs: 10_000,
   }, adapter);
 
+  smokePhase = 'verify-result';
   assert.deepEqual(result, { ok: true, result: 43 });
   console.log('Live Vercel Sandbox adapter smoke passed; one-shot sandbox cleanup completed.');
 } catch (error) {
@@ -65,7 +70,9 @@ try {
       ? `provider-transport-${providerPhase}`
       : Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599
         ? `provider-${providerPhase}-http-${providerStatus}`
-        : 'live-provider-smoke-failed';
+        : providerPhase !== 'not-started'
+          ? `provider-${providerPhase}-no-response`
+          : `smoke-${smokePhase}-failed`;
   console.error(`Live Vercel Sandbox adapter smoke failed (${safeCode}). Provider details were suppressed.`);
   process.exitCode = 1;
 } finally {
