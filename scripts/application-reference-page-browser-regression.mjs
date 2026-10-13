@@ -18,7 +18,7 @@ const findChrome = () => {
   throw new Error('Chrome is required for the generated application page browser regression. Set CHROME_BIN.');
 };
 const dir = await mkdtemp(join(tmpdir(), 'tayar-reference-page-browser-'));
-let server;
+let server, proxy;
 try {
   let html = '', mockFetch = '', harness = '', complete;
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
