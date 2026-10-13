@@ -324,6 +324,20 @@ sandbox. This closes the live REST-adapter verification gap. It does not enable
 customer execution: the adapter remains unmounted, custom operations remain
 rejected during generation, and no customer code or credentials were involved.
 
+## Custom code — published-operation gate contract added
+
+The server now has a fail-closed orchestration contract for a future published
+custom operation route. It accepts only owner/project/release/operation IDs and
+bounded JSON input; source is resolved server-side from the requested immutable
+release. Authorization must pass before source resolution, and a durable usage
+reservation must pass before a sandbox is created. The feature defaults off,
+rejects release mismatches and extra request fields, and maps provider failures
+to stable public codes. Release Gate covers ordering, disabled/unauthorized/
+unreserved denial, release mismatch and sandbox cleanup. This contract is not
+mounted in a customer route; generation still rejects custom operations and no
+usage store or customer execution has been enabled. The next dependency is a
+durable reservation implementation plus runtime authorization integration.
+
 The Website Builder AI undo path now has a direct behavioral regression in
 Release Gate. It verifies restoration of the complete captured page, site,
 brand, SEO, theme, header and reusable-symbol state; confirms restored
