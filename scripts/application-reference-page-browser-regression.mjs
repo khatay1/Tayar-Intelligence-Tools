@@ -42,11 +42,20 @@ try {
     }
     res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(html);
   });
-  await new Promise((resolveListen, rejectListen) => {
-    server.once('error', rejectListen);
-    server.listen(443, '127.0.0.1', () => { server.off('error', rejectListen); resolveListen(); });
-  });
+  await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
   const url = 'https://' + projectId + '.apps.tayar.se';
+  const proxyScript = "require('net').createServer(socket=>{const upstream=require('net').connect(" + server.address().port + ",'127.0.0.1');socket.pipe(upstream);upstream.pipe(socket)}).listen(443,'127.0.0.1',()=>console.log('ready'))";
+  proxy = spawn('sudo', ['-n', process.execPath, '-e', proxyScript], { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  let proxyOutput = '';
+  await Promise.race([
+    new Promise((resolveProxy, rejectProxy) => {
+      proxy.stdout.on('data', chunk => { proxyOutput += chunk; if (proxyOutput.includes('ready')) resolveProxy(); });
+      proxy.stderr.on('data', chunk => { proxyOutput += chunk; });
+      proxy.once('error', rejectProxy);
+      proxy.once('exit', code => rejectProxy(new Error('HTTPS loopback proxy exited (' + code + '): ' + proxyOutput)));
+    }),
+    new Promise((_, rejectProxy) => setTimeout(() => rejectProxy(new Error('HTTPS loopback proxy did not start: ' + proxyOutput)), 10_000)),
+  ]);
   const chrome = findChrome();
   const entry = join(dir, 'page-runtime.ts'), outfile = join(dir, 'page-runtime.cjs');
   await writeFile(entry, [
@@ -128,6 +137,7 @@ try {
   if (!marker?.startsWith('PASS')) throw new Error(marker || 'Browser did not return a result');
   console.log(marker);
 } finally {
+  if (proxy?.pid) { try { process.kill(-proxy.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; } }
   server?.closeAllConnections();
   await new Promise(resolveClose => server ? server.close(resolveClose) : resolveClose());
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
