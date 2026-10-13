@@ -216,12 +216,15 @@ check; it does not simulate browser interaction or prove live provider access.
 
 Release Gate boots a rendered application page with its real browser
 bootstrap in headless Chrome and verifies that the generated data view reads and
-displays a fixture record. It also clicks a generated workflow transition,
-executes it through the actual application runtime against a local mocked
-Supabase RPC, and confirms the returned state is rendered in the page. This is
-initial browser interaction evidence for one workflow path, not coverage of all
-seven reference projects. Transaction, booking, and formula interactions and
-project-specific workflow paths remain to be exercised through generated pages.
+displays a fixture record. It clicks a generated workflow transition, executes
+it through the actual application runtime against a local mocked Supabase RPC,
+and confirms the returned state is rendered in the page. It also opens the
+generated inventory transaction form, loads a fixture product, stages a
+quantity, submits through the actual private runtime against a mocked RPC, and
+confirms the created order is rendered. These are interaction proofs for one
+workflow path and one transaction path, not coverage of all seven reference
+projects. Booking and formula interactions and project-specific workflow paths
+remain to be exercised through generated pages.
 
 The next evidence gap is to extend those feature interactions through generated
 pages and the application runtime, then run controlled isolated activation of
