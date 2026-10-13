@@ -19,6 +19,7 @@ const findChrome = () => {
 };
 const dir = await mkdtemp(join(tmpdir(), 'tayar-reference-page-browser-'));
 let server, proxy, marker;
+const serverRequests = [];
 const sockets = new Set();
 try {
   let html = '', mockFetch = '', harness = '', complete;
@@ -28,6 +29,7 @@ try {
   if (certificate.status !== 0) throw new Error('OpenSSL is required to create the isolated application browser certificate.');
   const completion = new Promise(resolveResult => { complete = resolveResult; });
   server = createServer({ key: await readFile(keyPath), cert: await readFile(certPath) }, (req, res) => {
+    serverRequests.push(req.method + ' ' + req.url);
     if (req.url === '/result' && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
@@ -188,7 +190,7 @@ try {
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
   try {
     marker = await Promise.race([completion, new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error('Generated application page browser timed out: ' + stderr)), 30_000);
+      timer = setTimeout(() => reject(new Error('Generated application page browser timed out: ' + stderr + '\\nRequests: ' + serverRequests.join(', '))), 30_000);
       child.once('error', reject);
       child.once('exit', code => reject(new Error('Browser exited before completing checks (' + code + '): ' + stderr)));
     })]);
