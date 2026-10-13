@@ -197,7 +197,6 @@ try {
       'drop schema if exists private cascade;',
       'drop schema if exists public cascade;',
       'create schema public;',
-      'create schema private;',
       'create extension if not exists btree_gist with schema public;',
       'grant usage on schema public to anon, authenticated, service_role;',
       'grant usage on schema private to service_role;',
