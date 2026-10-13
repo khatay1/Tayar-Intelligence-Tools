@@ -31,7 +31,7 @@ try {
     (await import(pathToFileURL(outfile))).default;
   const definition = {
     version: 1, roles: [], pageAccess: [],
-    auth: { enabled: false, signUpEnabled: false, emailVerificationRequired: true },
+    auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     tables: [{
       id: 'records', key: 'records', name: 'Records',
       fields: [{ id: 'record-name', key: 'name', name: 'Name', type: 'text', required: true }],
