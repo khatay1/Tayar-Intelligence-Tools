@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:http';
+import { createServer } from 'node:https';
+import { readFile } from 'node:fs/promises';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -20,8 +21,12 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-reference-page-browser-'));
 let server;
 try {
   let html = '', mockFetch = '', harness = '', complete;
+  const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const keyPath = join(dir, 'localhost.key'), certPath = join(dir, 'localhost.crt');
+  const certificate = spawnSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', keyPath, '-out', certPath, '-days', '1', '-subj', '/CN=*.apps.tayar.se', '-addext', 'subjectAltName=DNS:*.apps.tayar.se'], { stdio: 'ignore' });
+  if (certificate.status !== 0) throw new Error('OpenSSL is required to create the isolated application browser certificate.');
   const completion = new Promise(resolveResult => { complete = resolveResult; });
-  server = createServer((req, res) => {
+  server = createServer({ key: await readFile(keyPath), cert: await readFile(certPath) }, (req, res) => {
     if (req.url === '/result' && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
@@ -37,8 +42,11 @@ try {
     }
     res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(html);
   });
-  await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
-  const url = 'http://127.0.0.1:' + server.address().port;
+  await new Promise((resolveListen, rejectListen) => {
+    server.once('error', rejectListen);
+    server.listen(443, '127.0.0.1', () => { server.off('error', rejectListen); resolveListen(); });
+  });
+  const url = 'https://' + projectId + '.apps.tayar.se';
   const chrome = findChrome();
   const entry = join(dir, 'page-runtime.ts'), outfile = join(dir, 'page-runtime.cjs');
   await writeFile(entry, [
@@ -81,7 +89,7 @@ try {
   }), {
     language: 'en', returnPath: '/index.html', applicationOrigin: url,
     platformUrl: 'https://pnbllxdlskljcakyaylt.supabase.co',
-    projectId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    projectId,
     ownerId: '11111111-1111-4111-8111-111111111111',
     platformOrigin: 'https://tayar.se', signUpEnabled: false,
     definition, paths: ['/index.html'], pageId: 'home', applicationForms: [],
@@ -96,7 +104,7 @@ try {
   html = html.replace('</body>', '<script src="/harness.js"></script></body>');
   const detached = process.platform !== 'win32';
   const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
-    '--disable-background-networking', '--user-data-dir=' + dir, url], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
+    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP *.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer;
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
   let marker;
