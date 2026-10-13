@@ -27,8 +27,15 @@ try {
 
   const boundaryModule = (await import(pathToFileURL(join(directory, 'isolated-code-execution.cjs')))).default;
   const adapterModule = (await import(pathToFileURL(join(directory, 'vercel-sandbox-execution-adapter.cjs')))).default;
+  let providerStatus;
+  const fetcher = async (input, init) => {
+    const response = await fetch(input, init);
+    if (!response.ok && providerStatus === undefined) providerStatus = response.status;
+    return response;
+  };
   const adapter = adapterModule.createVercelSandboxExecutionAdapter({
     token,
+    fetcher,
     ...(process.env.VERCEL_TEAM_ID ? { teamId: process.env.VERCEL_TEAM_ID } : {}),
   });
   const result = await boundaryModule.runIsolatedCustomCode({
@@ -40,9 +47,11 @@ try {
   assert.deepEqual(result, { ok: true, result: 43 });
   console.log('Live Vercel Sandbox adapter smoke passed; one-shot sandbox cleanup completed.');
 } catch (error) {
-  const safeCode = error?.code && /^[a-z-]{1,48}$/.test(error.code)
+  const safeCode = error?.code && /^[a-z0-9-]{1,48}$/.test(error.code)
     ? error.code
-    : 'live-provider-smoke-failed';
+    : Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599
+      ? `provider-http-${providerStatus}`
+      : 'live-provider-smoke-failed';
   console.error(`Live Vercel Sandbox adapter smoke failed (${safeCode}). Provider details were suppressed.`);
   process.exitCode = 1;
 } finally {
