@@ -63,6 +63,7 @@ try {
   };
   const adapter = adapterModule.createVercelSandboxExecutionAdapter({
     token,
+    projectId: process.env.VERCEL_PROJECT_ID,
     fetcher,
     ...(process.env.VERCEL_TEAM_ID ? { teamId: process.env.VERCEL_TEAM_ID } : {}),
   });
