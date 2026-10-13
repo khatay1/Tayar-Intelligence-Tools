@@ -12,6 +12,7 @@ if (typeof token !== 'string' || !token.trim()) {
 }
 
 const directory = await mkdtemp(join(tmpdir(), 'tayar-vercel-live-smoke-'));
+let providerStatus;
 try {
   await build({
     entryPoints: [
@@ -27,7 +28,6 @@ try {
 
   const boundaryModule = (await import(pathToFileURL(join(directory, 'isolated-code-execution.cjs')))).default;
   const adapterModule = (await import(pathToFileURL(join(directory, 'vercel-sandbox-execution-adapter.cjs')))).default;
-  let providerStatus;
   const fetcher = async (input, init) => {
     const response = await fetch(input, init);
     if (!response.ok && providerStatus === undefined) providerStatus = response.status;
