@@ -73,7 +73,7 @@ try {
       id: 'records', key: 'records', name: 'Records',
       fields: [
         { id: 'record-name', key: 'name', name: 'Name', type: 'text', required: true },
-        { id: 'record-state', key: 'state', name: 'State', type: 'enum', required: true, options: ['queued', 'cooking'] },
+        { id: 'record-state', key: 'state', name: 'State', type: 'enum', required: true, defaultValue: 'queued', options: ['queued', 'cooking'] },
       ],
       permissions: [{ operation: 'read', access: 'public' }, { operation: 'update', access: 'owner' }],
       workflow: { fieldId: 'record-state', transitions: [{ id: 'start-cooking', label: 'Start cooking', from: ['queued'], to: 'cooking', access: 'owner' }] },
