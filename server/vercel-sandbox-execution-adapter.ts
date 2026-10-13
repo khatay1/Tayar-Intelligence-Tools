@@ -14,6 +14,7 @@ const UTF8 = new TextEncoder();
 export interface VercelSandboxAdapterConfig {
   token: string;
   teamId?: string;
+  projectId: string;
   fetcher?: typeof fetch;
 }
 
@@ -114,6 +115,9 @@ export function createVercelSandboxExecutionAdapter(
   if (config.teamId !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(config.teamId)) {
     throw new Error('Vercel Sandbox team scope is invalid.');
   }
+  if (typeof config.projectId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(config.projectId)) {
+    throw new Error('Vercel Sandbox project scope is invalid.');
+  }
   const fetcher = config.fetcher ?? fetch;
   const headers = { authorization: `Bearer ${config.token}`, 'content-type': 'application/json' };
 
@@ -130,13 +134,13 @@ export function createVercelSandboxExecutionAdapter(
         throw new Error('Vercel Sandbox policy was not satisfied.');
       }
       const lifetime = options.timeoutMs + SESSION_STARTUP_ALLOWANCE_MS;
-      const created = await responseJson(await request(`/v2/sandboxes${query(config.teamId)}`, {
+      const created = await responseJson(await request(`/v2/sandboxes${query(config.teamId, { projectId: config.projectId })}`, {
         method: 'POST',
         signal: AbortSignal.timeout(SESSION_STARTUP_ALLOWANCE_MS),
         body: JSON.stringify({
           runtime: 'node22',
           networkPolicy: { mode: 'custom', allowedDomains: [], allowedCIDRs: [], deniedCIDRs: [] },
-          resources: { vcpus: '1', memory: '4096' },
+          resources: { vcpus: '1', memory: '2048' },
           timeout: lifetime,
           persistent: false,
           ports: [],
