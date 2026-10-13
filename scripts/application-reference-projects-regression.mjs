@@ -213,12 +213,15 @@ try {
       const table = reference.definition.tables[0];
       const tableName = 'app_' + table.key;
       const values = [];
+      const otherValues = [];
       const columns = [];
       for (const item of table.fields) {
         if (!item.required || item.formula || item.defaultValue !== undefined) continue;
         let value;
+        let otherValue;
         if (item.type === 'text' || item.type === 'email' || item.type === 'url' || item.type === 'phone') {
-          value = "'" + ('runtime-' + reference.domain + '-' + item.id).replaceAll("'", "''") + "'";
+          value = "'" + ('runtime-' + reference.domain + '-' + item.id + '-' + ownerId.slice(0, 8)).replaceAll("'", "''") + "'";
+          otherValue = "'" + ('runtime-' + reference.domain + '-' + item.id + '-' + otherOwnerId.slice(0, 8)).replaceAll("'", "''") + "'";
         } else if (item.type === 'number' || item.type === 'currency') value = '1';
         else if (item.type === 'boolean') value = 'true';
         else if (item.type === 'enum') value = "'" + String(item.options?.[0] ?? '').replaceAll("'", "''") + "'";
@@ -228,14 +231,17 @@ try {
         else if (item.type === 'json') value = "'{}'::jsonb";
         else if (item.type === 'reference') throw Error(reference.domain + ' primary fixture unexpectedly requires a referenced row.');
         else throw Error(reference.domain + ' primary fixture has unsupported required field type ' + item.type);
+        otherValue ??= value;
         columns.push(item.key);
         values.push(value);
+        otherValues.push(otherValue);
       }
       const columnSql = columns.length ? ', ' + columns.join(', ') : '';
       const valueSql = values.length ? ', ' + values.join(', ') : '';
-      await query("insert into public." + tableName + " (id, owner_id" + columnSql + ") values ('" + ownerId + "', '" + ownerId + "'" + valueSql + "), ('" + otherOwnerId + "', '" + otherOwnerId + "'" + valueSql + ");");
-      const ownerCount = await query("set role authenticated; select set_config('request.jwt.claim.sub', '" + ownerId + "', false); select count(*) from public." + tableName + "; reset role;");
-      const otherCount = await query("set role authenticated; select set_config('request.jwt.claim.sub', '" + otherOwnerId + "', false); select count(*) from public." + tableName + "; reset role;");
+      const otherValueSql = otherValues.length ? ', ' + otherValues.join(', ') : '';
+      await query("insert into public." + tableName + " (id, owner_id" + columnSql + ") values ('" + ownerId + "', '" + ownerId + "'" + valueSql + "), ('" + otherOwnerId + "', '" + otherOwnerId + "'" + otherValueSql + ");");
+      const ownerCount = await query("set role authenticated; set request.jwt.claim.sub = '" + ownerId + "'; select count(*) from public." + tableName + "; reset role;");
+      const otherCount = await query("set role authenticated; set request.jwt.claim.sub = '" + otherOwnerId + "'; select count(*) from public." + tableName + "; reset role;");
       assert.equal(ownerCount, '1', reference.domain + ' authenticated owner sees only their row');
       assert.equal(otherCount, '1', reference.domain + ' second owner sees only their row');
       await assert.rejects(query("set role authenticated; select set_config('request.jwt.claim.sub', '" + ownerId + "', false); update public." + tableName + " set owner_id = '" + otherOwnerId + "' where id = '" + ownerId + "'; reset role;"),
