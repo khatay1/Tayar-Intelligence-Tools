@@ -225,24 +225,25 @@ private bootstrap, browser runtime, and mocked read path for every reference
 definition; it does not exercise each project's full workflow or prove live
 provider access.
 
-The browser regression also exercises project-specific workflows through the
-actual private application runtime against local mocked Supabase responses: a
-kitchen ticket advances queued → cooking → ready; separate government permits
-are approved and rejected; and a research sample advances received → analysed →
-archived. Each resulting state is verified in the rendered page, including the
-correct permit row. The same regression opens the generated inventory
-transaction form, loads a fixture product, submits a quantity and confirms the
-created order; checks availability and creates a booking, then rechecks the same
-interval and verifies the unavailable state without attempting a second
-reservation; and creates a formula-backed row while keeping the computed total
-out of the editable form. These are representative interaction paths, not full
-end-to-end tests for every project type.
+The browser regression exercises representative project workflows through
+the actual private application runtime against local mocked Supabase responses.
+The generated restaurant page advances a kitchen ticket queued → cooking →
+ready; separate government permits are approved and rejected; and a research
+sample advances received → analysed → archived. It also creates an inventory
+transaction, checks availability and creates a clinic appointment inside the
+clinician schedule, then rejects a second overlapping appointment without
+creating another record. Generated school assessment and formula-backed rows
+are saved with their computed totals kept out of editable fields. PRs #181–#184
+added and passed the Release Gate for the research, restaurant, government and
+clinic browser flows. These are representative paths, not full end-to-end tests
+for every project type.
 
-The remaining evidence gap is broader project-specific interaction coverage and
-controlled verification of the repository's Vercel Sandbox REST adapter, followed
-by wiring custom execution into the application runtime. Production migration
-history and provider activation stay separate final-stage work; these fixtures
-touch no production database or credentials.
+The remaining evidence gap is interaction coverage for additional project
+behaviors and controlled verification of the repository's Vercel Sandbox REST
+adapter, followed by wiring custom execution into the application runtime. The
+live Vercel adapter smoke remains deferred until the user provides the key.
+Production migration history and provider activation stay separate final-stage
+work; these fixtures touch no production database or credentials.
 
 
 ## Business logic — bounded multi-record workflows merged
@@ -325,6 +326,7 @@ Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
 require incremental implementation and evidence, especially a verified provider
 adapter for the custom execution boundary, safe repair/rollback, and diverse
-full reference-project verification. The seven reference projects currently
-have generated-contract coverage; that is not evidence that each is a complete
-customer-ready product. Final provider activation remains phase eight.
+full reference-project verification. The seven reference projects have generated-contract coverage, with
+representative browser interactions now verified for several project types;
+that is not evidence that each is a complete customer-ready product. Final
+provider activation remains phase eight.
