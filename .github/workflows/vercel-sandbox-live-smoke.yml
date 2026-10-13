@@ -48,4 +48,6 @@ jobs:
       - name: Run live adapter smoke
         env:
           VERCEL_TOKEN: ${{ secrets.vercel_token }}
+          VERCEL_TEAM_ID: team_dxtUwkdzIKpmkmE2GFEaMWn1
+          VERCEL_PROJECT_ID: prj_Va68HaopapL5mCzXkQsnJ7X7Kr7V
         run: npm run smoke:vercel-sandbox:live
