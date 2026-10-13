@@ -51,7 +51,7 @@ try {
   assert.deepEqual(createCall.body.networkPolicy, {
     mode: 'custom', allowedDomains: [], allowedCIDRs: [], deniedCIDRs: [],
   });
-  assert.deepEqual(createCall.body.resources, { vcpus: '1', memory: '4096' });
+  assert.deepEqual(createCall.body.resources, { vcpus: '1', memory: '2048' });
   assert.equal(createCall.body.runtime, 'node22');
   assert.equal(createCall.body.projectId, 'prj_test');
   assert.equal(createCall.body.persistent, false);
