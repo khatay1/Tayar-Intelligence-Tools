@@ -18,7 +18,7 @@ const findChrome = () => {
   throw new Error('Chrome is required for the generated application page browser regression. Set CHROME_BIN.');
 };
 const dir = await mkdtemp(join(tmpdir(), 'tayar-reference-page-browser-'));
-let server, proxy;
+let server, proxy, marker;
 const sockets = new Set();
 try {
   let html = '', mockFetch = '', harness = '', complete;
@@ -125,7 +125,6 @@ try {
     '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP *.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer;
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
-  let marker;
   try {
     marker = await Promise.race([completion, new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error('Generated application page browser timed out: ' + stderr)), 30_000);
@@ -144,8 +143,6 @@ try {
     }
   }
   if (!marker?.startsWith('PASS')) throw new Error(marker || 'Browser did not return a result');
-  console.log(marker);
-  process.exit(0);
 } finally {
   if (proxy?.pid) { try { process.kill(-proxy.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; } }
   server?.closeAllConnections();
@@ -153,3 +150,5 @@ try {
   await new Promise(resolveClose => server ? server.close(resolveClose) : resolveClose());
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
+console.log(marker);
+process.exit(0);
