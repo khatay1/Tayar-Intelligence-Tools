@@ -19,6 +19,26 @@ const findChrome = () => {
 const dir = await mkdtemp(join(tmpdir(), 'tayar-reference-page-browser-'));
 let server;
 try {
+  let html = '', mockFetch = '', harness = '', complete;
+  const completion = new Promise(resolveResult => { complete = resolveResult; });
+  server = createServer((req, res) => {
+    if (req.url === '/result' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => { res.end(); complete(body); });
+      return;
+    }
+    if (req.url === '/mock.js' || req.url === '/harness.js') {
+      res.setHeader('content-type', 'text/javascript; charset=utf-8');
+      res.end(req.url === '/mock.js' ? mockFetch : harness); return;
+    }
+    if (req.url?.startsWith('/api/application-session')) {
+      res.setHeader('content-type', 'application/json'); res.end('{"status":"signed-out"}'); return;
+    }
+    res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(html);
+  });
+  await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
+  const url = 'http://127.0.0.1:' + server.address().port;
   const chrome = findChrome();
   const entry = join(dir, 'page-runtime.ts'), outfile = join(dir, 'page-runtime.cjs');
   await writeFile(entry, [
@@ -59,7 +79,7 @@ try {
   const response = await addApplicationPageBootstrap(new Response(files[0].content, {
     headers: { 'content-type': 'text/html; charset=utf-8' },
   }), {
-    language: 'en', returnPath: '/index.html', applicationOrigin: 'https://dddddddd-dddd-4ddd-8ddd-dddddddddddd.apps.tayar.example',
+    language: 'en', returnPath: '/index.html', applicationOrigin: url,
     platformUrl: 'https://pnbllxdlskljcakyaylt.supabase.co',
     projectId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
     ownerId: '11111111-1111-4111-8111-111111111111',
@@ -67,33 +87,13 @@ try {
     definition, paths: ['/index.html'], pageId: 'home', applicationForms: [],
     applicationDataViews: views, backend,
   });
-  let html = await response.text();
+  html = await response.text();
   assert.match(html, /data-tayar-application-runtime/);
-  const mockFetch = '(function(){var original=window.fetch.bind(window);window.__requests=[];window.__mockLoaded=true;window.fetch=async function(input,init){var url=new URL(input instanceof Request?input.url:String(input),location.href);window.__requests.push(url.href);if(url.origin==='
+  mockFetch = '(function(){var original=window.fetch.bind(window);window.__requests=[];window.__mockLoaded=true;window.fetch=async function(input,init){var url=new URL(input instanceof Request?input.url:String(input),location.href);window.__requests.push(url.href);if(url.origin==='
     + JSON.stringify(backend.url) + '&&url.pathname==="/rest/v1/app_records")return Response.json([{id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",name:"Generated page row"}]);if(url.pathname==="/api/application-session")return Response.json({status:"signed-out"});return original(input,init)}})();';
-  const harness = '(async function(){var result="FAIL generated page browser timeout";try{var host=document.querySelector("[data-tayar-data-view-id=records-section]");var root=host&&host.shadowRoot;var deadline=Date.now()+10000;while(Date.now()<deadline){var view=root&&root.querySelector(".view");if(view&&view.getAttribute("aria-busy")==="false")break;await new Promise(function(resolve){setTimeout(resolve,20)})}var view=root&&root.querySelector(".view");if(!view||view.getAttribute("aria-busy")!=="false")throw Error("Generated application data view did not become ready; host="+!!host+" root="+!!root+" view="+!!view+" busy="+(view&&view.getAttribute("aria-busy"))+" mock="+!!window.__mockLoaded+" requests="+JSON.stringify(window.__requests)+" status="+(root&&root.querySelector("[role=status]")?.textContent)+" account="+(document.querySelector("aside")?.shadowRoot?.textContent||"missing")+" page="+document.body.innerHTML.slice(0,500));var row=root.querySelector("tbody tr");if(!row||row.textContent!=="Generated page row")throw Error("Rendered application page did not show the backend record");if(!document.querySelector("aside")?.shadowRoot?.querySelector("nav"))throw Error("Application account navigation did not mount");result="PASS generated HTML page boots the real private application runtime and renders its data view"}catch(error){result="FAIL "+(error&&error.stack||String(error))}try{await fetch("/result",{method:"POST",body:result})}catch(error){document.body.dataset.failure=String(error)}})();';
+  harness = '(async function(){var result="FAIL generated page browser timeout";try{var host=document.querySelector("[data-tayar-data-view-id=records-section]");var root=host&&host.shadowRoot;var deadline=Date.now()+10000;while(Date.now()<deadline){var view=root&&root.querySelector(".view");if(view&&view.getAttribute("aria-busy")==="false")break;await new Promise(function(resolve){setTimeout(resolve,20)})}var view=root&&root.querySelector(".view");if(!view||view.getAttribute("aria-busy")!=="false")throw Error("Generated application data view did not become ready; host="+!!host+" root="+!!root+" view="+!!view+" busy="+(view&&view.getAttribute("aria-busy"))+" mock="+!!window.__mockLoaded+" requests="+JSON.stringify(window.__requests)+" status="+(root&&root.querySelector("[role=status]")?.textContent)+" account="+(document.querySelector("aside")?.shadowRoot?.textContent||"missing")+" page="+document.body.innerHTML.slice(0,500));var row=root.querySelector("tbody tr");if(!row||row.textContent!=="Generated page row")throw Error("Rendered application page did not show the backend record");if(!document.querySelector("aside")?.shadowRoot?.querySelector("nav"))throw Error("Application account navigation did not mount");result="PASS generated HTML page boots the real private application runtime and renders its data view"}catch(error){result="FAIL "+(error&&error.stack||String(error))}try{await fetch("/result",{method:"POST",body:result})}catch(error){document.body.dataset.failure=String(error)}})();';
   html = html.replace('</head>', '<script src="/mock.js"></script></head>');
   html = html.replace('</body>', '<script src="/harness.js"></script></body>');
-  let complete;
-  const completion = new Promise(resolveResult => { complete = resolveResult; });
-  server = createServer((req, res) => {
-    if (req.url === '/result' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => { res.end(); complete(body); });
-      return;
-    }
-    if (req.url === '/mock.js' || req.url === '/harness.js') {
-      res.setHeader('content-type', 'text/javascript; charset=utf-8');
-      res.end(req.url === '/mock.js' ? mockFetch : harness); return;
-    }
-    if (req.url?.startsWith('/api/application-session')) {
-      res.setHeader('content-type', 'application/json'); res.end('{"status":"signed-out"}'); return;
-    }
-    res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(html);
-  });
-  await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
-  const url = 'http://127.0.0.1:' + server.address().port;
   const detached = process.platform !== 'win32';
   const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--disable-background-networking', '--user-data-dir=' + dir, url], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
