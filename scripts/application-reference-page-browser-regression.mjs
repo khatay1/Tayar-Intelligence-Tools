@@ -145,6 +145,7 @@ try {
   }
   if (!marker?.startsWith('PASS')) throw new Error(marker || 'Browser did not return a result');
   console.log(marker);
+  process.exit(0);
 } finally {
   if (proxy?.pid) { try { process.kill(-proxy.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; } }
   server?.closeAllConnections();
