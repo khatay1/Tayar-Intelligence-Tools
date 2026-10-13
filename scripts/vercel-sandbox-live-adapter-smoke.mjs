@@ -13,6 +13,7 @@ if (typeof token !== 'string' || !token.trim()) {
 
 const directory = await mkdtemp(join(tmpdir(), 'tayar-vercel-live-smoke-'));
 let providerStatus;
+let providerErrorCode;
 let providerPhase = 'not-started';
 let smokePhase = 'prepare';
 let providerFetchError = false;
@@ -43,6 +44,17 @@ try {
     try {
       const response = await fetch(input, init);
       providerStatus = response.status;
+      if (!response.ok) {
+        try {
+          const body = await response.clone().json();
+          const code = body?.error?.code ?? body?.code;
+          if (typeof code === 'string' && /^[A-Za-z0-9_-]{1,48}$/.test(code)) {
+            providerErrorCode = code.toLowerCase().replaceAll('_', '-');
+          }
+        } catch {
+          // Keep provider response bodies private and ignore non-JSON error responses.
+        }
+      }
       return response;
     } catch {
       providerFetchError = true;
@@ -68,10 +80,10 @@ try {
   const providerCode = providerFetchError
     ? `provider-transport-${providerPhase}`
     : Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599
-      ? `provider-${providerPhase}-http-${providerStatus}`
+      ? `provider-${providerPhase}-http-${providerStatus}${providerErrorCode ? `-${providerErrorCode}` : ''}`
       : providerPhase !== 'not-started' ? `provider-${providerPhase}-no-response` : null;
   const safeCode = providerCode
-    || (error?.code && /^[a-z0-9-]{1,48}$/.test(error.code) ? error.code : `smoke-${smokePhase}-failed`);
+    || (error?.code && /^[a-z0-9-]{1,96}$/.test(error.code) ? error.code : `smoke-${smokePhase}-failed`);
   console.error(`Live Vercel Sandbox adapter smoke failed (${safeCode}). Provider details were suppressed.`);
   process.exitCode = 1;
 } finally {
