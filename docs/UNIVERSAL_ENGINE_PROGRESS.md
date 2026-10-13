@@ -214,22 +214,20 @@ primary data view, including the declared transaction, workflow, booking or
 formula field. This closes the generated HTML-to-runtime-configuration handoff
 check; it does not simulate browser interaction or prove live provider access.
 
-Release Gate boots a rendered application page with its real browser
-bootstrap in headless Chrome and verifies that the generated data view reads and
-displays a fixture record. It clicks both guarded actions in a generated kitchen
-workflow (queued → cooking → ready), executes them through the actual application
-runtime against local mocked Supabase RPC responses, and verifies each returned
-state in the rendered page. It also opens the generated inventory transaction
-form, loads a fixture product, stages a quantity, submits through the actual
-private runtime against a mocked RPC, and confirms the created order is rendered.
-The generated booking view loads a fixture resource, checks availability through
-its runtime RPC, submits a reservation, and verifies the created row in the page.
-A formula-backed view creates a row using its ordinary input fields, keeps the
-generated total out of the editable form, and displays the mocked database-
-computed total. These are interaction proofs for one kitchen workflow,
-transaction, booking, and formula path, not coverage of all seven reference
-projects. The other project-specific workflows still need generated-page
-coverage.
+Release Gate boots rendered application pages with their real browser
+bootstrap in headless Chrome and verifies that generated data views read and
+display fixture records. It exercises three project-specific workflows through
+the actual private application runtime against local mocked Supabase responses:
+a kitchen ticket advances queued → cooking → ready; a government permit is
+approved; and a research sample advances received → analysed → archived. Each
+resulting state is verified in the rendered page. The same browser regression
+opens the generated inventory transaction form, loads a fixture product, submits
+a quantity and confirms the created order; checks availability and creates a
+booking; and creates a formula-backed row while keeping the computed total out
+of the editable form. This covers representative restaurant, government, and
+research workflow paths plus one transaction, booking, and formula path. It is
+not coverage of all seven reference projects; other project-specific pages and
+operations still need generated-page verification.
 
 The remaining evidence gap is broader project-specific workflow coverage and
 controlled verification of the repository's Vercel Sandbox REST adapter, followed
