@@ -216,22 +216,29 @@ check; it does not simulate browser interaction or prove live provider access.
 
 Release Gate boots rendered application pages with their real browser
 bootstrap in headless Chrome and verifies that generated data views read and
-display fixture records. It exercises project-specific workflows through
-the actual private application runtime against local mocked Supabase responses:
-a kitchen ticket advances queued → cooking → ready; separate government permits
+display fixture records. It now also opens each of the seven generated reference
+project pages (retail, restaurant, school, clinic, government, factory, and
+custom research) in Chrome and verifies the page-specific bound data view renders
+a labeled fixture row. The fixture records are isolated by project and table,
+including schemas that share table names. This verifies the generated page,
+private bootstrap, browser runtime, and mocked read path for every reference
+definition; it does not exercise each project's full workflow or prove live
+provider access.
+
+The browser regression also exercises project-specific workflows through the
+actual private application runtime against local mocked Supabase responses: a
+kitchen ticket advances queued → cooking → ready; separate government permits
 are approved and rejected; and a research sample advances received → analysed →
 archived. Each resulting state is verified in the rendered page, including the
-correct permit row. The same browser regression opens the generated inventory
+correct permit row. The same regression opens the generated inventory
 transaction form, loads a fixture product, submits a quantity and confirms the
 created order; checks availability and creates a booking, then rechecks the same
 interval and verifies the unavailable state without attempting a second
 reservation; and creates a formula-backed row while keeping the computed total
-out of the editable form. This covers representative restaurant, government, and
-research workflow paths plus one transaction, booking, and formula path. It is
-not coverage of all seven reference projects; other project-specific pages and
-operations still need generated-page verification.
+out of the editable form. These are representative interaction paths, not full
+end-to-end tests for every project type.
 
-The remaining evidence gap is broader project-specific workflow coverage and
+The remaining evidence gap is broader project-specific interaction coverage and
 controlled verification of the repository's Vercel Sandbox REST adapter, followed
 by wiring custom execution into the application runtime. Production migration
 history and provider activation stay separate final-stage work; these fixtures
