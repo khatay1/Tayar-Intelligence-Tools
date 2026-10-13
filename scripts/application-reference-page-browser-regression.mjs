@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:http';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:https';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -27,7 +27,10 @@ try {
   let html = '', mockFetch = '', harness = '', complete;
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   const completion = new Promise(resolveResult => { complete = resolveResult; });
-  server = createServer((req, res) => {
+  const keyPath = join(dir, 'localhost.key'), certPath = join(dir, 'localhost.crt');
+  const certificate = spawnSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', keyPath, '-out', certPath, '-days', '1', '-subj', '/CN=*.apps.tayar.se', '-addext', 'subjectAltName=DNS:*.apps.tayar.se'], { stdio: 'ignore' });
+  if (certificate.status !== 0) throw new Error('OpenSSL is required to create the isolated application browser certificate.');
+  server = createServer({ key: await readFile(keyPath), cert: await readFile(certPath) }, (req, res) => {
     serverRequests.push(req.method + ' ' + req.url);
     const requestPath = new URL(req.url, 'https://fixture.local').pathname;
     if (referencePages.has(requestPath)) {
@@ -52,7 +55,7 @@ try {
   server.keepAliveTimeout = 1000;
   server.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
   await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
-  const url = 'http://localhost:' + server.address().port;
+  const url = 'https://' + projectId + '.apps.tayar.se:' + server.address().port;
   const chrome = findChrome();
   const entry = join(dir, 'page-runtime.ts'), outfile = join(dir, 'page-runtime.cjs');
   await writeFile(entry, [
@@ -268,7 +271,7 @@ try {
   html = html.replace('</body>', '<script src="/harness.js"></script></body>');
   const detached = process.platform !== 'win32';
   const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-proxy-server',
-    '--disable-background-networking', '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
+    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer;
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
   try {
