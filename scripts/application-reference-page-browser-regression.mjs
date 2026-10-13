@@ -69,7 +69,7 @@ try {
   });
   let html = await response.text();
   assert.match(html, /data-tayar-application-runtime/);
-  const mockFetch = '(function(){var original=window.fetch.bind(window);window.fetch=async function(input,init){var url=new URL(input instanceof Request?input.url:String(input));if(url.origin==='
+  const mockFetch = '(function(){var original=window.fetch.bind(window);window.fetch=async function(input,init){var url=new URL(input instanceof Request?input.url:String(input),location.href);if(url.origin==='
     + JSON.stringify(backend.url) + '&&url.pathname==="/rest/v1/app_records")return Response.json([{id:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",name:"Generated page row"}]);if(url.pathname==="/api/application-session")return Response.json({status:"signed-out"});return original(input,init)}})();';
   const harness = '(async function(){var result="FAIL generated page browser timeout";try{var host=document.querySelector("[data-tayar-data-view-id=records-section]");var deadline=Date.now()+10000;while(Date.now()<deadline){var view=host&&host.querySelector(".view");if(view&&view.getAttribute("aria-busy")==="false")break;await new Promise(function(resolve){setTimeout(resolve,20)})}var view=host&&host.querySelector(".view");if(!view||view.getAttribute("aria-busy")!=="false")throw Error("Generated application data view did not become ready");var row=host.querySelector("tbody tr");if(!row||row.textContent!=="Generated page row")throw Error("Rendered application page did not show the backend record");if(!document.querySelector("aside nav"))throw Error("Application account navigation did not mount");result="PASS generated HTML page boots the real private application runtime and renders its data view"}catch(error){result="FAIL "+(error&&error.stack||String(error))}try{await fetch("/result",{method:"POST",body:result})}catch(error){document.body.dataset.failure=String(error)}})();';
   html = html.replace('</head>', '<script src="/mock.js"></script></head>');
@@ -77,7 +77,6 @@ try {
   let complete;
   const completion = new Promise(resolveResult => { complete = resolveResult; });
   server = createServer((req, res) => {
-    console.log('generated page browser request ' + req.method + ' ' + req.url);
     if (req.url === '/result' && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
