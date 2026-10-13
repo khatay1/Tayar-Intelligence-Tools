@@ -13,6 +13,7 @@ const UTF8 = new TextEncoder();
 
 export interface VercelSandboxAdapterConfig {
   token: string;
+  projectId: string;
   teamId?: string;
   fetcher?: typeof fetch;
 }
@@ -111,6 +112,9 @@ export function createVercelSandboxExecutionAdapter(
   if (typeof config.token !== 'string' || !config.token.trim() || config.token.length > 4096) {
     throw new Error('Vercel Sandbox credentials are unavailable.');
   }
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(config.projectId)) {
+    throw new Error('Vercel Sandbox project scope is invalid.');
+  }
   if (config.teamId !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(config.teamId)) {
     throw new Error('Vercel Sandbox team scope is invalid.');
   }
@@ -134,6 +138,7 @@ export function createVercelSandboxExecutionAdapter(
         method: 'POST',
         signal: AbortSignal.timeout(SESSION_STARTUP_ALLOWANCE_MS),
         body: JSON.stringify({
+          projectId: config.projectId,
           runtime: 'node22',
           networkPolicy: { mode: 'custom', allowedDomains: [], allowedCIDRs: [], deniedCIDRs: [] },
           resources: { vcpus: '1', memory: '4096' },
