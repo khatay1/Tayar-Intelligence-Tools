@@ -214,9 +214,15 @@ primary data view, including the declared transaction, workflow, booking or
 formula field. This closes the generated HTML-to-runtime-configuration handoff
 check; it does not simulate browser interaction or prove live provider access.
 
+Release Gate now also boots a rendered application page with its real browser
+bootstrap in headless Chrome and verifies that the generated data view reads and
+displays a fixture record. This covers the page/runtime browser handoff for a
+basic public-read view. The seven primary-feature flows still need interaction
+coverage through the browser.
+
 The next evidence gap is to exercise these features through the generated page
-and application runtime, then run controlled isolated activation of the
-custom-code Sandbox. Production migration history and provider activation stay
+and application runtime in browser interaction, then run controlled isolated
+activation of the custom-code Sandbox. Production migration history and provider activation stay
 separate final-stage work; these PostgreSQL fixtures touch no production
 database or credentials.
 
