@@ -77,6 +77,7 @@ try {
   let complete;
   const completion = new Promise(resolveResult => { complete = resolveResult; });
   server = createServer((req, res) => {
+    console.log('generated page browser request ' + req.method + ' ' + req.url);
     if (req.url === '/result' && req.method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
