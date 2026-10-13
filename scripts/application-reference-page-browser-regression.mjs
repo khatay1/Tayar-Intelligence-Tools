@@ -84,7 +84,7 @@ try {
       id: 'products', key: 'products', name: 'Products',
       fields: [
         { id: 'product-sku', key: 'sku', name: 'SKU', type: 'text', required: true },
-        { id: 'product-quantity', key: 'quantity', name: 'Quantity', type: 'number', required: true, defaultValue: 5 },
+        { id: 'product-quantity', key: 'quantity', name: 'Quantity', type: 'number', required: true, defaultValue: 0 },
       ],
       permissions: [{ operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }],
       counter: { fieldId: 'product-quantity', minimum: 0, integer: true },
