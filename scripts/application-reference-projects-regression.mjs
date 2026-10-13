@@ -243,7 +243,7 @@ try {
       assert.equal(ownerCount, '1', reference.domain + ' authenticated owner sees only their row');
       assert.equal(otherCount, '1', reference.domain + ' second owner sees only their row');
       await assert.rejects(query("set role authenticated; select set_config('request.jwt.claim.sub', '" + ownerId + "', false); update public." + tableName + " set owner_id = '" + otherOwnerId + "' where id = '" + ownerId + "'; reset role;"),
-        /permission denied|row-level security|new row violates/i, reference.domain + ' cannot transfer an owned record by changing owner_id');
+        /permission denied|row-level security|new row violates|immutable application record identity/i, reference.domain + ' cannot transfer an owned record by changing owner_id');
       assert.equal(await query("select count(*) from public." + tableName + " where id = '" + ownerId + "' and owner_id = '" + ownerId + "';"), '1',
         reference.domain + ' failed tenant transfer leaves the original record intact');
     }
