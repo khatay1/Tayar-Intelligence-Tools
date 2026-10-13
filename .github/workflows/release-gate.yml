@@ -67,6 +67,9 @@ jobs:
       - name: Published custom operation authorization and quota gate regression
         run: node scripts/website-application-custom-operation-regression.mjs
 
+      - name: Website custom execution quota regression
+        run: node scripts/website-custom-execution-quota-regression.mjs
+
       - name: Vercel Sandbox execution adapter regression
         run: node scripts/vercel-sandbox-execution-adapter-regression.mjs
 
@@ -101,6 +104,8 @@ jobs:
           timeout 45s node scripts/website-owned-email-regression.mjs --postgres
           timeout 45s node scripts/website-owned-stripe-webhook-regression.mjs --postgres
           timeout 45s node scripts/application-reference-projects-regression.mjs --postgres
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_custom_execution_quota_test;'
+          TAYAR_CUSTOM_EXECUTION_QUOTA_TEST_DATABASE_URL=postgres://postgres:booking-test-only@localhost:5432/tayar_custom_execution_quota_test node scripts/website-custom-execution-quota-postgres-regression.mjs
 
       - name: Application report database regression
         env:

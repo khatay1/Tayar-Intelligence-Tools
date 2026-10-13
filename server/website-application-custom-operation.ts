@@ -34,7 +34,8 @@ export interface PublishedCustomOperationDependencies {
   loadOperation(input: Pick<PublishedCustomOperationRequest, 'projectId' | 'releaseId' | 'operationId'>):
     Promise<{ releaseId: string; source: string } | null>;
   authorize(input: PublishedCustomOperationRequest): Promise<boolean>;
-  reserveUsage(input: PublishedCustomOperationRequest): Promise<boolean>;
+  reserveUsage(input: PublishedCustomOperationRequest): Promise<string | null>;
+  completeUsage(reservationId: string, input: PublishedCustomOperationRequest, durationMs: number): Promise<boolean>;
   adapter: IsolatedExecutionAdapter;
   enabled?: boolean;
 }
@@ -61,8 +62,21 @@ export async function runPublishedCustomOperation(
     if (!operation || operation.releaseId !== request.releaseId || typeof operation.source !== 'string') {
       throw new PublishedCustomOperationError('unavailable');
     }
-    if (!await dependencies.reserveUsage(request)) throw new PublishedCustomOperationError('unavailable');
-    return await runIsolatedCustomCode({ source: operation.source, input: request.input }, dependencies.adapter);
+    const reservationId = await dependencies.reserveUsage(request);
+    if (!reservationId) throw new PublishedCustomOperationError('unavailable');
+    const startedAt = Date.now();
+    let result: unknown;
+    let executionError: unknown;
+    try {
+      result = await runIsolatedCustomCode({ source: operation.source, input: request.input }, dependencies.adapter);
+    } catch (error) {
+      executionError = error;
+    }
+    let completed = false;
+    try { completed = await dependencies.completeUsage(reservationId, request, Date.now() - startedAt); } catch { /* keep the reservation until its expiry */ }
+    if (!completed) throw new PublishedCustomOperationError('unavailable');
+    if (executionError) throw executionError;
+    return result;
   } catch (error) {
     if (error instanceof PublishedCustomOperationError) throw error;
     if (error instanceof IsolatedExecutionError) {
