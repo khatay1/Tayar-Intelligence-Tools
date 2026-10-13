@@ -185,7 +185,7 @@ try {
   html = html.replace('</body>', '<script src="/harness.js"></script></body>');
   const detached = process.platform !== 'win32';
   const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-proxy-server',
-    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1,EXCLUDE localhost, '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
+    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer;
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
   try {
