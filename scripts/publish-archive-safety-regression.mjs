@@ -174,5 +174,5 @@ assert.equal(staleRemovals, 1, 'verified replacement removes stale files before 
 assert.equal(projectWrites, 1, 'publication metadata commit is attempted once');
 assert.equal(restores, 1, 'failed publication metadata commit restores the previous live snapshot');
 assert.equal(publishedStateWrites, 0, 'failed metadata commit leaves editor publication state unchanged');
-assert.match(errorText, /Project metadata update failed.*restored automatically/);
+assert.match(errorText, /previous live website was restored automatically/);
 console.log('PASS publication rollback: archive validation, upload/route verification, failed state-commit recovery and editor-state safety');
