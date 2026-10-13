@@ -54,7 +54,8 @@ try {
   assert.deepEqual(createCall.body.resources, { vcpus: '1', memory: '2048' });
   assert.equal(createCall.body.runtime, 'node22');
   assert.equal(createCall.body.persistent, false);
-  assert.equal(createCall.body.timeout, '31000', 'VM expiry includes bounded startup time');
+  assert.equal(createCall.body.timeout, 31_000, 'VM expiry includes bounded startup time');
+  assert.equal(Number.isInteger(createCall.body.timeout), true, 'Vercel API expects a JSON integer timeout');
   for (const key of ['env', 'source', 'mounts', 'networkId']) assert.equal(key in createCall.body, false);
 
   const commandCall = calls.find(call => call.url.pathname.endsWith('/cmd') && call.method === 'POST');
