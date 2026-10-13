@@ -47,6 +47,9 @@ try {
   const createCall = calls.find(call => call.url.pathname === '/v2/sandboxes');
   assert.equal(createCall.url.origin, 'https://api.vercel.com');
   assert.equal(createCall.url.searchParams.get('teamId'), 'team_test');
+  assert.equal(createCall.url.searchParams.has('projectId'), false);
+  assert.equal(createCall.body.projectId, 'prj_test');
+  assert.equal(createCall.body.region, 'iad1');
   assert.equal(createCall.headers.get('authorization'), 'Bearer test-only-token');
   assert.deepEqual(createCall.body.networkPolicy, {
     mode: 'custom', allowedDomains: [], allowedCIDRs: [], deniedCIDRs: [],
@@ -80,6 +83,7 @@ try {
 
   assert.throws(() => createVercelSandboxExecutionAdapter({ token: '', projectId: 'prj_test' }), /credentials are unavailable/);
   assert.throws(() => createVercelSandboxExecutionAdapter({ token: 'test-token', teamId: 'bad/team', projectId: 'prj_test' }), /team scope is invalid/);
+  assert.throws(() => createVercelSandboxExecutionAdapter({ token: 'test-token', projectId: 'bad/project' }), /project scope is invalid/);
   console.log('Vercel Sandbox execution adapter regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });
