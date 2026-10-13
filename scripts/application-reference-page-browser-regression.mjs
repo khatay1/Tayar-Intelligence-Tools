@@ -72,7 +72,7 @@ try {
   const { renderWebsiteApplicationSnapshot, preparePublishedApplicationDataViews, addApplicationPageBootstrap } =
     (await import(pathToFileURL(outfile))).default;
   const definition = {
-    version: 1, roles: [], pageAccess: [],
+    version: 1, roles: [{ id: 'reviewer', name: 'Reviewer' }], pageAccess: [],
     auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     tables: [{
       id: 'records', key: 'records', name: 'Records',
