@@ -183,6 +183,30 @@ closed. Release Gate now runs this focused regression. These are generated
 contract fixtures, not complete end-to-end customer products or live provider
 proof.
 
+## Reference project runtime isolation — added
+
+The Release Gate now also runs each of the seven generated reference schemas on
+an isolated PostgreSQL database. It seeds records for two test owners, confirms
+each authenticated owner can read only their own row, and verifies an attempted
+owner reassignment is denied or rejected without changing the row. The fixtures
+reset the disposable schemas after use. This proves the generated schemas apply
+and their baseline tenant boundary works; it does not claim full customer
+product E2E or live provider readiness. Existing transaction, workflow,
+formula, booking and related PostgreSQL regressions remain the evidence for
+those native capability classes.
+
+The rollback safety regression also covers a verified publish whose project
+metadata commit fails: the previous live snapshot is restored and editor
+publication state stays unchanged. This is a recovery contract test, not proof
+of a live provider restore.
+
+The next evidence gap remains end-to-end execution of each reference
+application's declared primary feature through its generated page/runtime, then
+controlled isolated activation of the custom-code Sandbox. Production migration
+history and provider activation remain separate final-stage work; no production
+database or credentials are touched by the new PostgreSQL fixtures.
+
+
 ## Business logic — bounded multi-record workflows merged
 
 PR #154 merged to `main` as
