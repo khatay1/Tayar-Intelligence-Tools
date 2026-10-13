@@ -40,7 +40,7 @@ try {
     throw new Error(`Unexpected mocked request: ${method} ${url.pathname}`);
   };
 
-  const adapter = createVercelSandboxExecutionAdapter({ token: 'test-only-token', teamId: 'team_test', fetcher });
+  const adapter = createVercelSandboxExecutionAdapter({ token: 'test-only-token', projectId: 'prj_test', teamId: 'team_test', fetcher });
   const request = { source: 'return { value: input.left + input.right }', input: { left: 3, right: 4 }, timeoutMs: 1000 };
   assert.deepEqual(await runIsolatedCustomCode(request, adapter), { value: 7 });
 
@@ -53,6 +53,7 @@ try {
   });
   assert.deepEqual(createCall.body.resources, { vcpus: '1', memory: '4096' });
   assert.equal(createCall.body.runtime, 'node22');
+  assert.equal(createCall.body.projectId, 'prj_test');
   assert.equal(createCall.body.persistent, false);
   assert.equal(createCall.body.timeout, 31000, 'VM expiry includes bounded startup time');
   for (const key of ['env', 'source', 'mounts', 'networkId']) assert.equal(key in createCall.body, false);
@@ -79,7 +80,8 @@ try {
   assert.equal(calls.filter(call => call.url.pathname.endsWith('/stop')).length, 1, 'oversized output must stop the VM');
 
   assert.throws(() => createVercelSandboxExecutionAdapter({ token: '' }), /credentials are unavailable/);
-  assert.throws(() => createVercelSandboxExecutionAdapter({ token: 'test-token', teamId: 'bad/team' }), /team scope is invalid/);
+  assert.throws(() => createVercelSandboxExecutionAdapter({ token: 'test-token', projectId: 'prj_test', teamId: 'bad/team' }), /team scope is invalid/);
+  assert.throws(() => createVercelSandboxExecutionAdapter({ token: 'test-token', projectId: 'bad/project' }), /project scope is invalid/);
   console.log('Vercel Sandbox execution adapter regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });
