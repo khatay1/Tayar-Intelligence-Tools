@@ -216,16 +216,17 @@ check; it does not simulate browser interaction or prove live provider access.
 
 Release Gate boots rendered application pages with their real browser
 bootstrap in headless Chrome and verifies that generated data views read and
-display fixture records. It exercises three project-specific workflows through
+display fixture records. It exercises project-specific workflows through
 the actual private application runtime against local mocked Supabase responses:
-a kitchen ticket advances queued → cooking → ready; a government permit is
-approved; and a research sample advances received → analysed → archived. Each
-resulting state is verified in the rendered page. The same browser regression
-opens the generated inventory transaction form, loads a fixture product, submits
-a quantity and confirms the created order; checks availability and creates a
-booking, then rechecks the same interval and verifies the unavailable state
-without attempting a second reservation; and creates a formula-backed row
-while keeping the computed total out of the editable form. This covers representative restaurant, government, and
+a kitchen ticket advances queued → cooking → ready; separate government permits
+are approved and rejected; and a research sample advances received → analysed →
+archived. Each resulting state is verified in the rendered page, including the
+correct permit row. The same browser regression opens the generated inventory
+transaction form, loads a fixture product, submits a quantity and confirms the
+created order; checks availability and creates a booking, then rechecks the same
+interval and verifies the unavailable state without attempting a second
+reservation; and creates a formula-backed row while keeping the computed total
+out of the editable form. This covers representative restaurant, government, and
 research workflow paths plus one transaction, booking, and formula path. It is
 not coverage of all seven reference projects; other project-specific pages and
 operations still need generated-page verification.
