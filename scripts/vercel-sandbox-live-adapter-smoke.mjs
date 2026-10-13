@@ -13,6 +13,8 @@ if (typeof token !== 'string' || !token.trim()) {
 
 const directory = await mkdtemp(join(tmpdir(), 'tayar-vercel-live-smoke-'));
 let providerStatus;
+let providerPhase = 'not-started';
+let providerFetchError = false;
 try {
   await build({
     entryPoints: [
@@ -29,9 +31,19 @@ try {
   const boundaryModule = (await import(pathToFileURL(join(directory, 'isolated-code-execution.cjs')))).default;
   const adapterModule = (await import(pathToFileURL(join(directory, 'vercel-sandbox-execution-adapter.cjs')))).default;
   const fetcher = async (input, init) => {
-    const response = await fetch(input, init);
-    if (!response.ok && providerStatus === undefined) providerStatus = response.status;
-    return response;
+    const url = new URL(String(input));
+    providerPhase = url.pathname === '/v2/sandboxes' ? 'create-sandbox'
+      : url.pathname.endsWith('/logs') ? 'read-logs'
+        : url.pathname.endsWith('/stop') ? 'stop-sandbox'
+          : url.pathname.includes('/cmd') ? 'run-command' : 'provider-request';
+    try {
+      const response = await fetch(input, init);
+      providerStatus = response.status;
+      return response;
+    } catch {
+      providerFetchError = true;
+      throw new Error('Vercel Sandbox transport failed.');
+    }
   };
   const adapter = adapterModule.createVercelSandboxExecutionAdapter({
     token,
@@ -49,9 +61,11 @@ try {
 } catch (error) {
   const safeCode = error?.code && /^[a-z0-9-]{1,48}$/.test(error.code)
     ? error.code
-    : Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599
-      ? `provider-http-${providerStatus}`
-      : 'live-provider-smoke-failed';
+    : providerFetchError
+      ? `provider-transport-${providerPhase}`
+      : Number.isInteger(providerStatus) && providerStatus >= 100 && providerStatus <= 599
+        ? `provider-${providerPhase}-http-${providerStatus}`
+        : 'live-provider-smoke-failed';
   console.error(`Live Vercel Sandbox adapter smoke failed (${safeCode}). Provider details were suppressed.`);
   process.exitCode = 1;
 } finally {
