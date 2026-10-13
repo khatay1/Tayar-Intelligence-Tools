@@ -52,7 +52,7 @@ try {
   server.keepAliveTimeout = 1000;
   server.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
   await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
-  const url = 'http://127.0.0.1:' + server.address().port;
+  const url = 'http://localhost:' + server.address().port;
   const chrome = findChrome();
   const entry = join(dir, 'page-runtime.ts'), outfile = join(dir, 'page-runtime.cjs');
   await writeFile(entry, [
