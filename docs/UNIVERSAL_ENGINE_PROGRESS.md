@@ -214,17 +214,20 @@ primary data view, including the declared transaction, workflow, booking or
 formula field. This closes the generated HTML-to-runtime-configuration handoff
 check; it does not simulate browser interaction or prove live provider access.
 
-Release Gate now also boots a rendered application page with its real browser
+Release Gate boots a rendered application page with its real browser
 bootstrap in headless Chrome and verifies that the generated data view reads and
-displays a fixture record. This covers the page/runtime browser handoff for a
-basic public-read view. The seven primary-feature flows still need interaction
-coverage through the browser.
+displays a fixture record. It also clicks a generated workflow transition,
+executes it through the actual application runtime against a local mocked
+Supabase RPC, and confirms the returned state is rendered in the page. This is
+initial browser interaction evidence for one workflow path, not coverage of all
+seven reference projects. Transaction, booking, and formula interactions and
+project-specific workflow paths remain to be exercised through generated pages.
 
-The next evidence gap is to exercise these features through the generated page
-and application runtime in browser interaction, then run controlled isolated
-activation of the custom-code Sandbox. Production migration history and provider activation stay
-separate final-stage work; these PostgreSQL fixtures touch no production
-database or credentials.
+The next evidence gap is to extend those feature interactions through generated
+pages and the application runtime, then run controlled isolated activation of
+the custom-code Sandbox. Production migration history and provider activation
+stay separate final-stage work; these fixtures touch no production database or
+credentials.
 
 
 ## Business logic — bounded multi-record workflows merged
