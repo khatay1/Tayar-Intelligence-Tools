@@ -301,6 +301,16 @@ provider behavior is verified against a controlled activation sandbox and
 explicitly wired to the server-side application runtime. No customer code can
 reach this adapter today.
 
+An opt-in live smoke command now exercises the repository adapter and the shared
+one-shot cleanup boundary: `npm run smoke:vercel-sandbox:live`. It skips without
+a provider request when `VERCEL_TOKEN` is absent; `VERCEL_TEAM_ID` is optional.
+Provide credentials only through the local process environment, never by
+pasting them into source or command text. The smoke runs one deterministic
+expression with deny-all networking and a 10-second execution limit, suppresses
+provider error details, and is excluded from CI/Release Gate. It has not yet
+been run against Vercel, so the repository-adapter live verification remains
+open until that command completes successfully.
+
 The Website Builder AI undo path now has a direct behavioral regression in
 Release Gate. It verifies restoration of the complete captured page, site,
 brand, SEO, theme, header and reusable-symbol state; confirms restored
