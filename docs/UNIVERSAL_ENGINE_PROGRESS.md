@@ -276,8 +276,16 @@ fail-closed behavior, request/output bounds, timeouts, cleanup, and a mocked
 Vercel Sandbox REST adapter. The adapter requests an empty network allowlist,
 ephemeral Node 22 VMs, bounded resources and lifetime, and sends no environment,
 repository, mount or customer credential fields. Its HTTP contract is covered
-with mocked requests and responses only. No Vercel account, credential or live
-VM was used, and the adapter is not mounted into an application route.
+with mocked requests and responses only. No credentials were injected into
+the provider smoke, and the adapter is not mounted into an application route.
+
+A controlled provider smoke has now created a non-persistent Node 22 sandbox
+with one vCPU, a 30-second timeout, and deny-all network policy in the connected
+Vercel project. It wrote and read a local fixture file, confirmed an external
+fetch was blocked, exited successfully, and the session was stopped. This
+verifies the provider can start and isolate a short-lived VM; it does not verify
+the repository's REST adapter against Vercel, mount custom execution into an
+application route, or activate customer code.
 
 Custom operations remain rejected during project generation until this
 provider behavior is verified against a controlled activation sandbox and
