@@ -252,6 +252,57 @@ try {
         reference.domain + ' denied or filtered tenant transfer leaves the original record intact');
       assert.equal(await query("select count(*) from public." + tableName + " where id = '" + ownerId + "' and owner_id = '" + otherOwnerId + "';"), '0',
         reference.domain + ' never transfers the record to another owner');
+
+      const asOwner = "set role authenticated; set request.jwt.claim.sub = '" + ownerId + "'; ";
+      if (reference.domain === 'retail' || reference.domain === 'factory') {
+        const itemTable = reference.domain === 'retail' ? 'app_products' : 'app_materials';
+        const counterField = reference.domain === 'retail' ? 'quantity' : 'on_hand';
+        const transactionTable = reference.domain === 'retail' ? 'app_orders' : 'app_work_orders';
+        const lineTable = reference.domain === 'retail' ? 'app_order_lines' : 'app_material_issues';
+        await query(asOwner + "select public.app_adjust_counter_0('" + ownerId + "', 10, gen_random_uuid()); reset role;");
+        const orderData = reference.domain === 'retail'
+          ? { reference: 'runtime-retail-order', note: 'reference project runtime' }
+          : { batch_reference: 'runtime-factory-batch', quantity: 2 };
+        const transaction = JSON.parse(await query(asOwner + "select public.app_create_transaction_1('" + JSON.stringify(orderData)
+          + "'::jsonb, '[{\"itemId\":\"" + ownerId + "\",\"quantity\":2}]'::jsonb, gen_random_uuid()); reset role;"));
+        assert.equal(transaction.status, 'created', reference.domain + ' primary inventory transaction executes');
+        assert.equal(await query("select " + counterField + " from public." + itemTable + " where id = '" + ownerId + "';"), '8',
+          reference.domain + ' transaction decrements the generated inventory counter atomically');
+        assert.equal(await query("select count(*) from public." + transactionTable + " where owner_id = '" + ownerId + "';"), '1');
+        assert.equal(await query("select count(*) from public." + lineTable + ";"), '1');
+      } else if (reference.domain === 'restaurant') {
+        await query("insert into public.app_kitchen_tickets (id, owner_id, ticket_number, menu_item) values ('" + ownerId + "', '" + ownerId + "', 'runtime-ticket', '" + ownerId + "');");
+        await query(asOwner + "select public.app_transition_workflow_1('" + ownerId + "', 'start-cooking', gen_random_uuid()); reset role;");
+        assert.equal(await query("select state from public.app_kitchen_tickets where id = '" + ownerId + "';"), 'cooking',
+          'restaurant owner transition executes on its generated ticket');
+      } else if (reference.domain === 'school') {
+        const assessmentId = '33333333-3333-4333-8333-333333333333';
+        await query(asOwner + "insert into public.app_assessments (id, owner_id, student, coursework_score, exam_score) values ('"
+          + assessmentId + "', '" + ownerId + "', '" + ownerId + "', 30, 60); reset role;");
+        assert.equal(Number(await query("select total_score from public.app_assessments where id = '" + assessmentId + "';")), 90,
+          'school assessment calculates its generated total score at runtime');
+      } else if (reference.domain === 'clinic') {
+        const appointmentId = '44444444-4444-4444-8444-444444444444';
+        await query(asOwner + "insert into public.app_appointments (id, owner_id, patient_reference, clinician, starts_at, ends_at) values ('"
+          + appointmentId + "', '" + ownerId + "', 'runtime-patient', '" + ownerId
+          + "', '2026-10-12T07:00:00Z', '2026-10-12T07:30:00Z'); reset role;");
+        assert.equal(await query("select count(*) from public.app_appointments where id = '" + appointmentId + "';"), '1',
+          'clinic appointment inside declared business hours is accepted');
+        await assert.rejects(query(asOwner + "insert into public.app_appointments (id, owner_id, patient_reference, clinician, starts_at, ends_at) values ('55555555-5555-4555-8555-555555555555', '"
+          + ownerId + "', 'runtime-overlap', '" + ownerId + "', '2026-10-12T07:15:00Z', '2026-10-12T07:45:00Z'); reset role;"),
+          /exclusion|overlap|booking/i, 'clinic overlap is rejected by the generated booking constraint');
+      } else if (reference.domain === 'government') {
+        await query("insert into private.app_user_roles (user_id, role_id) values ('" + ownerId + "', 'reviewer') on conflict do nothing;");
+        await query(asOwner + "select public.app_transition_workflow_0('" + ownerId + "', 'approve', gen_random_uuid()); reset role;");
+        assert.equal(await query("select state from public.app_permit_cases where id = '" + ownerId + "';"), 'approved',
+          'government reviewer approval executes on its generated case');
+      } else if (reference.domain === 'custom-research') {
+        await query(asOwner + "select public.app_transition_workflow_0('" + ownerId + "', 'analyse', gen_random_uuid()); reset role;");
+        assert.equal(await query("select condition from public.app_research_samples where id = '" + ownerId + "';"), 'analysed',
+          'research owner transition executes on its generated sample');
+      } else {
+        throw Error('Missing runtime feature scenario for ' + reference.domain);
+      }
     }
     await query('drop schema if exists private cascade; drop schema if exists public cascade; create schema public;');
     console.log('PASS PostgreSQL reference-project runtime isolation: generated schemas apply and owner RLS denies cross-tenant reads/transfers for all seven projects');
