@@ -234,6 +234,8 @@ try {
       referenceRows[reference.domain] ||= {};
       referenceRows[reference.domain][table.key] = [row];
     }
+    const featureLabelField = featureTable.fields[0];
+    if (featureLabelField) referenceRows[reference.domain][featureTable.key][0][featureLabelField.key] = 'Fixture ' + reference.domain;
     const pagePath = '/fixtures/' + reference.domain + '.html';
     const sectionId = 'reference-' + reference.domain;
     const actions = reference.feature.capability === 'transaction' ? ['transact']
