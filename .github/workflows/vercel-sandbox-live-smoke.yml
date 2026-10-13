@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - .github/workflows/vercel-sandbox-live-smoke.yml
+      - scripts/vercel-sandbox-live-adapter-smoke.mjs
+      - server/vercel-sandbox-execution-adapter.ts
   workflow_dispatch:
 
 permissions:
