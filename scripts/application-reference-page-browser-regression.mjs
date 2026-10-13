@@ -48,7 +48,7 @@ try {
       res.end(req.url === '/mock.js' ? mockFetch : harness); return;
     }
     if (req.url?.startsWith('/api/application-session')) {
-      res.setHeader('content-type', 'application/json'); res.end('{"status":"signed-out"}'); return;
+      res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ status: req.method === 'POST' ? 'synchronized' : 'signed-out' })); return;
     }
     res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(html);
   });
