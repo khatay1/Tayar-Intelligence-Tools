@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { servePublishedWebsiteApplication, validateWebsiteApplicationRelease } from '../src/modules/website-builder/services/websiteApplicationPublishedService';
 import { applicationOriginForProject } from '../src/modules/website-builder/core/application-origin';
 import { clearApplicationBrowserSession, handleWebsiteApplicationBrowserSession } from '../src/modules/website-builder/services/websiteApplicationSessionService';
+import { createVercelSandboxExecutionAdapter } from './vercel-sandbox-execution-adapter';
+import { servePublishedCustomOperationRuntime } from './website-application-custom-operation-runtime';
 
 const unavailable = () => new Response('Application runtime is unavailable.', { status: 503, headers: { 'cache-control': 'private, no-store' } });
 function platformClient(platformUrl: string) {
@@ -60,4 +62,38 @@ export async function serveApplicationBrowserSession(input: {
     const response = await handleWebsiteApplicationBrowserSession(input.request, { ...scope, projectId: input.projectId, backend, definition, platformUrl: input.platformUrl });
     return mayClearCookie ? clearApplicationBrowserSession(response) : response;
   } catch { return failed(); }
+}
+
+/** Platform-owned same-origin route. Custom code stays disabled until the
+ * operator explicitly enables the feature and supplies platform sandbox scope.
+ */
+export async function serveApplicationCustomOperation(input: {
+  request: Request; ownerId: string; projectId: string; platformUrl: string;
+}): Promise<Response> {
+  const enabled = process.env.WEBSITE_APPLICATION_RUNTIME_ENABLED === 'true'
+    && process.env.WEBSITE_CUSTOM_EXECUTION_ENABLED === 'true';
+  if (!enabled) return Response.json({ error: 'not_found' }, {
+    status: 404,
+    headers: { 'cache-control': 'private, no-store', 'cdn-cache-control': 'no-store', 'vary': 'Origin, Authorization, Cookie' },
+  });
+  try {
+    const platformOrigin = process.env.WEBSITE_PLATFORM_ORIGIN ?? 'https://tayar.se';
+    const applicationOrigin = applicationOriginForProject(
+      input.projectId,
+      process.env.WEBSITE_APPLICATION_HOST_SUFFIX ?? '',
+      platformOrigin,
+    );
+    const adapter = createVercelSandboxExecutionAdapter({
+      token: process.env.VERCEL_TOKEN ?? '',
+      projectId: process.env.VERCEL_PROJECT_ID ?? '',
+      ...(process.env.VERCEL_TEAM_ID ? { teamId: process.env.VERCEL_TEAM_ID } : {}),
+    });
+    return await servePublishedCustomOperationRuntime({
+      ...input,
+      applicationOrigin,
+      platform: platformClient(input.platformUrl),
+      adapter,
+      enabled: true,
+    });
+  } catch { return unavailable(); }
 }

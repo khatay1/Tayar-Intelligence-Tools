@@ -2,11 +2,12 @@
 
 ## Current continuation checkpoint — 2026-10-14
 
-- Live `main` is `1d39ca528820624a0fdd483637c4de12e0f0b15c`. PR #146 is merged and the latest main Release Gate, run `38599925674`, passed.
-- Vercel Production remains READY at `ab55075e`, behind `main`; no Production promotion was made.
-- Supabase advisors still reported 16 uncovered foreign keys. A read-only catalog check on active project `pnbllxdlskljcakyaylt` confirmed 0 uncovered foreign keys across 96 and all 16 phase-zero indexes valid. The advisor discrepancy remains under review; no redundant DDL was added. Existing SECURITY DEFINER and RLS-without-policy findings include reviewed server-only boundaries; do not add blanket grants or policies.
-- PR #221 is open for the custom execution quota fix. Failed isolated execution records `error` while still consuming its reservation. An additive migration changes quota counting only for `website-custom-execution`; errors from other tools retain their existing behavior. No live migration was applied.
-- Local regressions: PGlite quota atomicity, custom quota, operation authorization/execution, and HTTP route passed. TypeScript and scoped ESLint passed. The updated PostgreSQL Release Gate regression will verify the migration against isolated Postgres; wait for the latest PR gate before merge.
+- `main` is `0cfb5b17b89d3a2a0f61249e6fabde1120f730fb`. PR #221 merged after its Release Gate (`38628619859`) and Vercel Preview passed; the main Release Gate (`38629106902`) also passed.
+- Vercel Production remains READY at `ab55075e`, behind `main`. No promotion was made. The custom-operation runtime work below is feature-gated off by default and must not be enabled on Production in this phase.
+- The quota fix records failed isolated executions as errors while consuming their reservation. Its migration is committed but not applied to Supabase. PostgreSQL and PGlite release regressions passed.
+- Supabase advisor findings remain scoped for owner review: catalog checks found all 96 foreign keys indexed despite the advisor discrepancy; SECURITY DEFINER/private RLS findings were reviewed as intentional server/API boundaries. Leaked-password protection is still unavailable on the current Free plan. No live database, Auth or billing setting was changed.
+- Current branch `feat/mount-published-custom-operations-20261014` composes published custom operations through the existing customer actor authorization, immutable release lookup, quota service and isolated Vercel Sandbox adapter. The same-origin platform API route is disabled unless both server flags are explicitly enabled. No credentials are forwarded into sandbox processes.
+- Local focused regressions for runtime composition, authorization/execution, HTTP route, immutable release, quota and sandbox boundary passed. The generated runtime bundle check passed. TypeScript verification is running before opening the Release Gate PR.
 
 ## Live repository check — 2026-10-14
 

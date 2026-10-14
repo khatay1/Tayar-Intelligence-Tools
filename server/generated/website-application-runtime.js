@@ -1630,6 +1630,681 @@ async function servePublishedWebsiteApplication(input) {
   }
 }
 
+// server/isolated-code-execution.ts
+var ISOLATED_CODE_LIMITS = Object.freeze({
+  maxSourceBytes: 64 * 1024,
+  maxInputBytes: 64 * 1024,
+  maxOutputBytes: 32 * 1024,
+  maxTimeoutMs: 1e4,
+  maxJsonDepth: 20
+});
+var IsolatedExecutionError = class extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+    this.name = "IsolatedExecutionError";
+  }
+};
+var utf8Encoder = new TextEncoder();
+var utf8Bytes = (value) => utf8Encoder.encode(value).byteLength;
+function jsonBytes(value, maxDepth) {
+  const ancestors = /* @__PURE__ */ new Set();
+  const visit = (entry, depth) => {
+    if (depth > maxDepth) return false;
+    if (entry === null || typeof entry === "string" || typeof entry === "boolean") return true;
+    if (typeof entry === "number") return Number.isFinite(entry);
+    if (typeof entry !== "object") return false;
+    if (ancestors.has(entry)) return false;
+    const prototype = Object.getPrototypeOf(entry);
+    if (!Array.isArray(entry) && prototype !== Object.prototype && prototype !== null) return false;
+    ancestors.add(entry);
+    const valid = Array.isArray(entry) ? entry.every((item) => visit(item, depth + 1)) : Object.entries(entry).every(([key, item]) => typeof key === "string" && visit(item, depth + 1));
+    ancestors.delete(entry);
+    return valid;
+  };
+  try {
+    if (!visit(value, 0)) return null;
+    const serialized = JSON.stringify(value);
+    return typeof serialized === "string" ? utf8Bytes(serialized) : null;
+  } catch {
+    return null;
+  }
+}
+async function runIsolatedCustomCode(request, adapter) {
+  if (!adapter) throw new IsolatedExecutionError("adapter-unavailable");
+  if (!request || typeof request.source !== "string" || !request.source.trim() || utf8Bytes(request.source) > ISOLATED_CODE_LIMITS.maxSourceBytes) {
+    throw new IsolatedExecutionError("invalid-request");
+  }
+  const inputSize = jsonBytes(request.input, ISOLATED_CODE_LIMITS.maxJsonDepth);
+  if (inputSize === null || inputSize > ISOLATED_CODE_LIMITS.maxInputBytes) {
+    throw new IsolatedExecutionError("invalid-request");
+  }
+  const timeoutMs = request.timeoutMs ?? ISOLATED_CODE_LIMITS.maxTimeoutMs;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > ISOLATED_CODE_LIMITS.maxTimeoutMs) {
+    throw new IsolatedExecutionError("invalid-request");
+  }
+  let sandbox;
+  try {
+    sandbox = await adapter.create({
+      runtime: "node22",
+      networkPolicy: "deny-all",
+      persistent: false,
+      timeoutMs,
+      resources: { vcpus: 1 }
+    });
+  } catch {
+    throw new IsolatedExecutionError("execution-failed");
+  }
+  let timer;
+  try {
+    const result = await Promise.race([
+      sandbox.execute(request.source, request.input),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new IsolatedExecutionError("execution-timeout")), timeoutMs);
+      })
+    ]);
+    const outputSize = jsonBytes(result, ISOLATED_CODE_LIMITS.maxJsonDepth);
+    if (outputSize === null) throw new IsolatedExecutionError("execution-failed");
+    if (outputSize > ISOLATED_CODE_LIMITS.maxOutputBytes) throw new IsolatedExecutionError("output-too-large");
+    return result;
+  } catch (error) {
+    if (error instanceof IsolatedExecutionError) throw error;
+    throw new IsolatedExecutionError("execution-failed");
+  } finally {
+    if (timer) clearTimeout(timer);
+    try {
+      await sandbox.stop();
+    } catch {
+    }
+  }
+}
+
+// server/vercel-sandbox-execution-adapter.ts
+var API_ORIGIN = "https://api.vercel.com";
+var SESSION_STARTUP_ALLOWANCE_MS = 3e4;
+var SESSION_ID = /^[A-Za-z0-9_-]{1,128}$/;
+var COMMAND_ID = /^[A-Za-z0-9_-]{1,128}$/;
+var UTF8 = new TextEncoder();
+var MAX_API_RESPONSE_BYTES = 64 * 1024;
+function record3(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+async function boundedResponseText(response) {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_API_RESPONSE_BYTES) {
+    await response.body?.cancel().catch(() => {
+    });
+    throw new Error("Vercel Sandbox response was invalid.");
+  }
+  if (!response.body) throw new Error("Vercel Sandbox response was invalid.");
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  let complete = false;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_API_RESPONSE_BYTES) throw new Error("Vercel Sandbox response was invalid.");
+      chunks.push(value);
+    }
+    complete = true;
+  } finally {
+    if (!complete) await reader.cancel().catch(() => {
+    });
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+function query(teamId, extra = {}) {
+  const params = new URLSearchParams(extra);
+  if (teamId) params.set("teamId", teamId);
+  const value = params.toString();
+  return value ? `?${value}` : "";
+}
+async function discardResponseBody(response) {
+  await response.body?.cancel().catch(() => {
+  });
+}
+async function responseJson(response) {
+  if (!response.ok) {
+    await discardResponseBody(response);
+    throw new Error("Vercel Sandbox request failed.");
+  }
+  try {
+    const value = record3(JSON.parse(await boundedResponseText(response)));
+    if (!value) throw new Error();
+    return value;
+  } catch {
+    throw new Error("Vercel Sandbox response was invalid.");
+  }
+}
+function sessionIdFrom(value) {
+  const session = record3(value.session);
+  const id2 = session?.id;
+  if (typeof id2 !== "string" || !SESSION_ID.test(id2)) throw new Error("Vercel Sandbox session was invalid.");
+  return id2;
+}
+function commandIdFrom(value) {
+  const command = record3(value.command);
+  const id2 = command?.id;
+  if (typeof id2 !== "string" || !COMMAND_ID.test(id2)) throw new Error("Vercel Sandbox command was invalid.");
+  return id2;
+}
+function createRunnerArgs(source, input) {
+  const runner = 'void (async()=>{try{const input=JSON.parse(process.argv[2]);const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;const value=await (new AsyncFunction("input",process.argv[1]))(input);const output=JSON.stringify(value);if(typeof output!=="string")throw new Error();process.stdout.write(output)}catch{process.exitCode=1}})();';
+  return ["-e", runner, source, JSON.stringify(input)];
+}
+async function readStdout(response, maxBytes) {
+  if (!response.ok || !response.body) {
+    await discardResponseBody(response);
+    throw new Error("Vercel Sandbox logs were unavailable.");
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+  let stdout = "";
+  let streamBytes = 0;
+  let complete = false;
+  const consume = (line) => {
+    if (!line) return;
+    let entry;
+    try {
+      entry = record3(JSON.parse(line));
+    } catch {
+      throw new Error("Vercel Sandbox logs were invalid.");
+    }
+    if (!entry || typeof entry.stream !== "string") throw new Error("Vercel Sandbox logs were invalid.");
+    if (entry.stream === "error") throw new Error("Vercel Sandbox command failed.");
+    if (entry.stream !== "stdout" && entry.stream !== "stderr") throw new Error("Vercel Sandbox logs were invalid.");
+    if (typeof entry.data !== "string") throw new Error("Vercel Sandbox logs were invalid.");
+    if (entry.stream === "stdout") {
+      stdout += entry.data;
+      if (UTF8.encode(stdout).byteLength > maxBytes) throw new IsolatedExecutionError("output-too-large");
+    }
+  };
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      streamBytes += value.byteLength;
+      if (streamBytes > maxBytes + 16384) throw new IsolatedExecutionError("output-too-large");
+      pending += decoder.decode(value, { stream: true });
+      const lines = pending.split("\n");
+      pending = lines.pop() ?? "";
+      lines.forEach(consume);
+    }
+    pending += decoder.decode();
+    if (pending) consume(pending);
+    complete = true;
+  } finally {
+    if (!complete) await reader.cancel().catch(() => {
+    });
+    reader.releaseLock();
+  }
+  return stdout;
+}
+function createVercelSandboxExecutionAdapter(config) {
+  if (typeof config.token !== "string" || !config.token.trim() || config.token.length > 4096) {
+    throw new Error("Vercel Sandbox credentials are unavailable.");
+  }
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(config.projectId)) {
+    throw new Error("Vercel Sandbox project scope is invalid.");
+  }
+  if (config.teamId !== void 0 && !/^[A-Za-z0-9_-]{1,128}$/.test(config.teamId)) {
+    throw new Error("Vercel Sandbox team scope is invalid.");
+  }
+  const fetcher = config.fetcher ?? fetch;
+  const headers = { authorization: `Bearer ${config.token}`, "content-type": "application/json" };
+  const request = async (path, init) => fetcher(`${API_ORIGIN}${path}`, {
+    ...init,
+    redirect: "error",
+    headers: new Headers({ ...headers, ...Object.fromEntries(new Headers(init.headers).entries()) })
+  });
+  return {
+    async create(options) {
+      if (options.networkPolicy !== "deny-all" || options.persistent !== false || options.runtime !== "node22" || options.resources.vcpus !== 1) {
+        throw new Error("Vercel Sandbox policy was not satisfied.");
+      }
+      const lifetime = options.timeoutMs + SESSION_STARTUP_ALLOWANCE_MS;
+      const created = await responseJson(await request(`/v2/sandboxes${query(config.teamId)}`, {
+        method: "POST",
+        signal: AbortSignal.timeout(SESSION_STARTUP_ALLOWANCE_MS),
+        body: JSON.stringify({
+          projectId: config.projectId,
+          region: "iad1",
+          runtime: "node22",
+          networkPolicy: { mode: "custom", allowedDomains: [], allowedCIDRs: [], deniedCIDRs: [] },
+          resources: { vcpus: 1, memory: 2048 },
+          timeout: lifetime,
+          persistent: false,
+          ports: []
+        })
+      }));
+      const sessionId = sessionIdFrom(created);
+      let stopped = false;
+      return {
+        async execute(source, input) {
+          const started = await responseJson(await request(
+            `/v2/sandboxes/sessions/${encodeURIComponent(sessionId)}/cmd${query(config.teamId, { cmdId: crypto.randomUUID() })}`,
+            {
+              method: "POST",
+              signal: AbortSignal.timeout(options.timeoutMs + 1e3),
+              body: JSON.stringify({
+                command: "node",
+                args: createRunnerArgs(source, input),
+                cwd: "/vercel/sandbox",
+                sudo: false,
+                wait: false,
+                logs: false,
+                timeout: options.timeoutMs
+              })
+            }
+          ));
+          const commandId = commandIdFrom(started);
+          const commandPath = `/v2/sandboxes/sessions/${encodeURIComponent(sessionId)}/cmd/${encodeURIComponent(commandId)}`;
+          const completed = await responseJson(await request(`${commandPath}${query(config.teamId, { wait: "true" })}`, {
+            method: "GET",
+            signal: AbortSignal.timeout(options.timeoutMs + 1e3)
+          }));
+          const command = record3(completed.command);
+          const exitCode = command?.exitCode;
+          if (exitCode !== 0 && exitCode !== "0") throw new Error("Vercel Sandbox command failed.");
+          const logs = await request(`${commandPath}/logs${query(config.teamId)}`, {
+            method: "GET",
+            signal: AbortSignal.timeout(options.timeoutMs + 1e3),
+            headers: { accept: "application/x-ndjson" }
+          });
+          const output = await readStdout(logs, 32 * 1024);
+          try {
+            return JSON.parse(output);
+          } catch {
+            throw new Error("Vercel Sandbox output was invalid.");
+          }
+        },
+        async stop() {
+          if (stopped) return;
+          stopped = true;
+          const response = await request(`/v2/sandboxes/sessions/${encodeURIComponent(sessionId)}/stop${query(config.teamId)}`, {
+            method: "POST",
+            signal: AbortSignal.timeout(2e3)
+          });
+          if (!response.ok && response.status !== 404 && response.status !== 410) {
+            throw new Error("Vercel Sandbox could not be stopped.");
+          }
+        }
+      };
+    }
+  };
+}
+
+// server/website-application-custom-operation-authorization.ts
+var record4 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var safeId = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
+var userIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var tokenPattern2 = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+var maxResponseBytes = 64 * 1024;
+async function readBounded(response) {
+  const declared = response.headers.get("content-length");
+  if (declared !== null && (!/^\d{1,8}$/.test(declared) || Number(declared) > maxResponseBytes)) throw new Error();
+  if (!response.body) throw new Error();
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxResponseBytes) {
+        await reader.cancel();
+        throw new Error();
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } finally {
+    reader.releaseLock();
+  }
+}
+async function authorizePublishedCustomOperationActor(input) {
+  const { backend, expectedProjectRef, accessToken, specification, operationId } = input;
+  if (!record4(specification) || !safeId(operationId) || accessToken.length > 3500 || !tokenPattern2.test(accessToken)) return null;
+  let operations;
+  let actors;
+  try {
+    validateOwnedApplicationPublicBackend(backend, expectedProjectRef);
+    operations = Array.isArray(specification.operations) && specification.operations.length <= 100 ? specification.operations : [];
+    actors = Array.isArray(specification.actors) && specification.actors.length <= 100 ? specification.actors : [];
+  } catch {
+    return null;
+  }
+  const matches = operations.filter((value) => record4(value) && value.id === operationId);
+  if (matches.length !== 1 || matches[0].execution !== "custom" || !Array.isArray(matches[0].actorIds) || matches[0].actorIds.length === 0 || matches[0].actorIds.length > 100) return null;
+  const actorIds = matches[0].actorIds;
+  if (actorIds.some((value) => !safeId(value))) return null;
+  const selectedActors = actors.filter((value) => record4(value) && actorIds.includes(value.id));
+  if (selectedActors.length !== actorIds.length || selectedActors.some((actor) => !safeId(actor.id) || actor.roleId !== void 0 && !safeId(actor.roleId))) return null;
+  const fetcher = input.fetcher ?? fetch;
+  const headers = { apikey: backend.publishableKey, authorization: `Bearer ${accessToken}`, accept: "application/json" };
+  const request = async (path, method) => fetcher(new URL(path, `${backend.url}/`), {
+    method,
+    headers: { ...headers, ...method === "POST" ? { "content-type": "application/json" } : {} },
+    ...method === "POST" ? { body: "{}" } : {},
+    redirect: "error",
+    cache: "no-store",
+    signal: AbortSignal.timeout(1e4)
+  });
+  try {
+    const auth = await request("auth/v1/user", "GET");
+    if (!auth.ok) return null;
+    const user = await readBounded(auth);
+    if (!record4(user) || typeof user.id !== "string" || !userIdPattern.test(user.id) || user.is_anonymous === true) return null;
+    const permittedRoleIds = new Set(selectedActors.flatMap((actor) => typeof actor.roleId === "string" ? [actor.roleId] : []));
+    if (permittedRoleIds.size > 0) {
+      const roleResponse = await request("rest/v1/rpc/app_my_roles", "POST");
+      if (!roleResponse.ok) return null;
+      const roles = await readBounded(roleResponse);
+      if (!Array.isArray(roles) || roles.some((role) => !safeId(role))) return null;
+      if (![...permittedRoleIds].some((role) => roles.includes(role))) return null;
+    }
+    return { userId: user.id };
+  } catch {
+    return null;
+  }
+}
+function createPublishedCustomOperationActorAuthorizer(input) {
+  return async (operation, accessToken) => {
+    if (typeof accessToken !== "string") return false;
+    return await authorizePublishedCustomOperationActor({ ...input, accessToken, operationId: operation.operationId }) !== null;
+  };
+}
+
+// server/website-application-custom-operation-release.ts
+var record5 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var safeId2 = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
+function resolvePublishedCustomOperationArtifact(input) {
+  const { release, ownerId, projectId, releaseId, operationId } = input;
+  if (!safeId2(ownerId) || !safeId2(projectId) || !safeId2(releaseId) || !safeId2(operationId) || !record5(release)) return null;
+  if (release.id !== releaseId || release.project_id !== projectId || release.user_id !== ownerId || release.storage_bucket !== "website-application-releases" || !record5(release.snapshot) || !record5(release.snapshot.application) || !record5(release.snapshot.application.requirements) || !record5(release.snapshot.application.requirements.specification) || !Array.isArray(release.snapshot.application.requirements.specification.operations)) return null;
+  const matches = release.snapshot.application.requirements.specification.operations.filter((operation2) => record5(operation2) && operation2.id === operationId);
+  if (matches.length !== 1) return null;
+  const operation = matches[0];
+  if (!record5(operation) || operation.execution !== "custom" || typeof operation.source !== "string" || !operation.source.trim() || new TextEncoder().encode(operation.source).byteLength > ISOLATED_CODE_LIMITS.maxSourceBytes) return null;
+  return { releaseId, operationId, source: operation.source };
+}
+
+// server/website-application-custom-operation.ts
+var PublishedCustomOperationError = class extends Error {
+  constructor(code) {
+    super(code);
+    this.code = code;
+    this.name = "PublishedCustomOperationError";
+  }
+};
+var safeId3 = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
+async function runPublishedCustomOperation(request, dependencies) {
+  if (dependencies.enabled !== true) throw new PublishedCustomOperationError("disabled");
+  if (!request || Object.keys(request).some((key) => !["ownerId", "projectId", "releaseId", "operationId", "input"].includes(key)) || !safeId3(request.ownerId) || !safeId3(request.projectId) || !safeId3(request.releaseId) || !safeId3(request.operationId)) {
+    throw new PublishedCustomOperationError("invalid-request");
+  }
+  try {
+    if (!await dependencies.authorize(request)) throw new PublishedCustomOperationError("not-authorized");
+    const operation = await dependencies.loadOperation(request);
+    if (!operation || Object.keys(operation).some((key) => !["releaseId", "operationId", "source"].includes(key)) || operation.releaseId !== request.releaseId || operation.operationId !== request.operationId || typeof operation.source !== "string" || !operation.source.trim()) {
+      throw new PublishedCustomOperationError("unavailable");
+    }
+    const reservationId = await dependencies.reserveUsage(request);
+    if (!reservationId) throw new PublishedCustomOperationError("unavailable");
+    const startedAt = Date.now();
+    let result;
+    let executionFailed = false;
+    let executionError;
+    try {
+      result = await runIsolatedCustomCode({ source: operation.source, input: request.input }, dependencies.adapter);
+    } catch (error) {
+      executionFailed = true;
+      executionError = error;
+    }
+    let completed = false;
+    try {
+      completed = await dependencies.completeUsage(
+        reservationId,
+        request,
+        Date.now() - startedAt,
+        executionFailed ? "error" : "success"
+      );
+    } catch {
+    }
+    if (!completed) throw new PublishedCustomOperationError("unavailable");
+    if (executionFailed) throw executionError;
+    return result;
+  } catch (error) {
+    if (error instanceof PublishedCustomOperationError) throw error;
+    if (error instanceof IsolatedExecutionError) {
+      if (error.code === "invalid-request") throw new PublishedCustomOperationError("invalid-request");
+      if (error.code === "execution-timeout") throw new PublishedCustomOperationError("execution-timeout");
+      if (error.code === "output-too-large") throw new PublishedCustomOperationError("output-too-large");
+    }
+    throw new PublishedCustomOperationError("execution-failed");
+  }
+}
+
+// server/website-application-custom-operation-route.ts
+var maxBodyBytes = 32 * 1024;
+var failure2 = (status, code) => Response.json({ error: code }, {
+  status,
+  headers: { "cache-control": "private, no-store", "cdn-cache-control": "no-store", "vary": "Origin, Authorization, Cookie", "x-content-type-options": "nosniff" }
+});
+async function readBoundedBody(request) {
+  const declaredLength = request.headers.get("content-length");
+  if (declaredLength !== null && (!/^\d{1,8}$/.test(declaredLength) || Number(declaredLength) > maxBodyBytes)) throw new Error();
+  if (request.headers.has("content-encoding") && request.headers.get("content-encoding") !== "identity") throw new Error();
+  if (!request.body) throw new Error();
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBodyBytes) {
+        await reader.cancel();
+        throw new Error();
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } finally {
+    reader.releaseLock();
+  }
+}
+async function servePublishedCustomOperationRequest(input) {
+  const { request, ownerId, projectId, applicationOrigin, dependencies } = input;
+  const headers = { "cache-control": "private, no-store", "cdn-cache-control": "no-store", "vary": "Origin, Authorization, Cookie" };
+  try {
+    const expectedOrigin = new URL(applicationOrigin);
+    const url = new URL(request.url);
+    if (expectedOrigin.protocol !== "https:" || expectedOrigin.origin !== applicationOrigin || url.origin !== applicationOrigin || url.pathname !== "/api/application-operation" || url.search || url.hash) {
+      return failure2(404, "not_found");
+    }
+    if (request.method !== "POST") return new Response(null, { status: 405, headers: { ...headers, allow: "POST" } });
+    if (request.headers.get("origin") !== applicationOrigin || request.headers.has("sec-fetch-site") && request.headers.get("sec-fetch-site") !== "same-origin") {
+      return failure2(403, "not_authorized");
+    }
+    const bearer = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(request.headers.get("authorization") ?? "");
+    if (!bearer || bearer[1].length > 3500) return failure2(401, "not_authorized");
+    if ((request.headers.get("content-type") ?? "").split(";", 1)[0].trim().toLowerCase() !== "application/json") {
+      return failure2(415, "invalid_request");
+    }
+    const parsed = JSON.parse(await readBoundedBody(request));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return failure2(400, "invalid_request");
+    const body = parsed;
+    if (Object.keys(body).some((key) => !["releaseId", "operationId", "input"].includes(key)) || !Object.hasOwn(body, "input")) return failure2(400, "invalid_request");
+    const result = await runPublishedCustomOperation({
+      ownerId,
+      projectId,
+      releaseId: body.releaseId,
+      operationId: body.operationId,
+      input: body.input
+    }, { ...dependencies, authorize: (operation) => dependencies.authorize(operation, bearer[1]) });
+    return Response.json({ result }, { headers: { ...headers, "x-content-type-options": "nosniff" } });
+  } catch (error) {
+    const code = error instanceof PublishedCustomOperationError ? error.code : "invalid-request";
+    const status = code === "disabled" ? 404 : code === "invalid-request" ? 400 : code === "not-authorized" ? 403 : code === "execution-timeout" ? 504 : code === "execution-failed" || code === "output-too-large" ? 502 : 503;
+    return failure2(status, code.replaceAll("-", "_"));
+  }
+}
+
+// server/website-application-custom-operation-quota.ts
+var WEBSITE_CUSTOM_EXECUTION_TOOL_ID = "website-custom-execution";
+var planRank = { free: 0, pro: 1, business: 2 };
+function usageWindowStart(period) {
+  const now = /* @__PURE__ */ new Date();
+  if (period === "lifetime") return (/* @__PURE__ */ new Date(0)).toISOString();
+  if (period === "daily") return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  if (period === "monthly") return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  return null;
+}
+async function reserveWebsiteCustomExecutionUsage(admin, userId, _scope) {
+  try {
+    const tool = WEBSITE_CUSTOM_EXECUTION_TOOL_ID;
+    const [{ data: rule, error: ruleError }, { data: effectivePlan, error: planError }] = await Promise.all([
+      admin.from("tool_access_rules").select("minimum_plan,enabled").eq("tool_id", tool).maybeSingle(),
+      admin.rpc("team_effective_plan", { p_user_id: userId })
+    ]);
+    if (ruleError || planError || !rule || rule.enabled !== true) return null;
+    const plan = typeof effectivePlan === "string" && planRank[effectivePlan] !== void 0 ? effectivePlan : "free";
+    const minimumPlan = typeof rule.minimum_plan === "string" && planRank[rule.minimum_plan] !== void 0 ? rule.minimum_plan : "business";
+    if (planRank[plan] < planRank[minimumPlan]) return null;
+    const { data: limits, error: limitsError } = await admin.from("tool_plan_limits").select("period,free_limit,pro_limit,business_limit").eq("tool_id", tool).maybeSingle();
+    if (limitsError || !limits) return null;
+    const rawLimit = plan === "business" ? limits.business_limit : plan === "pro" ? limits.pro_limit : limits.free_limit;
+    const limit = Number(rawLimit);
+    if (!Number.isSafeInteger(limit) || limit <= 0 || limit > 1e4) return null;
+    const windowStart = usageWindowStart(limits.period);
+    if (!windowStart) return null;
+    const { data: reservationId, error: reservationError } = await admin.rpc("reserve_ai_tool_usage", {
+      p_user_id: userId,
+      p_tool: tool,
+      p_limit: limit,
+      p_window_start: windowStart
+    });
+    if (reservationError || typeof reservationId !== "string" || !reservationId) return null;
+    return reservationId;
+  } catch {
+    return null;
+  }
+}
+async function completeWebsiteCustomExecutionUsage(admin, userId, reservationId, durationMs, status) {
+  if (!/^[0-9a-f-]{36}$/i.test(reservationId) || !["success", "error"].includes(status)) return false;
+  try {
+    const { error } = await admin.rpc("complete_ai_tool_usage", {
+      p_reservation_id: reservationId,
+      p_user_id: userId,
+      p_provider: "vercel-sandbox",
+      p_model: "node22",
+      p_tool: WEBSITE_CUSTOM_EXECUTION_TOOL_ID,
+      p_tokens_in: 0,
+      p_tokens_out: 0,
+      p_duration_ms: Math.min(1e4, Math.max(0, Math.floor(durationMs))),
+      p_status: status
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// server/website-application-custom-operation-runtime.ts
+async function servePublishedCustomOperationRuntime(input) {
+  if (!input.enabled) return Response.json({ error: "not_found" }, {
+    status: 404,
+    headers: { "cache-control": "private, no-store", "cdn-cache-control": "no-store", "vary": "Origin, Authorization, Cookie" }
+  });
+  let releasePromise;
+  async function loadRelease() {
+    const result = await input.platform.rpc("website_application_published_release", {
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId
+    });
+    if (result.error || !result.data || typeof result.data !== "object" || result.data.enabled !== true || !result.data.release) {
+      throw new Error("Published release unavailable.");
+    }
+    return validateWebsiteApplicationRelease(result.data.release, input.projectId, input.ownerId, input.platformUrl);
+  }
+  const getRelease = () => releasePromise ??= loadRelease();
+  const dependencies = {
+    enabled: true,
+    adapter: input.adapter,
+    async authorize(request, accessToken) {
+      if (typeof accessToken !== "string") return false;
+      try {
+        const published = await getRelease();
+        const application = published.release.snapshot.application;
+        const requirements = application.requirements;
+        const specification = requirements?.specification;
+        const authorize = createPublishedCustomOperationActorAuthorizer({
+          backend: published.backend,
+          expectedProjectRef: published.backend.projectRef,
+          specification,
+          ...input.fetcher ? { fetcher: input.fetcher } : {}
+        });
+        return await authorize(request, accessToken);
+      } catch {
+        return false;
+      }
+    },
+    async loadOperation(request) {
+      try {
+        const published = await getRelease();
+        return resolvePublishedCustomOperationArtifact({
+          release: published.release,
+          ownerId: input.ownerId,
+          projectId: request.projectId,
+          releaseId: request.releaseId,
+          operationId: request.operationId
+        });
+      } catch {
+        return null;
+      }
+    },
+    reserveUsage(request) {
+      return reserveWebsiteCustomExecutionUsage(input.platform, input.ownerId, request);
+    },
+    completeUsage(reservationId, _request, durationMs, status) {
+      return completeWebsiteCustomExecutionUsage(input.platform, input.ownerId, reservationId, durationMs, status);
+    }
+  };
+  return servePublishedCustomOperationRequest({
+    request: input.request,
+    ownerId: input.ownerId,
+    projectId: input.projectId,
+    applicationOrigin: input.applicationOrigin,
+    dependencies
+  });
+}
+
 // server/website-application-runtime.ts
 var unavailable = () => new Response("Application runtime is unavailable.", { status: 503, headers: { "cache-control": "private, no-store" } });
 function platformClient(platformUrl) {
@@ -1684,7 +2359,37 @@ async function serveApplicationBrowserSession(input) {
     return failed();
   }
 }
+async function serveApplicationCustomOperation(input) {
+  const enabled = process.env.WEBSITE_APPLICATION_RUNTIME_ENABLED === "true" && process.env.WEBSITE_CUSTOM_EXECUTION_ENABLED === "true";
+  if (!enabled) return Response.json({ error: "not_found" }, {
+    status: 404,
+    headers: { "cache-control": "private, no-store", "cdn-cache-control": "no-store", "vary": "Origin, Authorization, Cookie" }
+  });
+  try {
+    const platformOrigin = process.env.WEBSITE_PLATFORM_ORIGIN ?? "https://tayar.se";
+    const applicationOrigin = applicationOriginForProject(
+      input.projectId,
+      process.env.WEBSITE_APPLICATION_HOST_SUFFIX ?? "",
+      platformOrigin
+    );
+    const adapter = createVercelSandboxExecutionAdapter({
+      token: process.env.VERCEL_TOKEN ?? "",
+      projectId: process.env.VERCEL_PROJECT_ID ?? "",
+      ...process.env.VERCEL_TEAM_ID ? { teamId: process.env.VERCEL_TEAM_ID } : {}
+    });
+    return await servePublishedCustomOperationRuntime({
+      ...input,
+      applicationOrigin,
+      platform: platformClient(input.platformUrl),
+      adapter,
+      enabled: true
+    });
+  } catch {
+    return unavailable();
+  }
+}
 export {
   serveApplicationBrowserSession,
+  serveApplicationCustomOperation,
   tryServePublishedApplication
 };
