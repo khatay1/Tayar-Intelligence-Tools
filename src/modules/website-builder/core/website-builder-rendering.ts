@@ -798,7 +798,7 @@ export function elementToHtml(element: WebsiteElement, homeSlug: string, device:
         const parsed: unknown = JSON.parse(inputJson);
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)
           && new TextEncoder().encode(JSON.stringify(parsed)).byteLength <= 32 * 1024) safeInput = JSON.stringify(parsed);
-      } catch { /* Invalid action configuration stays disabled. */ }
+      } catch { safeInput = ''; /* Invalid action configuration stays disabled. */ }
       const validId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(operationId);
       const data = validId && safeInput
         ? ` data-tayar-custom-operation="${escapeHtml(operationId)}" data-tayar-custom-operation-input="${escapeHtml(safeInput)}"`

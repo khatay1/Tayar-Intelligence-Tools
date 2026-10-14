@@ -9171,6 +9171,7 @@ function elementToHtml(element, homeSlug, device = "desktop", language = "en") {
         const parsed = JSON.parse(inputJson);
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && new TextEncoder().encode(JSON.stringify(parsed)).byteLength <= 32 * 1024) safeInput = JSON.stringify(parsed);
       } catch {
+        safeInput = "";
       }
       const validId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(operationId);
       const data = validId && safeInput ? ` data-tayar-custom-operation="${escapeHtml(operationId)}" data-tayar-custom-operation-input="${escapeHtml(safeInput)}"` : ' data-tayar-custom-operation-invalid="true"';
