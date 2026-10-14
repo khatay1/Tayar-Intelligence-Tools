@@ -311,6 +311,7 @@ function createApplicationDefinition() {
 var object5 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var identifier3 = (value) => typeof value === "string" && /^[a-z][a-z0-9_]{0,47}$/.test(value);
 var id = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
+var isoDate = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && (/* @__PURE__ */ new Date(`${value}T00:00:00Z`)).toISOString().slice(0, 10) === value;
 var name = (value) => typeof value === "string" && value.trim().length > 0 && value.length <= 160;
 function validateApplicationDefinition(value, pageIds) {
   const issues = [];
@@ -533,7 +534,7 @@ function validateApplicationDefinition(value, pageIds) {
         if (!transitions.length) issue(`${workflowPath}.transitions`, "missing-transitions", "A workflow needs at least one transition.");
         transitions.forEach((transition, transitionIndex) => {
           const transitionPath = `${workflowPath}.transitions[${transitionIndex}]`;
-          if (!shape(transition, ["id", "label", "from", "to", "access", "roleId", "effects"], transitionPath)) return;
+          if (!shape(transition, ["id", "label", "from", "to", "access", "roleId", "conditions", "effects"], transitionPath)) return;
           if (!id(transition.id) || transitionIds.has(String(transition.id))) issue(`${transitionPath}.id`, "invalid-id", "Workflow transition IDs must be valid and unique.");
           else transitionIds.add(String(transition.id));
           if (!name(transition.label)) issue(`${transitionPath}.label`, "invalid-name", "A workflow transition requires a label.");
@@ -546,6 +547,45 @@ function validateApplicationDefinition(value, pageIds) {
           if (!["authenticated", "owner", "role"].includes(String(transition.access))) issue(`${transitionPath}.access`, "invalid-access", "Workflow transitions require authenticated, owner or role access.");
           if (transition.access === "role" && !roleIds.has(String(transition.roleId))) issue(`${transitionPath}.roleId`, "missing-role", "Role workflow access requires an existing role.");
           if (transition.access !== "role" && transition.roleId !== void 0) issue(`${transitionPath}.roleId`, "unexpected-role", "Only role transitions can specify a role.");
+          if (transition.conditions !== void 0) {
+            const conditionKeys = /* @__PURE__ */ new Set();
+            const conditions = list(transition.conditions, 10, `${transitionPath}.conditions`);
+            if (!conditions.length) issue(`${transitionPath}.conditions`, "empty-conditions", "Workflow conditions must contain at least one predicate.");
+            conditions.forEach((condition, conditionIndex) => {
+              const conditionPath = `${transitionPath}.conditions[${conditionIndex}]`;
+              if (!object5(condition)) {
+                issue(conditionPath, "invalid-condition", "Expected a workflow condition object.");
+                return;
+              }
+              const noValue = condition.operator === "is-null" || condition.operator === "not-null";
+              const allowed = noValue ? ["fieldId", "operator"] : ["fieldId", "operator", "value"];
+              if (Object.keys(condition).some((key) => !allowed.includes(key))) issue(conditionPath, "unknown-property", "Unsupported workflow condition property.");
+              const conditionField = Array.isArray(table.fields) ? table.fields.find((candidate) => object5(candidate) && candidate.id === condition.fieldId) : void 0;
+              const operator = String(condition.operator);
+              const conditionKey = JSON.stringify(condition);
+              if (!id(condition.fieldId) || conditionKeys.has(conditionKey) || !object5(conditionField) || conditionField.id === workflow.fieldId || conditionField.formula !== void 0) {
+                issue(conditionPath, "invalid-condition-field", "Conditions require valid ordinary fields and unique predicates.");
+                return;
+              }
+              conditionKeys.add(conditionKey);
+              if (noValue) {
+                if (conditionField.required === true && operator === "is-null") issue(conditionPath, "required-null-condition", "A required field cannot use an is-null condition.");
+                return;
+              }
+              if (!["eq", "neq", "gt", "gte", "lt", "lte"].includes(operator) || !Object.prototype.hasOwnProperty.call(condition, "value")) {
+                issue(conditionPath, "invalid-condition-operator", "Conditions require a supported comparison and a typed value.");
+                return;
+              }
+              const conditionValue = condition.value;
+              const comparable = ["number", "text", "date", "datetime"].includes(String(conditionField.type));
+              if (["gt", "gte", "lt", "lte"].includes(operator) && !comparable) {
+                issue(conditionPath, "unordered-condition-field", "Ordered comparisons require a number, text, date or datetime field.");
+                return;
+              }
+              const valid = conditionValue === null ? conditionField.required !== true && ["eq", "neq"].includes(operator) : conditionField.type === "number" ? typeof conditionValue === "number" && Number.isFinite(conditionValue) : conditionField.type === "boolean" ? typeof conditionValue === "boolean" : conditionField.type === "text" ? typeof conditionValue === "string" && conditionValue.length <= 4e3 : conditionField.type === "enum" ? typeof conditionValue === "string" && Array.isArray(conditionField.options) && conditionField.options.includes(conditionValue) : conditionField.type === "date" ? isoDate(conditionValue) : conditionField.type === "datetime" ? typeof conditionValue === "string" && Number.isFinite(Date.parse(conditionValue)) : ["uuid", "reference"].includes(String(conditionField.type)) ? typeof conditionValue === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(conditionValue) : false;
+              if (!valid) issue(conditionPath, "invalid-condition-value", "Condition values must match their field type and be bounded.");
+            });
+          }
           if (transition.effects !== void 0) {
             const effectFields = /* @__PURE__ */ new Set();
             const relatedTargetTables = /* @__PURE__ */ new Set();

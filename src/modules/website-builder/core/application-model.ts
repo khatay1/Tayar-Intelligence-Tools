@@ -66,9 +66,14 @@ export interface ApplicationWorkflowTransition {
   to: string;
   access: Exclude<ApplicationAccess, 'public'>;
   roleId?: string;
+  /** Optional field predicates checked on the locked record before any effect. */
+  conditions?: ApplicationWorkflowCondition[];
   /** Bounded record changes executed atomically with the state transition. */
   effects?: ApplicationWorkflowEffect[];
 }
+export type ApplicationWorkflowCondition =
+  | { fieldId: string; operator: 'is-null' | 'not-null' }
+  | { fieldId: string; operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte'; value: string | number | boolean | null };
 export type ApplicationWorkflowEffect =
   | { operation: 'set'; fieldId: string; value: string | number | boolean | null }
   | { operation: 'increment'; fieldId: string; amount: number }
