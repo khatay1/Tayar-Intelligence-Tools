@@ -47,6 +47,15 @@ try {
   assert.equal(customCoverage.find(row => row.requirementId === 'task-form').deliveryStatus, 'blocked');
   assert.equal(customCoverage.find(row => row.requirementId === 'task-form').tests.at(-2).result, 'passed');
   assert.match(customCoverage.find(row => row.requirementId === 'task-form').tests.at(-1).detail, /inert draft/);
+  const formBoundPages = structuredClone(pages);
+  formBoundPages[0].sections[0].elements = [{ id: 'run-bound-task', type: 'button', action: 'custom-operation',
+    customOperationId: 'custom-task', customOperationInputJson: '{}', customOperationBindFormValues: true }];
+  assert.equal(buildApplicationRequirementCoverage(customApplication, formBoundPages)
+    .find(row => row.requirementId === 'task-form').tests.at(-2).result, 'passed');
+  const misplacedFormBoundPages = structuredClone(customPages);
+  misplacedFormBoundPages[0].sections[1].elements[0].customOperationBindFormValues = true;
+  assert.equal(buildApplicationRequirementCoverage(customApplication, misplacedFormBoundPages)
+    .find(row => row.requirementId === 'task-form').tests.at(-2).result, 'failed');
   const missingCustomAction = buildApplicationRequirementCoverage(customApplication, pages)
     .find(row => row.requirementId === 'task-form');
   assert.equal(missingCustomAction.tests.at(-2).result, 'failed');

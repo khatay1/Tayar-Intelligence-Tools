@@ -24,12 +24,14 @@ try {
   const actions = await buildModule('actions', 'src/modules/website-builder/core/application-custom-operation-actions.ts');
   const clientModule = await buildModule('client', 'src/modules/website-builder/core/application-custom-operation-client.ts');
   const routeModule = await buildModule('route', 'server/website-application-custom-operation-route.ts', { '@': resolve('src') });
-  const { parseApplicationCustomOperationAction } = actions;
+  const { bindApplicationCustomOperationFormValues, parseApplicationCustomOperationAction } = actions;
   const { createPublishedCustomOperationClient } = clientModule;
   const { servePublishedCustomOperationRequest } = routeModule;
 
-  const action = parseApplicationCustomOperationAction('approve_case', '{"caseId":"c-17","decision":"approved"}', new Set(['approve_case']));
-  assert.deepEqual(action, { operationId: 'approve_case', input: { caseId: 'c-17', decision: 'approved' } });
+  const parsedAction = parseApplicationCustomOperationAction('approve_case', '{"decision":"approved"}', new Set(['approve_case']), true);
+  const action = { ...parsedAction, input: bindApplicationCustomOperationFormValues(parsedAction.input,
+    [['caseId', 'c-17']], new Set(['caseId'])) };
+  assert.deepEqual(action, { operationId: 'approve_case', input: { decision: 'approved', form: { caseId: 'c-17' } }, bindFormValues: true });
 
   const events = [];
   let authorized = false;
@@ -56,7 +58,7 @@ try {
           async execute(source, input) {
             events.push(['sandbox-execute', source]);
             assert.equal(source, 'deterministic sandbox fixture');
-            return { approved: input.decision === 'approved', caseId: input.caseId };
+            return { approved: input.decision === 'approved', caseId: input.form?.caseId };
           },
           async stop() { events.push(['sandbox-stop']); },
         };
@@ -92,7 +94,7 @@ try {
     runtime: 'node22', networkPolicy: 'deny-all', persistent: false, timeoutMs: 10_000, resources: { vcpus: 1 },
   });
   assert.equal(events.find(([name]) => name === 'complete')[3], 'success');
-  console.log('Custom operation action flow regression passed: action input → authenticated client → protected route → quota → isolated execution.');
+  console.log('Custom operation action flow regression passed: explicit form binding → authenticated client → protected route → quota → isolated execution.');
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

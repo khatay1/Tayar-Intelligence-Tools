@@ -9174,7 +9174,7 @@ function elementToHtml(element, homeSlug, device = "desktop", language = "en") {
         safeInput = "";
       }
       const validId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(operationId);
-      const data = validId && safeInput ? ` data-tayar-custom-operation="${escapeHtml(operationId)}" data-tayar-custom-operation-input="${escapeHtml(safeInput)}"` : ' data-tayar-custom-operation-invalid="true"';
+      const data = validId && safeInput ? ` data-tayar-custom-operation="${escapeHtml(operationId)}" data-tayar-custom-operation-input="${escapeHtml(safeInput)}"${element.customOperationBindFormValues === true ? ' data-tayar-custom-operation-bind-form="true"' : ""}` : ' data-tayar-custom-operation-invalid="true"';
       return `<button class="btn tayar-element" type="button"${data} disabled style="${css}">${value}</button><span data-tayar-custom-operation-status role="status" aria-live="polite"></span>`;
     }
     return `<a class="btn tayar-element" href="${escapeHtml(resolveBuilderHref(element.href || "#", homeSlug))}" style="${css}">${value}</a>`;
@@ -9244,7 +9244,8 @@ function sectionToHtml(section, homeSlug, leadCapture, language = "en") {
     return `<section id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section" style="${sectionInlineCss(section)}"><div class="${sectionContainerClass(section)}">${sectionElementsToHtml(section, homeSlug, false, language)}<div data-tayar-data-view-id="${escapeHtml(section.id)}" role="region" aria-label="${escapeHtml(section.title)}"><p>${html("Data is available after secure application publishing and sign-in.")}</p></div></div></section>`;
   }
   if (section.type === "contact") {
-    const submitElement = (section.elements || []).find((element) => element.type === "button");
+    const submitElement = (section.elements || []).find((element) => element.type === "button" && element.action !== "custom-operation");
+    const customOperationElements = (section.elements || []).filter((element) => element.type === "button" && element.action === "custom-operation");
     const submitLabel = escapeHtml(submitElement?.content || section.buttonText || tr("Send Message"));
     const enabled = Boolean(leadCapture?.projectId && leadCapture?.supabaseUrl && leadCapture?.supabaseAnonKey);
     const setupMessage = enabled ? "" : tr("Lead capture is disabled in previews and activates on a published cloud website.");
@@ -9255,13 +9256,14 @@ function sectionToHtml(section, homeSlug, leadCapture, language = "en") {
     return `
 <section id="${sectionId}" data-tayar-section-id="${escapeHtml(section.id)}" class="section" style="${sectionInlineCss(section)}">
   <div class="${sectionContainerClass(section)}">
-    ${sectionElementsToHtml(section, homeSlug, true, language)}
+${sectionElementsToHtml(section, homeSlug, true, language)}
     <form class="contact-box" data-tayar-lead-form data-form-id="${escapeHtml(section.id)}" data-success-message="${escapeHtml(section.formSuccessMessage || tr("Thanks! Your message has been sent."))}" data-sending-message="${html("Sending\u2026")}" data-error-message="${html("Could not send your message. Please try again.")}" data-success-action="${section.formSuccessAction === "redirect" ? "redirect" : "message"}" data-redirect-url="${escapeHtml(section.formRedirectUrl ? safeFormRedirectHref(section.formRedirectUrl, homeSlug) : "")}">
       <label class="tayar-honeypot" aria-hidden="true">${html("Company")}<input name="_tayar_company" type="text" tabindex="-1" autocomplete="off"></label>
       ${(section.formFields ?? createDefaultContactFormFields()).map(formFieldToHtml).join("\n      ")}
       ${submitButton}
       <p class="form-status" data-form-status aria-live="polite">${escapeHtml(setupMessage)}</p>
     </form>
+    ${customOperationElements.length ? sectionElementsToHtml({ ...section, elements: customOperationElements }, homeSlug, false, language) : ""}
   </div>
 </section>`;
   }

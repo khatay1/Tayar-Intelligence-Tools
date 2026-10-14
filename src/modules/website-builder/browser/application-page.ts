@@ -2,7 +2,7 @@ import { ApplicationBookingRejected } from '../core/application-booking';
 import { createApplicationDataRuntime, createOwnedApplicationDataRuntime } from '../core/application-data-runtime';
 import type { ApplicationAuthScreenConfig, OwnedApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import type { ApplicationDefinition } from '../core/application-model';
-import { parseApplicationCustomOperationAction } from '../core/application-custom-operation-actions';
+import { bindApplicationCustomOperationFormValues, parseApplicationCustomOperationAction } from '../core/application-custom-operation-actions';
 import { applicationAuthCopy } from '../core/application-auth-copy';
 import { createApplicationNavigator } from '../core/application-navigation';
 import { compileApplicationCreateForm, createDurableApplicationFormSubmission } from '../core/application-form-runtime';
@@ -68,31 +68,62 @@ try {
   const dataViewDisposers: Array<() => void> = [];
   const stopDataViews = () => { dataViewDisposers.splice(0).forEach(dispose => dispose()); };
   const customOperationDisposers: Array<() => void> = [];
+  let formsPreparation: Promise<void> = Promise.resolve();
   const customOperationButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-tayar-custom-operation]'));
   const stopCustomOperationActions = () => {
     customOperationDisposers.splice(0).forEach(dispose => dispose());
     customOperationButtons.forEach(button => { button.disabled = true; button.removeAttribute('aria-busy'); });
   };
   const prepareCustomOperationActions = async () => {
+    await formsPreparation;
     if (!customOperationButtons.length) return;
     const operationIds = new Set((config.definition.requirements?.specification?.operations ?? [])
       .filter(operation => operation.execution === 'custom').map(operation => operation.id));
     const user = await runtime.auth.currentUser();
     for (const button of customOperationButtons) {
       const action = parseApplicationCustomOperationAction(button.dataset.tayarCustomOperation,
-        button.dataset.tayarCustomOperationInput, operationIds);
+        button.dataset.tayarCustomOperationInput, operationIds, button.dataset.tayarCustomOperationBindForm === 'true');
       const status = button.parentElement?.querySelector<HTMLElement>('[data-tayar-custom-operation-status]');
       if (!action) { if (status) status.textContent = formCopy.unavailable; continue; }
       if (!user || user.is_anonymous) { if (status) status.textContent = formCopy.operationRequiresSignIn; continue; }
+      if (action.bindFormValues) {
+        const section = button.closest<HTMLElement>('[data-tayar-section-id]');
+        const sectionId = section?.getAttribute('data-tayar-section-id');
+        const form = section?.querySelector<HTMLFormElement>('form[data-tayar-lead-form]');
+        const bound = form && boundForms.get(form);
+        if (!sectionId || !form || !bound || bound.userId !== user.id
+          || !config.applicationForms?.some(item => item.pageId === config.pageId && item.section.id === sectionId)) {
+          if (status) status.textContent = formCopy.unavailable;
+          continue;
+        }
+      }
       const click = () => {
         if (disposed || signingOut || button.disabled) return;
+        if (action.bindFormValues) {
+          const section = button.closest<HTMLElement>('[data-tayar-section-id]');
+          const form = section?.querySelector<HTMLFormElement>('form[data-tayar-lead-form]');
+          if (!form?.reportValidity()) return;
+        }
         button.disabled = true; button.setAttribute('aria-busy', 'true');
         if (status) status.textContent = copy.loading;
         void (async () => {
           try {
             const current = await runtime.auth.currentUser();
             if (!current || current.is_anonymous || current.id !== user.id || !window.tayarApplication) throw new Error();
-            await window.tayarApplication.executeCustomOperation(action.operationId, action.input);
+            let input = action.input;
+            if (action.bindFormValues) {
+              const section = button.closest<HTMLElement>('[data-tayar-section-id]');
+              const sectionId = section?.getAttribute('data-tayar-section-id');
+              const form = section?.querySelector<HTMLFormElement>('form[data-tayar-lead-form]');
+              const bound = form && boundForms.get(form);
+              const published = config.applicationForms?.find(item => item.pageId === config.pageId && item.section.id === sectionId);
+              if (!sectionId || !form || !bound || bound.userId !== current.id || !published
+                || form.closest('[data-tayar-section-id]') !== section) throw new Error();
+              const allowedFieldNames = new Set((published.section.formFields ?? []).map(field => field.name));
+              const entries = Array.from(new FormData(form).entries()).filter(([name]) => name !== '_tayar_company');
+              input = bindApplicationCustomOperationFormValues(action.input, entries, allowedFieldNames) ?? (() => { throw new Error(); })();
+            }
+            await window.tayarApplication.executeCustomOperation(action.operationId, input);
             if (!disposed && !signingOut && status) status.textContent = formCopy.operationSuccess;
           } catch {
             if (!disposed && !signingOut && status) status.textContent = formCopy.unavailable;
@@ -171,7 +202,7 @@ try {
       formStatus(form, '');
     }
   };
-  void prepareForms().catch(() => { stopForms(); leadForms.forEach(form => formStatus(form, formCopy.unavailable)); });
+  formsPreparation = prepareForms().catch(() => { stopForms(); leadForms.forEach(form => formStatus(form, formCopy.unavailable)); });
   try {
     const seen = new Set<string>();
     for (const item of config.applicationDataViews ?? []) {

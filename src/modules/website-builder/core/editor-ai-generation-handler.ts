@@ -153,7 +153,7 @@ export function createAIGenerationHandler({
         .map(connection => ({ id: connection.id, providerId: connection.providerId, name: connection.name }));
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', availableIntegrations, limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Analyze this project's explicit and necessary inferred requirements without assuming a business sector or template. For applications, return projectSpecification with actors, schema entities, observable acceptance criteria, operation dependencies, business rules, tenancy, privacy and deferred integration scopes. For a genuinely unsupported operation, you may return execution="custom" with a source string containing a deterministic JavaScript function body that accepts JSON input and returns JSON output; do not claim database transactions or external access. When a generated page should invoke a custom operation, add a button element with action="custom-operation", customOperationId equal to the operation ID, and customOperationInputJson containing a JSON object string. Never generate inline JavaScript or claim the button is tested just because it exists. Custom source remains an inert draft artifact until authorization, sandbox execution and runtime verification pass. Report unresolved conflicts and unsupported execution instead of omitting requirements. Include imagePrompt values where useful. Request: ${prompt}` : prompt },
+        { action: 'generate', availableIntegrations, limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Analyze this project's explicit and necessary inferred requirements without assuming a business sector or template. For applications, return projectSpecification with actors, schema entities, observable acceptance criteria, operation dependencies, business rules, tenancy, privacy and deferred integration scopes. For a genuinely unsupported operation, you may return execution="custom" with a source string containing a deterministic JavaScript function body that accepts JSON input and returns JSON output; do not claim database transactions or external access. When a generated page should invoke a custom operation, add a button element with action="custom-operation", customOperationId equal to the operation ID, and customOperationInputJson containing a JSON object string. Set customOperationBindFormValues=true only when the action is inside a contact section with an applicationFormBinding and the operation needs that form's submitted values. Never generate inline JavaScript or claim the button is tested just because it exists. Custom source remains an inert draft artifact until authorization, sandbox execution and runtime verification pass. Report unresolved conflicts and unsupported execution instead of omitting requirements. Include imagePrompt values where useful. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 16000, signal: abortController.signal },
       );
@@ -217,9 +217,13 @@ export function createAIGenerationHandler({
             customActionCount += rawActions.length;
             if (rawActions.length > 10 || customActionCount > 100) throw new Error('Generated custom operation actions exceed the project safety limit. No partial project was applied.');
             const customActions = rawActions.map(raw => {
-              const parsed = parseApplicationCustomOperationAction(raw.customOperationId, raw.customOperationInputJson, customOperationIds);
+              const bindFormValues = raw.customOperationBindFormValues === true;
+              const parsed = parseApplicationCustomOperationAction(raw.customOperationId, raw.customOperationInputJson, customOperationIds, bindFormValues);
               if (!parsed || typeof raw.content !== 'string' || !raw.content.trim() || raw.content.length > 160) {
                 throw new Error('A generated custom operation action is invalid or references an undeclared operation. No partial project was applied.');
+              }
+              if (bindFormValues && (section.type !== 'contact' || !section.applicationFormBinding)) {
+                throw new Error('A custom operation can bind form values only to its own application form section. No partial project was applied.');
               }
               return {
                 ...createElement('button', generatedAccent),
@@ -227,6 +231,7 @@ export function createAIGenerationHandler({
                 action: 'custom-operation' as const,
                 customOperationId: parsed.operationId,
                 customOperationInputJson: JSON.stringify(parsed.input),
+                ...(bindFormValues ? { customOperationBindFormValues: true } : {}),
               };
             });
             const sectionBase = {
