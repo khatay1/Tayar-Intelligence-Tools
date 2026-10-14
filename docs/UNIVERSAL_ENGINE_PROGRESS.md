@@ -453,5 +453,10 @@ Supabase Preview remains skipped because preview branches are disabled.
 An additive `conditionMode` supports AND (default) and OR matching for bounded
 workflow predicates. The workflow regression, TypeScript, focused ESLint, all
 affected generated-bundle consistency checks and whitespace validation pass
-locally. PR #217 is open from current `main`; its Release Gate and post-merge
-gate are still required before merge.
+locally. The trusted BYO Publish generator also regenerated its transitive
+application-validation dependency; the bundle check and deployment-entry
+regression pass. PR #217 head `bdda0292743679df66828746f3d69d7eb3d6c818` contains
+that exact generated tree. Release Gate run `38594651303` failed its Project
+health consistency check because the runner checked merge ref `ac8312f`, which
+still contained the previous PR head `6fb43d1`. A fresh gate on the current PR
+head and the post-merge gate remain required before merge.
