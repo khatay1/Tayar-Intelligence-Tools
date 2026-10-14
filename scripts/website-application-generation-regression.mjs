@@ -90,6 +90,8 @@ try {
   assert.deepEqual(agentBuild.state.Application.requirements.specification, projectSpecification);
   assert.match(agentBuild.request.prompt, /customOperationInputJson/,
     'agent generation must bind custom operations through the declarative page action contract');
+  assert.match(agentBuild.request.prompt, /customOperationBindFormValues=true/,
+    'agent generation must make form-value binding an explicit choice');
   assert.match(agentBuild.request.prompt, /action="custom-operation"/);
   const customDraftSpecification = { ...projectSpecification, operations: projectSpecification.operations.map((operation, index) => index
     ? operation : { ...operation, execution: 'custom', transactional: false, source: 'return { accepted: true };' }) };
@@ -99,6 +101,18 @@ try {
   const customDraftBuild = await run({ ...customActionResponse, projectSpecification: customDraftSpecification }, 6, 'Build saved records with a patient portal', true);
   assert.ok(customDraftBuild.state.Pages[0].sections[0].elements.some(element => element.action === 'custom-operation'
     && element.customOperationId === 'sign-in' && element.customOperationInputJson === '{"email":"person@example.test"}'));
+  const boundActionResponse = structuredClone(customActionResponse);
+  boundActionResponse.pages[1].sections[0].elements = [{ type: 'button', action: 'custom-operation', customOperationId: 'sign-in',
+    customOperationInputJson: '{}', customOperationBindFormValues: true, content: 'Run with form values' }];
+  const boundActionBuild = await run({ ...boundActionResponse, projectSpecification: customDraftSpecification }, 6,
+    'Build saved records with a patient portal', true);
+  assert.equal(boundActionBuild.state.AiStage, 'ready');
+  assert.equal(boundActionBuild.state.Pages[1].sections[0].elements.find(element => element.customOperationId === 'sign-in').customOperationBindFormValues, true);
+  const invalidBoundAction = structuredClone(boundActionResponse);
+  invalidBoundAction.pages[0].sections[0].elements[0] = { ...invalidBoundAction.pages[1].sections[0].elements[0] };
+  const invalidBoundActionBuild = await run({ ...invalidBoundAction, projectSpecification: customDraftSpecification }, 6,
+    'Build saved records with a patient portal', true);
+  assert.equal(invalidBoundActionBuild.state.AiStage, 'error', 'form values must bind only to their own bound application form section');
   const invalidCustomAction = structuredClone(customActionResponse);
   invalidCustomAction.pages[0].sections[0].elements[0].customOperationInputJson = '[]';
   const invalidCustomActionBuild = await run({ ...invalidCustomAction, projectSpecification: customDraftSpecification }, 6,
@@ -328,6 +342,11 @@ try {
   assert.match(customOperationHtml, /data-tayar-custom-operation-input="\{&quot;caseId&quot;:&quot;case-17&quot;\}"/);
   assert.match(customOperationHtml, /<button[^>]*disabled/);
   assert.match(customOperationHtml, /data-tayar-custom-operation-status/);
+  const boundOperationHtml = sectionToHtml({ id: 'bound-contact', type: 'contact', elements: [
+    { ...customOperationButton, customOperationBindFormValues: true },
+  ], formFields: [{ id: 'email-field', name: 'email', label: 'Email', type: 'email', required: true }],
+    applicationFormBinding: { operation: 'create', tableId: 'requests', fields: [] } }, 'home');
+  assert.match(boundOperationHtml, /data-tayar-custom-operation-bind-form="true"/);
   const malformedOperationHtml = sectionToHtml({ id: 'workflow', type: 'features', elements: [
     { ...customOperationButton, customOperationInputJson: '[1]' },
   ] }, 'home');

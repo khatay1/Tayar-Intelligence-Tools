@@ -313,6 +313,9 @@ function buildElementFields(
         field('customOperationInputJson', 'Input JSON', element.customOperationInputJson ?? '{}', 'textarea', 'content', {
           section: 'Custom operation', placeholder: '{"recordId":"..."}',
         }),
+        field('customOperationBindFormValues', 'Include bound form values', Boolean(element.customOperationBindFormValues), 'toggle', 'content', {
+          section: 'Custom operation',
+        }),
       );
     } else {
       fields.push(

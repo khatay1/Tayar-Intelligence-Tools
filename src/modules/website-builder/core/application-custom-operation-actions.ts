@@ -1,6 +1,7 @@
 export interface ApplicationCustomOperationAction {
   operationId: string;
   input: Record<string, unknown>;
+  bindFormValues: boolean;
 }
 
 const operationIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
@@ -12,9 +13,10 @@ export function parseApplicationCustomOperationAction(
   operationId: string | null | undefined,
   inputJson: string | null | undefined,
   allowedOperationIds: ReadonlySet<string>,
+  bindFormValues = false,
 ): ApplicationCustomOperationAction | null {
   if (!operationId || !operationIdPattern.test(operationId) || !allowedOperationIds.has(operationId)
-    || typeof inputJson !== 'string' || inputJson.length > maxInputBytes) return null;
+    || typeof inputJson !== 'string' || inputJson.length > maxInputBytes || typeof bindFormValues !== 'boolean') return null;
   try {
     const input: unknown = JSON.parse(inputJson);
     if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
@@ -33,6 +35,30 @@ export function parseApplicationCustomOperationAction(
       return ok;
     };
     if (!valid(input, 0) || new TextEncoder().encode(JSON.stringify(input)).byteLength > maxInputBytes) return null;
-    return { operationId, input: input as Record<string, unknown> };
+    if (bindFormValues && Object.prototype.hasOwnProperty.call(input, 'form')) return null;
+    return { operationId, input: input as Record<string, unknown>, bindFormValues };
+  } catch { return null; }
+}
+
+/** Add explicitly opted-in, same-section application form values under `form`.
+ * Reject files, duplicate names, undeclared controls, unsafe keys, and oversized payloads. */
+export function bindApplicationCustomOperationFormValues(
+  input: Record<string, unknown>,
+  entries: Iterable<[string, FormDataEntryValue]>,
+  allowedFieldNames: ReadonlySet<string>,
+): Record<string, unknown> | null {
+  if (Object.prototype.hasOwnProperty.call(input, 'form')) return null;
+  const form: Record<string, string> = {};
+  let count = 0;
+  for (const [name, value] of entries) {
+    if (++count > 46 || !allowedFieldNames.has(name) || ['__proto__', 'constructor', 'prototype'].includes(name)
+      || typeof value !== 'string' || value.length > maxInputBytes || Object.prototype.hasOwnProperty.call(form, name)) return null;
+    form[name] = value;
+  }
+  const result = { ...input, form };
+  try {
+    const json = JSON.stringify(result);
+    if (new TextEncoder().encode(json).byteLength > maxInputBytes) return null;
+    return result;
   } catch { return null; }
 }

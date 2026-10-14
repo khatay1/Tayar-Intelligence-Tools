@@ -80,7 +80,9 @@ export function buildApplicationRequirementCoverage(
     for (const operation of linkedOperations.filter(operation => operation.execution === 'custom')) {
       const actionBound = pages.some(page => page.sections.some(section => (section.elements ?? []).some(element =>
         element.type === 'button' && element.action === 'custom-operation' && element.customOperationId === operation.id
-        && !!parseApplicationCustomOperationAction(element.customOperationId, element.customOperationInputJson ?? '{}', customOperationIds))));
+        && !!parseApplicationCustomOperationAction(element.customOperationId, element.customOperationInputJson ?? '{}', customOperationIds,
+          element.customOperationBindFormValues === true)
+        && (!element.customOperationBindFormValues || (section.type === 'contact' && !!section.applicationFormBinding)))));
       tests.push({
         id: `contract:operation-action:${operation.id}`,
         kind: 'contract' as const,

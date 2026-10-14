@@ -144,8 +144,10 @@ export interface WebsiteElement {
   href?: string;
   action?: 'link' | 'stripe-checkout' | 'custom-operation';
   customOperationId?: string;
-  /** Literal JSON object passed to the operation; dynamic values must come from a separately authorized workflow. */
+  /** Bounded literal JSON passed as operation input; explicit form values can be added separately. */
   customOperationInputJson?: string;
+  /** Explicitly include the bound application form's current values under input.form. */
+  customOperationBindFormValues?: boolean;
   stripePreviewPriceId?: string;
   stripeProductionPriceId?: string;
   src?: string;
