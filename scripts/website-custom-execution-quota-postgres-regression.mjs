@@ -21,7 +21,8 @@ psql('-c', `
   create table public.ai_usage (
     id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
     provider text not null, model text not null, tool text not null, tokens_in integer not null,
-    tokens_out integer not null, duration_ms integer not null, status text not null, cost_usd numeric not null default 0
+    tokens_out integer not null, duration_ms integer not null, status text not null,
+    cost_usd numeric not null default 0, created_at timestamptz not null default now()
   );
   create table public.tool_access_rules (
     tool_id text primary key,
