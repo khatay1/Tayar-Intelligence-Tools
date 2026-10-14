@@ -15,7 +15,7 @@ try {
   const dependencies = {
     enabled: true,
     async authorize(value) { order.push(['authorize', value]); return true; },
-    async loadOperation(value) { order.push(['load', value]); return { releaseId: request.releaseId, source: 'source-from-release' }; },
+    async loadOperation(value) { order.push(['load', value]); return { releaseId: request.releaseId, operationId: request.operationId, source: 'source-from-release' }; },
     async reserveUsage(value) { order.push(['reserve', value]); return 'reservation-1'; },
     async completeUsage(id, value) { order.push(['complete', id, value]); return true; },
     adapter: { async create(options) {
@@ -37,7 +37,11 @@ try {
     error => error instanceof PublishedCustomOperationError && error.code === 'not-authorized');
   await assert.rejects(runPublishedCustomOperation(request, { ...blocked, reserveUsage: async () => null }),
     error => error instanceof PublishedCustomOperationError && error.code === 'unavailable');
-  await assert.rejects(runPublishedCustomOperation(request, { ...blocked, loadOperation: async () => ({ releaseId: 'other_release', source: 'untrusted' }) }),
+  await assert.rejects(runPublishedCustomOperation(request, { ...blocked, loadOperation: async () => ({ releaseId: 'other_release', operationId: request.operationId, source: 'untrusted' }) }),
+    error => error instanceof PublishedCustomOperationError && error.code === 'unavailable');
+  await assert.rejects(runPublishedCustomOperation(request, { ...blocked, loadOperation: async () => ({ releaseId: request.releaseId, operationId: 'different_operation', source: 'untrusted' }) }),
+    error => error instanceof PublishedCustomOperationError && error.code === 'unavailable');
+  await assert.rejects(runPublishedCustomOperation(request, { ...blocked, loadOperation: async () => ({ releaseId: request.releaseId, operationId: request.operationId, source: 'source', ownerId: 'attacker' }) }),
     error => error instanceof PublishedCustomOperationError && error.code === 'unavailable');
   await assert.rejects(runPublishedCustomOperation({ ...request, source: 'client-controlled' }, dependencies),
     error => error instanceof PublishedCustomOperationError && error.code === 'invalid-request');

@@ -1,5 +1,28 @@
 # Universal engineering platform — verified checkpoint
 
+## Live repository check — 2026-10-14
+
+- `main` is `16c913fbc6cb6bc6b468baf754513f0b13889675`; its latest Release
+  Gate run `38530071407` completed successfully. PR #146 is merged as
+  `ab55075ea6f8ebd09b71994a0e631efe12e96024`; its stale-runtime and browser
+  regression failures are resolved and are not current blockers.
+- The current Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`,
+  behind `main`. Promotion is deferred until the outstanding platform work has
+  passed its release gate; source-only changes and previews must not be reported
+  as production delivery.
+- Supabase advisor snapshot on the active project (2026-10-14): no uncovered
+  foreign-key notices are recorded in the phase-zero migration checkpoint.
+  Remaining SECURITY DEFINER and private-table RLS notices were reviewed as
+  intentional server/API boundaries; do not blanket-revoke grants or add RLS
+  policies. Newly added indexes can still appear unused before representative
+  workload. Leaked-password protection remains disabled on the Free plan and
+  requires an owner plan decision; no billing or auth setting was changed.
+- The next product blocker remains immutable custom-operation source storage
+  and a concrete operation authorization policy. The HTTP route and isolated
+  adapter remain unmounted/disabled until those pieces, focused regressions,
+  and a Release Gate pass. Continue from this point without repeating phase-zero
+  repairs or successful tests.
+
 ## Durable rules
 
 Extend the existing application engine; do not create sector-specific engines.
@@ -359,10 +382,22 @@ accidentally reverted AI result.
 
 ## Honest completion boundary
 
+### Published operation identity binding — implementation checkpoint
+
+The execution orchestrator now requires the release resolver to return both
+the requested immutable release ID and operation ID. It rejects missing or
+mismatched identities, empty source, and extra artifact fields before usage
+reservation or sandbox creation. This closes a concrete source-selection gap in
+the orchestration contract; it does not implement persistent artifact storage,
+authorization policy, or route mounting. The focused custom-operation
+regression, TypeScript, scoped ESLint and whitespace checks passed locally.
+The change is awaiting the PR Release Gate before merge.
+
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
 require incremental implementation and evidence, especially a verified provider
-adapter for the custom execution boundary, safe repair/rollback, and diverse
+immutable artifact storage and authorization for the custom execution boundary,
+safe repair/rollback, and diverse
 full reference-project verification. The seven reference projects have generated-contract coverage, with
 representative browser interactions now verified for several project types;
 that is not evidence that each is a complete customer-ready product. Final
