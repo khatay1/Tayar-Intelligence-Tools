@@ -35,7 +35,12 @@ export interface PublishedCustomOperationDependencies {
     Promise<{ releaseId: string; operationId: string; source: string } | null>;
   authorize(input: PublishedCustomOperationRequest, accessToken?: string): Promise<boolean>;
   reserveUsage(input: PublishedCustomOperationRequest): Promise<string | null>;
-  completeUsage(reservationId: string, input: PublishedCustomOperationRequest, durationMs: number): Promise<boolean>;
+  completeUsage(
+    reservationId: string,
+    input: PublishedCustomOperationRequest,
+    durationMs: number,
+    status: 'success' | 'error',
+  ): Promise<boolean>;
   adapter: IsolatedExecutionAdapter;
   enabled?: boolean;
 }
@@ -77,7 +82,14 @@ export async function runPublishedCustomOperation(
       executionError = error;
     }
     let completed = false;
-    try { completed = await dependencies.completeUsage(reservationId, request, Date.now() - startedAt); } catch { /* keep the reservation until its expiry */ }
+    try {
+      completed = await dependencies.completeUsage(
+        reservationId,
+        request,
+        Date.now() - startedAt,
+        executionFailed ? 'error' : 'success',
+      );
+    } catch { /* keep the reservation until its expiry */ }
     if (!completed) throw new PublishedCustomOperationError('unavailable');
     if (executionFailed) throw executionError;
     return result;

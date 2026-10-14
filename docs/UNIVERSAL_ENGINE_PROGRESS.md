@@ -1,5 +1,26 @@
 # Universal engineering platform — verified checkpoint
 
+## Current continuation checkpoint — 2026-10-14
+
+- Live `main` is `1d39ca528820624a0fdd483637c4de12e0f0b15c` (commit:
+  “Connect custom operation route to customer actor authorization”). PR #146 is
+  merged. The latest main Release Gate, run `38599925674`, passed. The local
+  workspace was freshly cloned at that exact commit before editing.
+- Vercel's latest Production deployment remains READY at `ab55075e`, behind
+  `main`; no Production promotion was made. The current feature must pass its PR
+  and main Release Gates before deployment work is reconsidered.
+- A fresh Supabase advisor read at 2026-10-14 19:47 UTC reported 16 uncovered
+  foreign-key indexes on both active projects, in conflict with the earlier
+  phase-zero checkpoint. Treat this as an open discrepancy: inspect actual
+  catalog state and advisor scope before any migration. Existing SECURITY
+  DEFINER and RLS-without-policy findings include reviewed server-only
+  boundaries; do not add blanket grants or policies. Unused-index notices alone
+  are not grounds to remove indexes.
+- Focused fix in progress: quota finalization now needs to record `error` when
+  the isolated execution fails while still consuming its reservation. Targeted
+  quota, operation, HTTP-route, TypeScript and scoped ESLint checks pass. PR and
+  Release Gate evidence will be added after the branch is pushed.
+
 ## Live repository check — 2026-10-14
 
 - `main` is `6612bb8dbbe572d23568b988acd8b079dcfa39a3`; PR #217 is merged
