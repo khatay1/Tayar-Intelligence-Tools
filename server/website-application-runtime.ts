@@ -4,6 +4,7 @@ import { applicationOriginForProject } from '../src/modules/website-builder/core
 import { clearApplicationBrowserSession, handleWebsiteApplicationBrowserSession } from '../src/modules/website-builder/services/websiteApplicationSessionService';
 import { createVercelSandboxExecutionAdapter } from './vercel-sandbox-execution-adapter';
 import { servePublishedCustomOperationRuntime } from './website-application-custom-operation-runtime';
+import { isWebsiteCustomExecutionEnabled } from './website-custom-execution-policy';
 
 const unavailable = () => new Response('Application runtime is unavailable.', { status: 503, headers: { 'cache-control': 'private, no-store' } });
 function platformClient(platformUrl: string) {
@@ -70,8 +71,7 @@ export async function serveApplicationBrowserSession(input: {
 export async function serveApplicationCustomOperation(input: {
   request: Request; ownerId: string; projectId: string; platformUrl: string;
 }): Promise<Response> {
-  const enabled = process.env.WEBSITE_APPLICATION_RUNTIME_ENABLED === 'true'
-    && process.env.WEBSITE_CUSTOM_EXECUTION_ENABLED === 'true';
+  const enabled = isWebsiteCustomExecutionEnabled(process.env);
   if (!enabled) return Response.json({ error: 'not_found' }, {
     status: 404,
     headers: { 'cache-control': 'private, no-store', 'cdn-cache-control': 'no-store', 'vary': 'Origin, Authorization, Cookie' },
