@@ -10,6 +10,9 @@ try {
   const outfile = join(dir, 'custom-operation.cjs');
   await build({ entryPoints: ['server/website-application-custom-operation.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
   const { runPublishedCustomOperation, PublishedCustomOperationError } = (await import(pathToFileURL(outfile))).default;
+  const authorizationOutfile = join(dir, 'custom-operation-authorization.cjs');
+  await build({ entryPoints: ['server/website-application-custom-operation-authorization.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: authorizationOutfile });
+  const { authorizePublishedCustomOperationActor } = (await import(pathToFileURL(authorizationOutfile))).default;
   const request = { ownerId: 'owner_1', projectId: 'project_1', releaseId: 'release_1', operationId: 'calculate_1', input: { value: 4 } };
   const order = [];
   const dependencies = {
@@ -56,6 +59,46 @@ try {
   }), error => error instanceof PublishedCustomOperationError && error.code === 'execution-failed');
   assert.equal(finalizedThrownNull, true, 'non-Error execution failures are surfaced only after usage is finalized');
   console.log('Published custom operation fail-closed regression passed.');
+
+  const backend = { url: 'https://abcdefghijklmnopqrst.supabase.co', publishableKey: 'sb_publishable_test', projectRef: 'abcdefghijklmnopqrst' };
+  const authorizationSpec = {
+    actors: [{ id: 'staff', name: 'Staff', roleId: 'staff_role' }, { id: 'viewer', name: 'Viewer' }],
+    operations: [{ id: 'calculate_1', execution: 'custom', actorIds: ['staff'], source: 'return input;' }],
+  };
+  const token = 'header.payload.signature';
+  const calls = [];
+  const authorized = await authorizePublishedCustomOperationActor({ backend, expectedProjectRef: backend.projectRef,
+    accessToken: token, specification: authorizationSpec, operationId: 'calculate_1', fetcher: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return String(url).endsWith('/auth/v1/user')
+        ? Response.json({ id: '123e4567-e89b-42d3-a456-426614174000', is_anonymous: false, user_metadata: { role: 'staff_role' } })
+        : Response.json(['staff_role']);
+    } });
+  assert.deepEqual(authorized, { userId: '123e4567-e89b-42d3-a456-426614174000' });
+  assert.deepEqual(calls.map(call => new URL(call.url).pathname), ['/auth/v1/user', '/rest/v1/rpc/app_my_roles']);
+  assert.ok(calls.every(call => call.init.headers.authorization === `Bearer ${token}`
+    && call.init.headers.apikey === backend.publishableKey && call.init.redirect === 'error' && call.init.cache === 'no-store'));
+  assert.equal(calls[1].init.body, '{}');
+  assert.equal(await authorizePublishedCustomOperationActor({ backend, expectedProjectRef: backend.projectRef,
+    accessToken: token, specification: authorizationSpec, operationId: 'calculate_1', fetcher: async url => {
+      return String(url).endsWith('/auth/v1/user')
+        ? Response.json({ id: '123e4567-e89b-42d3-a456-426614174000', is_anonymous: false,
+          user_metadata: { role: 'staff_role' } })
+        : Response.json({ unexpected: 'shape' });
+    } }), null, 'editable user_metadata must not grant an application role');
+  assert.equal(await authorizePublishedCustomOperationActor({ backend, expectedProjectRef: backend.projectRef,
+    accessToken: token, specification: { ...authorizationSpec, operations: [{ ...authorizationSpec.operations[0], actorIds: ['staff'] }] },
+    operationId: 'calculate_1', fetcher: async () => Response.json({ id: '123e4567-e89b-42d3-a456-426614174000' }) }),
+  null, 'a malformed role-RPC response must fail closed');
+  assert.equal(await authorizePublishedCustomOperationActor({ backend, expectedProjectRef: backend.projectRef,
+    accessToken: token, specification: authorizationSpec, operationId: 'calculate_1', fetcher: async () => Response.json({
+      id: '123e4567-e89b-42d3-a456-426614174000', is_anonymous: true,
+    }) }), null, 'anonymous sessions cannot invoke custom operations');
+  assert.equal(await authorizePublishedCustomOperationActor({ backend: { ...backend, url: 'https://attacker.example' },
+    expectedProjectRef: backend.projectRef, accessToken: token, specification: authorizationSpec,
+    operationId: 'calculate_1', fetcher: async () => { throw new Error('must not fetch'); } }), null,
+  'a mismatched backend must be rejected before network access');
+  console.log('Published custom operation actor authorization regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
