@@ -391,7 +391,260 @@ reservation or sandbox creation. This closes a concrete source-selection gap in
 the orchestration contract; it does not implement persistent artifact storage,
 authorization policy, or route mounting. The focused custom-operation
 regression, TypeScript, scoped ESLint and whitespace checks passed locally.
-The change is awaiting the PR Release Gate before merge.
+PR #213 mergease Gate now also runs each of the seven generated reference schemas on
+an isolated PostgreSQL database. It seeds records for two test owners, confirms
+each authenticated owner can read only their own row, and verifies an attempted
+owner reassignment is denied or rejected without changing the row. The fixtures
+reset the disposable schemas after use. This proves the generated schemas apply
+and their baseline tenant boundary works; it does not claim full customer
+product E2E or live provider readiness. Existing transaction, workflow,
+formula, booking and related PostgreSQL regressions remain the evidence for
+those native capability classes.
+
+The rollback safety regression also covers a verified publish whose project
+metadata commit fails: the previous live snapshot is restored and editor
+publication state stays unchanged. This is a recovery contract test, not proof
+of a live provider restore.
+
+The generated PostgreSQL schemas now also execute each reference project's
+primary feature: retail/factory inventory transactions, restaurant/government
+workflow transitions, school formula calculation, clinic booking and overlap
+rejection, and research-sample analysis. The seven scenarios passed the full
+Release Gate in PR #164. This verifies generated database behavior, not the
+generated page/browser/backend integration or a complete customer-ready product.
+
+The seven fixtures now also pass through the real saved-project HTML renderer and
+private application-page bootstrap preparation. The regression verifies that
+each rendered page receives its actual project definition and correctly bound
+primary data view, including the declared transaction, workflow, booking or
+formula field. This closes the generated HTML-to-runtime-configuration handoff
+check; it does not simulate browser interaction or prove live provider access.
+
+Release Gate boots rendered application pages with their real browser
+bootstrap in headless Chrome and verifies that generated data views read and
+display fixture records. It now also opens each of the seven generated reference
+project pages (retail, restaurant, school, clinic, government, factory, and
+custom research) in Chrome and verifies the page-specific bound data view renders
+a labeled fixture row. The fixture records are isolated by project and table,
+including schemas that share table names. This verifies the generated page,
+private bootstrap, browser runtime, and mocked read path for every reference
+definition; it does not exercise each project's full workflow or prove live
+provider access.
+
+The browser regression exercises representative project workflows through
+the actual private application runtime against local mocked Supabase responses.
+The generated restaurant page advances a kitchen ticket queued → cooking →
+ready; separate government permits are approved and rejected; and a research
+sample advances received → analysed → archived. It also creates an inventory
+transaction, checks availability and creates a clinic appointment inside the
+clinician schedule, then rejects a second overlapping appointment without
+creating another record. Generated school assessment and formula-backed rows
+are saved with their computed totals kept out of editable fields. PRs #181–#184
+added and passed the Release Gate for the research, restaurant, government and
+clinic browser flows. These are representative paths, not full end-to-end tests
+for every project type.
+
+The remaining evidence gap is interaction coverage for additional project
+behaviors and wiring the now-live-verified Vercel adapter into the server-side
+application runtime behind a reviewed, bounded operation contract. Customer
+execution remains disabled until that integration and its authorization,
+cleanup, timeout and release regressions pass. Production migration history and
+provider activation stay separate final-stage work; these fixtures touch no
+production database or credentials.
+
+
+## Business logic — bounded multi-record workflows merged
+
+PR #154 merged to `main` as
+`d09a03559292e5559b0d6ff8373f572eaf88be11`. PR Release Gate run
+38276567066 and main Release Gate run 38277439123 both passed.
+
+The existing atomic workflow engine now supports up to four distinct related
+tables per transition, with one row per table, stable target lock order,
+per-target permission checks and transaction rollback. The AI contract and
+generated runtime bundles were updated from their source generators. Release
+Gate also exposed a stale application-page browser bundle; it was regenerated
+from `scripts/build-application-page-browser.mjs`. PostgreSQL constraint
+rollback, the other application database regressions, production build,
+dependency audit and whitespace checks passed in both gates.
+
+The Supabase Preview migration check remains blocked by migration history drift:
+the connected production database has 46 recorded versions absent from the
+current local migration filenames, while 58 local versions are not recorded by
+their current version. Several logical migration names exist on both sides with
+different timestamps. This is historical drift, not a single stale migration.
+Do not rewrite database history, add no-op migration placeholders, or apply
+production migrations to silence the check; reconcile the historical source
+mapping before enabling preview migration validation. Production has not been
+deployed from this branch.
+
+## Custom code — isolated execution boundary
+
+The server now defines a provider-neutral, one-shot execution contract for
+untrusted custom code. Each adapter invocation must create a fresh Node 22 VM
+with network access denied, persistence disabled, one vCPU, and a bounded
+timeout. Requests and results must be finite JSON within strict size and depth
+limits. The boundary stops the sandbox after success, failure, timeout or
+oversized output and returns stable error codes without forwarding provider
+errors.
+
+Release Gate now runs regressions for the policy contract, missing-adapter
+fail-closed behavior, request/output bounds, timeouts, cleanup, and a mocked
+Vercel Sandbox REST adapter. The adapter requests an empty network allowlist,
+ephemeral Node 22 VMs, bounded resources and lifetime, and sends no environment,
+repository, mount or customer credential fields. Its HTTP contract is covered
+with mocked requests and responses only. No credentials were injected into
+the provider smoke, and the adapter is not mounted into an application route.
+
+A controlled provider smoke has now created a non-persistent Node 22 sandbox
+with one vCPU, a 30-second timeout, and deny-all network policy in the connected
+Vercel project. It wrote and read a local fixture file, confirmed an external
+fetch was blocked, exited successfully, and the session was stopped. This
+verifies the provider can start and isolate a short-lived VM; it does not verify
+the repository's REST adapter against Vercel, mount custom execution into an
+application route, or activate customer code.
+
+Custom operations remain rejected during project generation until this
+provider behavior is verified against a controlled activation sandbox and
+explicitly wired to the server-side application runtime. No customer code can
+reach this adapter today.
+
+An opt-in live smoke command now exercises the repository adapter and the shared
+one-shot cleanup boundary: `npm run smoke:vercel-sandbox:live`. It skips without
+a provider request when `VERCEL_TOKEN` is absent; `VERCEL_TEAM_ID` is optional.
+Provide credentials only through the local process environment, never by
+pasting them into source or command text. The smoke runs one deterministic
+expression with deny-all networking and a 10-second execution limit, suppresses
+provider error details, and is excluded from CI/Release Gate. It has not yet
+been run against Vercel, so the repository-adapter live verification remains
+open until that command completes successfully.
+
+## Custom code — live repository adapter verified
+
+The opt-in live smoke completed successfully on 2026-10-13 against main commit
+`f999dc64d90fc4f69f177d7013497f6262fe8172` (workflow run
+[38480702220](https://github.com/khatay1/Tayar-Intelligence-Tools/actions/runs/38480702220)).
+The repository adapter created a deny-all, non-persistent Node 22 sandbox,
+executed the deterministic fixture, validated its result, and stopped the
+sandbox. This closes the live REST-adapter verification gap. It does not enable
+customer execution: the adapter remains unmounted, custom operations remain
+rejected during generation, and no customer code or credentials were involved.
+
+## Custom code — published-operation gate contract added
+
+The server now has a fail-closed orchestration contract for a future published
+custom operation route. It accepts only owner/project/release/operation IDs and
+bounded JSON input; source is resolved server-side from the requested immutable
+release. Authorization must pass before source resolution, and a durable usage
+reservation must pass before a sandbox is created. The feature defaults off,
+rejects release mismatches and extra request fields, and maps provider failures
+to stable public codes. Release Gate covers ordering, disabled/unauthorized/
+unreserved denial, release mismatch and sandbox cleanup. The existing atomic
+per-user usage meter now has a dedicated custom-execution policy and bounded
+monthly limits (free 0, Pro 10, Business 50); it is seeded disabled by default.
+The server quota adapter validates the tool policy and effective plan before
+reserving usage, and finalizes the reservation after a sandbox attempt so
+failed customer code still consumes the bounded execution allowance. Release
+Gate covers reservation configuration, disabled-policy denial, finalization
+and clamped duration metadata. These additions are source-only and have not
+been applied to a live database. The orchestration contract remains unmounted;
+generation still rejects custom operations. Runtime authentication/release
+integration and the production migration remain pending.
+
+A server-only HTTP route contract now limits operation requests to same-origin POST JSON with a 32 KiB body, rejects client-supplied owner/project/source data, and maps failures to stable no-store responses. Release Gate covers origin, method, media type, query, body-size and successful-execution paths. This route contract is not mounted: the immutable release currently carries no custom source artifact or operation authorization policy. Release storage and live-auth bindings must be implemented before any customer operation can run.
+
+The published-operation orchestrator now distinguishes a thrown value from a successful `undefined` result, including adapters that throw `null` or another non-Error value. It still finalizes the reserved attempt before returning a stable failure. The focused regression and TypeScript check passed on PR #211; the route remains unmounted and disabled.
+
+The Website Builder AI undo path now has a direct behavioral regression in
+Release Gate. It verifies restoration of the complete captured page, site,
+brand, SEO, theme, header and reusable-symbol state; confirms restored
+collections are detached from the saved snapshot; and rejects stale-project or
+in-progress undo attempts without applying project data. Before a valid undo,
+the current project is now checkpointed so the history panel can restore an
+accidentally reverted AI result.
+
+## Honest completion boundary
+
+### Published operation identity binding — implementation checkpoint
+
+The execution orchestrator now requires the release resolver to return both
+the requested immutable release ID and operation ID. It rejects missing or
+mismatched identities, empty source, and extra artifact fields before usage
+reservation or sandbox creation. This closes a concrete source-selection gap in
+the orchestration contract; it does not implement persistent artifact storage,
+authorization policy, or route mounting. The focused custom-operation
+regression, TypeScript, scoped ESLint and whitespace checks passed locally.
+PR #213 merged as `7e8c258c0a5f7f1fe62f05d93cfa6018679517c1` after its PR and
+main Release Gates passed.
+
+### Inert custom-source release artifacts — implementation checkpoint
+
+Custom operations in the structured specification can now carry bounded source
+(64 KiB); native operations cannot carry source, and custom code cannot claim
+database transaction guarantees. The existing immutable application release
+snapshot retains this specification. A server resolver selects source only
+when owner, project, immutable release, private release bucket, and operation
+IDs all match. The AI generation contract describes deterministic JSON-in/JSON-out
+draft source and explicitly forbids claiming it is authorized, executed, or
+deliverable. Requirement coverage adds a failing contract row for each custom
+operation, so source storage alone cannot pass delivery. Execution remains
+disabled pending the authorization and runtime integration work. Focused
+specification, generation, coverage, resolver, type and bundle checks passed;
+the full PR Release Gate will provide final verification.
+
+Phase one structured analysis is merged, but broader inferred-requirement depth
+will continue to evolve with the generator. Phases two through seven still
+require incremental implementation and evidence, especially a verified provider
+immutable artifact storage and authorization for the custom execution boundary,
+safe repair/rollback, and diverse
+full reference-project verification. The seven reference projects have generated-contract coverage, with
+representative browser interactions now verified for several project types;
+that is not evidence that each is a complete customer-ready product. Final
+provider activation remains phase eight.
+d as `7e8c258c0a5f7f1fe62f05d93cfa6018679517c1` after its PR and
+main Release Gates passed.
+
+### Inert custom-source release artifacts — implementation checkpoint
+
+Custom operations in the structured specification can now carry bounded source
+(64 KiB); native operations cannot carry source, and custom code cannot claim
+database transaction guarantees. The existing immutable application release
+snapshot retains this specification. A server resolver selects source only
+when owner, project, immutable release, private release bucket, and operation
+IDs all match. The AI generation contract describes deterministic JSON-in/JSON-out
+draft source and explicitly forbids claiming it is authorized, executed, or
+deliverable. Requirement coverage adds a failing contract row for each custom
+operation, so source storage alone cannot pass delivery. Execution remains
+disabled pending the authorization and runtime integration work. Focused
+specification, generation, coverage, resolver, type and bundle checks passed;
+the full PR Release Gate will provide final verification.
+
+Phase one structured analysis is merged, but broader inferred-requirement depth
+will continue to evolve with the generator. Phases two through seven still
+require incremental implementation and evidence, especially a verified provider
+immutable artifact storage and authorization for the custom execution boundary,
+safe repair/rollback, and diverse
+full reference-project verification. The seven reference projects have generated-contract coverage, with
+representative browser interactions now verified for several project types;
+that is not evidence that each is a complete customer-ready product. Final
+provider activation remains phase eight.
+d as `7e8c258c0a5f7f1fe62f05d93cfa6018679517c1` after its PR and
+main Release Gates passed.
+
+### Inert custom-source release artifacts — implementation checkpoint
+
+Custom operations in the structured specification can now carry bounded source
+(64 KiB); native operations cannot carry source, and custom code cannot claim
+database transaction guarantees. The existing immutable application release
+snapshot retains this specification. A server resolver selects source only
+when owner, project, immutable release, private release bucket, and operation
+IDs all match. The AI generation contract describes deterministic JSON-in/JSON-out
+draft source and explicitly forbids claiming it is authorized, executed, or
+deliverable. Requirement coverage adds a failing contract row for each custom
+operation, so source storage alone cannot pass delivery. Execution remains
+disabled pending the authorization and runtime integration work. Focused
+specification, generation, coverage, resolver, type and bundle checks passed;
+the full PR Release Gate will provide final verification.
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
