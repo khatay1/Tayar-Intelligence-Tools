@@ -2,7 +2,8 @@
  * Provider-neutral boundary for one-shot, untrusted application code.
  * A provider must create a fresh VM with the supplied limits and must not
  * inherit host environment variables, credentials, files or network access.
- * This module is intentionally not mounted into an application route yet.
+ * Its only published-operation route is server-side and feature-gated; sandbox
+ * processes never receive platform or customer credentials.
  */
 export const ISOLATED_CODE_LIMITS = Object.freeze({
   maxSourceBytes: 64 * 1024,
