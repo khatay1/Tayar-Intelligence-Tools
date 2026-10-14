@@ -345,6 +345,8 @@ been applied to a live database. The orchestration contract remains unmounted;
 generation still rejects custom operations. Runtime authentication/release
 integration and the production migration remain pending.
 
+A server-only HTTP route contract now limits operation requests to same-origin POST JSON with a 32 KiB body, rejects client-supplied owner/project/source data, and maps failures to stable no-store responses. Release Gate covers origin, method, media type, query, body-size and successful-execution paths. This route contract is not mounted: the immutable release currently carries no custom source artifact or operation authorization policy. Release storage and live-auth bindings must be implemented before any customer operation can run.
+
 The published-operation orchestrator now distinguishes a thrown value from a successful `undefined` result, including adapters that throw `null` or another non-Error value. It still finalizes the reserved attempt before returning a stable failure. The focused regression and TypeScript check passed on PR #211; the route remains unmounted and disabled.
 
 The Website Builder AI undo path now has a direct behavioral regression in
