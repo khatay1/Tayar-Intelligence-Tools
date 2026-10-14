@@ -6,6 +6,8 @@ export interface ApplicationBrowserSessionOptions {
   ownerId: string;
   applicationOrigin: string;
   platformOrigin: string;
+  /** Added by the trusted published-release response, never by page content. */
+  releaseId?: string;
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
