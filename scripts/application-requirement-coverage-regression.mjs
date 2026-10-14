@@ -40,9 +40,17 @@ try {
 
   const customApplication = structuredClone(application);
   customApplication.requirements.specification = { operations: [{ id: 'custom-task', requirementIds: ['task-form'], execution: 'custom' }] };
-  const customCoverage = buildApplicationRequirementCoverage(customApplication, pages);
+  const customPages = structuredClone(pages);
+  customPages[0].sections.push({ id: 'run-task', type: 'features', elements: [{ id: 'run-task-button', type: 'button',
+    action: 'custom-operation', customOperationId: 'custom-task', customOperationInputJson: '{"task":"current"}' }] });
+  const customCoverage = buildApplicationRequirementCoverage(customApplication, customPages);
   assert.equal(customCoverage.find(row => row.requirementId === 'task-form').deliveryStatus, 'blocked');
+  assert.equal(customCoverage.find(row => row.requirementId === 'task-form').tests.at(-2).result, 'passed');
   assert.match(customCoverage.find(row => row.requirementId === 'task-form').tests.at(-1).detail, /inert draft/);
+  const missingCustomAction = buildApplicationRequirementCoverage(customApplication, pages)
+    .find(row => row.requirementId === 'task-form');
+  assert.equal(missingCustomAction.tests.at(-2).result, 'failed');
+  assert.match(missingCustomAction.tests.at(-2).detail, /No valid generated page action/);
   console.log('PASS requirement coverage matrix: implementation, contract test, result and honest delivery status');
 } finally {
   await rm(dir, { recursive: true, force: true });

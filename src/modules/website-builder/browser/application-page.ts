@@ -2,6 +2,7 @@ import { ApplicationBookingRejected } from '../core/application-booking';
 import { createApplicationDataRuntime, createOwnedApplicationDataRuntime } from '../core/application-data-runtime';
 import type { ApplicationAuthScreenConfig, OwnedApplicationAuthScreenConfig } from '../core/application-auth-controller';
 import type { ApplicationDefinition } from '../core/application-model';
+import { parseApplicationCustomOperationAction } from '../core/application-custom-operation-actions';
 import { applicationAuthCopy } from '../core/application-auth-copy';
 import { createApplicationNavigator } from '../core/application-navigation';
 import { compileApplicationCreateForm, createDurableApplicationFormSubmission } from '../core/application-form-runtime';
@@ -23,10 +24,10 @@ const config = JSON.parse(script.dataset.application!) as (ApplicationAuthScreen
   { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[]; applicationDataViews?: PublishedApplicationDataView[] };
 const copy = applicationAuthCopy[config.language] ?? applicationAuthCopy.en;
 const formCopy = {
-  en: { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' },
-  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', schedule: 'اختر وقتًا ضمن ساعات العمل والمدة القصوى للحجز.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.' },
-  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', schedule: 'Välj en tid inom öppettiderna och bokningens längdgräns.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.' },
-}[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' };
+  en: { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.', operationSuccess: 'Operation completed.', operationRequiresSignIn: 'Sign in to run this operation.' },
+  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', schedule: 'اختر وقتًا ضمن ساعات العمل والمدة القصوى للحجز.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.', operationSuccess: 'اكتملت العملية.', operationRequiresSignIn: 'سجّل الدخول لتنفيذ هذه العملية.' },
+  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', schedule: 'Välj en tid inom öppettiderna och bokningens längdgräns.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.', operationSuccess: 'Åtgärden är klar.', operationRequiresSignIn: 'Logga in för att köra åtgärden.' },
+}[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.', operationSuccess: 'Operation completed.', operationRequiresSignIn: 'Sign in to run this operation.' };
 let customOperationApi: Window['tayarApplication'];
 const account = new URL(config.returnPath, config.applicationOrigin);
 account.searchParams.set('applicationAuth', '1');
@@ -66,6 +67,46 @@ try {
   let disposed = false, signingOut = false;
   const dataViewDisposers: Array<() => void> = [];
   const stopDataViews = () => { dataViewDisposers.splice(0).forEach(dispose => dispose()); };
+  const customOperationDisposers: Array<() => void> = [];
+  const customOperationButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-tayar-custom-operation]'));
+  const stopCustomOperationActions = () => {
+    customOperationDisposers.splice(0).forEach(dispose => dispose());
+    customOperationButtons.forEach(button => { button.disabled = true; button.removeAttribute('aria-busy'); });
+  };
+  const prepareCustomOperationActions = async () => {
+    if (!customOperationButtons.length) return;
+    const operationIds = new Set((config.definition.requirements?.specification?.operations ?? [])
+      .filter(operation => operation.execution === 'custom').map(operation => operation.id));
+    const user = await runtime.auth.currentUser();
+    for (const button of customOperationButtons) {
+      const action = parseApplicationCustomOperationAction(button.dataset.tayarCustomOperation,
+        button.dataset.tayarCustomOperationInput, operationIds);
+      const status = button.parentElement?.querySelector<HTMLElement>('[data-tayar-custom-operation-status]');
+      if (!action) { if (status) status.textContent = formCopy.unavailable; continue; }
+      if (!user || user.is_anonymous) { if (status) status.textContent = formCopy.operationRequiresSignIn; continue; }
+      const click = () => {
+        if (disposed || signingOut || button.disabled) return;
+        button.disabled = true; button.setAttribute('aria-busy', 'true');
+        if (status) status.textContent = copy.loading;
+        void (async () => {
+          try {
+            const current = await runtime.auth.currentUser();
+            if (!current || current.is_anonymous || current.id !== user.id || !window.tayarApplication) throw new Error();
+            await window.tayarApplication.executeCustomOperation(action.operationId, action.input);
+            if (!disposed && !signingOut && status) status.textContent = formCopy.operationSuccess;
+          } catch {
+            if (!disposed && !signingOut && status) status.textContent = formCopy.unavailable;
+          } finally {
+            button.removeAttribute('aria-busy');
+            if (!disposed && !signingOut) button.disabled = false;
+          }
+        })();
+      };
+      button.addEventListener('click', click);
+      customOperationDisposers.push(() => button.removeEventListener('click', click));
+      button.disabled = false;
+    }
+  };
   const boundForms = new Map<HTMLFormElement, { controller: ReturnType<typeof createDurableApplicationFormSubmission>; userId: string }>();
   const submittingForms = new Set<HTMLFormElement>();
   const leadForms = Array.from(document.querySelectorAll<HTMLFormElement>('form[data-tayar-lead-form]'));
@@ -157,17 +198,18 @@ try {
   document.addEventListener('click', click);
   logout.addEventListener('click', () => {
     if (signingOut || disposed) return;
-    signingOut = true; stopForms(); stopDataViews(); logout.disabled = true; status.textContent = copy.loading;
+    signingOut = true; stopForms(); stopDataViews(); stopCustomOperationActions(); logout.disabled = true; status.textContent = copy.loading;
     void runtime.auth.signOut().then(() => { if (!disposed) window.location.replace(account.href); }).catch(() => {
       if (!disposed) { status.textContent = copy.error; logout.disabled = false; signingOut = false; }
     });
   });
-  const dispose = () => { if (disposed) return; disposed = true; stopForms(); stopDataViews(); navigator.dispose(); runtime.dispose(); document.removeEventListener('click', click); document.removeEventListener('submit', submitForm, true); if (customOperationApi && window.tayarApplication === customOperationApi) delete window.tayarApplication; };
+  const dispose = () => { if (disposed) return; disposed = true; stopForms(); stopDataViews(); stopCustomOperationActions(); navigator.dispose(); runtime.dispose(); document.removeEventListener('click', click); document.removeEventListener('submit', submitForm, true); if (customOperationApi && window.tayarApplication === customOperationApi) delete window.tayarApplication; };
   window.addEventListener('pagehide', dispose, { once: true });
   window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
   // Refresh cookie transport when opening a public page or after Auth refresh.
   // This is never a substitute for the server's next-page permission check.
   void runtime.auth.prepareNavigation().catch(() => { if (!disposed) status.textContent = copy.error; });
+  void prepareCustomOperationActions().catch(() => { customOperationButtons.forEach(button => { button.disabled = true; }); });
 } catch {
   if (customOperationApi && window.tayarApplication === customOperationApi) delete window.tayarApplication;
   logout.disabled = true; status.textContent = copy.unavailable;

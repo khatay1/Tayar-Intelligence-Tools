@@ -142,7 +142,10 @@ export interface WebsiteElement {
   type: WebsiteElementType;
   content: string;
   href?: string;
-  action?: 'link' | 'stripe-checkout';
+  action?: 'link' | 'stripe-checkout' | 'custom-operation';
+  customOperationId?: string;
+  /** Literal JSON object passed to the operation; dynamic values must come from a separately authorized workflow. */
+  customOperationInputJson?: string;
   stripePreviewPriceId?: string;
   stripeProductionPriceId?: string;
   src?: string;

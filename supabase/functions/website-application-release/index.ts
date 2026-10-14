@@ -9163,6 +9163,20 @@ function elementToHtml(element, homeSlug, device = "desktop", language = "en") {
     if (element.action === "stripe-checkout") {
       return `<button class="btn tayar-element" type="button" data-tayar-stripe-checkout="${escapeHtml(element.id)}" style="${css}">${value}</button>`;
     }
+    if (element.action === "custom-operation") {
+      const operationId = typeof element.customOperationId === "string" ? element.customOperationId : "";
+      const inputJson = typeof element.customOperationInputJson === "string" ? element.customOperationInputJson : "{}";
+      let safeInput = "";
+      try {
+        const parsed = JSON.parse(inputJson);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && new TextEncoder().encode(JSON.stringify(parsed)).byteLength <= 32 * 1024) safeInput = JSON.stringify(parsed);
+      } catch {
+        safeInput = "";
+      }
+      const validId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(operationId);
+      const data = validId && safeInput ? ` data-tayar-custom-operation="${escapeHtml(operationId)}" data-tayar-custom-operation-input="${escapeHtml(safeInput)}"` : ' data-tayar-custom-operation-invalid="true"';
+      return `<button class="btn tayar-element" type="button"${data} disabled style="${css}">${value}</button><span data-tayar-custom-operation-status role="status" aria-live="polite"></span>`;
+    }
     return `<a class="btn tayar-element" href="${escapeHtml(resolveBuilderHref(element.href || "#", homeSlug))}" style="${css}">${value}</a>`;
   }
   if (element.type === "list") {

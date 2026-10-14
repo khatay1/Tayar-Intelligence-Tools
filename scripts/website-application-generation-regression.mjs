@@ -12,7 +12,7 @@ try {
     platform: 'node', format: 'cjs', outfile: out, alias: { '@': resolve('src') }, define: { 'import.meta.env': '{}' },
     plugins: [{ name: 'fixture-ai', setup(b) {
       b.onResolve({ filter: /^@\/lib\/ai\/service$/ }, () => ({ path: 'ai', namespace: 'fixture' }));
-      b.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: 'export const createAIService=()=>({completeJSON:async()=>globalThis.__generationResponse});' }));
+      b.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: 'export const createAIService=()=>({completeJSON:async(request)=>{globalThis.__generationRequest=request;return globalThis.__generationResponse}});' }));
     } }] });
   const { createAIGenerationHandler } = require(out);
   const deliveryOut = join(dir, 'delivery.cjs');
@@ -36,6 +36,7 @@ try {
   ] };
   async function run(json, maxPages = 6, prompt = 'Build saved records with a patient portal', agentMode = false) {
     globalThis.__generationResponse = { json };
+    globalThis.__generationRequest = undefined;
     globalThis.window = { confirm: () => true };
     const state = {}, checkpoints = [];
     const setter = key => value => { state[key] = typeof value === 'function' ? value(state[key] ?? []) : value; };
@@ -49,7 +50,7 @@ try {
     };
     for (const key of ['Application','ActivePageId','AiBusy','AiCandidatePreview','AiError','AiIntent','AiMessages','AiPatchReview','AiPlan','AiPrompt','AiQualityReview','AiStage','AiUndoSnapshot','Brand','HeaderConfig','HomePageId','Pages','Saved','Sections','SelectedElementId','SelectedId','Seo','SiteName','Theme']) args[`set${key}`] = setter(key);
     await createAIGenerationHandler(args)(agentMode);
-    return { state, checkpoints };
+    return { state, checkpoints, request: globalThis.__generationRequest };
   }
   const built = await run(response);
   assert.equal(built.state.AiStage, 'ready');
@@ -87,9 +88,23 @@ try {
   const agentBuild = await run({ ...response, projectSpecification }, 6, 'Build saved records with a patient portal', true);
   assert.equal(agentBuild.state.AiStage, 'ready');
   assert.deepEqual(agentBuild.state.Application.requirements.specification, projectSpecification);
+  assert.match(agentBuild.request.prompt, /customOperationInputJson/,
+    'agent generation must bind custom operations through the declarative page action contract');
+  assert.match(agentBuild.request.prompt, /action="custom-operation"/);
   const customDraftSpecification = { ...projectSpecification, operations: projectSpecification.operations.map((operation, index) => index
     ? operation : { ...operation, execution: 'custom', transactional: false, source: 'return { accepted: true };' }) };
-  const customDraftBuild = await run({ ...response, projectSpecification: customDraftSpecification }, 6, 'Build saved records with a patient portal', true);
+  const customActionResponse = structuredClone(response);
+  customActionResponse.pages[0].sections[0].elements = [{ type: 'button', action: 'custom-operation', customOperationId: 'sign-in',
+    customOperationInputJson: '{"email":"person@example.test"}', content: 'Run action' }];
+  const customDraftBuild = await run({ ...customActionResponse, projectSpecification: customDraftSpecification }, 6, 'Build saved records with a patient portal', true);
+  assert.ok(customDraftBuild.state.Pages[0].sections[0].elements.some(element => element.action === 'custom-operation'
+    && element.customOperationId === 'sign-in' && element.customOperationInputJson === '{"email":"person@example.test"}'));
+  const invalidCustomAction = structuredClone(customActionResponse);
+  invalidCustomAction.pages[0].sections[0].elements[0].customOperationInputJson = '[]';
+  const invalidCustomActionBuild = await run({ ...invalidCustomAction, projectSpecification: customDraftSpecification }, 6,
+    'Build saved records with a patient portal', true);
+  assert.equal(invalidCustomActionBuild.state.AiStage, 'error');
+  assert.equal(invalidCustomActionBuild.state.Pages, undefined, 'invalid custom action must reject the entire generated project');
   assert.equal(customDraftBuild.state.AiStage, 'ready');
   assert.deepEqual(customDraftBuild.state.Application.requirements.specification, customDraftSpecification);
   const invalidAgentSpec = await run({ ...response, projectSpecification: { ...projectSpecification,
@@ -306,6 +321,18 @@ try {
     platform: 'node', format: 'cjs', outdir: dir, alias: { '@': resolve('src') }, define: { 'import.meta.env': '{}' } });
   const { websiteProjectLinkIssues } = require(join(dir, 'website-project-links.js'));
   const { resolveBuilderHref, sectionToHtml } = require(join(dir, 'website-builder-rendering.js'));
+  const customOperationButton = { id: 'approve', type: 'button', action: 'custom-operation', content: 'Approve',
+    customOperationId: 'approve_case', customOperationInputJson: '{"caseId":"case-17"}', style: {} };
+  const customOperationHtml = sectionToHtml({ id: 'workflow', type: 'features', elements: [customOperationButton] }, 'home');
+  assert.match(customOperationHtml, /data-tayar-custom-operation="approve_case"/);
+  assert.match(customOperationHtml, /data-tayar-custom-operation-input="\{&quot;caseId&quot;:&quot;case-17&quot;\}"/);
+  assert.match(customOperationHtml, /<button[^>]*disabled/);
+  assert.match(customOperationHtml, /data-tayar-custom-operation-status/);
+  const malformedOperationHtml = sectionToHtml({ id: 'workflow', type: 'features', elements: [
+    { ...customOperationButton, customOperationInputJson: '[1]' },
+  ] }, 'home');
+  assert.match(malformedOperationHtml, /data-tayar-custom-operation-invalid="true"/);
+  assert.doesNotMatch(malformedOperationHtml, /data-tayar-custom-operation-input=/);
   const pages = structuredClone(built.state.Pages);
   pages[0].sections[0].buttonUrl = 'page:booking#booking-form';
   pages[0].sections[0].elements.find(e => e.type === 'button').href = 'page:booking#booking-form';

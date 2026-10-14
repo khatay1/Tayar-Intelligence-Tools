@@ -292,9 +292,9 @@ function buildElementFields(
   }
 
   if (type === 'button') {
-    const action = element.action === 'stripe-checkout' ? 'stripe-checkout' : 'link';
+    const action = element.action === 'stripe-checkout' || element.action === 'custom-operation' ? element.action : 'link';
     fields.push(field('action', 'Action', action, 'select', 'content', {
-      section: 'Action', options: ['link', 'stripe-checkout'],
+      section: 'Action', options: ['link', 'stripe-checkout', 'custom-operation'],
     }));
     if (action === 'stripe-checkout') {
       fields.push(
@@ -303,6 +303,15 @@ function buildElementFields(
         }),
         field('stripeProductionPriceId', 'Stripe production Price ID', element.stripeProductionPriceId ?? '', 'text', 'content', {
           section: 'Stripe checkout', placeholder: 'price_...',
+        }),
+      );
+    } else if (action === 'custom-operation') {
+      fields.push(
+        field('customOperationId', 'Custom operation ID', element.customOperationId ?? '', 'text', 'content', {
+          section: 'Custom operation', placeholder: 'operation_id',
+        }),
+        field('customOperationInputJson', 'Input JSON', element.customOperationInputJson ?? '{}', 'textarea', 'content', {
+          section: 'Custom operation', placeholder: '{"recordId":"..."}',
         }),
       );
     } else {
