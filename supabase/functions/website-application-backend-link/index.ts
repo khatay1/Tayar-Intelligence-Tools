@@ -52,6 +52,7 @@ var APPLICATION_FILE_MAX_BYTES = 25 * 1024 * 1024;
 var object = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var identifier = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
 var text = (value, limit = 800) => typeof value === "string" && !!value.trim() && value.length <= limit;
+var customSourceLimitBytes = 64 * 1024;
 function projectSpecificationIssues(value, application) {
   const issues = [];
   const fail = (path, message) => {
@@ -108,7 +109,7 @@ function projectSpecificationIssues(value, application) {
     if (!criteria.length || criteria.some((criterion) => !text(criterion))) fail(`requirements.${item.id}`, "Define observable acceptance criteria; a page or button alone is not completion.");
   }
   for (const id2 of requirementIds) if (!requirements.some((item) => item.id === id2)) fail(`requirements.${id2}`, "Missing requirement acceptance criteria.");
-  const operations = catalog(value.operations, "operations", ["id", "summary", "actorIds", "entityIds", "requirementIds", "dependsOn", "execution", "transactional"]);
+  const operations = catalog(value.operations, "operations", ["id", "summary", "actorIds", "entityIds", "requirementIds", "dependsOn", "execution", "transactional", "source"]);
   const operationIds = new Set(operations.map((operation) => operation.id));
   const covered = /* @__PURE__ */ new Set();
   const graph = /* @__PURE__ */ new Map();
@@ -119,7 +120,12 @@ function projectSpecificationIssues(value, application) {
     references(operation.entityIds, entityIds, `${at}.entityIds`);
     references(operation.requirementIds, requirementIds, `${at}.requirementIds`, true).forEach((id2) => covered.add(id2));
     graph.set(String(operation.id), references(operation.dependsOn, operationIds, `${at}.dependsOn`));
-    if (operation.execution === "custom") fail(at, "Custom code requires an isolated execution adapter before generation can apply this project.");
+    if (operation.execution === "custom") {
+      if (typeof operation.source !== "string" || !operation.source.trim() || new TextEncoder().encode(operation.source).byteLength > customSourceLimitBytes) {
+        fail(at, "Custom operations need nonempty source within the 64 KiB release artifact limit.");
+      }
+      if (operation.transactional) fail(at, "Custom code cannot claim database transaction guarantees.");
+    } else if (operation.source !== void 0) fail(at, "Native operations cannot carry custom source.");
   }
   for (const id2 of requirementIds) if (!covered.has(String(id2))) fail(`requirements.${id2}`, "No implementation operation covers this requirement.");
   const visited = /* @__PURE__ */ new Set(), visiting = /* @__PURE__ */ new Set();

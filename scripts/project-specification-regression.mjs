@@ -36,7 +36,12 @@ try {
   assert.match(issues({ ...specification, entities: specification.entities.filter(entity => entity.id !== 'factory') }), /Every application table needs/);
   assert.match(issues({ ...specification, actors: [...specification.actors, specification.actors[0]] }), /IDs must be valid and unique/);
   assert.match(issues({ ...specification, operations: specification.operations.map((operation, index) => ({ ...operation, dependsOn: index === 0 ? ['read-restaurant'] : index === 1 ? ['read-retail'] : operation.dependsOn })) }), /Cyclic implementation dependencies/);
-  assert.match(issues({ ...specification, operations: specification.operations.map((operation, index) => index ? operation : { ...operation, execution: 'custom' }) }), /isolated execution adapter/);
+  const customOperation = { ...specification.operations[0], execution: 'custom', transactional: false, source: 'return { accepted: true };' };
+  assert.deepEqual(readProjectSpecification({ ...specification, operations: specification.operations.map((operation, index) => index ? operation : customOperation) }, application).operations[0], customOperation);
+  assert.match(issues({ ...specification, operations: specification.operations.map((operation, index) => index ? operation : { ...customOperation, source: '  ' }) }), /64 KiB release artifact limit/);
+  assert.match(issues({ ...specification, operations: specification.operations.map((operation, index) => index ? operation : { ...customOperation, transactional: true }) }), /cannot claim database transaction guarantees/);
+  assert.match(issues({ ...specification, operations: specification.operations.map((operation, index) => index ? operation : { ...operation, source: 'not-native' }) }), /Native operations cannot carry custom source/);
+  assert.match(issues({ ...specification, operations: specification.operations.map((operation, index) => index ? operation : { ...customOperation, source: 'x'.repeat(65 * 1024) }) }), /64 KiB release artifact limit/);
   assert.match(issues({ ...specification, tenancy: { mode: 'branches', organizationEntityId: 'retail', branchEntityId: 'restaurant' } }), /executable membership policies/);
   assert.match(issues({ ...specification, privacy: specification.privacy.filter(entry => entry.entityId !== 'clinic') }), /Sensitive entities need explicit privacy planning/);
   assert.match(issues({ ...specification, decisions: [{ id: 'conflict-1', kind: 'conflict', summary: 'Two required policies disagree.', operationIds: [], blocking: false }] }), /Unresolved project requirement/);

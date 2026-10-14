@@ -2,14 +2,14 @@
 
 ## Live repository check — 2026-10-14
 
-- `main` is `16c913fbc6cb6bc6b468baf754513f0b13889675`; its latest Release
-  Gate run `38530071407` completed successfully. PR #146 is merged as
+- `main` is `7e8c258c0a5f7f1fe62f05d93cfa6018679517c1`; its latest Release
+  Gate run `38533484989` completed successfully. PR #146 is merged as
   `ab55075ea6f8ebd09b71994a0e631efe12e96024`; its stale-runtime and browser
-  regression failures are resolved and are not current blockers.
-- The current Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`,
-  behind `main`. Promotion is deferred until the outstanding platform work has
-  passed its release gate; source-only changes and previews must not be reported
-  as production delivery.
+  regression failures are resolved and are not current blockers. PR #213 also
+  merged as `7e8c258c`; the latest main Release Gate passed.
+- Production deployment `dpl_BhDGCqhxhDMBZBm6MhjSmKZGUuJo` is READY at
+  `ab55075e`, behind `main`. Promotion remains deferred until the outstanding
+  platform work passes its release gate; previews are not production delivery.
 - Supabase advisor snapshot on the active project (2026-10-14): no uncovered
   foreign-key notices are recorded in the phase-zero migration checkpoint.
   Remaining SECURITY DEFINER and private-table RLS notices were reviewed as
@@ -17,11 +17,13 @@
   policies. Newly added indexes can still appear unused before representative
   workload. Leaked-password protection remains disabled on the Free plan and
   requires an owner plan decision; no billing or auth setting was changed.
-- The next product blocker remains immutable custom-operation source storage
-  and a concrete operation authorization policy. The HTTP route and isolated
-  adapter remain unmounted/disabled until those pieces, focused regressions,
-  and a Release Gate pass. Continue from this point without repeating phase-zero
-  repairs or successful tests.
+- The current local batch stores bounded custom operation source in the
+  immutable private release snapshot and resolves it only by matching owner,
+  project, release and operation IDs. It remains inert and cannot pass delivery
+  coverage; authorization, route mounting and sandbox execution are still
+  disabled. Focused regressions and type checks pass. Regenerated Vercel, BYO
+  publish, application release and runtime artifacts match their sources; one
+  Release Gate for this batch remains before merge.
 
 ## Durable rules
 
@@ -391,7 +393,36 @@ reservation or sandbox creation. This closes a concrete source-selection gap in
 the orchestration contract; it does not implement persistent artifact storage,
 authorization policy, or route mounting. The focused custom-operation
 regression, TypeScript, scoped ESLint and whitespace checks passed locally.
-The change is awaiting the PR Release Gate before merge.
+PR #213 merged as `7e8c258c0a5f7f1fe62f05d93cfa6018679517c1` after its PR and
+main Release Gates passed.
+
+### Inert custom-source release artifacts — implementation checkpoint
+
+Custom operations in the structured specification can now carry bounded source
+(64 KiB); native operations cannot carry source, and custom code cannot claim
+database transaction guarantees. The existing immutable application release
+snapshot retains this specification. A server resolver selects source only
+when owner, project, immutable release, private release bucket, and operation
+IDs all match. The AI generation contract describes deterministic JSON-in/JSON-out
+draft source and explicitly forbids claiming it is authorized, executed, or
+deliverable. Requirement coverage adds a failing contract row for each custom
+operation, so source storage alone cannot pass delivery. Execution remains
+disabled pending the authorization and runtime integration work. Focused
+specification, generation, coverage, resolver, type and bundle checks passed;
+the full PR Release Gate will provide final verification.
+
+The Release Gate identified stale generated dependencies in the Vercel
+connection Edge bundle, owned application runtime template, BYO Publish Edge
+bundle and application backend-link Edge bundle. Each was regenerated from its
+trusted source. Focused feature regressions and the current main Release Gate
+passed. The activation preflight remains intentionally not ready because
+provider credentials and account configuration are deferred to phase eight.
+This local artifact batch still needs its one final Release Gate before merge.
+
+The first PR gate caught a stale private application runtime bundle. It has now
+been rebuilt from the trusted generator; the generated-runtime consistency and
+published-runtime regression pass locally. The corrected bundle is being added
+to the PR before another gate run.
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still

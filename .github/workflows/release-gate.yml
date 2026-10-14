@@ -67,6 +67,13 @@ jobs:
       - name: Published custom operation authorization and quota gate regression
         run: node scripts/website-application-custom-operation-regression.mjs
 
+      - name: Custom operation release artifact and delivery blocking regressions
+        run: |
+          node scripts/project-specification-regression.mjs
+          node scripts/application-requirement-coverage-regression.mjs
+          node scripts/website-application-custom-operation-release-regression.mjs
+          npx tsc --noEmit --strict --target ES2020 --lib ES2020,DOM --moduleResolution bundler --module ESNext server/website-application-custom-operation-release.ts
+
       - name: Published custom operation HTTP route regression
         run: node scripts/website-application-custom-operation-route-regression.mjs
 
