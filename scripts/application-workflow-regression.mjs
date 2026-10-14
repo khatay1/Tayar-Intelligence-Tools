@@ -13,6 +13,8 @@ const stock = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', supplier = '12121212-1212-
 const otherRow = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', otherStock = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const otherSupplier = '13131313-1313-4131-8131-131313131313';
 const otherRequest = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+const blockedRow = '17171717-1717-4171-8171-171717171717';
+const blockedRequest = '18181818-1818-4181-8181-181818181818';
 try {
   const entry = join(dir, 'entry.ts');
   await writeFile(entry, ['application-validation', 'application-schema-sql', 'application-workflow', 'application-data-runtime', 'application-data-view-controller']
@@ -25,11 +27,13 @@ try {
     { id: 'name', key: 'name', name: 'Name', type: 'text', required: true },
     { id: 'attempts', key: 'attempts', name: 'Attempts', type: 'number', required: true, defaultValue: 0 },
     { id: 'approved-at', key: 'approved_at', name: 'Approved at', type: 'datetime', required: false },
+    { id: 'requested-date', key: 'requested_date', name: 'Requested date', type: 'date', required: false },
     { id: 'stock-ref', key: 'stock_id', name: 'Stock', type: 'reference', required: true, referenceTableId: 'stock' },
     { id: 'supplier-ref', key: 'supplier_id', name: 'Supplier', type: 'reference', required: true, referenceTableId: 'supplier' },
     { id: 'state', key: 'state', name: 'State', type: 'enum', required: true, options: ['pending', 'approved', 'done'], defaultValue: 'pending' }],
     permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'owner' })),
-    workflow: { fieldId: 'state', transitions: [{ id: 'approve', label: 'Approve', from: ['pending'], to: 'approved', access: 'owner', effects: [
+    workflow: { fieldId: 'state', transitions: [{ id: 'approve', label: 'Approve', from: ['pending'], to: 'approved', access: 'owner',
+      conditions: [{ fieldId: 'attempts', operator: 'lte', value: 1 }], effects: [
       { operation: 'set', fieldId: 'name', value: 'Approved order' }, { operation: 'increment', fieldId: 'attempts', amount: 2 },
       { operation: 'timestamp', fieldId: 'approved-at' },
       { operation: 'related', referenceFieldId: 'stock-ref', fieldId: 'stock-quantity', change: { operation: 'increment', amount: -2 } },
@@ -53,6 +57,18 @@ try {
       .map(change => ({ ...table.workflow, transitions: [{ ...table.workflow.transitions[0], ...change }] }))]) {
     assert.throws(() => validate({ ...app, tables: [{ ...table, workflow }, stockTable] }));
   }
+  for (const conditions of [[], [{ fieldId: 'state', operator: 'eq', value: 'pending' }],
+    [{ fieldId: 'attempts', operator: 'eq', value: 'one' }], [{ fieldId: 'requested-date', operator: 'gt', value: '2026-99-99' }],
+    [{ fieldId: 'name', operator: 'eq', value: 'Order', extra: true }],
+    [{ fieldId: 'attempts', operator: 'gte', value: 0 }, { fieldId: 'attempts', operator: 'gte', value: 0 }],
+    [{ fieldId: 'attempts', operator: 'gt', value: null }]]) {
+    const workflow = { ...table.workflow, transitions: [{ ...table.workflow.transitions[0], conditions }] };
+    assert.throws(() => validate({ ...app, tables: [{ ...table, workflow }, stockTable, supplierTable] }));
+  }
+  assert.doesNotThrow(() => validate({ ...app, tables: [{ ...table, workflow: { ...table.workflow,
+    transitions: [{ ...table.workflow.transitions[0], conditions: [
+      { fieldId: 'attempts', operator: 'gte', value: 0 }, { fieldId: 'attempts', operator: 'lte', value: 5 },
+    ] }] } }, stockTable, supplierTable] }));
   for (const effects of [[], [{ operation: 'increment', fieldId: 'attempts', amount: 0 }],
     [{ operation: 'timestamp', fieldId: 'name' }], [{ operation: 'set', fieldId: 'attempts', value: 'two' }],
     [{ operation: 'set', fieldId: 'state', value: 'done' }], [{ operation: 'set', fieldId: 'missing', value: 'x' }],
@@ -91,6 +107,9 @@ try {
   assert.match(migrate(app, changedTargetPermissions).join('\n'), /create or replace function public\.app_transition_workflow_0/);
   const schema = compile(app).join('\n');
   assert.match(schema, /set "state"=requested_to,"name"='Approved order',"attempts"="attempts"\+2,"approved_at"=pg_catalog\.transaction_timestamp\(\)/);
+  assert.match(schema, /if not exists\(select 1 from public\."app_orders" where id=app_transition_workflow_0\.record_id and \("attempts"<=1\)\) then raise exception 'Application workflow transition unavailable'/);
+  assert.ok(schema.indexOf('if not permitted then') < schema.indexOf('"attempts"<=1'), 'workflow conditions run only after transition authorization');
+  assert.ok(schema.indexOf('for update;') < schema.indexOf('"attempts"<=1'), 'workflow conditions read the locked record');
   assert.match(schema, /created_at timestamptz not null default pg_catalog\.transaction_timestamp\(\)/);
   assert.match(schema, /app_workflow_requests_record_created_idx/);
   assert.match(schema, /app_workflow_request_immutable/);
@@ -154,6 +173,10 @@ try {
     await query(compile(app).join('\n'));
     const asUser = user => `set role authenticated; select set_config('request.jwt.claim.sub','${user}',false);`;
     await query(`${asUser(owner)} insert into public.app_stock(id,name) values ('${stock}','Stock'); insert into public.app_supplier(id,name,code) values ('${supplier}','Supplier','supplier-original'); insert into public.app_orders(id,name,stock_id,supplier_id) values ('${row}','Order','${stock}','${supplier}');`);
+    await query(`${asUser(owner)} insert into public.app_orders(id,name,attempts,stock_id,supplier_id) values ('${blockedRow}','Blocked order',2,'${stock}','${supplier}');`);
+    await assert.rejects(query(`${asUser(owner)} select public.app_transition_workflow_0('${blockedRow}','approve','${blockedRequest}');`), /unavailable/);
+    assert.equal(await query(`select state from public.app_orders where id='${blockedRow}';`), 'pending', 'A failed condition leaves the locked record unchanged');
+    assert.equal(await query(`select count(*) from private.app_workflow_requests where request_id='${blockedRequest}';`), '0', 'A failed condition creates no audit receipt');
     await query(`insert into public.app_stock(id,owner_id,name) values ('${otherStock}','${other}','Other owner stock'); insert into public.app_supplier(id,owner_id,name,code) values ('${otherSupplier}','${other}','Other owner supplier','supplier-complete'); insert into public.app_orders(id,owner_id,name,stock_id,supplier_id) values ('${otherRow}','${owner}','Order with inaccessible records','${otherStock}','${otherSupplier}');`);
     await assert.rejects(query(`${asUser(owner)} select public.app_transition_workflow_0('${otherRow}','approve','${otherRequest}');`), /unavailable/);
     assert.equal(await query(`select state from public.app_orders where id='${otherRow}';`), 'pending', 'Related authorization failure rolls back the source transition');

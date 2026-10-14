@@ -1,4 +1,4 @@
-import type { ApplicationAccess, ApplicationDefinition, ApplicationTable, ApplicationWorkflowEffect } from './application-model';
+import type { ApplicationAccess, ApplicationDefinition, ApplicationTable, ApplicationWorkflowCondition, ApplicationWorkflowEffect } from './application-model';
 import { readApplicationDefinition } from './application-validation';
 
 const quoted = (value: string) => `"${value}"`;
@@ -54,6 +54,19 @@ function effectAssignment(table: ApplicationTable, effect: ApplicationWorkflowEf
   return `${quoted(field.key)}=${value}`;
 }
 
+function conditionExpression(table: ApplicationTable, condition: ApplicationWorkflowCondition): string {
+  const field = table.fields.find(candidate => candidate.id === condition.fieldId)!;
+  const column = quoted(field.key);
+  if (condition.operator === 'is-null') return `${column} is null`;
+  if (condition.operator === 'not-null') return `${column} is not null`;
+  if (!('value' in condition)) throw new Error('Invalid workflow condition.');
+  const value = condition.value === null ? 'null' : typeof condition.value === 'string' ? literal(condition.value) : String(condition.value);
+  if (condition.operator === 'eq') return `${column} is not distinct from ${value}`;
+  if (condition.operator === 'neq') return `${column} is distinct from ${value}`;
+  const operator = { gt: '>', gte: '>=', lt: '<', lte: '<=' }[condition.operator];
+  return `${column}${operator}${value}`;
+}
+
 export function compileApplicationWorkflowSchema(input: ApplicationDefinition, index: number, existing = false): string[] {
   const app = readApplicationDefinition(input), table = app.tables[index], workflow = table?.workflow;
   if (!table || !workflow) return [];
@@ -67,6 +80,11 @@ export function compileApplicationWorkflowSchema(input: ApplicationDefinition, i
   const accessBranches = workflow.transitions.map((transition, transitionIndex) => `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
     permitted:=${accessCondition(transition.access, transition.roleId)};
   `).join('') + `else permitted:=false; end if;`;
+  const conditionBranches = workflow.transitions.map((transition, transitionIndex) => {
+    const conditions = (transition.conditions ?? []).map(condition => conditionExpression(table, condition)).join(' and ') || 'true';
+    return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
+    if not exists(select 1 from ${fullTable} where id=${inner}.record_id and (${conditions})) then raise exception 'Application workflow transition unavailable'; end if;`;
+  }).join('\n  ') + `else raise exception 'Application workflow transition unavailable'; end if;`;
   let relatedVariableIndex = 0;
   const relatedEffectsByTransition = workflow.transitions.map(transition => (transition.effects ?? [])
     .filter((effect): effect is Extract<ApplicationWorkflowEffect, { operation: 'related' }> => effect.operation === 'related')
@@ -119,6 +137,7 @@ begin
   if not found or not current_state=any(allowed_from) or not (${permission('read')}) or not (${permission('update')}) then raise exception 'Application workflow transition unavailable'; end if;
   ${accessBranches}
   if not permitted then raise exception 'Application workflow transition unavailable'; end if;
+  ${conditionBranches}
   ${relatedBranches}
   insert into private.app_workflow_requests(actor_id,request_id,table_name,record_id,transition_id,from_state,to_state)
     values(actor,${inner}.request_id,${literal(tableName)},${inner}.record_id,${inner}.transition_id,current_state,requested_to)

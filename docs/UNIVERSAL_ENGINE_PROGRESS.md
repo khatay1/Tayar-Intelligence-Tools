@@ -2,8 +2,9 @@
 
 ## Live repository check — 2026-10-14
 
-- `main` is `7e8c258c0a5f7f1fe62f05d93cfa6018679517c1`; its latest Release
-  Gate run `38533484989` completed successfully. PR #146 is merged as
+- `main` is `7ae9983ae34209a578b0d2c5fa26e3607f5c81a7`; PR #215 is merged
+  after PR Release Gate `38581836787` and main Release Gate `38582236156`
+  both passed. PR #146 is merged as
   `ab55075ea6f8ebd09b71994a0e631efe12e96024`; its stale-runtime and browser
   regression failures are resolved and are not current blockers. PR #213 also
   merged as `7e8c258c`; the latest main Release Gate passed.
@@ -17,13 +18,14 @@
   policies. Newly added indexes can still appear unused before representative
   workload. Leaked-password protection remains disabled on the Free plan and
   requires an owner plan decision; no billing or auth setting was changed.
-- The current local batch stores bounded custom operation source in the
+- The merged custom-operation batch stores bounded custom operation source in the
   immutable private release snapshot and resolves it only by matching owner,
   project, release and operation IDs. It remains inert and cannot pass delivery
-  coverage; authorization, route mounting and sandbox execution are still
-  disabled. Focused regressions and type checks pass. Regenerated Vercel, BYO
-  publish, application release and runtime artifacts match their sources; one
-  Release Gate for this batch remains before merge.
+  coverage; the custom-operation route remains unmounted pending end-user
+  authorization and runtime integration. Focused regressions, type checks and
+  both release gates passed.
+  Regenerated Vercel, BYO publish, application release and runtime artifacts
+  match their sources. Production has not been promoted.
 
 ## Durable rules
 
@@ -409,7 +411,7 @@ deliverable. Requirement coverage adds a failing contract row for each custom
 operation, so source storage alone cannot pass delivery. Execution remains
 disabled pending the authorization and runtime integration work. Focused
 specification, generation, coverage, resolver, type and bundle checks passed;
-the full PR Release Gate will provide final verification.
+the PR Release Gate and post-merge main Release Gate passed.
 
 The Release Gate identified stale generated dependencies in the Vercel
 connection Edge bundle, owned application runtime template, BYO Publish Edge
@@ -417,19 +419,27 @@ bundle and application backend-link Edge bundle. Each was regenerated from its
 trusted source. Focused feature regressions and the current main Release Gate
 passed. The activation preflight remains intentionally not ready because
 provider credentials and account configuration are deferred to phase eight.
-This local artifact batch still needs its one final Release Gate before merge.
 
-The first PR gate caught a stale private application runtime bundle. It has now
-been rebuilt from the trusted generator; the generated-runtime consistency and
-published-runtime regression pass locally. The corrected bundle is being added
-to the PR before another gate run.
+The first PR gate caught a stale private application runtime bundle. It was
+rebuilt from the trusted generator; generated-runtime consistency and the
+published-runtime regression passed locally, followed by passing PR and main
+Release Gates.
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
-require incremental implementation and evidence, especially a verified provider
-immutable artifact storage and authorization for the custom execution boundary,
-safe repair/rollback, and diverse
-full reference-project verification. The seven reference projects have generated-contract coverage, with
-representative browser interactions now verified for several project types;
-that is not evidence that each is a complete customer-ready product. Final
-provider activation remains phase eight.
+require incremental implementation and evidence, especially authorization for
+the custom execution boundary, safe repair/rollback, and verified external
+service behavior. The seven reference projects have generated-contract coverage
+and a browser regression exercising synthetic workflow/transaction behavior for
+retail, restaurant, school, clinic, government, factory and custom-research
+projects. This is not evidence that each is a complete customer-ready product.
+Final provider activation remains phase eight.
+
+## Business logic — conditional workflow predicates in progress
+
+Workflow transitions now accept up to ten bounded, typed predicates over
+ordinary record fields. The SQL compiler checks them after record and role
+authorization while the source record is locked, before related-row effects or
+state changes. The focused workflow regression, TypeScript and ESLint checks
+pass locally. The PostgreSQL atomicity regression and Release Gate remain
+pending on the PR; conditions do not alter existing workflows when omitted.
