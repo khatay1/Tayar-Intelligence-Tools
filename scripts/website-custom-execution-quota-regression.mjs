@@ -33,10 +33,13 @@ try {
 
   let completion;
   const completeAdmin = { async rpc(name, args) { completion = [name, args]; return { error: null }; } };
-  assert.equal(await completeWebsiteCustomExecutionUsage(completeAdmin, 'user1', '123e4567-e89b-42d3-a456-426614174000', 12_000), true);
-  assert.equal(completion[1].p_status, 'success', 'the sandbox attempt consumes its reservation even if customer code returns an error');
+  assert.equal(await completeWebsiteCustomExecutionUsage(completeAdmin, 'user1', '123e4567-e89b-42d3-a456-426614174000', 12_000, 'success'), true);
+  assert.equal(completion[1].p_status, 'success');
   assert.equal(completion[1].p_duration_ms, 10_000);
-  assert.equal(await completeWebsiteCustomExecutionUsage(completeAdmin, 'user1', 'invalid', 3), false);
+  assert.equal(await completeWebsiteCustomExecutionUsage(completeAdmin, 'user1', '123e4567-e89b-42d3-a456-426614174000', 17, 'error'), true);
+  assert.equal(completion[1].p_status, 'error', 'failed sandbox attempts consume quota but are recorded as errors');
+  assert.equal(await completeWebsiteCustomExecutionUsage(completeAdmin, 'user1', 'invalid', 3, 'success'), false);
+  assert.equal(await completeWebsiteCustomExecutionUsage(completeAdmin, 'user1', '123e4567-e89b-42d3-a456-426614174000', 3, 'pending'), false);
 
   const migration = await fs.readFile(new URL('../supabase/migrations/20261013233709_website_custom_execution_quota.sql', import.meta.url), 'utf8');
   assert.match(migration, /website-custom-execution', 'pro', false/);

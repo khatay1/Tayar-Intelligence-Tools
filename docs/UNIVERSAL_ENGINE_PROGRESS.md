@@ -1,5 +1,13 @@
 # Universal engineering platform — verified checkpoint
 
+## Current continuation checkpoint — 2026-10-14
+
+- Live `main` is `1d39ca528820624a0fdd483637c4de12e0f0b15c`. PR #146 is merged and the latest main Release Gate, run `38599925674`, passed.
+- Vercel Production remains READY at `ab55075e`, behind `main`; no Production promotion was made.
+- Supabase advisors still reported 16 uncovered foreign keys. A read-only catalog check on active project `pnbllxdlskljcakyaylt` confirmed 0 uncovered foreign keys across 96 and all 16 phase-zero indexes valid. The advisor discrepancy remains under review; no redundant DDL was added. Existing SECURITY DEFINER and RLS-without-policy findings include reviewed server-only boundaries; do not add blanket grants or policies.
+- PR #221 is open for the custom execution quota fix. Failed isolated execution records `error` while still consuming its reservation. An additive migration changes quota counting only for `website-custom-execution`; errors from other tools retain their existing behavior. No live migration was applied.
+- Local regressions: PGlite quota atomicity, custom quota, operation authorization/execution, and HTTP route passed. TypeScript and scoped ESLint passed. The updated PostgreSQL Release Gate regression will verify the migration against isolated Postgres; wait for the latest PR gate before merge.
+
 ## Live repository check — 2026-10-14
 
 - `main` is `6612bb8dbbe572d23568b988acd8b079dcfa39a3`; PR #217 is merged

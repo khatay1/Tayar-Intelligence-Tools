@@ -60,8 +60,9 @@ export async function completeWebsiteCustomExecutionUsage(
   userId: string,
   reservationId: string,
   durationMs: number,
+  status: 'success' | 'error',
 ): Promise<boolean> {
-  if (!/^[0-9a-f-]{36}$/i.test(reservationId)) return false;
+  if (!/^[0-9a-f-]{36}$/i.test(reservationId) || !['success', 'error'].includes(status)) return false;
   try {
     const { error } = await admin.rpc('complete_ai_tool_usage', {
       p_reservation_id: reservationId,
@@ -72,7 +73,7 @@ export async function completeWebsiteCustomExecutionUsage(
       p_tokens_in: 0,
       p_tokens_out: 0,
       p_duration_ms: Math.min(10_000, Math.max(0, Math.floor(durationMs))),
-      p_status: 'success',
+      p_status: status,
     });
     return !error;
   } catch {

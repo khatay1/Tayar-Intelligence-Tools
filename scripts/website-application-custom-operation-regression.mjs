@@ -20,7 +20,7 @@ try {
     async authorize(value) { order.push(['authorize', value]); return true; },
     async loadOperation(value) { order.push(['load', value]); return { releaseId: request.releaseId, operationId: request.operationId, source: 'source-from-release' }; },
     async reserveUsage(value) { order.push(['reserve', value]); return 'reservation-1'; },
-    async completeUsage(id, value) { order.push(['complete', id, value]); return true; },
+    async completeUsage(id, value, durationMs, status) { order.push(['complete', id, value, durationMs, status]); return true; },
     adapter: { async create(options) {
       order.push(['create', options]);
       return { async execute(source, input) { order.push(['execute', source, input]); return { result: 8 }; }, async stop() { order.push(['stop']); } };
@@ -29,6 +29,7 @@ try {
 
   assert.deepEqual(await runPublishedCustomOperation(request, dependencies), { result: 8 });
   assert.deepEqual(order.map(entry => entry[0]), ['authorize', 'load', 'reserve', 'create', 'execute', 'stop', 'complete']);
+  assert.equal(order.at(-1)[4], 'success');
   assert.equal(order.find(entry => entry[0] === 'execute')[1], 'source-from-release', 'source is resolved from the immutable release');
   assert.equal(order.find(entry => entry[0] === 'create')[1].networkPolicy, 'deny-all');
 
@@ -58,6 +59,13 @@ try {
     adapter: { async create() { return { async execute() { throw null; }, async stop() {} }; } },
   }), error => error instanceof PublishedCustomOperationError && error.code === 'execution-failed');
   assert.equal(finalizedThrownNull, true, 'non-Error execution failures are surfaced only after usage is finalized');
+  let failedUsageStatus;
+  await assert.rejects(runPublishedCustomOperation(request, {
+    ...dependencies,
+    async completeUsage(_id, _value, _duration, status) { failedUsageStatus = status; return true; },
+    adapter: { async create() { return { async execute() { throw new Error('synthetic failure'); }, async stop() {} }; } },
+  }), error => error instanceof PublishedCustomOperationError && error.code === 'execution-failed');
+  assert.equal(failedUsageStatus, 'error', 'failed sandbox work remains billable but is not reported as successful');
   console.log('Published custom operation fail-closed regression passed.');
 
   const backend = { url: 'https://abcdefghijklmnopqrst.supabase.co', publishableKey: 'sb_publishable_test', projectRef: 'abcdefghijklmnopqrst' };
