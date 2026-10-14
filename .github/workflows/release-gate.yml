@@ -67,6 +67,9 @@ jobs:
       - name: Published custom operation authorization and quota gate regression
         run: node scripts/website-application-custom-operation-regression.mjs
 
+      - name: Published custom operation HTTP route regression
+        run: node scripts/website-application-custom-operation-route-regression.mjs
+
       - name: Website custom execution quota regression
         run: node scripts/website-custom-execution-quota-regression.mjs
 
