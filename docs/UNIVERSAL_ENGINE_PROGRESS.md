@@ -419,6 +419,11 @@ passed. The activation preflight remains intentionally not ready because
 provider credentials and account configuration are deferred to phase eight.
 This local artifact batch still needs its one final Release Gate before merge.
 
+The first PR gate caught a stale private application runtime bundle. It has now
+been rebuilt from the trusted generator; the generated-runtime consistency and
+published-runtime regression pass locally. The corrected bundle is being added
+to the PR before another gate run.
+
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
 require incremental implementation and evidence, especially a verified provider
