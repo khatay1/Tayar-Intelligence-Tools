@@ -445,7 +445,7 @@ then merged to `main` as `630591c59c37a6dfd9d97efc6316b91564e86a14`.
 Post-merge Release Gate run `38592549651` passed all checks except a timeout in
 `application-reference-page-browser-regression.mjs`; the browser made no HTTPS
 requests and the PR gate passed the same tree. Only the failed workflow job
-was restarted as run attempt 2; its result is the current merge verification.
+was restarted as run attempt 2 and passed. This completes the post-merge gate.
 Supabase Preview remains skipped because preview branches are disabled.
 
 ## Business logic — all/any predicate groups in progress
@@ -453,5 +453,5 @@ Supabase Preview remains skipped because preview branches are disabled.
 An additive `conditionMode` supports AND (default) and OR matching for bounded
 workflow predicates. The workflow regression, TypeScript, focused ESLint, all
 affected generated-bundle consistency checks and whitespace validation pass
-locally. This follow-up is still local and must be based on current `main`,
-pass PR and post-merge Release Gates, then be committed and checkpointed.
+locally. PR #217 is open from current `main`; its Release Gate and post-merge
+gate are still required before merge.
