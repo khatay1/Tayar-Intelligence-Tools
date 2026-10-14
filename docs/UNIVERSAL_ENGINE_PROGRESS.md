@@ -1,1 +1,497 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×Ntá:-jZ.¶›­–)Þ³R2Væ—fW'6ÂVæv–æVW&–ærÆFf÷&Ò(	BfW&–f–VB6†V6·ö–ç@ ¢227W'&VçB6öçF–çVF–öâ6†V6·ö–çB(	B##bÓÓ@ ¢ÒÆ—fRÖ–æ—2C3–6S#ƒƒ#c#FfFCCƒ3c3v3FFS&Sc#V6†6öÖÖ—C ¢(	Ä6öææV7B7W7FöÒ÷W&F–öâ&÷WFRFò7W7FöÖW"7F÷"WF†÷&—¦F–öî(	Ò’â"3Cb—0¢ÖW&vVBâF†RÆFW7BÖ–â&VÆV6RvFRÂ'Vâ3ƒS“““#ScsFÂ76VBâF†RÆö6À¢v÷&·76Rv2g&W6†Ç’6ÆöæVBBF†BW†7B6öÖÖ—B&Vf÷&RVF—F–ærà¢ÒfW&6VÂw2ÆFW7B&öGV7F–öâFWÆ÷–ÖVçB&VÖ–ç2$TE’B#SSsVVÂ&V†–æ@¢Ö–æ²æò&öGV7F–öâ&öÖ÷F–öâv2ÖFRâF†R7W'&VçBfVGW&R×W7B72—G2 ¢æBÖ–â&VÆV6RvFW2&Vf÷&RFWÆ÷–ÖVçBv÷&²—2&V6öç6–FW&VBà¢Òg&W6‚7W&6RGf—6÷"&VBB##bÓÓB“£CrUD27F–ÆÂ&W÷'FVB`¢Væ–æFW†VBf÷&V–vâ¶W—2â&VBÖöæÇ’uö6FÆöv6†V6²öâF†R7F—fP¢æ&ÆÇ†FÇ6¶Æ¦6·––ÇF&ö¦V7B6öæf—&ÖVBÆÂ“bf÷&V–vâ¶W—2&R6÷fW&VBæ@¢ÆÂb†6R×¦W&ò–æFW†W2W†—7BæB&RfÆ–BâFòæ÷BFB&VGVæFçBDDÃ²F†P¢Gf—6÷"F—67&Wæ7’&VÖ–ç2Fò&R6†V6¶VBv–ç7B—G2&W÷'B66÷Rö66†Rà¢4T5U$•E’DTd”äU"æB$Å2×v—F†÷WB×öÆ–7’f–æF–æw27F–ÆÂ–æ6ÇVFR&Wf–WvV@¢6W'fW"ÖöæÇ’&÷VæF&–W3²Fòæ÷BFB&Ææ¶WBw&çG2÷"öÆ–6–W2âVçW6VBÖ–æFW€¢æ÷F–6W2ÆöæR&Ræ÷Bw&÷VæG2Fò&VÖ÷fR–æFW†W2à¢Ò"3##—2÷VâB&SScS6fC““C3C&66f#“cCF3†#VcSS66à¢—Bf—†W2V÷Ff–æÆ—¦F–öâ6òf–ÆVB—6öÆFVBW†V7WF–öâ&V6÷&G2W'&÷&v†–ÆP¢F†RGFV×B7F–ÆÂ6öç7VÖW2—G2&W6W'fF–öââV÷FÂ÷W&F–öâÂ…EE×&÷WFRÀ¢G—U67&—BæB66÷VBU4Æ–çB6†V6·272Æö6ÆÇ’â&VÆV6RvFP¢3ƒc#sc“ƒcF—2VWVVC²—G2fW&6VÂ&Wf–Wr—2'V–ÆF–ærâFòæ÷BÖW&vRVçF–À¢F†R&WV—&VBvFR76W2à ¢22Æ—fR&W÷6—F÷'’6†V6²(	B##bÓÓ@ ¢ÒÖ–æ—2cc&&#†F&&SSs&C#3Sc†#“ƒ†6C†#s–F6f3–6²"3#r—2ÖW&vV@¢gFW""&VÆV6RvFR3ƒS“SC3c#sfÂfW&6VÂ&Wf–WrÂæBÖ–â&VÆV6RvFP¢3ƒS“S“cs3FÆÂ76VBâ"3Cb—2ÖW&vVB0¢#SSsVVfc†V&C–#s““FSc3VfS&S“c#F²—G27FÆR×'VçF–ÖRæB'&÷w6W ¢&Vw&W76–öâf–ÇW&W2&R&W6öÇfVBæB&Ræ÷B7W'&VçB&Æö6¶W'2â"3#2Ç6ð¢ÖW&vVB2vS†3#S†6²F†RÆFW7BÖ–â&VÆV6RvFR76VBà¢Ò&öGV7F–öâFWÆ÷–ÖVçBGÅô&„Dt7‡†„DÔ%¤&ÓdÖ†¥6Ôµ¤uWT¦ö—2$TE’@¢#SSsVVÂ&V†–æBÖ–æâ&öÖ÷F–öâ&VÖ–ç2FVfW'&VBVçF–ÂF†R÷WG7FæF–æp¢ÆFf÷&Òv÷&²76W2—G2&VÆV6RvFS²&Wf–Ww2&Ræ÷B&öGV7F–öâFVÆ—fW'’à¢Ò7W&6RGf—6÷"6æ6†÷BöâF†R7F—fR&ö¦V7Bƒ##bÓÓB“¢æòVæ6÷fW&V@¢f÷&V–vâÖ¶W’æ÷F–6W2&R&V6÷&FVB–âF†R†6R×¦W&òÖ–w&F–öâ6†V6·ö–çBà¢&VÖ–æ–ær4T5U$•E’DTd”äU"æB&—fFR×F&ÆR$Å2æ÷F–6W2vW&R&Wf–WvVB0¢–çFVçF–öæÂ6W'fW"ô’&÷VæF&–W3²Fòæ÷B&Ææ¶WB×&Wfö¶Rw&çG2÷"FB$Å0¢öÆ–6–W2âæWvÇ’FFVB–æFW†W26â7F–ÆÂV"VçW6VB&Vf÷&R&W&W6VçFF—fP¢v÷&¶ÆöBâÆV¶VB×77v÷&B&÷FV7F–öâ&VÖ–ç2F—6&ÆVBöâF†Rg&VRÆâæ@¢&WV—&W2â÷væW"ÆâFV6—6–öã²æò&–ÆÆ–ær÷"WF‚6WGF–ærv26†ævVBà¢ÒF†RÖW&vVB7W7FöÒÖ÷W&F–öâ&F6‚7F÷&W2&÷VæFVB7W7FöÒ÷W&F–öâ6÷W&6R–âF†P¢–Ö×WF&ÆR&—fFR&VÆV6R6æ6†÷BæB&W6öÇfW2—BöæÇ’'’ÖF6†–ær÷væW"À¢&ö¦V7BÂ&VÆV6RæB÷W&F–öâ”G2â—B&VÖ–ç2–æW'BæB6ææ÷B72FVÆ—fW'¢6÷fW&vS²F†R7W7FöÒÖ÷W&F–öâ&÷WFR&VÖ–ç2VæÖ÷VçFVBVæF–ærVæB×W6W ¢WF†÷&—¦F–öâæB'VçF–ÖR–çFVw&F–öââfö7W6VB&Vw&W76–öç2ÂG—R6†V6·2æ@¢&÷F‚&VÆV6RvFW276VBà¢&VvVæW&FVBfW&6VÂÂ%”òV&Æ—6‚ÂÆ–6F–öâ&VÆV6RæB'VçF–ÖR'F–f7G0¢ÖF6‚F†V—"6÷W&6W2â&öGV7F–öâ†2æ÷B&VVâ&öÖ÷FVBà ¢22GW&&ÆR'VÆW0 ¤W‡FVæBF†RW†—7F–ærÆ–6F–öâVæv–æS²Fòæ÷B7&VFR6V7F÷"×7V6–f–2Væv–æW2à¤7W7FöÖW"7&VFVçF–Ç2æBÆ—fR&÷f–FW"7F—fF–öâ7F’Æ7Bâ6ö6–Â‡V"&VÖ–ç0¦FVfW'&VBöâFVfW'&VB÷6ö6–ÂÖ‡V"Öf÷VæFF–öâÓ##cæB×W7B&R&W6W'fVBà¤vVæW&FVB6öFRÂ7V66W76gVÂ'V–ÆBÂ76–ærFW7G2ÂFWÆ÷–ÖVçBæBfW&–f–VBÆ—fP§6W'f–6W2&RF—7F–æ7BFVÆ—fW'’7FFW2à ¢22†6R¦W&ò(	B6ö×ÆWFRöâ##bÓÓ ¢Ò"3CbÖW&vVBFòÖ–æ0¢#SSsVVfc†V&C–#s““FSc3VfS&S“c#FgFW"&VÆV6RvFP¢3ƒcSCc“S’76VBâF†R7V'6WVVçBÖ–â&VÆV6RvFR3ƒcS#cCƒSbÇ6ò76VBà¢ÒF†R7FÆR÷væVB'VçF–ÖRæBFWVæFVçB%”òVFvR'VæFÆRvW&R&VvVæW&FVBg&öÐ¢F†V—"G'W7FVB6÷W&6RâF†RÆ–6F–öâFF×f–Wr'&÷w6W"&Vw&W76–öâæ÷rv—G0¢f÷"âW‡Æ–6—BFW&Ö–æÂ&W7VÇBÂFWFV7G27&6†W2÷F–ÖV÷WG2æB6ÆVç2WF†P¢6‡&öÖ—VÒ&ö6W72w&÷W6fVÇ’â&VÂ4’6‡&öÖR76VBF†RVâö"÷7b76W'F–öç2à¢Ò6÷W&6RÖ–w&F–öâ##cƒ3s÷†6U÷¦W&õöGf—6÷%ö†&FVæ–ærç7ÆFFVBF†P¢bfW&–f–VBf÷&V–vâÖ¶W’–æFW†W2æB6öçfW'FVBF†R6öç7FçB66†VGVÆW"&VF–æW70¢gVæ7F–öâFò4T5U$•E’”ådô´U"v†–ÆR&W6W'f–ær4ÂÂ$Å2æBF—6&ÆVB66†VGVÆ–ærà¢F†RÆ—fR7W&6RÖ–w&F–öâ&V6÷&B—2fW'6–öâ##cƒCs3fv—F‚F†R6ÖP¢Æöv–6ÂÖ–w&F–öâæÖRâVÖ&VFFVBæBæF—fR÷7Fw&U5Â&Vw&W76–öç276VBà¢ÒgFW"F†RÖ–w&F–öâÂF†RVæ6÷fW&VBÔd²Gf—6÷"æ÷F–6R6÷VçB—2¦W&òâ&VÖ–æ–æp¢4T5U$•E’DTd”äU"æ÷F–6W2vW&R&Wf–WvVB&F†W"F†â&Ææ¶WB×&Wfö¶VC¢F†V— ¢W‡÷6VB6ÆÆW'2†fRW‡Æ–6—Bw&çG2Âf—†VB6V&6‚F‡2æBÆ–6F–öà¢WF†÷&—¦F–öâ÷V&Æ—6†VB×6—FRwV&G2â$Å2×v—F†÷WB×öÆ–7’F&ÆW2&VÖ–â&—fFP¢6W'fW"ÖöæÇ’F&ÆW2âæWvÇ’7&VFVB–æFW†W26âV"2VçW6VBVçF–Âv÷&¶ÆöBà¢Ò7W&6RÆV¶VB×77v÷&B&÷FV7F–öâ&VÖ–ç2F—6&ÆVB&V6W6RF†R÷&væ—¦F–öà¢—2öâF†Rg&VRÆâæBF†R7W÷'FVBfVGW&R&WV—&W2â÷væW"ÆâFV6—6–öâà¢æò&–ÆÆ–ærÂWF‚6öæf–wW&F–öâÂ7W7FöÖW"7&VFVçF–Â÷"6V7&WB6†ævRö67W'&VBà¢ÒfW&6VÂ&öGV7F–öâFWÆ÷–ÖVçBGÅô&„Dt7‡†„DÔ%¤&ÓdÖ†¥6Ôµ¤uWT¦ö—2$TE’g&öÐ¢F†RW†7BÖW&vVB4„&÷fRâ‡GG3¢ò÷wwrçF–"ç6RöæB—G2Öæ–fW7B&WGW&æV@¢#²â–çfÆ–BV&Æ—6†VB×6—FR’F‚&WGW&æVBF†RW‡V7FVBCâF†W6R&ö&W0¢Fòæ÷B6Æ–ÒF†BVæ6öæf–wW&VB7W7FöÖW"6W'f–6W2&RÆ—fRà ¢22†6RöæR(	B7G'V7GW&VB7V6–f–6F–öâÖW&vV@ ¥"3CrÖW&vVBFòÖ–æ0¦c3C†S3v36#3SCv##&cF6S†cVS“6cƒ“S6â"&VÆV6RvFP£3ƒcƒ33c##æBÖ–â&VÆV6RvFR3ƒcƒcC#sb&÷F‚76VBà ¤–×ÆVÖVçFVBFöÖ–âÖæWWG&Â&ö¦V7E7V6–f–6F–öæGF6†VBFòF†RW†—7F–æp¦Æ–6F–öå&WV—&VÖVçDÖæ–fW7Fâ—B&VfW&Væ6W2F†RW†—7F–ærvVæW&FVB66†VÖÀ§&öÆW2æB&WV—&VÖVçB”G2&F†W"F†â7&VF–ær&ÆÆVÂvVæW&F÷"âF†R6Æ÷6VBÀ¦&÷VæFVB6öçG&7B&V6÷&G27F÷'2ÂVçF—G’66÷R÷6Vç6—F—f—G’ÂW‡Æ–6—B÷"–æfW'&V@§&WV—&VÖVçG2Âö'6W'f&ÆR66WFæ6R7&—FW&–Â÷W&F–öç2æBFWVæFVæ6–W2À¦'W6–æW72'VÆW2ÂFVææ7’ÂFVfW'&VB–çFVw&F–öâ66÷W2Â&—f7’÷&WFVçF–öâæ@§Vç&W6öÇfVBFV6—6–öç2à ¥F†RfÆ–FF÷"&V¦V7G2Væ¶æ÷vâf–VÆG2ô”G2ÂGWÆ–6FW2ÂÖ—76–ærF&ÆP¦6Æ76–f–6F–öç2÷"&WV—&VÖVçB6÷fW&vRÂFWVæFVæ7’7–6ÆW2ÂÖ—76–ær6Vç6—F—fP¦FFÆç2Â6öçG&F–7F÷'’FVææ7’æBVç&W6öÇfVB6öæfÆ–7G2â7W7FöÒW†V7WF–öâæ@¦÷&væ—¦F–öâö'&æ6‚—6öÆF–öâf–Â6Æ÷6VBVçF–ÂF†V—"—6öÆFVBW†V7WF÷"æ@¦ÖVÖ&W'6†—öÆ–6–W2W†—7BâFW67&—F—fR'VÆW2æB66WFæ6R7&—FW&–&RæWfW §G&VFVB2–×ÆVÖVçFF–öâ÷"FW7BWf–FVæ6Rà ¤vVçBÖÖöFRÆ–6F–öâvVæW&F–öâæ÷r&WV—&W2F†—27V6–f–6F–öâæBfÆ–FFW0¦—B&Vf÷&R×WFF–ærVF—F÷"7FFRâÆVv7’öÖçVÂ&ö¦V7G2æB÷&F–æ'’'&ö6‡W&P¦vVæW&F–öâ&VÖ–â&6·v&B6ö×F–&ÆRâF†R’&WVW7BW&f÷&×2F†RæÇ—6—2–à§F†RW†—7F–ær6–ævÆRvVæW&F–öâ6ÆÂæB—2W‡Æ–6—FÇ’f÷&&–FFVâg&öÒ–çfVçF–æp¦7&VFVçF–Ç2Â6V7F÷"77V×F–öç2÷"Vç7W÷'FVBæF—fR&V†f–÷"à ¥fW&–f–VBÆö6ÆÇ’gFW"F†—26†ævS  ¢ÒG—U67&—BæBfö7W6VBU4Æ–çB76VBà¢ÒFöÖ–âÖæWWG&Â7V6–f–6F–öâ&Vw&W76–öâ76VB7&÷72&WF–ÂÂ&W7FW&çBÀ¢66†ööÂÂ6Æ–æ–2Âv÷fW&æÖVçBÂf7F÷'’æB7W7FöÒ&W6V&6‚&V6÷&BÖöFVÂà¢Ò&VÂvVæW&F–öâÖ†æFÆW"&Vw&W76–öâ76VC¢fÆ–B7V6–f–6F–öâW'6—7FVC°¢Ö—76–ær7V6–f–6F–öâæB6Æ–ÖVB7W7FöÒW†V7WF–öâvW&R&V¦V7FVBFöÖ–6ÆÇ’à¢ÒÆ–6F–öâf÷VæFF–öâÂ&VÆV6RWÆöBöVæGö–çBÂ&6¶VæBÆ–æ²ÂV&Æ—6†V@¢'VçF–ÖRÂ÷væVB6÷W&6R÷'VçF–ÖR&–æF–æræB%”òVFvR&Vw&W76–öç276VBà¢ÒÆ–6F–öâ'VçF–ÖRÂ&6¶VæBÖÆ–æ²Â&VÆV6RÂ÷væVB'VçF–ÖRæB%”òV&Æ—6€¢vVæW&FVB'F–f7G2vW&R&VvVæW&FVBg&öÒ6÷W&6RæB76VB6öç6—7FVæ7’6†V6·2à ¢22WFöæöÖ÷W2(	B6÷fW&vRÖG&—‚ÖW&vV@ ¥"3C‚ÖW&vVBFòÖ–æ0¦3S“CCF&SCFc3ƒ6c–c“sƒc#SvCvS#ƒ##S3–Fâ"&VÆV6RvFP£3ƒ#“SS3#ƒ’æBÖ–â&VÆV6RvFR3ƒ#“ƒ3ƒ3B76VBà ¥F†RW†—7F–ær&WV—&VÖVçBfW&–f–W"æ÷r'V–ÆG2W‡Æ–6—B6÷fW&vR&÷w3 ¥&WV—&VÖVçB(i"–×ÆVÖVçFF–öâ(i"6öçG&7BFW7B(i"&W7VÇB(i"FVÆ—fW'’7FGW2â—@§&V6ö×WFW2Wf–FVæ6Rg&öÒF†R7W'&VçB&ö¦V7BæBW†V7WFW2F†RW†—7F–ærf÷&ÒöFF§f–Wr6ö×–ÆW'3²6fVB’6Æ–×26ææ÷B7&VFR76–ær&÷râ7V6–f–6F–öà¦÷W&F–öâ”G2&R–æ6ÇVFVB2G&6V&–Æ—G’ÖWFFFÂv†–ÆRFW7B&W7VÇG26öÖP¦öæÇ’g&öÒ7W'&VçBW†V7WF&ÆR6öçG&7G2à ¥&VÖ÷fVBvW2Â–çfÆ–B&–æF–æw2æBÖ—76–æræF—fR7F–öç2&öGV6Rf–ÆVBFW7G0¦æB&Æö6²&÷fÂâFVÆ—fW'’&W÷'G2–æ6ÇVFRF†RÖG&—‚æBW6P¦6öçG&7B×fW&–f–VFÂv†–6‚–çFVçF–öæÆÇ’FöW2æ÷B6Æ–ÒFWÆ÷–ÖVçB÷"Æ—fP§6W'f–6RfW&–f–6F–öââÆ–6F–öç26ææ÷B&RÖ&¶VBFVÆ—fW&VBv†–ÆRVçV&Æ—6†V@¦÷"v†–ÆRÆVæ6‚×&VF–æW726†V6²f–Ç2â'&ö6‡W&R6ö×F–&–Æ—G’—2Væ6†ævVBà ¤fö7W6VBG—U67&—BÂU4Æ–çBÂ6÷fW&vRÖÖG&—‚æB&VÂvVæW&F–öâöFVÆ—fW'§&Vw&W76–öç276VBÂföÆÆ÷vVB'’&÷F‚gVÆÂvFW2à ¢22'W6–æW72Æöv–2(	B7F—fRFV6Æ&F—fRv÷&¶fÆ÷r&F6€ ¥"3C’ÖW&vVBFòÖ–æ2–SSCcƒ“C–c3&#c†6&VC“3S#ƒƒ†C–c&S#Fà¥"&VÆV6RvFR3ƒ#CC“sæBÖ–â&VÆV6RvFR3ƒ#CC#“Scs&÷F‚76VBà ¥F†RW†—7F–ærFöÖ–2v÷&¶fÆ÷rVæv–æRæ÷r7W÷'G2÷F–öæÂ&÷VæFVB6ÖR×&V6÷&@¦VffV7G2öâV6‚G&ç6—F–öã¢G—VBÆ—FW&Â76–væÖVçBÂ&÷VæFVBçVÖW&–0¦–æ7&VÖVçBÂ÷"6W'fW"G&ç67F–öâF–ÖW7F×âVffV7G2'Vâ–âF†R6ÖRÆö6¶V@¥÷7Fw&U5ÂG&ç67F–öâ2F†RwV&FVB7FFR6†ævRæBF†RW†—7F–ær–FV×÷FVæ7§&V6V—BâF†W’6ææ÷BF&vWBF†R7FFRf–VÆBÂf÷&×VÆ2Â&÷FV7FVB6÷VçFW'2À¦GWÆ–6FRf–VÆG2ÂVæ¶æ÷vâf–VÆG2÷"&&—G&'’W‡&W76–öç2ö6öFRà ¥fÆ–FF–öâVæf÷&6W26Æ÷6VB6†W2Âf–VÆB÷G—R6ö×F–&–Æ—G’æBÖ†–×VÒöb# ¦VffV7G2âW†—7F–ærv÷&¶fÆ÷w2&VÖ–â6ö×F–&ÆRâF†R’vVæW&F–öâ6öçG&7BÖ§W6RöæÇ’F†W6RFV6Æ&VB&–Ö—F—fW2æB×W7B&W÷'B7&÷72×&V6÷&BÆöv–20§Vç7W÷'FVB&F†W"F†â–çfVçF–ærW†V7WF–öââG—U67&—BÂU4Æ–çBÂv÷&¶fÆ÷rÀ§66†VÖÂ&6¶VæBfW&–f–6F–öâÂ&VÆV6RVæGö–çBÂ÷væVB6÷W&6RÂ%”òVFvRÀ¦vVæW&F–öâö6÷fW&vRæBÆÂvVæW&FVBÖ'F–f7B6öç6—7FVæ7’6†V6·276V@¦Æö6ÆÇ’âF†R÷7Fw&U5Â6öæ7W'&Væ7’öVffV7B76W'F–öâ'Vç2–â&VÆV6RvFRà ¢22'W6–æW72Æöv–2(	Bv÷&¶fÆ÷rVF—B†—7F÷'’ÖW&vV@ ¥"3SÖW&vVBFòÖ–æ2ƒ#–6Ccs3f6&3“#“3vFC“VVSS“C&6fSc†S6à¥"&VÆV6RvFR3ƒ#CSsSƒ#ƒæBÖ–â&VÆV6RvFR3ƒ#CcCcƒ76VBà ¥v÷&¶fÆ÷r&V6V—G2æ÷r6''’6W'fW"G&ç67F–öâF–ÖW7F×Â&R–æFW†VB'§&V6÷&BæBF–ÖRf÷"VF—B†—7F÷'’&WG&–WfÂÂæB&V¦V7BWFFW2öFVÆWFW2BF†P¦FF&6RG&–vvW"Æ–W"âF†R÷væVBv÷&¶fÆ÷r6FÆörfW&–f–W"6†V6·2F†RæWp¦6öÇVÖâÂ–æFW‚ÂgVæ7F–öâæB–Ö×WF&ÆRG&–vvW"âF†—27G&VæwF†Vç2F†RW†—7F–æp§&—fFRG&ç6—F–öâVF—B&V6÷&G2v—F†÷WBW‡÷6–ær6Vç6—F—fRG&ç6—F–öâFWF–Ç0§F‡&÷Vv‚6Æ–VçB66W72â÷7Fw&U5Â76W'F–öç2fW&–g’F–ÖW7F×&W6Væ6RÀ¦–Ö×WF&–Æ—G’æB6FÆör–çFVw&—G’–â&VÆV6RvFRà ¢22'W6–æW72Æöv–2(	BFöÖ–2&VÆFVB×&V6÷&Bv÷&¶fÆ÷rÖW&vV@ ¥"3SÖW&vVBFòÖ–æ0¦&f#C“S&#3C#33VCvvSF“VS&#&C“&C&#Vfâ"&VÆV6RvFR'Và£3ƒ#ccc“s"æBÖ–â&VÆV6RvFR'Vâ3ƒ#ccScS&÷F‚76VBà ¥F†RW†—7F–ærwV&FVBv÷&¶fÆ÷rG&ç6—F–öâ6âæ÷rÇ’öæR&÷VæFVB×WFF–öâFð¦&VÆFVB&V6÷&B6VÆV7FVB'’&WV—&VB&VfW&Væ6RÂ–âF†R6ÖR÷7Fw&U5À§G&ç67F–öâ2F†R6÷W&6R7FFR6†ævRæB–Ö×WF&ÆR–FV×÷FVæ7’&V6V—Bâ—@§7W÷'G2G—VB6WBÂ&÷VæFVB–æ7&VÖVçBæBG&ç67F–öâF–ÖW7F×6†ævW3²F&vW@§&÷w2&RÆö6¶VBæB6†V6¶VBv–ç7BF†V—"÷vâFV6Æ&VB&VB÷WFFRW&Ö—76–öç2à¤Ö—76–ærF&vWG2÷"FVæ–VBW&Ö—76–öç2&÷'BF†RVçF—&R÷W&F–öââv÷&¶fÆ÷p§7FFW2Âf÷&×VÆ÷WGWG2Â6÷VçFW'2Â&&—G&'’W‡&W76–öç2ÂfâÖ÷WBæB6VÆb×F&ÆP§&VfW&Væ6W2&VÖ–âVç7W÷'FVBæBf–Â6Æ÷6VBâF†R’vVæW&F–öâ6öçG&7Bæ÷p¦FW67&–&W2F†—2W†7BW†V7WF&ÆR6&–Æ—G’à ¤fö7W6VBv÷&¶fÆ÷r÷66†VÖ&Vw&W76–öç2ÂG—U67&—BÂ66÷VBU4Æ–çBæBvVæW&FV@¦'VæFÆR6öç6—7FVæ7’76VBÆö6ÆÇ’â&VÆV6RvFRfW&–f–VBF†R7GVÂ÷7Fw&U5À¦FöÖ–2×WFF–öâæBFVæ–VB×F&vWB&öÆÆ&6²âV&Æ–W""vFW2–FVçF–f–VB7FÆP¦vVæW&FVB7W&6R%”òÂÆ–6F–öâ&6¶VæBÖÆ–æ²æBÆ–6F–öâ×&]¹Ó‹h‘éì¶»§q«^uAT°…¹„‰½Õ¹‘•)Ñ¥µ•½ÕÐ¸I•ÅÕ•ÍÑÌ…¹É•ÍÕ±ÑÌµÕÍÐ‰”™¥¹¥Ñ”)M=8Ý¥Ñ¡¥¸ÍÑÉ¥ÐÍ¥é”…¹‘•ÁÑ )±¥µ¥ÑÌ¸Q¡”‰½Õ¹‘…ÉäÍÑ½ÁÌÑ¡”Í…¹‘‰½à…™Ñ•ÈÍÕ•ÍÌ°™…¥±ÕÉ”°Ñ¥µ•½ÕÐ½È)½Ù•ÉÍ¥é•½ÕÑÁÕÐ…¹É•ÑÕÉ¹ÌÍÑ…‰±”•ÉÉ½È½‘•ÌÝ¥Ñ¡½ÕÐ™½ÉÝ…É‘¥¹œÁÉ½Ù¥‘•È)•ÉÉ½ÉÌ¸()I•±•…Í”…Ñ”¹½ÜÉÕ¹ÌÉ•É•ÍÍ¥½¹Ì™½ÈÑ¡”Á½±¥ä½¹ÑÉ…Ð°µ¥ÍÍ¥¹œµ…‘…ÁÑ•È)™…¥°µ±½Í•‰•¡…Ù¥½È°É•ÅÕ•ÍÐ½½ÕÑÁÕÐ‰½Õ¹‘Ì°Ñ¥µ•½ÕÑÌ°±•…¹ÕÀ°…¹„µ½­•)Y•É•°M…¹‘‰½àIMP…‘…ÁÑ•È¸Q¡”…‘…ÁÑ•ÈÉ•ÅÕ•ÍÑÌ…¸•µÁÑä¹•ÑÝ½É¬…±±½Ý±¥ÍÐ°)•Á¡•µ•É…°9½‘”€ÈÈY5Ì°‰½Õ¹‘•É•Í½ÕÉ•Ì…¹±¥™•Ñ¥µ”°…¹Í•¹‘Ì¹¼•¹Ù¥É½¹µ•¹Ð°)É•Á½Í¥Ñ½Éä°µ½Õ¹Ð½ÈÕÍÑ½µ•ÈÉ•‘•¹Ñ¥…°™¥•±‘Ì¸%ÑÌ!QQ@½¹ÑÉ…Ð¥Ì½Ù•É•)Ý¥Ñ µ½­•É•ÅÕ•ÍÑÌ…¹É•ÍÁ½¹Í•Ì½¹±ä¸9¼É•‘•¹Ñ¥…±ÌÝ•É”¥¹©•Ñ•¥¹Ñ¼)Ñ¡”ÁÉ½Ù¥‘•ÈÍµ½­”°…¹Ñ¡”…‘…ÁÑ•È¥Ì¹½Ðµ½Õ¹Ñ•¥¹Ñ¼…¸…ÁÁ±¥…Ñ¥½¸É½ÕÑ”¸()½¹ÑÉ½±±•ÁÉ½Ù¥‘•ÈÍµ½­”¡…Ì¹½ÜÉ•…Ñ•„¹½¸µÁ•ÉÍ¥ÍÑ•¹Ð9½‘”€ÈÈÍ…¹‘‰½à)Ý¥Ñ ½¹”ÙAT°„€ÌÀµÍ•½¹Ñ¥µ•½ÕÐ°…¹‘•¹äµ…±°¹•ÑÝ½É¬Á½±¥ä¥¸Ñ¡”½¹¹•Ñ•)Y•É•°ÁÉ½©•Ð¸%ÐÝÉ½Ñ”…¹É•…„±½…°™¥áÑÕÉ”™¥±”°½¹™¥Éµ•…¸•áÑ•É¹…°)™•Ñ Ý…Ì‰±½­•°•á¥Ñ•ÍÕ•ÍÍ™Õ±±ä°…¹Ñ¡”Í•ÍÍ¥½¸Ý…ÌÍÑ½ÁÁ•¸Q¡¥Ì)Ù•É¥™¥•ÌÑ¡”ÁÉ½Ù¥‘•È…¸ÍÑ…ÉÐ…¹¥Í½±…Ñ”„Í¡½ÉÐµ±¥Ù•Y4ì¥Ð‘½•Ì¹½ÐÙ•É¥™ä)Ñ¡”É•Á½Í¥Ñ½ÉäÌIMP…‘…ÁÑ•È……¥¹ÍÐY•É•°°µ½Õ¹ÐÕÍÑ½´•á•ÕÑ¥½¸¥¹Ñ¼…¸)…ÁÁ±¥…Ñ¥½¸É½ÕÑ”°½È…Ñ¥Ù…Ñ”ÕÍÑ½µ•È½‘”¸()ÕÍÑ½´½Á•É…Ñ¥½¹ÌÉ•µ…¥¸É•©•Ñ•‘ÕÉ¥¹œÁÉ½©•Ð•¹•É…Ñ¥½¸Õ¹Ñ¥°Ñ¡¥Ì)ÁÉ½Ù¥‘•È‰•¡…Ù¥½È¥ÌÙ•É¥™¥•……¥¹ÍÐ„½¹ÑÉ½±±•…Ñ¥Ù…Ñ¥½¸Í…¹‘‰½à…¹)•áÁ±¥¥Ñ±äÝ¥É•Ñ¼Ñ¡”Í•ÉÙ•ÈµÍ¥‘”…ÁÁ±¥…Ñ¥½¸ÉÕ¹Ñ¥µ”¸9¼ÕÍÑ½µ•È½‘”…¸)É•… Ñ¡¥Ì…‘…ÁÑ•ÈÑ½‘…ä¸()¸½ÁÐµ¥¸±¥Ù”Íµ½­”½µµ…¹¹½Ü•á•É¥Í•ÌÑ¡”É•Á½Í¥Ñ½Éä…‘…ÁÑ•È…¹Ñ¡”Í¡…É•)½¹”µÍ¡½Ð±•…¹ÕÀ‰½Õ¹‘…Éäè¹Á´ÉÕ¸Íµ½­”éÙ•É•°µÍ…¹‘‰½àé±¥Ù•€¸%ÐÍ­¥ÁÌÝ¥Ñ¡½ÕÐ)„ÁÉ½Ù¥‘•ÈÉ•ÅÕ•ÍÐÝ¡•¸YI1}Q=-9€¥Ì…‰Í•¹ÐìYI1}Q5}%€¥Ì½ÁÑ¥½¹…°¸)AÉ½Ù¥‘”É•‘•¹Ñ¥…±Ì½¹±äÑ¡É½Õ Ñ¡”±½…°ÁÉ½•ÍÌ•¹Ù¥É½¹µ•¹Ð°¹•Ù•È‰ä)Á…ÍÑ¥¹œÑ¡•´¥¹Ñ¼Í½ÕÉ”½È½µµ…¹Ñ•áÐ¸Q¡”Íµ½­”ÉÕ¹Ì½¹”‘•Ñ•Éµ¥¹¥ÍÑ¥Œ)•áÁÉ•ÍÍ¥½¸Ý¥Ñ ‘•¹äµ…±°¹•ÑÝ½É­¥¹œ…¹„€ÄÀµÍ•½¹•á•ÕÑ¥½¸±¥µ¥Ð°ÍÕÁÁÉ•ÍÍ•Ì)ÁÉ½Ù¥‘•È•ÉÉ½È‘•Ñ…¥±Ì°…¹¥Ì•á±Õ‘•™É½´$½I•±•…Í”…Ñ”¸%Ð¡…Ì¹½Ðå•Ð)‰••¸ÉÕ¸……¥¹ÍÐY•É•°°Í¼Ñ¡”É•Á½Í¥Ñ½Éäµ…‘…ÁÑ•È±¥Ù”Ù•É¥™¥…Ñ¥½¸É•µ…¥¹Ì)½Á•¸Õ¹Ñ¥°Ñ¡…Ð½µµ…¹½µÁ±•Ñ•ÌÍÕ•ÍÍ™Õ±±ä¸((ŒŒÕÍÑ½´½‘”ƒŠP±¥Ù”É•Á½Í¥Ñ½Éä…‘…ÁÑ•ÈÙ•É¥™¥•()Q¡”½ÁÐµ¥¸±¥Ù”Íµ½­”½µÁ±•Ñ•ÍÕ•ÍÍ™Õ±±ä½¸€ÈÀÈØ´ÄÀ´ÄÌ……¥¹ÍÐµ…¥¸½µµ¥Ð)˜ääå‘ŒØÑäÁ™ŒÑ˜Øå˜ÄÜÝÜÀÄÌÐäÝ˜ØÈØÉ™”àÄÜÉ€€¡Ý½É­™±½ÜÉÕ¸)lÌàÐàÀÜÀÈÈÈÁt¡¡ÑÑÁÌè¼½¥Ñ¡Õˆ¹½´½­¡…Ñ…äÄ½Q…å…Èµ%¹Ñ•±±¥•¹”µQ½½±Ì½…Ñ¥½¹Ì½ÉÕ¹Ì¼ÌàÐàÀÜÀÈÈÈÀ¤¤¸)Q¡”É•Á½Í¥Ñ½Éä…‘…ÁÑ•ÈÉ•…Ñ•„‘•¹äµ…±°°¹½¸µÁ•ÉÍ¥ÍÑ•¹Ð9½‘”€ÈÈÍ…¹‘‰½à°)•á•ÕÑ•Ñ¡”‘•Ñ•Éµ¥¹¥ÍÑ¥Œ™¥áÑÕÉ”°Ù…±¥‘…Ñ•¥ÑÌÉ•ÍÕ±Ð°…¹ÍÑ½ÁÁ•Ñ¡”)Í…¹‘‰½à¸Q¡¥Ì±½Í•ÌÑ¡”±¥Ù”IMPµ…‘…ÁÑ•ÈÙ•É¥™¥…Ñ¥½¸…À¸%Ð‘½•Ì¹½Ð•¹…‰±”)ÕÍÑ½µ•È•á•ÕÑ¥½¸èÑ¡”…‘…ÁÑ•ÈÉ•µ…¥¹ÌÕ¹µ½Õ¹Ñ•°ÕÍÑ½´½Á•É…Ñ¥½¹ÌÉ•µ…¥¸)É•©•Ñ•‘ÕÉ¥¹œ•¹•É…Ñ¥½¸°…¹¹¼ÕÍÑ½µ•È½‘”½ÈÉ•‘•¹Ñ¥…±ÌÝ•É”¥¹Ù½±Ù•¸((ŒŒÕÍÑ½´½‘”ƒŠPÁÕ‰±¥Í¡•µ½Á•É…Ñ¥½¸…Ñ”½¹ÑÉ…Ð…‘‘•()Q¡”Í•ÉÙ•È¹½Ü¡…Ì„™…¥°µ±½Í•½É¡•ÍÑÉ…Ñ¥½¸½¹ÑÉ…Ð™½È„™ÕÑÕÉ”ÁÕ‰±¥Í¡•)ÕÍÑ½´½Á•É…Ñ¥½¸É½ÕÑ”¸%Ð…•ÁÑÌ½¹±ä½Ý¹•È½ÁÉ½©•Ð½É•±•…Í”½½Á•É…Ñ¥½¸%Ì…¹)‰½Õ¹‘•)M=8¥¹ÁÕÐìÍ½ÕÉ”¥ÌÉ•Í½±Ù•Í•ÉÙ•ÈµÍ¥‘”™É½´Ñ¡”É•ÅÕ•ÍÑ•¥µµÕÑ…‰±”)É•±•…Í”¸ÕÑ¡½É¥é…Ñ¥½¸µÕÍÐÁ…ÍÌ‰•™½É”Í½ÕÉ”É•Í½±ÕÑ¥½¸°…¹„‘ÕÉ…‰±”ÕÍ…”)É•Í•ÉÙ…Ñ¥½¸µÕÍÐÁ…ÍÌ‰•™½É”„Í…¹‘‰½à¥ÌÉ•…Ñ•¸Q¡”™•…ÑÕÉ”‘•™…Õ±ÑÌ½™˜°)É•©•ÑÌÉ•±•…Í”µ¥Íµ…Ñ¡•Ì…¹•áÑÉ„É•ÅÕ•ÍÐ™¥•±‘Ì°…¹µ…ÁÌÁÉ½Ù¥‘•È™…¥±ÕÉ•Ì)Ñ¼ÍÑ…‰±”ÁÕ‰±¥Œ½‘•Ì¸I•±•…Í”…Ñ”½Ù•ÉÌ½É‘•É¥¹œ°‘¥Í…‰±•½Õ¹…ÕÑ¡½É¥é•¼)Õ¹É•Í•ÉÙ•‘•¹¥…°°É•±•…Í”µ¥Íµ…Ñ …¹Í…¹‘‰½à±•…¹ÕÀ¸Q¡”•á¥ÍÑ¥¹œ…Ñ½µ¥Œ)Á•ÈµÕÍ•ÈÕÍ…”µ•Ñ•È¹½Ü¡…Ì„‘•‘¥…Ñ•ÕÍÑ½´µ•á•ÕÑ¥½¸Á½±¥ä…¹‰½Õ¹‘•)µ½¹Ñ¡±ä±¥µ¥ÑÌ€¡™É•”€À°AÉ¼€ÄÀ°	ÕÍ¥¹•ÍÌ€ÔÀ¤ì¥Ð¥ÌÍ••‘•‘¥Í…‰±•‰ä‘•™…Õ±Ð¸)Q¡”Í•ÉÙ•ÈÅÕ½Ñ„…‘…ÁÑ•ÈÙ…±¥‘…Ñ•ÌÑ¡”Ñ½½°Á½±¥ä…¹•™™•Ñ¥Ù”Á±…¸‰•™½É”)É•Í•ÉÙ¥¹œÕÍ…”°…¹™¥¹…±¥é•ÌÑ¡”É•Í•ÉÙ…Ñ¥½¸…™Ñ•È„Í…¹‘‰½à…ÑÑ•µÁÐÍ¼)™…¥±•ÕÍÑ½µ•È½‘”ÍÑ¥±°½¹ÍÕµ•ÌÑ¡”‰½Õ¹‘••á•ÕÑ¥½¸…±±½Ý…¹”¸I•±•…Í”)…Ñ”½Ù•ÉÌÉ•Í•ÉÙ…Ñ¥½¸½¹™¥ÕÉ…Ñ¥½¸°‘¥Í…‰±•µÁ½±¥ä‘•¹¥…°°™¥¹…±¥é…Ñ¥½¸)…¹±…µÁ•‘ÕÉ…Ñ¥½¸µ•Ñ…‘…Ñ„¸Q¡•Í”…‘‘¥Ñ¥½¹Ì…É”Í½ÕÉ”µ½¹±ä…¹¡…Ù”¹½Ð)‰••¸…ÁÁ±¥•Ñ¼„±¥Ù”‘…Ñ…‰…Í”¸Q¡”½É¡•ÍÑÉ…Ñ¥½¸½¹ÑÉ…ÐÉ•µ…¥¹ÌÕ¹µ½Õ¹Ñ•ì)•¹•É…Ñ¥½¸ÍÑ¥±°É•©•ÑÌÕÍÑ½´½Á•É…Ñ¥½¹Ì¸IÕ¹Ñ¥µ”…ÕÑ¡•¹Ñ¥…Ñ¥½¸½É•±•…Í”)¥¹Ñ•É…Ñ¥½¸…¹Ñ¡”ÁÉ½‘ÕÑ¥½¸µ¥É…Ñ¥½¸É•µ…¥¸Á•¹‘¥¹œ¸()Í•ÉÙ•Èµ½¹±ä!QQ@É½ÕÑ”½¹ÑÉ…Ð¹½Ü±¥µ¥ÑÌ½Á•É…Ñ¥½¸É•ÅÕ•ÍÑÌÑ¼Í…µ”µ½É¥¥¸A=MP)M=8Ý¥Ñ „€ÌÈ-¥‰½‘ä°É•©•ÑÌ±¥•¹ÐµÍÕÁÁ±¥•½Ý¹•È½ÁÉ½©•Ð½Í½ÕÉ”‘…Ñ„°…¹µ…ÁÌ™…¥±ÕÉ•ÌÑ¼ÍÑ…‰±”¹¼µÍÑ½É”É•ÍÁ½¹Í•Ì¸I•±•…Í”…Ñ”½Ù•ÉÌ½É¥¥¸°µ•Ñ¡½°µ•‘¥„ÑåÁ”°ÅÕ•Éä°‰½‘äµÍ¥é”…¹ÍÕ•ÍÍ™Õ°µ•á•ÕÑ¥½¸Á…Ñ¡Ì¸Q¡¥ÌÉ½ÕÑ”½¹ÑÉ…Ð¥Ì¹½Ðµ½Õ¹Ñ•èÑ¡”¥µµÕÑ…‰±”É•±•…Í”ÕÉÉ•¹Ñ±ä…ÉÉ¥•Ì¹¼ÕÍÑ½´Í½ÕÉ”…ÉÑ¥™…Ð½È½Á•É…Ñ¥½¸…ÕÑ¡½É¥é…Ñ¥½¸Á½±¥ä¸I•±•…Í”ÍÑ½É…”…¹±¥Ù”µ…ÕÑ ‰¥¹‘¥¹ÌµÕÍÐ‰”¥µÁ±•µ•¹Ñ•‰•™½É”…¹äÕÍÑ½µ•È½Á•É…Ñ¥½¸…¸ÉÕ¸¸()Q¡”ÁÕ‰±¥Í¡•µ½Á•É…Ñ¥½¸½É¡•ÍÑÉ…Ñ½È¹½Ü‘¥ÍÑ¥¹Õ¥Í¡•Ì„Ñ¡É½Ý¸Ù…±Õ”™É½´„ÍÕ•ÍÍ™Õ°Õ¹‘•™¥¹•‘€É•ÍÕ±Ð°¥¹±Õ‘¥¹œ…‘…ÁÑ•ÉÌÑ¡…ÐÑ¡É½Ü¹Õ±±€½È…¹½Ñ¡•È¹½¸µÉÉ½ÈÙ…±Õ”¸%ÐÍÑ¥±°™¥¹…±¥é•ÌÑ¡”É•Í•ÉÙ•…ÑÑ•µÁÐ‰•™½É”É•ÑÕÉ¹¥¹œ„ÍÑ…‰±”™…¥±ÕÉ”¸Q¡”™½ÕÍ•É•É•ÍÍ¥½¸…¹QåÁ•MÉ¥ÁÐ¡•¬Á…ÍÍ•½¸AH€ŒÈÄÄìÑ¡”É½ÕÑ”É•µ…¥¹ÌÕ¹µ½Õ¹Ñ•…¹‘¥Í…‰±•¸()Q¡”]•‰Í¥Ñ”	Õ¥±‘•È$Õ¹‘¼Á…Ñ ¹½Ü¡…Ì„‘¥É•Ð‰•¡…Ù¥½É…°É•É•ÍÍ¥½¸¥¸)I•±•…Í”…Ñ”¸%ÐÙ•É¥™¥•ÌÉ•ÍÑ½É…Ñ¥½¸½˜Ñ¡”½µÁ±•Ñ”…ÁÑÕÉ•Á…”°Í¥Ñ”°)‰É…¹°M<°Ñ¡•µ”°¡•…‘•È…¹É•ÕÍ…‰±”µÍåµ‰½°ÍÑ…Ñ”ì½¹™¥ÉµÌÉ•ÍÑ½É•)½±±•Ñ¥½¹Ì…É”‘•Ñ…¡•™É½´Ñ¡”Í…Ù•Í¹…ÁÍ¡½Ðì…¹É•©•ÑÌÍÑ…±”µÁÉ½©•Ð½È)¥¸µÁÉ½É•ÍÌÕ¹‘¼…ÑÑ•µÁÑÌÝ¥Ñ¡½ÕÐ…ÁÁ±å¥¹œÁÉ½©•Ð‘…Ñ„¸	•™½É”„Ù…±¥Õ¹‘¼°)Ñ¡”ÕÉÉ•¹ÐÁÉ½©•Ð¥Ì¹½Ü¡•­Á½¥¹Ñ•Í¼Ñ¡”¡¥ÍÑ½ÉäÁ…¹•°…¸É•ÍÑ½É”…¸)…¥‘•¹Ñ…±±äÉ•Ù•ÉÑ•$É•ÍÕ±Ð¸((ŒŒ!½¹•ÍÐ½µÁ±•Ñ¥½¸‰½Õ¹‘…Éä((ŒŒŒAÕ‰±¥Í¡•½Á•É…Ñ¥½¸¥‘•¹Ñ¥Ñä‰¥¹‘¥¹œƒŠP¥µÁ±•µ•¹Ñ…Ñ¥½¸¡•­Á½¥¹Ð()Q¡”•á•ÕÑ¥½¸½É¡•ÍÑÉ…Ñ½È¹½ÜÉ•ÅÕ¥É•ÌÑ¡”É•±•…Í”É•Í½±Ù•ÈÑ¼É•ÑÕÉ¸‰½Ñ )Ñ¡”É•ÅÕ•ÍÑ•¥µµÕÑ…‰±”É•±•…Í”%…¹½Á•É…Ñ¥½¸%¸%ÐÉ•©•ÑÌµ¥ÍÍ¥¹œ½È)µ¥Íµ…Ñ¡•¥‘•¹Ñ¥Ñ¥•Ì°•µÁÑäÍ½ÕÉ”°…¹•áÑÉ„…ÉÑ¥™…Ð™¥•±‘Ì‰•™½É”ÕÍ…”)É•Í•ÉÙ…Ñ¥½¸½ÈÍ…¹‘‰½àÉ•…Ñ¥½¸¸Q¡¥Ì±½Í•Ì„½¹É•Ñ”Í½ÕÉ”µÍ•±•Ñ¥½¸…À¥¸)Ñ¡”½É¡•ÍÑÉ…Ñ¥½¸½¹ÑÉ…Ðì¥Ð‘½•Ì¹½Ð¥µÁ±•µ•¹ÐÁ•ÉÍ¥ÍÑ•¹Ð…ÉÑ¥™…ÐÍÑ½É…”°)…ÕÑ¡½É¥é…Ñ¥½¸Á½±¥ä°½ÈÉ½ÕÑ”µ½Õ¹Ñ¥¹œ¸Q¡”™½ÕÍ•ÕÍÑ½´µ½Á•É…Ñ¥½¸)É•É•ÍÍ¥½¸°QåÁ•MÉ¥ÁÐ°Í½Á•M1¥¹Ð…¹Ý¡¥Ñ•ÍÁ…”¡•­ÌÁ…ÍÍ•±½…±±ä¸)AH€ŒÈÄÌµ•É•…Ì€Ý”áŒÈÔáŒÁ„Õ˜Ý˜Å™”ØÉ˜ÀÕäÍ™„ØÀÄàØÜäÔÄÝŒÅ€…™Ñ•È¥ÑÌAH…¹)µ…¥¸I•±•…Í”…Ñ•ÌÁ…ÍÍ•¸((ŒŒŒ%¹•ÉÐÕÍÑ½´µÍ½ÕÉ”É•±•…Í”…ÉÑ¥™…ÑÌƒŠP¥µÁ±•µ•¹Ñ…Ñ¥½¸¡•­Á½¥¹Ð()ÕÍÑ½´½Á•É…Ñ¥½¹Ì¥¸Ñ¡”ÍÑÉÕÑÕÉ•ÍÁ•¥™¥…Ñ¥½¸…¸¹½Ü…ÉÉä‰½Õ¹‘•Í½ÕÉ”( ØÐ-¥¤ì¹…Ñ¥Ù”½Á•É…Ñ¥½¹Ì…¹¹½Ð…ÉÉäÍ½ÕÉ”°…¹ÕÍÑ½´½‘”…¹¹½Ð±…¥´)‘…Ñ…‰…Í”ÑÉ…¹Í…Ñ¥½¸Õ…É…¹Ñ••Ì¸Q¡”•á¥ÍÑ¥¹œ¥µµÕÑ…‰±”…ÁÁ±¥…Ñ¥½¸É•±•…Í”)Í¹…ÁÍ¡½ÐÉ•Ñ…¥¹ÌÑ¡¥ÌÍÁ•¥™¥…Ñ¥½¸¸Í•ÉÙ•ÈÉ•Í½±Ù•ÈÍ•±•ÑÌÍ½ÕÉ”½¹±ä)Ý¡•¸½Ý¹•È°ÁÉ½©•Ð°¥µµÕÑ…‰±”É•±•…Í”°ÁÉ¥Ù…Ñ”É•±•…Í”‰Õ­•Ð°…¹½Á•É…Ñ¥½¸)%Ì…±°µ…Ñ ¸Q¡”$•¹•É…Ñ¥½¸½¹ÑÉ…Ð‘•ÍÉ¥‰•Ì‘•Ñ•Éµ¥¹¥ÍÑ¥Œ)M=8µ¥¸½)M=8µ½ÕÐ)‘É…™ÐÍ½ÕÉ”…¹•áÁ±¥¥Ñ±ä™½É‰¥‘Ì±…¥µ¥¹œ¥Ð¥Ì…ÕÑ¡½É¥é•°•á•ÕÑ•°½È)‘•±¥Ù•É…‰±”¸I•ÅÕ¥É•µ•¹Ð½Ù•É…”…‘‘Ì„™…¥±¥¹œ½¹ÑÉ…ÐÉ½Ü™½È•… ÕÍÑ½´)½Á•É…Ñ¥½¸°Í¼Í½ÕÉ”ÍÑ½É…”…±½¹”…¹¹½ÐÁ…ÍÌ‘•±¥Ù•Éä¸á•ÕÑ¥½¸É•µ…¥¹Ì)‘¥Í…‰±•Á•¹‘¥¹œÑ¡”…ÕÑ¡½É¥é…Ñ¥½¸…¹ÉÕ¹Ñ¥µ”¥¹Ñ•É…Ñ¥½¸Ý½É¬¸½ÕÍ•)ÍÁ•¥™¥…Ñ¥½¸°•¹•É…Ñ¥½¸°½Ù•É…”°É•Í½±Ù•È°ÑåÁ”…¹‰Õ¹‘±”¡•­ÌÁ…ÍÍ•ì)Ñ¡”AHI•±•…Í”…Ñ”…¹Á½ÍÐµµ•É”µ…¥¸I•±•…Í”…Ñ”Á…ÍÍ•¸()Q¡”I•±•…Í”…Ñ”¥‘•¹Ñ¥™¥•ÍÑ…±”•¹•É…Ñ•‘•Á•¹‘•¹¥•Ì¥¸Ñ¡”Y•É•°)½¹¹•Ñ¥½¸‘”‰Õ¹‘±”°½Ý¹•…ÁÁ±¥…Ñ¥½¸ÉÕ¹Ñ¥µ”Ñ•µÁ±…Ñ”°	e<AÕ‰±¥Í ‘”)‰Õ¹‘±”…¹…ÁÁ±¥…Ñ¥½¸‰…­•¹µ±¥¹¬‘”‰Õ¹‘±”¸… Ý…ÌÉ••¹•É…Ñ•™É½´¥ÑÌ)ÑÉÕÍÑ•Í½ÕÉ”¸½ÕÍ•™•…ÑÕÉ”É•É•ÍÍ¥½¹Ì…¹Ñ¡”ÕÉÉ•¹Ðµ…¥¸I•±•…Í”…Ñ”)Á…ÍÍ•¸Q¡”…Ñ¥Ù…Ñ¥½¸ÁÉ•™±¥¡ÐÉ•µ…¥¹Ì¥¹Ñ•¹Ñ¥½¹…±±ä¹½ÐÉ•…‘ä‰•…ÕÍ”)ÁÉ½Ù¥‘•ÈÉ•‘•¹Ñ¥…±Ì…¹…½Õ¹Ð½¹™¥ÕÉ…Ñ¥½¸…É”‘•™•ÉÉ•Ñ¼Á¡…Í”•¥¡Ð¸()Q¡”™¥ÉÍÐAH…Ñ”…Õ¡Ð„ÍÑ…±”ÁÉ¥Ù…Ñ”…ÁÁ±¥…Ñ¥½¸ÉÕ¹Ñ¥µ”‰Õ¹‘±”¸%ÐÝ…Ì)É•‰Õ¥±Ð™É½´Ñ¡”ÑÉÕÍÑ••¹•É…Ñ½Èì•¹•É…Ñ•µÉÕ¹Ñ¥µ”½¹Í¥ÍÑ•¹ä…¹Ñ¡”)ÁÕ‰±¥Í¡•µÉÕ¹Ñ¥µ”É•É•ÍÍ¥½¸Á…ÍÍ•±½…±±ä°™½±±½Ý•‰äÁ…ÍÍ¥¹œAH…¹µ…¥¸)I•±•…Í”…Ñ•Ì¸()A¡…Í”½¹”ÍÑÉÕÑÕÉ•…¹…±åÍ¥Ì¥Ìµ•É•°‰ÕÐ‰É½…‘•È¥¹™•ÉÉ•µÉ•ÅÕ¥É•µ•¹Ð‘•ÁÑ )Ý¥±°½¹Ñ¥¹Õ”Ñ¼•Ù½±Ù”Ý¥Ñ Ñ¡”•¹•É…Ñ½È¸A¡…Í•ÌÑÝ¼Ñ¡É½Õ Í•Ù•¸ÍÑ¥±°)É•ÅÕ¥É”¥¹É•µ•¹Ñ…°¥µÁ±•µ•¹Ñ…Ñ¥½¸…¹•Ù¥‘•¹”°•ÍÁ•¥…±±ä…ÕÑ¡½É¥é…Ñ¥½¸™½È)Ñ¡”ÕÍÑ½´•á•ÕÑ¥½¸‰½Õ¹‘…Éä°Í…™”É•Á…¥È½É½±±‰…¬°…¹Ù•É¥™¥••áÑ•É¹…°)Í•ÉÙ¥”‰•¡…Ù¥½È¸Q¡”Í•Ù•¸É•™•É•¹”ÁÉ½©•ÑÌ¡…Ù”•¹•É…Ñ•µ½¹ÑÉ…Ð½Ù•É…”)…¹„‰É½ÝÍ•ÈÉ•É•ÍÍ¥½¸•á•É¥Í¥¹œÍå¹Ñ¡•Ñ¥ŒÝ½É­™±½Ü½ÑÉ…¹Í…Ñ¥½¸‰•¡…Ù¥½È™½È)É•Ñ…¥°°É•ÍÑ…ÕÉ…¹Ð°Í¡½½°°±¥¹¥Œ°½Ù•É¹µ•¹Ð°™…Ñ½Éä…¹ÕÍÑ½´µÉ•Í•…É )ÁÉ½©•ÑÌ¸Q¡¥Ì¥Ì¹½Ð•Ù¥‘•¹”Ñ¡…Ð•… ¥Ì„½µÁ±•Ñ”ÕÍÑ½µ•ÈµÉ•…‘äÁÉ½‘ÕÐ¸)¥¹…°ÁÉ½Ù¥‘•È…Ñ¥Ù…Ñ¥½¸É•µ…¥¹ÌÁ¡…Í”•¥¡Ð¸((ŒŒ	ÕÍ¥¹•ÍÌ±½¥ŒƒŠPÕ…É‘•½¹‘¥Ñ¥½¹…°Ý½É­™±½ÜÑÉ…¹Í¥Ñ¥½¹Ìµ•É•()]½É­™±½ÜÑÉ…¹Í¥Ñ¥½¹Ì…•ÁÐÕÀÑ¼Ñ•¸‰½Õ¹‘•°ÑåÁ•ÁÉ•‘¥…Ñ•Ì½Ù•È)½É‘¥¹…ÉäÉ•½É™¥•±‘Ì¸Q¡”ME0½µÁ¥±•È¡•­ÌÑ¡•´…™Ñ•ÈÉ•½É…¹É½±”)…ÕÑ¡½É¥é…Ñ¥½¸Ý¡¥±”Ñ¡”Í½ÕÉ”É•½É¥Ì±½­•°‰•™½É”É•±…Ñ•µÉ½Ü•™™•ÑÌ½È)ÍÑ…Ñ”¡…¹•Ì¸AH€ŒÈÄØÁ…ÍÍ•I•±•…Í”…Ñ”ÉÕ¸€ÌàÔàÔÌÈÀÌÐÁ€…¹Y•É•°AÉ•Ù¥•Ü°)Ñ¡•¸µ•É•Ñ¼µ…¥¹€…Ì€ØÌÀÔäÅŒÔåŒÌÝ„Ù‘™åäÝ•™ŒØÌÄÙˆäÄÔØÑ”àÙ„ÄÑ€¸)A½ÍÐµµ•É”I•±•…Í”…Ñ”ÉÕ¸€ÌàÔäÈÔÐäØÔÅ€Á…ÍÍ•…±°¡•­Ì•á•ÁÐ„Ñ¥µ•½ÕÐ¥¸)…ÁÁ±¥…Ñ¥½¸µÉ•™•É•¹”µÁ…”µ‰É½ÝÍ•ÈµÉ•É•ÍÍ¥½¸¹µ©Í€ìÑ¡”‰É½ÝÍ•Èµ…‘”¹¼!QQAL)É•ÅÕ•ÍÑÌ…¹Ñ¡”AH…Ñ”Á…ÍÍ•Ñ¡”Í…µ”ÑÉ•”¸=¹±äÑ¡”™…¥±•Ý½É­™±½Ü©½ˆ)Ý…ÌÉ•ÍÑ…ÉÑ•…ÌÉÕ¸…ÑÑ•µÁÐ€È…¹Á…ÍÍ•¸Q¡¥Ì½µÁ±•Ñ•ÌÑ¡”Á½ÍÐµµ•É”…Ñ”¸)MÕÁ…‰…Í”AÉ•Ù¥•ÜÉ•µ…¥¹ÌÍ­¥ÁÁ•‰•…ÕÍ”ÁÉ•Ù¥•Ü‰É…¹¡•Ì…É”‘¥Í…‰±•¸((ŒŒ	ÕÍ¥¹•ÍÌ±½¥ŒƒŠP…±°½…¹äÁÉ•‘¥…Ñ”É½ÕÁÌµ•É•()¸…‘‘¥Ñ¥Ù”½¹‘¥Ñ¥½¹5½‘•€ÍÕÁÁ½ÉÑÌ9€¡‘•™…Õ±Ð¤…¹=Hµ…Ñ¡¥¹œ™½È‰½Õ¹‘•)Ý½É­™±½ÜÁÉ•‘¥…Ñ•Ì¸Q¡”Ý½É­™±½ÜÉ•É•ÍÍ¥½¸°QåÁ•MÉ¥ÁÐ°™½ÕÍ•M1¥¹Ð°…±°)…™™•Ñ••¹•É…Ñ•µ‰Õ¹‘±”½¹Í¥ÍÑ•¹ä¡•­Ì…¹Ý¡¥Ñ•ÍÁ…”Ù…±¥‘…Ñ¥½¸Á…ÍÌ)±½…±±ä¸Q¡”ÑÉÕÍÑ•	e<AÕ‰±¥Í •¹•É…Ñ½ÈÉ••¹•É…Ñ•¥ÑÌÑÉ…¹Í¥Ñ¥Ù”)…ÁÁ±¥…Ñ¥½¸µÙ…±¥‘…Ñ¥½¸‘•Á•¹‘•¹äìÑ¡”‰Õ¹‘±”¡•¬…¹‘•Á±½åµ•¹Ðµ•¹ÑÉä)É•É•ÍÍ¥½¸Á…ÍÌ¸AH€ŒÈÄÜµ•É•Ñ¼µ…¥¹€…Ì)€ØØÄÉ‰ˆá‘‰‰”ÔÜÉÈÌÔØáˆäàá…áˆÀÜå‘™„Ìå„Í€¸…Ñ”ÉÕ¸€ÌàÔäÐØÔÄÌÀÍ€¡…¡•­•)ÍÑ…±”µ•É”É•˜…ŒàÌÄÉ™€…¹™…¥±•Ñ¡”½±‰Õ¹‘±”ìÑ¡”¹•ÜAH…Ñ”)€ÌàÔäÔÐÌØÈÜÙ€Á…ÍÍ•½¸Ñ¡”É•™É•Í¡•¡•……¹µ…¥¸…Ñ”€ÌàÔäÔäØÜÄÌÑ€Á…ÍÍ•¸((ŒŒÕÍÑ½´½‘”ƒŠP…ÁÁ±¥…Ñ¥½¸…Ñ½È…ÕÑ¡½É¥é…Ñ¥½¸µ•É•()AH€ŒÈÄàµ•É•Ñ¼µ…¥¹€…Ì€ÜÕŒÜá‘”ØÈÀá˜ÐÀØÜàäÈÁ‰‘•ÀÈØÉ‰Ñ„ÈÄàá‰ŒÁ€…™Ñ•È)I•±•…Í”…Ñ”€ÌàÔäÜÄØääÄÍ€°Y•É•°AÉ•Ù¥•Ü…¹µ…¥¸I•±•…Í”…Ñ”€ÌàÔäÜØÌÀÄÜÅ€)Á…ÍÍ•¸%ÑÌ™…¥°µ±½Í•…‘…ÁÑ•ÈÙ•É¥™¥•ÌÑ¡”•¹µÕÍ•È…•ÍÌÑ½­•¸……¥¹ÍÐÑ¡”)‰½Õ¹ÕÍÑ½µ•ÈMÕÁ…‰…Í”ÕÑ ÁÉ½©•Ð°É•©•ÑÌ…¹½¹åµ½ÕÌÕÍ•ÉÌ°…¹¡•­Ì)É½±”µ‰½Õ¹…Ñ½ÉÌÑ¡É½Õ Ñ¡”•á¥ÍÑ¥¹œ…ÁÁ}µå}É½±•Í€IA¸%ÐÙ…±¥‘…Ñ•ÌÑ¡”)ÑÉÕÍÑ•ÁÉ½©•ÐÉ•˜°ÕÍ•Ì½¹±äÑ¡”ÁÕ‰±¥Œ­•ä…¹ÕÍ•ÈÌ‰•…É•ÈÑ½­•¸°…ÁÁ±¥•Ì)‰½Õ¹‘•É•ÍÁ½¹Í•Ì½Ñ¥µ•½ÕÑÌ°…¹¥¹½É•ÌÕÍ•Èµ•‘¥Ñ…‰±”µ•Ñ…‘…Ñ„¸((ŒŒÕÍÑ½´½‘”ƒŠP‰•…É•ÈÑ½­•¸É½ÕÑ”½¹ÑÉ…Ðµ•É•()AH€ŒÈÄäµ•É•Ñ¼µ…¥¹€…Ì„ÝÉ”ÀÅ„Ñ„áˆÌÝˆàÙàÅˆÐáÜÅ…„ÄÄÜÍ˜ÈÄÔØÁ€…™Ñ•È)I•±•…Í”…Ñ”€ÌàÔäàÈäÌØÄá€°Y•É•°AÉ•Ù¥•Ü°…¹µ…¥¸I•±•…Í”…Ñ”)€ÌàÔäàØàÄàÌá€Á…ÍÍ•¸Q¡”!QQ@½Á•É…Ñ¥½¸½¹ÑÉ…Ð¹½ÜÉ•ÅÕ¥É•Ì„‰½Õ¹‘•)]P)	•…É•ÈÑ½­•¸…¹Á…ÍÍ•Ì¥Ð½¹±äÑ¼Ñ¡”…ÕÑ¡½É¥é…Ñ¥½¸…±±‰…¬¸5¥ÍÍ¥¹œ½È)µ…±™½Éµ•É•‘•¹Ñ¥…±Ì™…¥°‰•™½É”•á•ÕÑ¥½¸ìÑ¡”Ñ½­•¸¥Ì•á±Õ‘•™É½´É•±•…Í”)±½…‘¥¹œ…¹ÅÕ½Ñ„…±±‰…­Ì¸()Q¡”•¹•É…Ñ•ÕÍÑ½µ•ÈÉÕ¹Ñ¥µ”ÍÑ¥±°‘½•Ì¹½Ðµ½Õ¹ÐÑ¡¥ÌÉ½ÕÑ”…¹ÕÍÑ½´)•á•ÕÑ¥½¸É•µ…¥¹Ì‘¥Í…‰±•¸Q¡”…Ñ¥Ù”½µÁ½Í¥Ñ¥½¸¡•­Á½¥¹Ð…‘…ÁÑÌÑ¡”É½ÕÑ”)…±±‰…¬‘¥É•Ñ±äÑ¼ÕÍÑ½µ•ÈÕÑ ½I1LÙ•É¥™¥…Ñ¥½¸…¹Ñ•ÍÑÌÑ¡”½µÁ±•Ñ”)!QQ@µÑ½­•¸µÑ¼µÕÑ ½IAÁ…Ñ Ý¥Ñ Íå¹Ñ¡•Ñ¥ŒÉ•ÍÁ½¹Í•Ì¸½ÕÍ•É½ÕÑ”…¹ÉÕ¹¹•È)É•É•ÍÍ¥½¹Ì°ÍÑÉ¥ÐQåÁ•MÉ¥ÁÐ°Í½Á•M1¥¹Ð…¹Ý¡¥Ñ•ÍÁ…”¡•­ÌÁ…ÍÌ±½…±±ä¸)I•µ…¥¹¥¹œ…Ñ¥Ù…Ñ¥½¸Ý½É¬É•ÅÕ¥É•Ì¥µµÕÑ…‰±”ÉÕ¹Ñ¥µ”¥‘•¹Ñ¥Ñä°Á±…Ñ™½É´ÅÕ½Ñ„)ÕÍÑ½‘ä…¹Í…¹‘‰½àÉ•‘•¹Ñ¥…±ÌÑ¼‰”¥¹Ñ•É…Ñ•Ý¥Ñ¡½ÕÐ•áÁ½Í¥¹œQ…å…ÈÍ•É•ÑÌ)Ñ¼ÕÍÑ½µ•È½‘”¸AÉ½‘ÕÑ¥½¸É•µ…¥¹ÌÕ¹ÁÉ½µ½Ñ•¸(
+# Universal engineering platform â€” verified checkpoint
+
+## Current continuation checkpoint â€” 2026-10-14
+
+- Live `main` is `1d39ca528820624a0fdd483637c4de12e0f0b15c`. PR #146 is merged and the latest main Release Gate, run `38599925674`, passed.
+- Vercel Production remains READY at `ab55075e`, behind `main`; no Production promotion was made.
+- Supabase advisors still reported 16 uncovered foreign keys. A read-only catalog check on active project `pnbllxdlskljcakyaylt` confirmed 0 uncovered foreign keys across 96 and all 16 phase-zero indexes valid. The advisor discrepancy remains under review; no redundant DDL was added. Existing SECURITY DEFINER and RLS-without-policy findings include reviewed server-only boundaries; do not add blanket grants or policies.
+- PR #221 is open for the custom execution quota fix. Failed isolated execution records `error` while still consuming its reservation. An additive migration changes quota counting only for `website-custom-execution`; errors from other tools retain their existing behavior. No live migration was applied.
+- Local regressions: PGlite quota atomicity, custom quota, operation authorization/execution, and HTTP route passed. TypeScript and scoped ESLint passed. The updated PostgreSQL Release Gate regression will verify the migration against isolated Postgres; wait for the latest PR gate before merge.
+
+## Live repository check â€” 2026-10-14
+
+- `main` is `6612bb8dbbe572d23568b988acd8b079dcfa39a3`; PR #217 is merged
+  after PR Release Gate `38595436276`, Vercel Preview, and main Release Gate
+  `38595967134` all passed. PR #146 is merged as
+  `ab55075ea6f8ebd09b71994a0e631efe12e96024`; its stale-runtime and browser
+  regression failures are resolved and are not current blockers. PR #213 also
+  merged as `7e8c258c`; the latest main Release Gate passed.
+- Production deployment `dpl_BhDGCqhxhDMBZBm6MhjSmKZGUuJo` is READY at
+  `ab55075e`, behind `main`. Promotion remains deferred until the outstanding
+  platform work passes its release gate; previews are not production delivery.
+- Supabase advisor snapshot on the active project (2026-10-14): no uncovered
+  foreign-key notices are recorded in the phase-zero migration checkpoint.
+  Remaining SECURITY DEFINER and private-table RLS notices were reviewed as
+  intentional server/API boundaries; do not blanket-revoke grants or add RLS
+  policies. Newly added indexes can still appear unused before representative
+  workload. Leaked-password protection remains disabled on the Free plan and
+  requires an owner plan decision; no billing or auth setting was changed.
+- The merged custom-operation batch stores bounded custom operation source in the
+  immutable private release snapshot and resolves it only by matching owner,
+  project, release and operation IDs. It remains inert and cannot pass delivery
+  coverage; the custom-operation route remains unmounted pending end-user
+  authorization and runtime integration. Focused regressions, type checks and
+  both release gates passed.
+  Regenerated Vercel, BYO publish, application release and runtime artifacts
+  match their sources. Production has not been promoted.
+
+## Durable rules
+
+Extend the existing application engine; do not create sector-specific engines.
+Customer credentials and live provider activation stay last. Social Hub remains
+deferred on `deferred/social-hub-foundation-20261011` and must be preserved.
+Generated code, a successful build, passing tests, deployment and verified live
+services are distinct delivery states.
+
+## Phase zero â€” complete on 2026-10-11
+
+- PR #146 merged to `main` as
+  `ab55075ea6f8ebd09b71994a0e631efe12e96024` after Release Gate
+  38165046959 passed. The subsequent main Release Gate 38165264856 also passed.
+- The stale owned runtime and dependent BYO Edge bundle were regenerated from
+  their trusted source. The application data-view browser regression now waits
+  for an explicit terminal result, detects crashes/timeouts and cleans up the
+  Chromium process group safely. Real CI Chrome passed the en/ar/sv assertions.
+- Source migration `20261011183711_phase_zero_advisor_hardening.sql` added the
+  16 verified foreign-key indexes and converted the constant scheduler readiness
+  function to SECURITY INVOKER while preserving ACL, RLS and disabled scheduling.
+  The live Supabase migration record is version `20261011184736` with the same
+  logical migration name. Embedded and native PostgreSQL regressions passed.
+- After the migration, the uncovered-FK advisor notice count is zero. Remaining
+  SECURITY DEFINER notices were reviewed rather than blanket-revoked: their
+  exposed callers have explicit grants, fixed search paths and application
+  authorization/published-site guards. RLS-without-policy tables remain private
+  server-only tables. Newly created indexes can appear as unused until workload.
+- Supabase leaked-password protection remains disabled because the organization
+  is on the Free plan and the supported feature requires an owner plan decision.
+  No billing, Auth configuration, customer credential or secret change occurred.
+- Vercel production deployment `dpl_BhDGCqhxhDMBZBm6MhjSmKZGUuJo` is READY from
+  the exact merged SHA above. `https://www.tayar.se/` and its manifest returned
+  200; an invalid published-site API path returned the expected 400. These probes
+  do not claim that unconfigured customer services are live.
+
+## Phase one â€” structured specification merged
+
+PR #147 merged to `main` as
+`f30ad8e37c3b1c547b212f14a3e8f5ae93f891e3`. PR Release Gate
+38168336221 and main Release Gate 38168604276 both passed.
+
+Implemented a domain-neutral `ProjectSpecification` attached to the existing
+`ApplicationRequirementManifest`. It references the existing generated schema,
+roles and requirement IDs rather than creating a parallel generator. The closed,
+bounded contract records actors, entity scope/sensitivity, explicit or inferred
+requirements, observable acceptance criteria, operations and dependencies,
+business rules, tenancy, deferred integration scopes, privacy/retention and
+unresolved decisions.
+
+The validator rejects unknown fields/IDs, duplicates, missing table
+classifications or requirement coverage, dependency cycles, missing sensitive
+data plans, contradictory tenancy and unresolved conflicts. Custom execution and
+organization/branch isolation fail closed until their isolated executor and
+membership policies exist. Descriptive rules and acceptance criteria are never
+treated as implementation or test evidence.
+
+Agent-mode application generation now requires this specification and validates
+it before mutating editor state. Legacy/manual projects and ordinary brochure
+generation remain backward compatible. The AI request performs the analysis in
+the existing single generation call and is explicitly forbidden from inventing
+credentials, sector assumptions or unsupported native behavior.
+
+Verified locally after this change:
+
+- TypeScript and focused ESLint passed.
+- Domain-neutral specification regression passed across retail, restaurant,
+  school, clinic, government, factory and a custom research record model.
+- Real generation-handler regression passed: a valid specification persisted;
+  a missing specification and claimed custom execution were rejected atomically.
+- Application foundation, release upload/endpoint, backend link, published
+  runtime, owned source/runtime binding and BYO Edge regressions passed.
+- Application runtime, backend-link, release, owned runtime and BYO publish
+  generated artifacts were regenerated from source and passed consistency checks.
+
+## Autonomous QA â€” coverage matrix merged
+
+PR #148 merged to `main` as
+`c59444be414f383f9f9786257ad7e02822539aad`. PR Release Gate
+38219553289 and main Release Gate 38219830834 passed.
+
+The existing requirement verifier now builds explicit coverage rows:
+Requirement â†’ Implementation â†’ Contract Test â†’ Result â†’ Delivery Status. It
+recomputes evidence from the current project and executes the existing form/data
+view compilers; saved AI claims cannot create a passing row. Specification
+operation IDs are included as traceability metadata, while test results come
+only from current executable contracts.
+
+Removed pages, invalid bindings and missing native actions produce failed tests
+and block approval. Delivery reports include the matrix and use
+`contract-verified`, which intentionally does not claim deployment or live
+service verification. Applications cannot be marked delivered while unpublished
+or while a launch-readiness check fails. Brochure compatibility is unchanged.
+
+Focused TypeScript, ESLint, coverage-matrix and real generation/delivery
+regressions passed, followed by both full gates.
+
+## Business logic â€” active declarative workflow batch
+
+PR #149 merged to `main` as `09e5406891d9af32b68cbed19352888d9f1ba524`.
+PR Release Gate 38244010970 and main Release Gate 38244295671 both passed.
+
+The existing atomic workflow engine now supports optional bounded same-record
+effects on each transition: a typed literal assignment, a bounded numeric
+increment, or a server transaction timestamp. Effects run in the same locked
+PostgreSQL transaction as the guarded state change and the existing idempotency
+receipt. They cannot target the state field, formulas, protected counters,
+duplicate fields, unknown fields or arbitrary expressions/code.
+
+Validation enforces closed shapes, field/type compatibility and a maximum of 20
+effects. Existing workflows remain compatible. The AI generation contract may
+use only these declared primitives and must report cross-record logic as
+unsupported rather than inventing execution. TypeScript, ESLint, workflow,
+schema, backend verification, release endpoint, owned source, BYO Edge,
+generation/coverage and all generated-artifact consistency checks passed
+locally. The PostgreSQL concurrency/effect assertion runs in Release Gate.
+
+## Business logic â€” workflow audit history merged
+
+PR #150 merged to `main` as `829cd67036cba3192937dd95ee15941bca6e68e3`.
+PR Release Gate 38245758281 and main Release Gate 38246046180 passed.
+
+Workflow receipts now carry a server transaction timestamp, are indexed by
+record and time for audit history retrieval, and reject updates/deletes at the
+database trigger layer. The owned workflow catalog verifier checks the new
+column, index, function and immutable trigger. This strengthens the existing
+private transition audit records without exposing sensitive transition details
+through client access. PostgreSQL assertions verify timestamp presence,
+immutability and catalog integrity in Release Gate.
+
+## Business logic â€” atomic related-record workflow merged
+
+PR #151 merged to `main` as
+`2fb4952b3421a335d7aa7e4a95e2b2d92d1bb5af`. PR Release Gate run
+38266169172 and main Release Gate run 38266516500 both passed.
+
+The existing guarded workflow transition can now apply one bounded mutation to
+a related record selected by a required reference, in the same PostgreSQL
+transaction as the source state change and immutable idempotency receipt. It
+supports typed set, bounded increment and transaction timestamp changes; target
+rows are locked and checked against their own declared read/update permissions.
+Missing targets or denied permissions abort the entire operation. Workflow
+states, formula outputs, counters, arbitrary expressions, fan-out and self-table
+references remain unsupported and fail closed. The AI generation contract now
+describes this exact executable capability.
+
+Focused workflow/schema regressions, TypeScript, scoped ESLint and generated
+bundle consistency passed locally. Release Gate verified the actual PostgreSQL
+atomic mutation and denied-target rollback. Earlier PR gates identified stale
+generated Supabase BYO, application backend-link and application-release
+bundles; all were regenerated from their trusted source scripts before the
+passing PR and main gates.
+
+The additive schema migrator recompiles affected workflow functions when
+workflow effects, relation fields, or referenced-table permissions/fields
+change.
+
+## Deployment and delivery â€” evidence reporting merged
+
+Client delivery reports now separate the editable project definition and
+current requirement contract results from build-artifact verification,
+deployment health and live runtime/provider checks. A recorded published URL is
+reported as a URL, not proof of healthy deployment; build and external service
+status remain explicitly unverified because this report has no fresh execution
+attestations. PR #152 merged to `main` as
+`7ef664d5e27ee2771955880625e264979a297577`; PR Release Gate run 38267122879
+and main Release Gate run 38267488592 both passed. The real
+application-generation/delivery regression, TypeScript and focused ESLint
+passed locally.
+
+## Reference projects â€” generated-contract coverage
+
+The regression covers seven synthetic definitions: retail, restaurant, school,
+clinic, government, factory and custom research. Each model is validated and
+compiled to schema SQL, then passed through the real application preparation
+path with a structured project specification and a bound overview data view.
+Current requirement coverage must pass for authentication, page access and
+record reading; a broken table binding must fail before the project is applied.
+The check also verifies RLS, owner isolation and each model's expected native
+backend feature. Invalid transaction permissions and booking resources fail
+closed. Release Gate now runs this focused regression. These are generated
+contract fixtures, not complete end-to-end customer products or live provider
+proof.
+
+## Reference project runtime isolation â€” added
+
+The Release Gate now also runs each of the seven generated reference schemas on
+an isolated PostgreSQL database. It seeds records for two test owners, confirms
+each authenticated owner can read only their own row, and verifies an attempted
+owner reassignment is denied or rejected without changing the row. The fixtures
+reset the disposable schemas after use. This proves the generated schemas apply
+and their baseline tenant boundary works; it does not claim full customer
+product E2E or live provider readiness. Existing transaction, workflow,
+formula, booking and related PostgreSQL regressions remain the evidence for
+those native capability classes.
+
+The rollback safety regression also covers a verified publish whose project
+metadata commit fails: the previous live snapshot is restored and editor
+publication state stays unchanged. This is a recovery contract test, not proof
+of a live provider restore.
+
+The generated PostgreSQL schemas now also execute each reference project's
+primary feature: retail/factory inventory transactions, restaurant/government
+workflow transitions, school formula calculation, clinic booking and overlap
+rejection, and research-sample analysis. The seven scenarios passed the full
+Release Gate in PR #164. This verifies generated database behavior, not the
+generated page/browser/backend integration or a complete customer-ready product.
+
+The seven fixtures now also pass through the real saved-project HTML renderer and
+private application-page bootstrap preparation. The regression verifies that
+each rendered page receives its actual project definition and correctly bound
+primary data view, including the declared transaction, workflow, booking or
+formula field. This closes the generated HTML-to-runtime-configuration handoff
+check; it does not simulate browser interaction or prove live provider access.
+
+Release Gate boots rendered application pages with their real browser
+bootstrap in headless Chrome and verifies that generated data views read and
+display fixture records. It now also opens each of the seven generated reference
+project pages (retail, restaurant, school, clinic, government, factory, and
+custom research) in Chrome and verifies the page-specific bound data view renders
+a labeled fixture row. The fixture records are isolated by project and table,
+including schemas that share table names. This verifies the generated page,
+private bootstrap, browser runtime, and mocked read path for every reference
+definition; it does not exercise each project's full workflow or prove live
+provider access.
+
+The browser regression exercises representative project workflows through
+the actual private application runtime against local mocked Supabase responses.
+The generated restaurant page advances a kitchen ticket queued â†’ cooking â†’
+ready; separate government permits are approved and rejected; and a research
+sample advances received â†’ analysed â†’ archived. It also creates an inventory
+transaction, checks availability and creates a clinic appointment inside the
+clinician schedule, then rejects a second overlapping appointment without
+creating another record. Generated school assessment and formula-backed rows
+are saved with their computed totals kept out of editable fields. PRs #181â€“#184
+added and passed the Release Gate for the research, restaurant, government and
+clinic browser flows. These are representative paths, not full end-to-end tests
+for every project type.
+
+The remaining evidence gap is interaction coverage for additional project
+behaviors and wiring the now-live-verified Vercel adapter into the server-side
+application runtime behind a reviewed, bounded operation contract. Customer
+execution remains disabled until that integration and its authorization,
+cleanup, timeout and release regressions pass. Production migration history and
+provider activation stay separate final-stage work; these fixtures touch no
+production database or credentials.
+
+
+## Business logic â€” bounded multi-record workflows merged
+
+PR #154 merged to `main` as
+`d09a03559292e5559b0d6ff8373f572eaf88be11`. PR Release Gate run
+38276567066 and main Release Gate run 38277439123 both passed.
+
+The existing atomic workflow engine now supports up to four distinct related
+tables per transition, with one row per table, stable target lock order,
+per-target permission checks and transaction rollback. The AI contract and
+generated runtime bundles were updated from their source generators. Release
+Gate also exposed a stale application-page browser bundle; it was regenerated
+from `scripts/build-application-page-browser.mjs`. PostgreSQL constraint
+rollback, the other application database regressions, production build,
+dependency audit and whitespace checks passed in both gates.
+
+The Supabase Preview migration check remains blocked by migration history drift:
+the connected production database has 46 recorded versions absent from the
+current local migration filenames, while 58 local versions are not recorded by
+their current version. Several logical migration names exist on both sides with
+different timestamps. This is historical drift, not a single stale migration.
+Do not rewrite database history, add no-op migration placeholders, or apply
+production migrations to silence the check; reconcile the historical source
+mapping before enabling preview migration validation. Production has not been
+deployed from this branch.
+
+## Custom code â€” isolated execution boundary
+
+The server now defines a provider-neutral, one-shot execution contract for
+untrusted custom code. Each adapter invocation must create a fresh Node 22 VM
+with network access denied, persistence disabled, one vCPU, and a bounded
+timeout. Requests and results must be finite JSON within strict size and depth
+limits. The boundary stops the sandbox after success, failure, timeout or
+oversized output and returns stable error codes without forwarding provider
+errors.
+
+Release Gate now runs regressions for the policy contract, missing-adapter
+fail-closed behavior, request/output bounds, timeouts, cleanup, and a mocked
+Vercel Sandbox REST adapter. The adapter requests an empty network allowlist,
+ephemeral Node 22 VMs, bounded resources and lifetime, and sends no environment,
+repository, mount or customer credential fields. Its HTTP contract is covered
+with mocked requests and responses only. No credentials were injected into
+the provider smoke, and the adapter is not mounted into an application route.
+
+A controlled provider smoke has now created a non-persistent Node 22 sandbox
+with one vCPU, a 30-second timeout, and deny-all network policy in the connected
+Vercel project. It wrote and read a local fixture file, confirmed an external
+fetch was blocked, exited successfully, and the session was stopped. This
+verifies the provider can start and isolate a short-lived VM; it does not verify
+the repository's REST adapter against Vercel, mount custom execution into an
+application route, or activate customer code.
+
+Custom operations remain rejected during project generation until this
+provider behavior is verified against a controlled activation sandbox and
+explicitly wired to the server-side application runtime. No customer code can
+reach this adapter today.
+
+An opt-in live smoke command now exercises the repository adapter and the shared
+one-shot cleanup boundary: `npm run smoke:vercel-sandbox:live`. It skips without
+a provider request when `VERCEL_TOKEN` is absent; `VERCEL_TEAM_ID` is optional.
+Provide credentials only through the local process environment, never by
+pasting them into source or command text. The smoke runs one deterministic
+expression with deny-all networking and a 10-second execution limit, suppresses
+provider error details, and is excluded from CI/Release Gate. It has not yet
+been run against Vercel, so the repository-adapter live verification remains
+open until that command completes successfully.
+
+## Custom code â€” live repository adapter verified
+
+The opt-in live smoke completed successfully on 2026-10-13 against main commit
+`f999dc64d90fc4f69f177d7013497f6262fe8172` (workflow run
+[38480702220](https://github.com/khatay1/Tayar-Intelligence-Tools/actions/runs/38480702220)).
+The repository adapter created a deny-all, non-persistent Node 22 sandbox,
+executed the deterministic fixture, validated its result, and stopped the
+sandbox. This closes the live REST-adapter verification gap. It does not enable
+customer execution: the adapter remains unmounted, custom operations remain
+rejected during generation, and no customer code or credentials were involved.
+
+## Custom code â€” published-operation gate contract added
+
+The server now has a fail-closed orchestration contract for a future published
+custom operation route. It accepts only owner/project/release/operation IDs and
+bounded JSON input; source is resolved server-side from the requested immutable
+release. Authorization must pass before source resolution, and a durable usage
+reservation must pass before a sandbox is created. The feature defaults off,
+rejects release mismatches and extra request fields, and maps provider failures
+to stable public codes. Release Gate covers ordering, disabled/unauthorized/
+unreserved denial, release mismatch and sandbox cleanup. The existing atomic
+per-user usage meter now has a dedicated custom-execution policy and bounded
+monthly limits (free 0, Pro 10, Business 50); it is seeded disabled by default.
+The server quota adapter validates the tool policy and effective plan before
+reserving usage, and finalizes the reservation after a sandbox attempt so
+failed customer code still consumes the bounded execution allowance. Release
+Gate covers reservation configuration, disabled-policy denial, finalization
+and clamped duration metadata. These additions are source-only and have not
+been applied to a live database. The orchestration contract remains unmounted;
+generation still rejects custom operations. Runtime authentication/release
+integration and the production migration remain pending.
+
+A server-only HTTP route contract now limits operation requests to same-origin POST JSON with a 32 KiB body, rejects client-supplied owner/project/source data, and maps failures to stable no-store responses. Release Gate covers origin, method, media type, query, body-size and successful-execution paths. This route contract is not mounted: the immutable release currently carries no custom source artifact or operation authorization policy. Release storage and live-auth bindings must be implemented before any customer operation can run.
+
+The published-operation orchestrator now distinguishes a thrown value from a successful `undefined` result, including adapters that throw `null` or another non-Error value. It still finalizes the reserved attempt before returning a stable failure. The focused regression and TypeScript check passed on PR #211; the route remains unmounted and disabled.
+
+The Website Builder AI undo path now has a direct behavioral regression in
+Release Gate. It verifies restoration of the complete captured page, site,
+brand, SEO, theme, header and reusable-symbol state; confirms restored
+collections are detached from the saved snapshot; and rejects stale-project or
+in-progress undo attempts without applying project data. Before a valid undo,
+the current project is now checkpointed so the history panel can restore an
+accidentally reverted AI result.
+
+## Honest completion boundary
+
+### Published operation identity binding â€” implementation checkpoint
+
+The execution orchestrator now requires the release resolver to return both
+the requested immutable release ID and operation ID. It rejects missing or
+mismatched identities, empty source, and extra artifact fields before usage
+reservation or sandbox creation. This closes a concrete source-selection gap in
+the orchestration contract; it does not implement persistent artifact storage,
+authorization policy, or route mounting. The focused custom-operation
+regression, TypeScript, scoped ESLint and whitespace checks passed locally.
+PR #213 merged as `7e8c258c0a5f7f1fe62f05d93cfa6018679517c1` after its PR and
+main Release Gates passed.
+
+### Inert custom-source release artifacts â€” implementation checkpoint
+
+Custom operations in the structured specification can now carry bounded source
+(64 KiB); native operations cannot carry source, and custom code cannot claim
+database transaction guarantees. The existing immutable application release
+snapshot retains this specification. A server resolver selects source only
+when owner, project, immutable release, private release bucket, and operation
+IDs all match. The AI generation contract describes deterministic JSON-in/JSON-out
+draft source and explicitly forbids claiming it is authorized, executed, or
+deliverable. Requirement coverage adds a failing contract row for each custom
+operation, so source storage alone cannot pass delivery. Execution remains
+disabled pending the authorization and runtime integration work. Focused
+specification, generation, coverage, resolver, type and bundle checks passed;
+the PR Release Gate and post-merge main Release Gate passed.
+
+The Release Gate identified stale generated dependencies in the Vercel
+connection Edge bundle, owned application runtime template, BYO Publish Edge
+bundle and application backend-link Edge bundle. Each was regenerated from its
+trusted source. Focused feature regressions and the current main Release Gate
+passed. The activation preflight remains intentionally not ready because
+provider credentials and account configuration are deferred to phase eight.
+
+The first PR gate caught a stale private application runtime bundle. It was
+rebuilt from the trusted generator; generated-runtime consistency and the
+published-runtime regression passed locally, followed by passing PR and main
+Release Gates.
+
+Phase one structured analysis is merged, but broader inferred-requirement depth
+will continue to evolve with the generator. Phases two through seven still
+require incremental implementation and evidence, especially authorization for
+the custom execution boundary, safe repair/rollback, and verified external
+service behavior. The seven reference projects have generated-contract coverage
+and a browser regression exercising synthetic workflow/transaction behavior for
+retail, restaurant, school, clinic, government, factory and custom-research
+projects. This is not evidence that each is a complete customer-ready product.
+Final provider activation remains phase eight.
+
+## Business logic â€” guarded conditional workflow transitions merged
+
+Workflow transitions accept up to ten bounded, typed predicates over
+ordinary record fields. The SQL compiler checks them after record and role
+authorization while the source record is locked, before related-row effects or
+state changes. PR #216 passed Release Gate run `38585320340` and Vercel Preview,
+then merged to `main` as `630591c59c37a6dfd9d97efc6316b91564e86a14`.
+Post-merge Release Gate run `38592549651` passed all checks except a timeout in
+`application-reference-page-browser-regression.mjs`; the browser made no HTTPS
+requests and the PR gate passed the same tree. Only the failed workflow job
+was restarted as run attempt 2 and passed. This completes the post-merge gate.
+Supabase Preview remains skipped because preview branches are disabled.
+
+## Business logic â€” all/any predicate groups merged
+
+An additive `conditionMode` supports AND (default) and OR matching for bounded
+workflow predicates. The workflow regression, TypeScript, focused ESLint, all
+affected generated-bundle consistency checks and whitespace validation pass
+locally. The trusted BYO Publish generator regenerated its transitive
+application-validation dependency; the bundle check and deployment-entry
+regression pass. PR #217 merged to `main` as
+`6612bb8dbbe572d23568b988acd8b079dcfa39a3`. Gate run `38594651303` had checked
+stale merge ref `ac8312f` and failed the old bundle; the new PR gate
+`38595436276` passed on the refreshed head and main gate `38595967134` passed.
+
+## Custom code â€” application actor authorization merged
+
+PR #218 merged to `main` as `75c78de6208cf40678920bded0262bd4a2188bc0` after
+Release Gate `38597169913`, Vercel Preview and main Release Gate `38597630171`
+passed. Its fail-closed adapter verifies the end-user access token against the
+bound customer Supabase Auth project, rejects anonymous users, and checks
+role-bound actors through the existing `app_my_roles` RPC. It validates the
+trusted project ref, uses only the public key and user's bearer token, applies
+bounded responses/timeouts, and ignores user-editable metadata.
+
+## Custom code â€” bearer token route contract merged
+
+PR #219 merged to `main` as `ca7d2e01a4a8b37b86d81b48d71aca1173f21560` after
+Release Gate `38598293618`, Vercel Preview, and main Release Gate
+`38598681838` passed. The HTTP operation contract now requires a bounded JWT
+Bearer token and passes it only to the authorization callback. Missing or
+malformed credentials fail before execution; the token is excluded from release
+loading and quota callbacks.
+
+The generated customer runtime still does not mount this route and custom
+execution remains disabled. The active composition checkpoint adapts the route
+callback directly to customer Auth/RLS verification and tests the complete
+HTTP-token-to-Auth/RPC path with synthetic responses. Focused route and runner
+regressions, strict TypeScript, scoped ESLint and whitespace checks pass locally.
+Remaining activation work requires immutable runtime identity, platform quota
+custody and sandbox credentials to be integrated without exposing Tayar secrets
+to customer code. Production remains unpromoted.

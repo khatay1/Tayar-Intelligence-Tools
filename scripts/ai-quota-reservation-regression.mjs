@@ -26,6 +26,8 @@ try {
   `);
   const migration = await fs.readFile(new URL('../supabase/migrations/20261005165000_atomic_ai_quota_reservations.sql', import.meta.url), 'utf8');
   await db.exec(migration);
+  const customExecutionMigration = await fs.readFile(new URL('../supabase/migrations/20261014195000_count_custom_execution_errors.sql', import.meta.url), 'utf8');
+  await db.exec(customExecutionMigration);
   await db.exec('set role service_role');
 
   const reserve = (tool = 'ai-chat') => db.query(
@@ -51,6 +53,13 @@ try {
     errorReservation, userId, 'fixture', 'fixture-model', 'ai-writer', 0, 0, 5, 'error',
   ]);
   await reserve('ai-writer');
+
+  const customExecutionReservation = (await reserve('website-custom-execution')).rows[0].id;
+  await db.query('select public.complete_ai_tool_usage($1,$2,$3,$4,$5,$6,$7,$8,$9)', [
+    customExecutionReservation, userId, 'vercel-sandbox', 'node22', 'website-custom-execution', 0, 0, 5, 'error',
+  ]);
+  await assert.rejects(reserve('website-custom-execution'), /usage limit reached/i,
+    'failed custom sandbox executions consume their one-attempt limit');
 
   await db.exec('reset role');
   const privileges = await db.query(`select
