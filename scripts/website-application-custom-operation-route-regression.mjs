@@ -10,10 +10,27 @@ try {
   const outfile = join(dir, 'custom-operation-route.cjs');
   await build({ entryPoints: ['server/website-application-custom-operation-route.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
   const { servePublishedCustomOperationRequest } = (await import(pathToFileURL(outfile))).default;
+  const authorizationOutfile = join(dir, 'custom-operation-authorization.cjs');
+  await build({ entryPoints: ['server/website-application-custom-operation-authorization.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: authorizationOutfile });
+  const { createPublishedCustomOperationActorAuthorizer } = (await import(pathToFileURL(authorizationOutfile))).default;
   const order = [];
+  const authCalls = [];
+  const backend = { url: 'https://abcdefghijklmnopqrst.supabase.co', publishableKey: 'sb_publishable_test', projectRef: 'abcdefghijklmnopqrst' };
+  const authorize = createPublishedCustomOperationActorAuthorizer({ backend, expectedProjectRef: backend.projectRef,
+    specification: { actors: [{ id: 'staff', name: 'Staff', roleId: 'staff_role' }],
+      operations: [{ id: 'op_1', execution: 'custom', actorIds: ['staff'] }] },
+    fetcher: async (url, init) => {
+      authCalls.push({ url: String(url), init });
+      return String(url).endsWith('/auth/v1/user')
+        ? Response.json({ id: '123e4567-e89b-42d3-a456-426614174000', is_anonymous: false })
+        : Response.json(['staff_role']);
+    } });
   const dependencies = {
     enabled: true,
-    async authorize(request, accessToken) { order.push(['authorize', request.ownerId, request.projectId, accessToken]); return true; },
+    async authorize(request, accessToken) {
+      order.push(['authorize', request.ownerId, request.projectId, accessToken]);
+      return authorize(request, accessToken);
+    },
     async loadOperation(input) {
       assert.deepEqual(Object.keys(input).sort(), ['input', 'operationId', 'ownerId', 'projectId', 'releaseId']);
       return { releaseId: 'release_1', operationId: 'op_1', source: 'source-from-release' };
@@ -47,6 +64,8 @@ try {
   assert.equal(success.status, 200, `${await success.clone().text()} ${JSON.stringify(order)}`);
   assert.deepEqual(await success.json(), { result: { ok: true } });
   assert.deepEqual(order, [['authorize', 'owner_1', 'project_1', 'eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyIn0.signature'], ['complete']]);
+  assert.deepEqual(authCalls.map(call => new URL(call.url).pathname), ['/auth/v1/user', '/rest/v1/rpc/app_my_roles']);
+  assert.ok(authCalls.every(call => call.init.headers.authorization === 'Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyIn0.signature'));
 
   assert.equal((await invoke(JSON.stringify({ releaseId: 'release_1', operationId: 'op_1', input: {} }), { authorization: '' })).status, 401);
   assert.equal((await invoke(JSON.stringify({ releaseId: 'release_1', operationId: 'op_1', input: {} }), { authorization: 'Bearer malformed' })).status, 401);

@@ -1,4 +1,5 @@
 import { validateOwnedApplicationPublicBackend, type ApplicationPublicBackend } from '../src/modules/website-builder/core/application-data-runtime';
+import type { PublishedCustomOperationRequest } from './website-application-custom-operation';
 
 type JsonRecord = Record<string, unknown>;
 const record = (value: unknown): value is JsonRecord => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -81,4 +82,19 @@ export async function authorizePublishedCustomOperationActor(input: {
     }
     return { userId: user.id };
   } catch { return null; }
+}
+
+/** Adapts the HTTP route's bearer-aware authorization callback to the customer
+ * Auth/RLS verifier. Tokens are never copied onto the operation request passed
+ * to release loading or quota accounting. */
+export function createPublishedCustomOperationActorAuthorizer(input: {
+  backend: ApplicationPublicBackend;
+  expectedProjectRef: string;
+  specification: unknown;
+  fetcher?: typeof fetch;
+}): (operation: Pick<PublishedCustomOperationRequest, 'operationId'>, accessToken?: string) => Promise<boolean> {
+  return async (operation, accessToken) => {
+    if (typeof accessToken !== 'string') return false;
+    return (await authorizePublishedCustomOperationActor({ ...input, accessToken, operationId: operation.operationId })) !== null;
+  };
 }

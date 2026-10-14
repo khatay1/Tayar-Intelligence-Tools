@@ -470,11 +470,20 @@ role-bound actors through the existing `app_my_roles` RPC. It validates the
 trusted project ref, uses only the public key and user's bearer token, applies
 bounded responses/timeouts, and ignores user-editable metadata.
 
-The route integration is still a source-only contract and is not mounted in
-the generated runtime. This follow-up requires a bounded Bearer token for the
-HTTP operation route and passes it only to the authorization callback; source
-loading and quota callbacks receive no token. Missing/malformed credentials
-fail before execution. Focused route/runner regressions, strict TypeScript,
-scoped ESLint and whitespace checks pass locally. Customer execution remains
-disabled until immutable runtime identity, platform quota custody and sandbox
-credentials can be integrated without exposing Tayar secrets to customer code.
+## Custom code — bearer token route contract merged
+
+PR #219 merged to `main` as `ca7d2e01a4a8b37b86d81b48d71aca1173f21560` after
+Release Gate `38598293618`, Vercel Preview, and main Release Gate
+`38598681838` passed. The HTTP operation contract now requires a bounded JWT
+Bearer token and passes it only to the authorization callback. Missing or
+malformed credentials fail before execution; the token is excluded from release
+loading and quota callbacks.
+
+The generated customer runtime still does not mount this route and custom
+execution remains disabled. The active composition checkpoint adapts the route
+callback directly to customer Auth/RLS verification and tests the complete
+HTTP-token-to-Auth/RPC path with synthetic responses. Focused route and runner
+regressions, strict TypeScript, scoped ESLint and whitespace checks pass locally.
+Remaining activation work requires immutable runtime identity, platform quota
+custody and sandbox credentials to be integrated without exposing Tayar secrets
+to customer code. Production remains unpromoted.
