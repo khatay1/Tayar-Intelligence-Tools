@@ -83,6 +83,9 @@ jobs:
       - name: Published custom operation browser client regression
         run: node scripts/application-custom-operation-client-regression.mjs
 
+      - name: Declarative custom operation action and input regression
+        run: node scripts/application-custom-operation-actions-regression.mjs
+
       - name: Website custom execution quota regression
         run: node scripts/website-custom-execution-quota-regression.mjs
 

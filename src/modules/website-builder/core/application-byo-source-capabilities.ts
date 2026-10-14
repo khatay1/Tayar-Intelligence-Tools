@@ -55,6 +55,10 @@ export function analyzeByoSourceCapabilities(snapshot: Record<string, unknown>, 
       if(Array.isArray(section.elements))for(const raw of section.elements){
         if(!raw||typeof raw!=='object'||Array.isArray(raw))continue;
         const element=raw as Record<string,unknown>;
+        if(element.type==='button'&&element.action==='custom-operation'){
+          blockers.push('Custom application operations require the authenticated platform-hosted runtime and cannot be exported to a customer-owned site.');
+          continue;
+        }
         if(element.type!=='button'||element.action!=='stripe-checkout')continue;
         const id=typeof element.id==='string'?element.id:'';
         const previewPriceId=typeof element.stripePreviewPriceId==='string'?element.stripePreviewPriceId.trim():'';

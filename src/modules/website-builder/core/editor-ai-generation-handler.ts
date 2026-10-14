@@ -5,7 +5,8 @@ import { createAIService } from '@/lib/ai/service';
 import { DEFAULT_EDITOR_PROJECT_LIMITS } from './editor-model';
 import type { User } from '@supabase/supabase-js';
 import type * as React from 'react';
-import { createElement,normalizeSection,SECTION_LABELS } from '../core/defaults';
+import { createDefaultElements, createElement, normalizeSection, SECTION_LABELS } from '../core/defaults';
+import { parseApplicationCustomOperationAction } from '../core/application-custom-operation-actions';
 import type { WebsiteDeliveryConfig } from '../core/delivery-config';
 import type { EditorAIAsyncContext } from '../core/editor-ai-operation-context';
 import type { AIQualityReview,AIWebsiteGeneration,AIWebsitePageGeneration,AIWebsitePatchReview } from '../core/editor-ai-patch-review';
@@ -152,7 +153,7 @@ export function createAIGenerationHandler({
         .map(connection => ({ id: connection.id, providerId: connection.providerId, name: connection.name }));
       const ai = createAIService('website-builder');
       const response = await ai.completeJSON<AIWebsiteGeneration>(
-        { action: 'generate', availableIntegrations, limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Analyze this project's explicit and necessary inferred requirements without assuming a business sector or template. For applications, return projectSpecification with actors, schema entities, observable acceptance criteria, operation dependencies, business rules, tenancy, privacy and deferred integration scopes. For a genuinely unsupported operation, you may return execution="custom" with a source string containing a deterministic JavaScript function body that accepts JSON input and returns JSON output; do not claim database transactions or external access. Custom source is retained as an inert draft artifact only: it is not yet authorized, executed, or deliverable. Report unresolved conflicts and unsupported execution instead of omitting requirements. Include imagePrompt values where useful. Request: ${prompt}` : prompt },
+        { action: 'generate', availableIntegrations, limits: { maxPages: maxGeneratedPages, maxSectionsPerPage: DEFAULT_EDITOR_PROJECT_LIMITS.maxSectionsPerPage }, prompt: agentMode ? `Analyze this project's explicit and necessary inferred requirements without assuming a business sector or template. For applications, return projectSpecification with actors, schema entities, observable acceptance criteria, operation dependencies, business rules, tenancy, privacy and deferred integration scopes. For a genuinely unsupported operation, you may return execution="custom" with a source string containing a deterministic JavaScript function body that accepts JSON input and returns JSON output; do not claim database transactions or external access. When a generated page should invoke a custom operation, add a button element with action="custom-operation", customOperationId equal to the operation ID, and customOperationInputJson containing a JSON object string. Never generate inline JavaScript or claim the button is tested just because it exists. Custom source remains an inert draft artifact until authorization, sandbox execution and runtime verification pass. Report unresolved conflicts and unsupported execution instead of omitting requirements. Include imagePrompt values where useful. Request: ${prompt}` : prompt },
         [],
         { temperature: 0.65, maxTokens: 16000, signal: abortController.signal },
       );
@@ -195,6 +196,8 @@ export function createAIGenerationHandler({
       const generatedTextColor = generatedSurfaceIsLight ? '#0f172a' : '#f8fafc';
       const generatedMutedTextColor = generatedSurfaceIsLight ? '#475569' : '#cbd5e1';
       const generatedAt = Date.now();
+      const customOperationIds = new Set((generated.projectSpecification?.operations ?? [])
+        .filter(operation => operation.execution === 'custom').map(operation => operation.id));
       if (pageCandidates.length > maxGeneratedPages) throw new Error(`This website exceeds the available page limit (${maxGeneratedPages}). Reduce the scope or page count; no partial website was applied.`);
       for (const page of pageCandidates) {
         if (!page || !Array.isArray(page.sections) || page.sections.length === 0) throw new Error('AI returned an empty or invalid page. No incomplete website was applied.');
@@ -203,10 +206,30 @@ export function createAIGenerationHandler({
         if (page.sections.some(section => section.type !== 'footer' && section.type !== 'contact' && section.buttonText?.trim() && !section.buttonUrl?.trim())) throw new Error('AI returned a button without a destination. No incomplete website was applied.');
       }
       const usedSlugs = new Set<string>();
+      let customActionCount = 0;
 
       let nextPages = pageCandidates.map((page, pageIndex) => {
         const normalizedSections = page.sections
-          .map((section, sectionIndex) => normalizeSection({
+          .map((section, sectionIndex) => {
+            const rawActions = Array.isArray(section.elements)
+              ? section.elements.filter(element => element && element.type === 'button' && element.action === 'custom-operation')
+              : [];
+            customActionCount += rawActions.length;
+            if (rawActions.length > 10 || customActionCount > 100) throw new Error('Generated custom operation actions exceed the project safety limit. No partial project was applied.');
+            const customActions = rawActions.map(raw => {
+              const parsed = parseApplicationCustomOperationAction(raw.customOperationId, raw.customOperationInputJson, customOperationIds);
+              if (!parsed || typeof raw.content !== 'string' || !raw.content.trim() || raw.content.length > 160) {
+                throw new Error('A generated custom operation action is invalid or references an undeclared operation. No partial project was applied.');
+              }
+              return {
+                ...createElement('button', generatedAccent),
+                content: raw.content.trim(),
+                action: 'custom-operation' as const,
+                customOperationId: parsed.operationId,
+                customOperationInputJson: JSON.stringify(parsed.input),
+              };
+            });
+            const sectionBase = {
             id: `${section.type}-ai-${generatedAt}-${pageIndex}-${sectionIndex}-${Math.random().toString(36).slice(2, 6)}`,
             type: section.type,
             title: section.title?.trim() || SECTION_LABELS[section.type],
@@ -227,7 +250,10 @@ export function createAIGenerationHandler({
             } : {}),
             image: section.image?.trim() || undefined,
             imagePrompt: section.imagePrompt?.trim() || undefined,
-          }));
+            };
+            const defaultElements = customActions.length ? createDefaultElements(sectionBase) : undefined;
+            return normalizeSection({ ...sectionBase, elements: customActions.length ? [...(defaultElements ?? []), ...customActions] : undefined });
+          });
 
         const pageName = page.name?.trim() || (pageIndex === 0 ? 'Home' : `Page ${pageIndex + 1}`);
         const rawSlug = (page.slug?.trim() || pageName)

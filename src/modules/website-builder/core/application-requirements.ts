@@ -1,6 +1,7 @@
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationDataView } from './application-data-view';
 import { compileApplicationCreateForm } from './application-form-runtime';
+import { parseApplicationCustomOperationAction } from './application-custom-operation-actions';
 import type { WebsitePage } from './website-builder-model';
 
 const capabilityPrefix: Record<string, string> = {
@@ -62,6 +63,7 @@ export function buildApplicationRequirementCoverage(
   if (!application || !manifest?.items.length) return [];
   const current = currentImplementationEvidence(application, pages);
   const operations = manifest.specification?.operations ?? [];
+  const customOperationIds = new Set(operations.filter(operation => operation.execution === 'custom').map(operation => operation.id));
   return manifest.items.map(item => {
     const prefix = capabilityPrefix[item.capability];
     const matching = item.evidence.some(entry => prefix === 'auth' ? entry === 'auth' : entry.startsWith(prefix));
@@ -76,6 +78,16 @@ export function buildApplicationRequirementCoverage(
     const linkedOperations = operations.filter(operation => operation.requirementIds.includes(item.id));
     const operationIds = linkedOperations.map(operation => `operation:${operation.id}`);
     for (const operation of linkedOperations.filter(operation => operation.execution === 'custom')) {
+      const actionBound = pages.some(page => page.sections.some(section => (section.elements ?? []).some(element =>
+        element.type === 'button' && element.action === 'custom-operation' && element.customOperationId === operation.id
+        && !!parseApplicationCustomOperationAction(element.customOperationId, element.customOperationInputJson ?? '{}', customOperationIds))));
+      tests.push({
+        id: `contract:operation-action:${operation.id}`,
+        kind: 'contract' as const,
+        result: actionBound ? 'passed' as const : 'failed' as const,
+        detail: actionBound ? `A generated page action targets custom operation ${operation.id}.`
+          : `No valid generated page action targets custom operation ${operation.id}.`,
+      });
       tests.push({
         id: `contract:operation:${operation.id}`,
         kind: 'contract' as const,
