@@ -386,6 +386,9 @@ import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.57.4"
 // src/modules/website-builder/core/project-specification.ts
 var customSourceLimitBytes = 64 * 1024;
 
+// src/modules/website-builder/core/application-custom-operation-client.ts
+var maxInputBytes = 32 * 1024;
+
 // src/modules/website-builder/core/application-data-runtime.ts
 function projectRef(url) {
   const parsed = new URL(url);
