@@ -86,6 +86,9 @@ jobs:
       - name: Declarative custom operation action and input regression
         run: node scripts/application-custom-operation-actions-regression.mjs
 
+      - name: Custom operation action end-to-end flow regression
+        run: node scripts/application-custom-operation-action-flow-regression.mjs
+
       - name: Website custom execution quota regression
         run: node scripts/website-custom-execution-quota-regression.mjs
 
