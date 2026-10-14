@@ -13,10 +13,19 @@ try {
   const order = [];
   const dependencies = {
     enabled: true,
-    async authorize(request) { order.push(['authorize', request.ownerId, request.projectId]); return true; },
-    async loadOperation() { return { releaseId: 'release_1', operationId: 'op_1', source: 'source-from-release' }; },
-    async reserveUsage() { return 'reservation-1'; },
-    async completeUsage() { order.push(['complete']); return true; },
+    async authorize(request, accessToken) { order.push(['authorize', request.ownerId, request.projectId, accessToken]); return true; },
+    async loadOperation(input) {
+      assert.deepEqual(Object.keys(input).sort(), ['input', 'operationId', 'ownerId', 'projectId', 'releaseId']);
+      return { releaseId: 'release_1', operationId: 'op_1', source: 'source-from-release' };
+    },
+    async reserveUsage(input) {
+      assert.deepEqual(Object.keys(input).sort(), ['input', 'operationId', 'ownerId', 'projectId', 'releaseId']);
+      return 'reservation-1';
+    },
+    async completeUsage(_reservationId, input) {
+      assert.deepEqual(Object.keys(input).sort(), ['input', 'operationId', 'ownerId', 'projectId', 'releaseId']);
+      order.push(['complete']); return true;
+    },
     adapter: { async create() { return { async execute() { return { ok: true }; }, async stop() {} }; } },
   };
   const invoke = (body, options = {}) => servePublishedCustomOperationRequest({
@@ -24,6 +33,7 @@ try {
       method: options.method ?? 'POST',
       headers: {
         origin: options.origin ?? 'https://app.example',
+        authorization: options.authorization ?? 'Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyIn0.signature',
         'content-type': options.contentType ?? 'application/json',
         ...(options.contentLength ? { 'content-length': options.contentLength } : {}),
         ...(options.fetchSite ? { 'sec-fetch-site': options.fetchSite } : {}),
@@ -34,9 +44,12 @@ try {
   });
 
   const success = await invoke(JSON.stringify({ releaseId: 'release_1', operationId: 'op_1', input: { value: 3 } }));
-  assert.equal(success.status, 200);
+  assert.equal(success.status, 200, `${await success.clone().text()} ${JSON.stringify(order)}`);
   assert.deepEqual(await success.json(), { result: { ok: true } });
-  assert.deepEqual(order, [['authorize', 'owner_1', 'project_1'], ['complete']]);
+  assert.deepEqual(order, [['authorize', 'owner_1', 'project_1', 'eyJhbGciOiJub25lIn0.eyJzdWIiOiJ1c2VyIn0.signature'], ['complete']]);
+
+  assert.equal((await invoke(JSON.stringify({ releaseId: 'release_1', operationId: 'op_1', input: {} }), { authorization: '' })).status, 401);
+  assert.equal((await invoke(JSON.stringify({ releaseId: 'release_1', operationId: 'op_1', input: {} }), { authorization: 'Bearer malformed' })).status, 401);
 
   assert.equal((await invoke('{"releaseId":"release_1","operationId":"op_1","input":{},"source":"client"}')).status, 400);
   assert.equal((await invoke('{"releaseId":"release_1","operationId":"op_1","input":{}}', { origin: 'https://attacker.example' })).status, 403);

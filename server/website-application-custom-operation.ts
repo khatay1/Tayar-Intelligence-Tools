@@ -33,7 +33,7 @@ export interface PublishedCustomOperationRequest {
 export interface PublishedCustomOperationDependencies {
   loadOperation(input: Pick<PublishedCustomOperationRequest, 'projectId' | 'releaseId' | 'operationId'>):
     Promise<{ releaseId: string; operationId: string; source: string } | null>;
-  authorize(input: PublishedCustomOperationRequest): Promise<boolean>;
+  authorize(input: PublishedCustomOperationRequest, accessToken?: string): Promise<boolean>;
   reserveUsage(input: PublishedCustomOperationRequest): Promise<string | null>;
   completeUsage(reservationId: string, input: PublishedCustomOperationRequest, durationMs: number): Promise<boolean>;
   adapter: IsolatedExecutionAdapter;
