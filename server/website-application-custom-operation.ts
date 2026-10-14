@@ -32,7 +32,7 @@ export interface PublishedCustomOperationRequest {
  * it is deliberately absent from the request accepted from an application. */
 export interface PublishedCustomOperationDependencies {
   loadOperation(input: Pick<PublishedCustomOperationRequest, 'projectId' | 'releaseId' | 'operationId'>):
-    Promise<{ releaseId: string; source: string } | null>;
+    Promise<{ releaseId: string; operationId: string; source: string } | null>;
   authorize(input: PublishedCustomOperationRequest): Promise<boolean>;
   reserveUsage(input: PublishedCustomOperationRequest): Promise<string | null>;
   completeUsage(reservationId: string, input: PublishedCustomOperationRequest, durationMs: number): Promise<boolean>;
@@ -59,7 +59,9 @@ export async function runPublishedCustomOperation(
   try {
     if (!await dependencies.authorize(request)) throw new PublishedCustomOperationError('not-authorized');
     const operation = await dependencies.loadOperation(request);
-    if (!operation || operation.releaseId !== request.releaseId || typeof operation.source !== 'string') {
+    if (!operation || Object.keys(operation).some(key => !['releaseId', 'operationId', 'source'].includes(key))
+      || operation.releaseId !== request.releaseId || operation.operationId !== request.operationId
+      || typeof operation.source !== 'string' || !operation.source.trim()) {
       throw new PublishedCustomOperationError('unavailable');
     }
     const reservationId = await dependencies.reserveUsage(request);

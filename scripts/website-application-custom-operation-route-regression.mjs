@@ -14,7 +14,7 @@ try {
   const dependencies = {
     enabled: true,
     async authorize(request) { order.push(['authorize', request.ownerId, request.projectId]); return true; },
-    async loadOperation() { return { releaseId: 'release_1', source: 'source-from-release' }; },
+    async loadOperation() { return { releaseId: 'release_1', operationId: 'op_1', source: 'source-from-release' }; },
     async reserveUsage() { return 'reservation-1'; },
     async completeUsage() { order.push(['complete']); return true; },
     adapter: { async create() { return { async execute() { return { ok: true }; }, async stop() {} }; } },
