@@ -2309,6 +2309,12 @@ async function servePublishedCustomOperationRuntime(input) {
   });
 }
 
+// server/website-custom-execution-policy.ts
+function isWebsiteCustomExecutionEnabled(environment = process.env) {
+  if (environment.WEBSITE_APPLICATION_RUNTIME_ENABLED !== "true" || environment.WEBSITE_CUSTOM_EXECUTION_ENABLED !== "true") return false;
+  return environment.VERCEL_ENV !== "production" || environment.WEBSITE_CUSTOM_EXECUTION_PRODUCTION_ENABLED === "true";
+}
+
 // server/website-application-runtime.ts
 var unavailable = () => new Response("Application runtime is unavailable.", { status: 503, headers: { "cache-control": "private, no-store" } });
 function platformClient(platformUrl) {
@@ -2364,7 +2370,7 @@ async function serveApplicationBrowserSession(input) {
   }
 }
 async function serveApplicationCustomOperation(input) {
-  const enabled = process.env.WEBSITE_APPLICATION_RUNTIME_ENABLED === "true" && process.env.WEBSITE_CUSTOM_EXECUTION_ENABLED === "true";
+  const enabled = isWebsiteCustomExecutionEnabled(process.env);
   if (!enabled) return Response.json({ error: "not_found" }, {
     status: 404,
     headers: { "cache-control": "private, no-store", "cdn-cache-control": "no-store", "vary": "Origin, Authorization, Cookie" }

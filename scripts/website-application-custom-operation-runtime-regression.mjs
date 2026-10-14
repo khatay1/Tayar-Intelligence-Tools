@@ -18,6 +18,17 @@ try {
   await build({ entryPoints: ['server/website-application-custom-operation-runtime.ts'], bundle: true, platform: 'node', format: 'cjs', outfile,
     alias: { '@': resolve('src') } });
   const { servePublishedCustomOperationRuntime } = (await import(pathToFileURL(outfile))).default;
+  const policyOutfile = join(dir, 'custom-operation-policy.cjs');
+  await build({ entryPoints: ['server/website-custom-execution-policy.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: policyOutfile });
+  const { isWebsiteCustomExecutionEnabled } = (await import(pathToFileURL(policyOutfile))).default;
+  const activeFlags = { WEBSITE_APPLICATION_RUNTIME_ENABLED: 'true', WEBSITE_CUSTOM_EXECUTION_ENABLED: 'true' };
+  assert.equal(isWebsiteCustomExecutionEnabled({}), false, 'custom execution stays disabled by default');
+  assert.equal(isWebsiteCustomExecutionEnabled({ ...activeFlags, VERCEL_ENV: 'preview' }), true,
+    'the existing explicit flags permit controlled Preview execution');
+  assert.equal(isWebsiteCustomExecutionEnabled({ ...activeFlags, VERCEL_ENV: 'production' }), false,
+    'Production requires its separate final activation switch');
+  assert.equal(isWebsiteCustomExecutionEnabled({ ...activeFlags, VERCEL_ENV: 'production', WEBSITE_CUSTOM_EXECUTION_PRODUCTION_ENABLED: 'false' }), false);
+  assert.equal(isWebsiteCustomExecutionEnabled({ ...activeFlags, VERCEL_ENV: 'production', WEBSITE_CUSTOM_EXECUTION_PRODUCTION_ENABLED: 'true' }), true);
   const operationSource = 'return { accepted: input.value === 41, result: input.value + 1 };';
   const specification = {
     version: 1, intent: 'Exercise one isolated custom operation.',
