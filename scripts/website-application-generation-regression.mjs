@@ -87,6 +87,11 @@ try {
   const agentBuild = await run({ ...response, projectSpecification }, 6, 'Build saved records with a patient portal', true);
   assert.equal(agentBuild.state.AiStage, 'ready');
   assert.deepEqual(agentBuild.state.Application.requirements.specification, projectSpecification);
+  const customDraftSpecification = { ...projectSpecification, operations: projectSpecification.operations.map((operation, index) => index
+    ? operation : { ...operation, execution: 'custom', transactional: false, source: 'return { accepted: true };' }) };
+  const customDraftBuild = await run({ ...response, projectSpecification: customDraftSpecification }, 6, 'Build saved records with a patient portal', true);
+  assert.equal(customDraftBuild.state.AiStage, 'ready');
+  assert.deepEqual(customDraftBuild.state.Application.requirements.specification, customDraftSpecification);
   const invalidAgentSpec = await run({ ...response, projectSpecification: { ...projectSpecification,
     operations: projectSpecification.operations.map((operation, index) => index ? operation : { ...operation, execution: 'custom' }) } }, 6, 'Build saved records with a patient portal', true);
   assert.equal(invalidAgentSpec.state.AiStage, 'error');

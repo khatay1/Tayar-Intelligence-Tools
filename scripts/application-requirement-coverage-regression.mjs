@@ -37,6 +37,12 @@ try {
   brokenForm[0].sections[0].applicationFormBinding.fields[0].tableFieldId = 'missing';
   assert.equal(buildApplicationRequirementCoverage(application, brokenForm).find(row => row.requirementId === 'task-form').tests[0].result, 'failed');
   assert.deepEqual(buildApplicationRequirementCoverage({ ...application, requirements: undefined }, pages), []);
+
+  const customApplication = structuredClone(application);
+  customApplication.requirements.specification = { operations: [{ id: 'custom-task', requirementIds: ['task-form'], execution: 'custom' }] };
+  const customCoverage = buildApplicationRequirementCoverage(customApplication, pages);
+  assert.equal(customCoverage.find(row => row.requirementId === 'task-form').deliveryStatus, 'blocked');
+  assert.match(customCoverage.find(row => row.requirementId === 'task-form').tests.at(-1).detail, /inert draft/);
   console.log('PASS requirement coverage matrix: implementation, contract test, result and honest delivery status');
 } finally {
   await rm(dir, { recursive: true, force: true });

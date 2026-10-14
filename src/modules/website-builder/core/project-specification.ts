@@ -8,7 +8,7 @@ export interface ProjectSpecification {
   actors: Array<{ id: string; name: string; roleId?: string }>;
   entities: Array<{ id: string; scope: 'global' | 'owner' | 'organization' | 'branch'; classification: 'public' | 'internal' | 'confidential' | 'restricted' }>;
   requirements: Array<{ id: string; origin: 'explicit' | 'inferred'; acceptanceCriteria: string[] }>;
-  operations: Array<{ id: string; summary: string; actorIds: string[]; entityIds: string[]; requirementIds: string[]; dependsOn: string[]; execution: 'native' | 'custom'; transactional: boolean }>;
+  operations: Array<{ id: string; summary: string; actorIds: string[]; entityIds: string[]; requirementIds: string[]; dependsOn: string[]; execution: 'native' | 'custom'; transactional: boolean; source?: string }>;
   rules: Array<{ id: string; summary: string; operationIds: string[] }>;
   tenancy: { mode: 'single' | 'organizations' | 'branches'; organizationEntityId?: string; branchEntityId?: string };
   integrations: Array<{ id: string; purpose: string; operationIds: string[]; scopes: string[]; activation: 'deferred' }>;
@@ -20,6 +20,7 @@ type ObjectValue = Record<string, unknown>;
 const object = (value: unknown): value is ObjectValue => !!value && typeof value === 'object' && !Array.isArray(value);
 const identifier = (value: unknown): value is string => typeof value === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
 const text = (value: unknown, limit = 800): value is string => typeof value === 'string' && !!value.trim() && value.length <= limit;
+const customSourceLimitBytes = 64 * 1024;
 
 export function projectSpecificationIssues(value: unknown, application: ApplicationDefinition): string[] {
   const issues: string[] = [];
@@ -70,7 +71,7 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
     if (!criteria.length || criteria.some(criterion => !text(criterion))) fail(`requirements.${item.id}`, 'Define observable acceptance criteria; a page or button alone is not completion.');
   }
   for (const id of requirementIds) if (!requirements.some(item => item.id === id)) fail(`requirements.${id}`, 'Missing requirement acceptance criteria.');
-  const operations = catalog(value.operations, 'operations', ['id', 'summary', 'actorIds', 'entityIds', 'requirementIds', 'dependsOn', 'execution', 'transactional']);
+  const operations = catalog(value.operations, 'operations', ['id', 'summary', 'actorIds', 'entityIds', 'requirementIds', 'dependsOn', 'execution', 'transactional', 'source']);
   const operationIds = new Set(operations.map(operation => operation.id));
   const covered = new Set<string>();
   const graph = new Map<string, string[]>();
@@ -81,7 +82,13 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
     references(operation.entityIds, entityIds, `${at}.entityIds`);
     references(operation.requirementIds, requirementIds, `${at}.requirementIds`, true).forEach(id => covered.add(id));
     graph.set(String(operation.id), references(operation.dependsOn, operationIds, `${at}.dependsOn`));
-    if (operation.execution === 'custom') fail(at, 'Custom code requires an isolated execution adapter before generation can apply this project.');
+    if (operation.execution === 'custom') {
+      if (typeof operation.source !== 'string' || !operation.source.trim()
+        || new TextEncoder().encode(operation.source).byteLength > customSourceLimitBytes) {
+        fail(at, 'Custom operations need nonempty source within the 64 KiB release artifact limit.');
+      }
+      if (operation.transactional) fail(at, 'Custom code cannot claim database transaction guarantees.');
+    } else if (operation.source !== undefined) fail(at, 'Native operations cannot carry custom source.');
   }
   for (const id of requirementIds) if (!covered.has(String(id))) fail(`requirements.${id}`, 'No implementation operation covers this requirement.');
   const visited = new Set<string>(), visiting = new Set<string>();

@@ -73,7 +73,16 @@ export function buildApplicationRequirementCoverage(
         ? `Current project compiles implementation reference ${reference}.`
         : `Current project does not compile implementation reference ${reference}.`,
     }));
-    const operationIds = operations.filter(operation => operation.requirementIds.includes(item.id)).map(operation => `operation:${operation.id}`);
+    const linkedOperations = operations.filter(operation => operation.requirementIds.includes(item.id));
+    const operationIds = linkedOperations.map(operation => `operation:${operation.id}`);
+    for (const operation of linkedOperations.filter(operation => operation.execution === 'custom')) {
+      tests.push({
+        id: `contract:operation:${operation.id}`,
+        kind: 'contract' as const,
+        result: 'failed' as const,
+        detail: 'Custom source is stored as an inert draft until authorization, sandbox execution and runtime verification are enabled.',
+      });
+    }
     const passed = matching && tests.length > 0 && tests.every(test => test.result === 'passed');
     return {
       requirementId: item.id,
