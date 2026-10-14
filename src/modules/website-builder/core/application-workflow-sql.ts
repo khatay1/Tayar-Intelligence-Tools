@@ -81,7 +81,8 @@ export function compileApplicationWorkflowSchema(input: ApplicationDefinition, i
     permitted:=${accessCondition(transition.access, transition.roleId)};
   `).join('') + `else permitted:=false; end if;`;
   const conditionBranches = workflow.transitions.map((transition, transitionIndex) => {
-    const conditions = (transition.conditions ?? []).map(condition => conditionExpression(table, condition)).join(' and ') || 'true';
+    const conditions = (transition.conditions ?? []).map(condition => conditionExpression(table, condition))
+      .join(transition.conditionMode === 'any' ? ' or ' : ' and ') || 'true';
     return `${transitionIndex ? 'elsif' : 'if'} transition_id=${literal(transition.id)} then
     if not exists(select 1 from ${fullTable} where id=${inner}.record_id and (${conditions})) then raise exception 'Application workflow transition unavailable'; end if;`;
   }).join('\n  ') + `else raise exception 'Application workflow transition unavailable'; end if;`;
