@@ -2,9 +2,9 @@
 
 ## Live repository check — 2026-10-14
 
-- `main` is `7ae9983ae34209a578b0d2c5fa26e3607f5c81a7`; PR #215 is merged
-  after PR Release Gate `38581836787` and main Release Gate `38582236156`
-  both passed. PR #146 is merged as
+- `main` is `6612bb8dbbe572d23568b988acd8b079dcfa39a3`; PR #217 is merged
+  after PR Release Gate `38595436276`, Vercel Preview, and main Release Gate
+  `38595967134` all passed. PR #146 is merged as
   `ab55075ea6f8ebd09b71994a0e631efe12e96024`; its stale-runtime and browser
   regression failures are resolved and are not current blockers. PR #213 also
   merged as `7e8c258c`; the latest main Release Gate passed.
@@ -448,15 +448,24 @@ requests and the PR gate passed the same tree. Only the failed workflow job
 was restarted as run attempt 2 and passed. This completes the post-merge gate.
 Supabase Preview remains skipped because preview branches are disabled.
 
-## Business logic — all/any predicate groups in progress
+## Business logic — all/any predicate groups merged
 
 An additive `conditionMode` supports AND (default) and OR matching for bounded
 workflow predicates. The workflow regression, TypeScript, focused ESLint, all
 affected generated-bundle consistency checks and whitespace validation pass
-locally. The trusted BYO Publish generator also regenerated its transitive
+locally. The trusted BYO Publish generator regenerated its transitive
 application-validation dependency; the bundle check and deployment-entry
-regression pass. PR #217 head `bdda0292743679df66828746f3d69d7eb3d6c818` contains
-that exact generated tree. Release Gate run `38594651303` failed its Project
-health consistency check because the runner checked merge ref `ac8312f`, which
-still contained the previous PR head `6fb43d1`. A fresh gate on the current PR
-head and the post-merge gate remain required before merge.
+regression pass. PR #217 merged to `main` as
+`6612bb8dbbe572d23568b988acd8b079dcfa39a3`. Gate run `38594651303` had checked
+stale merge ref `ac8312f` and failed the old bundle; the new PR gate
+`38595436276` passed on the refreshed head and main gate `38595967134` passed.
+
+## Custom code — application actor authorization in progress
+
+A fail-closed authorization adapter verifies the end-user access token against
+the bound customer Supabase Auth project, rejects anonymous users, and checks
+role-bound actors through the existing `app_my_roles` RPC. It validates the
+trusted project ref, uses only the public key and user's bearer token, applies
+bounded responses/timeouts, and ignores user-editable metadata. The focused
+authorization regression, TypeScript and ESLint pass. The adapter is not yet
+wired into the published operation route; customer execution stays disabled.
