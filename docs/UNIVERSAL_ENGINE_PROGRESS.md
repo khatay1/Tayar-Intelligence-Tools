@@ -1,13 +1,17 @@
+Warning: truncated output (original token count: 8002)
+Total output lines: 499
+
 # Universal engineering platform — verified checkpoint
 
 ## Current continuation checkpoint — 2026-10-14
 
-- `main` is `9a86ee7cc5109a7cc33096b783b07b5abd798e7b`. PR #222 merged after Release Gate run `38630863891` passed; the branch's Vercel Preview deployment `dpl_DzwsUhYabVNK2LQXx3PEtKyJyYWa` is READY.
+- PR #222 merged the functional code at `9a86ee7cc5109a7cc33096b783b07b5abd798e7b` after Release Gate run `38630863891` passed; its Vercel Preview deployment `dpl_DzwsUhYabVNK2LQXx3PEtKyJyYWa` is READY. Main is now `18b333fd10ecfeeefc96982c41cbad0e2d6c1201` after the checkpoint-only PR #223.
 - Vercel Production remains READY at `ab55075e`, behind `main`. No Production promotion was made. The custom-operation runtime stays disabled unless both server flags are explicitly enabled.
 - PR #221's quota fix records failed isolated executions as errors while consuming their reservation. Its migration is committed but was not applied to Supabase; isolated PostgreSQL, PGlite and mainline Release Gate evidence passed before PR #222.
 - Supabase advisor findings remain scoped for owner review: catalog checks found all 96 foreign keys indexed despite the advisor discrepancy; SECURITY DEFINER/private RLS findings were reviewed as intentional server/API boundaries. Leaked-password protection remains unavailable on the current Free plan. No live database, Auth or billing setting was changed.
 - PR #222 mounts published custom operations through immutable release validation, customer actor authorization, the existing quota service and the isolated Vercel Sandbox adapter. The same-origin API is bounded and feature-gated; no customer credentials are forwarded to sandbox processes.
 - Focused runtime composition, authorization/execution, HTTP route, immutable release, quota and sandbox-boundary regressions passed, as did runtime bundle consistency, TypeScript and scoped ESLint. Release Gate run `38630863891` and the Vercel Preview both passed. No Supabase migration or Production activation was performed.
+- Next engineering slice: expose a same-origin custom-operation client to generated application pages, bind calls to the immutable release and requirement IDs, and require executable acceptance evidence before custom operations can count toward delivery. Keep feature flags off.
 
 ## Live repository check — 2026-10-14
 
@@ -246,7 +250,7 @@ generated page/browser/backend integration or a complete customer-ready product.
 The seven fixtures now also pass through the real saved-project HTML renderer and
 private application-page bootstrap preparation. The regression verifies that
 each rendered page receives its actual project definition and correctly bound
-primary data view, including the declared transaction, workflow, booking or
+primary data view, including th…2 tokens truncated…ared transaction, workflow, booking or
 formula field. This closes the generated HTML-to-runtime-configuration handoff
 check; it does not simulate browser interaction or prove live provider access.
 
