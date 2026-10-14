@@ -491,7 +491,7 @@ function validateApplicationDefinition(value, pageIds) {
         if (!transitions.length) issue(`${workflowPath}.transitions`, "missing-transitions", "A workflow needs at least one transition.");
         transitions.forEach((transition, transitionIndex) => {
           const transitionPath = `${workflowPath}.transitions[${transitionIndex}]`;
-          if (!shape(transition, ["id", "label", "from", "to", "access", "roleId", "conditions", "effects"], transitionPath)) return;
+          if (!shape(transition, ["id", "label", "from", "to", "access", "roleId", "conditionMode", "conditions", "effects"], transitionPath)) return;
           if (!id(transition.id) || transitionIds.has(String(transition.id))) issue(`${transitionPath}.id`, "invalid-id", "Workflow transition IDs must be valid and unique.");
           else transitionIds.add(String(transition.id));
           if (!name(transition.label)) issue(`${transitionPath}.label`, "invalid-name", "A workflow transition requires a label.");
@@ -504,6 +504,8 @@ function validateApplicationDefinition(value, pageIds) {
           if (!["authenticated", "owner", "role"].includes(String(transition.access))) issue(`${transitionPath}.access`, "invalid-access", "Workflow transitions require authenticated, owner or role access.");
           if (transition.access === "role" && !roleIds.has(String(transition.roleId))) issue(`${transitionPath}.roleId`, "missing-role", "Role workflow access requires an existing role.");
           if (transition.access !== "role" && transition.roleId !== void 0) issue(`${transitionPath}.roleId`, "unexpected-role", "Only role transitions can specify a role.");
+          if (transition.conditionMode !== void 0 && !["all", "any"].includes(String(transition.conditionMode))) issue(`${transitionPath}.conditionMode`, "invalid-condition-mode", "Workflow predicates must use all or any matching.");
+          if (transition.conditionMode !== void 0 && transition.conditions === void 0) issue(`${transitionPath}.conditionMode`, "unexpected-condition-mode", "A condition mode requires at least one predicate.");
           if (transition.conditions !== void 0) {
             const conditionKeys = /* @__PURE__ */ new Set();
             const conditions = list(transition.conditions, 10, `${transitionPath}.conditions`);

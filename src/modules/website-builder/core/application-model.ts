@@ -66,7 +66,8 @@ export interface ApplicationWorkflowTransition {
   to: string;
   access: Exclude<ApplicationAccess, 'public'>;
   roleId?: string;
-  /** Optional field predicates checked on the locked record before any effect. */
+  /** Optional predicate group checked on the locked record before any effect. */
+  conditionMode?: 'all' | 'any';
   conditions?: ApplicationWorkflowCondition[];
   /** Bounded record changes executed atomically with the state transition. */
   effects?: ApplicationWorkflowEffect[];

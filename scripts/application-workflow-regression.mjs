@@ -65,6 +65,11 @@ try {
     const workflow = { ...table.workflow, transitions: [{ ...table.workflow.transitions[0], conditions }] };
     assert.throws(() => validate({ ...app, tables: [{ ...table, workflow }, stockTable, supplierTable] }));
   }
+  for (const transition of [
+    { ...table.workflow.transitions[0], conditionMode: 'xor', conditions: [{ fieldId: 'attempts', operator: 'gte', value: 1 }] },
+    { ...table.workflow.transitions[0], conditionMode: 'any', conditions: undefined },
+    { ...table.workflow.transitions[0], conditionMode: 'all', conditions: undefined },
+  ]) assert.throws(() => validate({ ...app, tables: [{ ...table, workflow: { ...table.workflow, transitions: [transition] } }, stockTable, supplierTable] }));
   assert.doesNotThrow(() => validate({ ...app, tables: [{ ...table, workflow: { ...table.workflow,
     transitions: [{ ...table.workflow.transitions[0], conditions: [
       { fieldId: 'attempts', operator: 'gte', value: 0 }, { fieldId: 'attempts', operator: 'lte', value: 5 },
@@ -108,6 +113,10 @@ try {
   const schema = compile(app).join('\n');
   assert.match(schema, /set "state"=requested_to,"name"='Approved order',"attempts"="attempts"\+2,"approved_at"=pg_catalog\.transaction_timestamp\(\)/);
   assert.match(schema, /if not exists\(select 1 from public\."app_orders" where id=app_transition_workflow_0\.record_id and \("attempts"<=1\)\) then raise exception 'Application workflow transition unavailable'/);
+  const anySchema = compile({ ...app, tables: [{ ...table, workflow: { ...table.workflow, transitions: [{ ...table.workflow.transitions[0], conditionMode: 'any', conditions: [
+    { fieldId: 'attempts', operator: 'lte', value: 1 }, { fieldId: 'name', operator: 'eq', value: 'Priority order' },
+  ] }] } }, stockTable, supplierTable] }).join('\n');
+  assert.match(anySchema, /\("attempts"<=1 or "name" is not distinct from 'Priority order'\)/);
   assert.ok(schema.indexOf('if not permitted then') < schema.indexOf('"attempts"<=1'), 'workflow conditions run only after transition authorization');
   assert.ok(schema.indexOf('for update;') < schema.indexOf('"attempts"<=1'), 'workflow conditions read the locked record');
   assert.match(schema, /created_at timestamptz not null default pg_catalog\.transaction_timestamp\(\)/);
