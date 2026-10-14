@@ -345,6 +345,8 @@ been applied to a live database. The orchestration contract remains unmounted;
 generation still rejects custom operations. Runtime authentication/release
 integration and the production migration remain pending.
 
+The published-operation orchestrator now distinguishes a thrown value from a successful `undefined` result, including adapters that throw `null` or another non-Error value. It still finalizes the reserved attempt before returning a stable failure. The focused regression and TypeScript check passed on PR #211; the route remains unmounted and disabled.
+
 The Website Builder AI undo path now has a direct behavioral regression in
 Release Gate. It verifies restoration of the complete captured page, site,
 brand, SEO, theme, header and reusable-symbol state; confirms restored

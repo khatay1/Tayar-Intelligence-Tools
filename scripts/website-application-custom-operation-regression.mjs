@@ -44,6 +44,13 @@ try {
   assert.equal(executed, false, 'denied or unreserved operations never create an execution sandbox');
   await assert.rejects(runPublishedCustomOperation(request, { ...dependencies, completeUsage: async () => false }),
     error => error instanceof PublishedCustomOperationError && error.code === 'unavailable');
+  let finalizedThrownNull = false;
+  await assert.rejects(runPublishedCustomOperation(request, {
+    ...dependencies,
+    async completeUsage() { finalizedThrownNull = true; return true; },
+    adapter: { async create() { return { async execute() { throw null; }, async stop() {} }; } },
+  }), error => error instanceof PublishedCustomOperationError && error.code === 'execution-failed');
+  assert.equal(finalizedThrownNull, true, 'non-Error execution failures are surfaced only after usage is finalized');
   console.log('Published custom operation fail-closed regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });
