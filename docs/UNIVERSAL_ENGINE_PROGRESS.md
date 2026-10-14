@@ -409,13 +409,15 @@ disabled pending the authorization and runtime integration work. Focused
 specification, generation, coverage, resolver, type and bundle checks passed;
 the full PR Release Gate will provide final verification.
 
-The initial PR gate exposed two stale generated dependencies. The Vercel
-connection Edge bundle and owned application runtime template were regenerated
-from their trusted sources; both generator `--check` commands and the local
-whitespace check pass. Preview succeeded for commit
-`28d8036643785258420fe62e508dc773bc670835`. GitHub did not start a new Release
-Gate for that head after the generated-template update, so merge remains
-blocked until a gate runs successfully against the latest PR commit.
+The PR gate exposed three stale generated dependencies: the Vercel connection
+Edge bundle, owned application runtime template, and BYO Publish Edge bundle.
+Each was regenerated from its trusted source. All five infrastructure artifact
+generator checks now pass locally. The optional activation preflight confirms
+generated artifacts and migration manifests, while intentionally remaining
+not ready because provider credentials and account configuration are deferred
+to phase eight. Preview passed for the latest code-bearing commit. The previous
+gate stopped at the BYO bundle before running feature regressions; merge remains
+blocked until Release Gate succeeds on the current PR head.
 
 Phase one structured analysis is merged, but broader inferred-requirement depth
 will continue to evolve with the generator. Phases two through seven still
