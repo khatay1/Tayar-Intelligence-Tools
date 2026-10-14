@@ -388,6 +388,7 @@ var customSourceLimitBytes = 64 * 1024;
 
 // src/modules/website-builder/core/application-custom-operation-client.ts
 var maxInputBytes = 32 * 1024;
+var maxResponseBytes = 33 * 1024;
 
 // src/modules/website-builder/core/application-data-runtime.ts
 function projectRef(url) {

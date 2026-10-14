@@ -48,6 +48,25 @@ try {
   await assert.rejects(client.execute('adjust_stock', cyclic, userId), error => error.code === 'invalid-input');
   assert.equal(calls, 1);
 
+  const envelopeBoundaryInput = { payload: 'x'.repeat(32 * 1024 - 64) };
+  assert.ok(new TextEncoder().encode(JSON.stringify(envelopeBoundaryInput)).byteLength < 32 * 1024);
+  const envelopeBoundary = createPublishedCustomOperationClient({ auth }, {
+    ownerId, projectId, releaseId, applicationOrigin: 'https://app.example.test', operationIds: ['adjust_stock'],
+  }, async () => { calls++; return Response.json({ result: true }); });
+  await assert.rejects(envelopeBoundary.execute('adjust_stock', envelopeBoundaryInput, userId),
+    error => error.code === 'invalid-input', 'request envelope must fit the server route limit');
+  assert.equal(calls, 1, 'oversized request envelope is rejected before network access');
+
+  const nearLimitResult = 'x'.repeat(32 * 1024 - 4);
+  const responseBody = JSON.stringify({ result: nearLimitResult });
+  assert.ok(new TextEncoder().encode(responseBody).byteLength > 32 * 1024);
+  assert.ok(new TextEncoder().encode(responseBody).byteLength < 33 * 1024);
+  const responseBoundary = createPublishedCustomOperationClient({ auth }, {
+    ownerId, projectId, releaseId, applicationOrigin: 'https://app.example.test', operationIds: ['adjust_stock'],
+  }, async () => new Response(responseBody, { headers: { 'content-type': 'application/json', 'content-length': String(new TextEncoder().encode(responseBody).byteLength) } }));
+  assert.equal(await responseBoundary.execute('adjust_stock', {}, userId), nearLimitResult,
+    'valid maximum-sized operation output fits the response envelope');
+
   const anonymous = createPublishedCustomOperationClient({ auth: {
     async getSession() { return { data: { session: { access_token: token } }, error: null }; },
     async getUser() { return { data: { user: { id: userId, is_anonymous: true } }, error: null }; },

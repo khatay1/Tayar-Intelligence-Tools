@@ -771,6 +771,7 @@ import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.57.4"
 
 // src/modules/website-builder/core/application-custom-operation-client.ts
 var maxInputBytes = 32 * 1024;
+var maxResponseBytes = 33 * 1024;
 
 // src/modules/website-builder/core/application-data-runtime.ts
 function projectRef(url) {

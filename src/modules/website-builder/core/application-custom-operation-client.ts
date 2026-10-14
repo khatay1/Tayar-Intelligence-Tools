@@ -18,6 +18,7 @@ export class PublishedCustomOperationClientError extends Error {
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const operationIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const maxInputBytes = 32 * 1024;
+const maxResponseBytes = 33 * 1024;
 
 function validJson(value: unknown): boolean {
   const ancestors = new Set<object>();
@@ -39,9 +40,9 @@ function validJson(value: unknown): boolean {
   } catch { return false; }
 }
 
-async function readBoundedJson(response: Response): Promise<unknown> {
+async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
   const declared = response.headers.get('content-length');
-  if (declared && (!/^\d{1,8}$/.test(declared) || Number(declared) > maxInputBytes)) throw new Error();
+  if (declared && (!/^\d{1,8}$/.test(declared) || Number(declared) > maxBytes)) throw new Error();
   if (!response.body) throw new Error();
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -51,7 +52,7 @@ async function readBoundedJson(response: Response): Promise<unknown> {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > maxInputBytes) { await reader.cancel(); throw new Error(); }
+      if (size > maxBytes) { await reader.cancel(); throw new Error(); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }
@@ -96,6 +97,10 @@ export function createPublishedCustomOperationClient(
         if (identity.error || !identity.data.user || identity.data.user.is_anonymous || identity.data.user.id !== expectedUserId) {
           throw new PublishedCustomOperationClientError('not-authorized');
         }
+        const body = JSON.stringify({ releaseId: scope.releaseId, operationId, input });
+        if (new TextEncoder().encode(body).byteLength > maxInputBytes) {
+          throw new PublishedCustomOperationClientError('invalid-input');
+        }
         const response = await fetcher(endpoint, {
           method: 'POST',
           credentials: 'same-origin',
@@ -103,9 +108,9 @@ export function createPublishedCustomOperationClient(
           redirect: 'error',
           signal: AbortSignal.timeout(15_000),
           headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ releaseId: scope.releaseId, operationId, input }),
+          body,
         });
-        const payload = await readBoundedJson(response) as { result?: unknown; error?: unknown };
+        const payload = await readBoundedJson(response, maxResponseBytes) as { result?: unknown; error?: unknown };
         if (!response.ok || !payload || typeof payload !== 'object' || !Object.prototype.hasOwnProperty.call(payload, 'result')) {
           const code = payload && typeof payload === 'object' && typeof payload.error === 'string' ? payload.error : '';
           throw new PublishedCustomOperationClientError(code === 'not_authorized' ? 'not-authorized'
