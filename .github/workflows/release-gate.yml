@@ -80,6 +80,9 @@ jobs:
       - name: Published custom operation runtime composition regression
         run: node scripts/website-application-custom-operation-runtime-regression.mjs
 
+      - name: Published custom operation browser client regression
+        run: node scripts/application-custom-operation-client-regression.mjs
+
       - name: Website custom execution quota regression
         run: node scripts/website-custom-execution-quota-regression.mjs
 

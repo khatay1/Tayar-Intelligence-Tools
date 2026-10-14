@@ -7,6 +7,8 @@ import { assertApplicationOriginScope } from './application-origin';
 export interface ApplicationAuthScreenConfig extends ApplicationBrowserSessionOptions {
   backend: ApplicationPublicBackend;
   platformUrl: string;
+  /** Exact immutable release rendered into the current page. */
+  releaseId?: string;
   returnPath: string;
   signUpEnabled: boolean;
   language: 'en' | 'ar' | 'sv';

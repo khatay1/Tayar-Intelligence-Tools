@@ -10,6 +10,14 @@ import type { PublishedApplicationForm } from '../core/application-published-for
 import type { PublishedApplicationDataView } from '../core/application-published-data-views';
 import { mountApplicationDataView } from './application-data-view';
 
+declare global {
+  interface Window {
+    tayarApplication?: {
+      executeCustomOperation(operationId: string, input: unknown): Promise<unknown>;
+    };
+  }
+}
+
 const script = document.currentScript as HTMLScriptElement;
 const config = JSON.parse(script.dataset.application!) as (ApplicationAuthScreenConfig | OwnedApplicationAuthScreenConfig) &
   { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[]; applicationDataViews?: PublishedApplicationDataView[] };
@@ -19,6 +27,7 @@ const formCopy = {
   ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', schedule: 'اختر وقتًا ضمن ساعات العمل والمدة القصوى للحجز.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.' },
   sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', schedule: 'Välj en tid inom öppettiderna och bokningens längdgräns.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.' },
 }[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.' };
+let customOperationApi: Window['tayarApplication'];
 const account = new URL(config.returnPath, config.applicationOrigin);
 account.searchParams.set('applicationAuth', '1');
 // Keep account controls in a shadow root so authored styles do not accidentally
@@ -41,6 +50,16 @@ try {
     ? createOwnedApplicationDataRuntime(config.definition, config.backend, config.expectedProjectRef, config)
     : createApplicationDataRuntime(config.definition, config.backend, (config as ApplicationAuthScreenConfig).platformUrl,
       config as ApplicationAuthScreenConfig);
+  if (runtime.customOperations && !Object.prototype.hasOwnProperty.call(window, 'tayarApplication')) {
+    customOperationApi = Object.freeze({
+      async executeCustomOperation(operationId: string, input: unknown) {
+        const user = await runtime.auth.currentUser();
+        if (!user || user.is_anonymous) throw new Error('Application operation requires a signed-in user.');
+        return runtime.customOperations!.execute(operationId, input, user.id);
+      },
+    });
+    Object.defineProperty(window, 'tayarApplication', { configurable: true, enumerable: false, value: customOperationApi });
+  }
   const navigator = createApplicationNavigator({ paths: config.paths, currentUrl: () => window.location.href,
     synchronize: () => runtime.auth.prepareNavigation(), navigate: url => { if (!signingOut) window.location.assign(url); },
   });
@@ -143,10 +162,13 @@ try {
       if (!disposed) { status.textContent = copy.error; logout.disabled = false; signingOut = false; }
     });
   });
-  const dispose = () => { if (disposed) return; disposed = true; stopForms(); stopDataViews(); navigator.dispose(); runtime.dispose(); document.removeEventListener('click', click); document.removeEventListener('submit', submitForm, true); };
+  const dispose = () => { if (disposed) return; disposed = true; stopForms(); stopDataViews(); navigator.dispose(); runtime.dispose(); document.removeEventListener('click', click); document.removeEventListener('submit', submitForm, true); if (customOperationApi && window.tayarApplication === customOperationApi) delete window.tayarApplication; };
   window.addEventListener('pagehide', dispose, { once: true });
   window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
   // Refresh cookie transport when opening a public page or after Auth refresh.
   // This is never a substitute for the server's next-page permission check.
   void runtime.auth.prepareNavigation().catch(() => { if (!disposed) status.textContent = copy.error; });
-} catch { logout.disabled = true; status.textContent = copy.unavailable; }
+} catch {
+  if (customOperationApi && window.tayarApplication === customOperationApi) delete window.tayarApplication;
+  logout.disabled = true; status.textContent = copy.unavailable;
+}

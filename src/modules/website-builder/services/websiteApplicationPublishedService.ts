@@ -106,6 +106,7 @@ export async function servePublishedWebsiteApplication(input: {
       const page = pages.find(item => item.id === entry.pageId);
       const language = page?.language ?? normalizeWebsiteLocalization(snapshot.localization as Partial<WebsiteLocalizationConfig> | undefined).defaultLanguage;
       return { ...input.browserSession!, projectId, ownerId, backend, platformUrl,
+        releaseId: String(storedRelease.id),
         returnPath: `/site/${ownerId}/${projectId}/${file.split('/').map(encodeURIComponent).join('/')}`,
         signUpEnabled: definition.auth.signUpEnabled, roles: definition.roles.map(role => ({ id: role.id, name: role.name })),
         language: (language === 'ar' || language === 'sv' ? language : 'en') as 'ar' | 'sv' | 'en',

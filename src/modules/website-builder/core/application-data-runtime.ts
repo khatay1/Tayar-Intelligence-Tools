@@ -11,6 +11,7 @@ import { createApplicationBrowserSessionBridge, createOwnedApplicationBrowserSes
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ApplicationDefinition, ApplicationTable } from './application-model';
 import { readApplicationDefinition } from './application-validation';
+import { createPublishedCustomOperationClient } from './application-custom-operation-client';
 
 export interface ApplicationPublicBackend {
   url: string;
@@ -119,7 +120,17 @@ function sameRequestField(type: ApplicationTable['fields'][number]['type'], subm
 export function createApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, platformUrl: string, browserSession?: ApplicationBrowserSessionOptions) {
   const client = createIsolatedApplicationClient(config, platformUrl);
   return buildApplicationDataRuntime(definition, config, client,
-    browserSession ? createApplicationBrowserSessionBridge(client, browserSession) : null);
+    browserSession ? createApplicationBrowserSessionBridge(client, browserSession) : null,
+    undefined,
+    browserSession?.releaseId && definition.requirements?.specification?.operations?.some(operation => operation.execution === 'custom')
+      ? createPublishedCustomOperationClient(client, {
+          ownerId: browserSession.ownerId,
+          projectId: browserSession.projectId,
+          releaseId: browserSession.releaseId,
+          applicationOrigin: browserSession.applicationOrigin,
+          operationIds: (definition.requirements?.specification?.operations ?? [])
+            .filter(operation => operation.execution === 'custom').map(operation => operation.id),
+        }) : undefined);
 }
 
 /** Customer-owned browser execution uses the same validated Auth/CRUD model.
@@ -132,7 +143,8 @@ export function createOwnedApplicationDataRuntime(definition: ApplicationDefinit
 }
 
 function buildApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, client: SupabaseClient,
-  sessionBridge: ReturnType<typeof createApplicationBrowserSessionBridge> | null, paymentOrigin?: string) {
+  sessionBridge: ReturnType<typeof createApplicationBrowserSessionBridge> | null, paymentOrigin?: string,
+  customOperationClient?: ReturnType<typeof createPublishedCustomOperationClient>) {
   const app = readApplicationDefinition(definition);
   let disposed = false;
   const table = (id: string) => {
@@ -156,6 +168,7 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
     return token;
   };
   return {
+    customOperations: customOperationClient,
     payments: createApplicationPaymentRuntime(paymentOrigin, captureWriteToken, async owner => {
       if (disposed) throw new Error('Payment view is closed.');
       await captureWriteToken(owner);
