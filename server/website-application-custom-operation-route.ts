@@ -61,6 +61,8 @@ export async function servePublishedCustomOperationRequest(input: {
       || (request.headers.has('sec-fetch-site') && request.headers.get('sec-fetch-site') !== 'same-origin')) {
       return failure(403, 'not_authorized');
     }
+    const bearer = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i.exec(request.headers.get('authorization') ?? '');
+    if (!bearer || bearer[1].length > 3500) return failure(401, 'not_authorized');
     if ((request.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
       return failure(415, 'invalid_request');
     }
@@ -74,7 +76,7 @@ export async function servePublishedCustomOperationRequest(input: {
       releaseId: body.releaseId as string,
       operationId: body.operationId as string,
       input: body.input,
-    }, dependencies);
+    }, { ...dependencies, authorize: operation => dependencies.authorize(operation, bearer[1]) });
     return Response.json({ result }, { headers: { ...headers, 'x-content-type-options': 'nosniff' } });
   } catch (error) {
     const code = error instanceof PublishedCustomOperationError ? error.code : 'invalid-request';

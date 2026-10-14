@@ -460,12 +460,21 @@ regression pass. PR #217 merged to `main` as
 stale merge ref `ac8312f` and failed the old bundle; the new PR gate
 `38595436276` passed on the refreshed head and main gate `38595967134` passed.
 
-## Custom code — application actor authorization in progress
+## Custom code — application actor authorization merged
 
-A fail-closed authorization adapter verifies the end-user access token against
-the bound customer Supabase Auth project, rejects anonymous users, and checks
+PR #218 merged to `main` as `75c78de6208cf40678920bded0262bd4a2188bc0` after
+Release Gate `38597169913`, Vercel Preview and main Release Gate `38597630171`
+passed. Its fail-closed adapter verifies the end-user access token against the
+bound customer Supabase Auth project, rejects anonymous users, and checks
 role-bound actors through the existing `app_my_roles` RPC. It validates the
 trusted project ref, uses only the public key and user's bearer token, applies
-bounded responses/timeouts, and ignores user-editable metadata. The focused
-authorization regression, TypeScript and ESLint pass. The adapter is not yet
-wired into the published operation route; customer execution stays disabled.
+bounded responses/timeouts, and ignores user-editable metadata.
+
+The route integration is still a source-only contract and is not mounted in
+the generated runtime. This follow-up requires a bounded Bearer token for the
+HTTP operation route and passes it only to the authorization callback; source
+loading and quota callbacks receive no token. Missing/malformed credentials
+fail before execution. Focused route/runner regressions, strict TypeScript,
+scoped ESLint and whitespace checks pass locally. Customer execution remains
+disabled until immutable runtime identity, platform quota custody and sandbox
+credentials can be integrated without exposing Tayar secrets to customer code.
