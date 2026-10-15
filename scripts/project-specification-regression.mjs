@@ -15,7 +15,10 @@ try {
     version: 1,
     auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     roles: [{ id: 'operator', name: 'Operator' }], pageAccess: [],
-    tables: domains.map(id => ({ id, key: id.replaceAll('-', '_'), name: id, fields: [], permissions: [{ operation: 'read', access: 'owner' }] })),
+    tables: domains.map(id => ({ id, key: id.replaceAll('-', '_'), name: id,
+      fields: id === 'retail' ? [{ id: 'state', key: 'state', name: 'State', type: 'enum', required: true, options: ['open', 'ready'] }] : [],
+      permissions: [{ operation: 'read', access: 'owner' }],
+      ...(id === 'retail' ? { workflow: { fieldId: 'state', transitions: [{ id: 'mark-ready', label: 'Mark ready', from: ['open'], to: 'ready', access: 'owner' }] } } : {}) })),
     requirements: { version: 1, request: 'Build seven unrelated operational records.', items: domains.map(id => ({ id: `req-${id}`, summary: `Operate ${id}.`, capability: 'records', evidence: [`view:${id}:read`] })) },
   };
   const specification = {
@@ -23,9 +26,15 @@ try {
     intent: 'A domain-neutral specification linked to the generated schema and manifest.',
     actors: [{ id: 'operator', name: 'Operator', roleId: 'operator' }],
     entities: domains.map(id => ({ id, scope: 'owner', classification: id === 'clinic' || id === 'government' ? 'restricted' : 'internal' })),
-    requirements: domains.map(id => ({ id: `req-${id}`, origin: id === 'custom-research' ? 'explicit' : 'inferred', acceptanceCriteria: [`The operator can read an authorized ${id} record.`] })),
-    acceptanceTests: [{ id: 'reject-blank-record', requirementId: 'req-retail', criterionIndex: 0, kind: 'form-values', pageId: 'retail-page', sectionId: 'retail-form',
-      input: [], expected: { outcome: 'rejected' } }],
+    requirements: domains.map(id => ({ id: `req-${id}`, origin: id === 'custom-research' ? 'explicit' : 'inferred', acceptanceCriteria: [
+      `The operator can read an authorized ${id} record.`, ...(id === 'retail' ? ['An open retail record can advance to ready.'] : []),
+    ] })),
+    acceptanceTests: [
+      { id: 'reject-blank-record', requirementId: 'req-retail', criterionIndex: 0, kind: 'form-values', pageId: 'retail-page', sectionId: 'retail-form',
+        input: [], expected: { outcome: 'rejected' } },
+      { id: 'advance-open-record', requirementId: 'req-retail', criterionIndex: 1, kind: 'workflow-transition',
+        tableId: 'retail', transitionId: 'mark-ready', fromState: 'open', expected: { outcome: 'available', toState: 'ready' } },
+    ],
     operations: domains.map(id => ({ id: `read-${id}`, summary: `Read authorized ${id} records.`, actorIds: ['operator'], entityIds: [id], requirementIds: [`req-${id}`], dependsOn: [], execution: 'native', transactional: false })),
     rules: domains.map(id => ({ id: `owner-${id}`, summary: `Only the record owner or authorized operator can read ${id}.`, operationIds: [`read-${id}`] })),
     tenancy: { mode: 'single' }, integrations: [],
@@ -51,6 +60,10 @@ try {
   assert.match(issues({ ...specification, requirements: specification.requirements.map((requirement, index) => index ? requirement : { ...requirement, acceptanceCriteria: [] }) }), /observable acceptance criteria/);
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[0], criterionIndex: 3 }] }), /existing acceptance criterion index/);
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[0], input: [{ name: 'password', value: 'fixture-secret' }] }] }), /cannot contain credentials or secret-like values/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[1], tableId: 'missing' }] }), /existing table and declared transition/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[1], fromState: 'closed' }] }), /declared value of the workflow enum field/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[1], expected: { outcome: 'available', toState: 'closed' } }] }), /match the declared transition/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[1], expected: { outcome: 'rejected' } }] }), /outside the transition source/);
   console.log('Project specification regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });

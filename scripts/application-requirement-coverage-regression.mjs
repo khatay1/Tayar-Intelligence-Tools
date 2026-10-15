@@ -12,38 +12,57 @@ try {
   const { buildApplicationRequirementCoverage, applicationRequirementIssues, formatApplicationRequirementCoverage } = (await import(pathToFileURL(outfile))).default;
   const application = {
     version: 1, roles: [], auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true }, pageAccess: [],
-    tables: [{ id: 'tasks', key: 'tasks', name: 'Tasks', fields: [{ id: 'title', key: 'title', name: 'Title', type: 'text', required: true }],
-      permissions: [{ operation: 'read', access: 'owner' }, { operation: 'create', access: 'owner' }] }],
+    tables: [
+      { id: 'tasks', key: 'tasks', name: 'Tasks', fields: [
+        { id: 'title', key: 'title', name: 'Title', type: 'text', required: true },
+      ], permissions: [{ operation: 'read', access: 'owner' }, { operation: 'create', access: 'owner' }] },
+      { id: 'task-states', key: 'task_states', name: 'Task states', fields: [
+        { id: 'state', key: 'state', name: 'State', type: 'enum', required: true, options: ['open', 'done'], defaultValue: 'open' },
+      ], permissions: [{ operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }],
+      workflow: { fieldId: 'state', transitions: [{ id: 'finish', label: 'Finish', from: ['open'], to: 'done', access: 'owner' }] } },
+    ],
     requirements: { version: 1, request: 'Create protected tasks', items: [
       { id: 'account', summary: 'Authenticate the user.', capability: 'auth', evidence: ['auth'] },
       { id: 'task-form', summary: 'Save an owner task.', capability: 'form', evidence: ['form:tasks'] },
       { id: 'task-page', summary: 'Show the task page.', capability: 'page', evidence: ['page:tasks-page'] },
+      { id: 'task-workflow', summary: 'Complete an owner task.', capability: 'workflow', evidence: ['workflow:task-states'] },
     ], specification: {
       version: 1, intent: 'A protected task list.', actors: [{ id: 'owner', name: 'Task owner' }],
-      entities: [{ id: 'tasks', scope: 'owner', classification: 'internal' }],
+      entities: [
+        { id: 'tasks', scope: 'owner', classification: 'internal' },
+        { id: 'task-states', scope: 'owner', classification: 'internal' },
+      ],
       requirements: [
         { id: 'account', origin: 'explicit', acceptanceCriteria: ['A signed-in non-anonymous user is identified.'] },
         { id: 'task-form', origin: 'explicit', acceptanceCriteria: ['A valid task title is converted for submission.', 'Blank task titles are rejected.'] },
         { id: 'task-page', origin: 'explicit', acceptanceCriteria: ['The tasks page is available after sign-in.'] },
+        { id: 'task-workflow', origin: 'explicit', acceptanceCriteria: ['An open task can advance to done.'] },
       ],
       acceptanceTests: [
         { id: 'valid-task-title', requirementId: 'task-form', criterionIndex: 0, kind: 'form-values', pageId: 'tasks-page', sectionId: 'task-form',
           input: [{ name: 'title', value: 'Draft task' }], expected: { outcome: 'accepted', values: { title: 'Draft task' } } },
         { id: 'blank-task-title', requirementId: 'task-form', criterionIndex: 1, kind: 'form-values', pageId: 'tasks-page', sectionId: 'task-form',
           input: [{ name: 'title', value: '' }], expected: { outcome: 'rejected' } },
+        { id: 'finish-open-task', requirementId: 'task-workflow', criterionIndex: 0, kind: 'workflow-transition',
+          tableId: 'task-states', transitionId: 'finish', fromState: 'open', expected: { outcome: 'available', toState: 'done' } },
+        { id: 'reject-finished-task', requirementId: 'task-workflow', criterionIndex: 0, kind: 'workflow-transition',
+          tableId: 'task-states', transitionId: 'finish', fromState: 'done', expected: { outcome: 'rejected' } },
       ],
-      operations: ['account', 'task-form', 'task-page'].map(id => ({ id: `op-${id}`, summary: `Implements ${id}.`,
-        actorIds: ['owner'], entityIds: ['tasks'], requirementIds: [id], dependsOn: [], execution: 'native', transactional: false })),
+      operations: ['account', 'task-form', 'task-page', 'task-workflow'].map(id => ({ id: `op-${id}`, summary: `Implements ${id}.`,
+        actorIds: ['owner'], entityIds: [id === 'task-workflow' ? 'task-states' : 'tasks'], requirementIds: [id], dependsOn: [], execution: 'native', transactional: false })),
       rules: [], tenancy: { mode: 'single' }, integrations: [], privacy: [], decisions: [],
     } },
   };
-  const pages = [{ id: 'tasks-page', slug: 'tasks', sections: [{ id: 'task-form', type: 'contact',
-    formFields: [{ id: 'title-input', name: 'title', label: 'Title', type: 'text', required: true }],
-    applicationFormBinding: { operation: 'create', tableId: 'tasks', fields: [{ formFieldId: 'title-input', tableFieldId: 'title' }] } }] }];
+  const pages = [{ id: 'tasks-page', slug: 'tasks', sections: [
+    { id: 'task-form', type: 'contact', formFields: [{ id: 'title-input', name: 'title', label: 'Title', type: 'text', required: true }],
+      applicationFormBinding: { operation: 'create', tableId: 'tasks', fields: [{ formFieldId: 'title-input', tableFieldId: 'title' }] } },
+    { id: 'task-list', type: 'features', applicationDataView: { tableId: 'tasks', columns: ['title'], actions: [], pageSize: 10 } },
+    { id: 'task-state-list', type: 'features', applicationDataView: { tableId: 'task-states', columns: ['state'], actions: ['transition'], pageSize: 10 } },
+  ] }];
   const rows = buildApplicationRequirementCoverage(application, pages);
-  assert.equal(rows.length, 3);
+  assert.equal(rows.length, 4);
   assert.equal(rows[1].deliveryStatus, 'contract-verified', 'The form criterion contract tests execute against the current compiler');
-  assert.ok(rows.filter(row => row.requirementId !== 'task-form').every(row => row.deliveryStatus === 'blocked'), JSON.stringify(rows));
+  assert.ok(rows.filter(row => ['account', 'task-page'].includes(row.requirementId)).every(row => row.deliveryStatus === 'blocked'), JSON.stringify(rows));
   assert.deepEqual(rows[1].implementation, ['form:tasks', 'operation:op-task-form']);
   assert.deepEqual(rows[1].acceptanceCriteria, ['A valid task title is converted for submission.', 'Blank task titles are rejected.']);
   assert.equal(rows[1].tests[0].result, 'passed');
@@ -53,6 +72,14 @@ try {
   ]);
   assert.match(rows[1].tests[1].detail, /expected mapped payload/);
   assert.match(rows[1].tests[2].detail, /rejected the invalid input/);
+  const workflowRow = rows.find(row => row.requirementId === 'task-workflow');
+  assert.equal(workflowRow.deliveryStatus, 'contract-verified');
+  assert.deepEqual(workflowRow.tests.slice(1).map(test => [test.id, test.result]), [
+    ['acceptance:task-workflow:1:finish-open-task', 'passed'],
+    ['acceptance:task-workflow:1:reject-finished-task', 'passed'],
+  ]);
+  assert.match(workflowRow.tests[1].detail, /authorization, conditions and persistence are not exercised/);
+  assert.match(workflowRow.tests[2].detail, /before any database write/);
   const report = formatApplicationRequirementCoverage(rows).join('\n');
   assert.match(report, /Requirement: task-form[\s\S]*Acceptance criteria: A valid task title is converted for submission\. \| Blank task titles are rejected\.[\s\S]*Implementation: form:tasks[\s\S]*Tests: contract:form:tasks=passed, acceptance:task-form:1:valid-task-title=passed, acceptance:task-form:2:blank-task-title=passed[\s\S]*Result: passed[\s\S]*Delivery status: contract-verified/);
   assert.ok(!report.includes('Draft task'), 'Coverage reports never expose acceptance fixture values');
@@ -85,7 +112,7 @@ try {
   assert.equal(buildApplicationRequirementCoverage(customApplication, formBoundPages)
     .find(row => row.requirementId === 'task-form').tests.at(-2).result, 'passed');
   const misplacedFormBoundPages = structuredClone(customPages);
-  misplacedFormBoundPages[0].sections[1].elements[0].customOperationBindFormValues = true;
+  misplacedFormBoundPages[0].sections[3].elements[0].customOperationBindFormValues = true;
   assert.equal(buildApplicationRequirementCoverage(customApplication, misplacedFormBoundPages)
     .find(row => row.requirementId === 'task-form').tests.at(-2).result, 'failed');
   const missingCustomAction = buildApplicationRequirementCoverage(customApplication, pages)
