@@ -9176,7 +9176,7 @@ function elementToHtml(element, homeSlug, device = "desktop", language = "en") {
       }
       const validId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(operationId);
       const data = validId && safeInput ? ` data-tayar-custom-operation="${escapeHtml(operationId)}" data-tayar-custom-operation-input="${escapeHtml(safeInput)}"${element.customOperationBindFormValues === true ? ' data-tayar-custom-operation-bind-form="true"' : ""}` : ' data-tayar-custom-operation-invalid="true"';
-      return `<button class="btn tayar-element" type="button"${data} disabled style="${css}">${value}</button><span data-tayar-custom-operation-status role="status" aria-live="polite"></span>`;
+      return `<button class="btn tayar-element" type="button"${data} disabled style="${css}">${value}</button><span data-tayar-custom-operation-status role="status" aria-live="polite"></span><details data-tayar-custom-operation-result hidden><summary>${tr("Result")}</summary><pre></pre></details>`;
     }
     return `<a class="btn tayar-element" href="${escapeHtml(resolveBuilderHref(element.href || "#", homeSlug))}" style="${css}">${value}</a>`;
   }
