@@ -69,6 +69,47 @@ try {
   const safeOperation = { type: 'put_table', table: { ...linkedTable, fields: linkedTable.fields.map(field => ({ ...field, indexed: true })) } };
   globalThis.__aiResponse = response([safeOperation]);
   const safePlan = await planWebsiteApplicationWithAI(linked, 'Index existing fields without changing behavior.');
+  const planningInput = JSON.parse(globalThis.__aiBody.messages[1].content);
+  assert.deepEqual(planningInput.pageContracts[0].sections[0].applicationFormBinding, linked.pages[0].sections[0].applicationFormBinding);
+  assert.deepEqual(planningInput.pageContracts[0].sections[1].applicationDataView, linked.pages[0].sections[1].applicationDataView);
+  assert.deepEqual(planningInput.application, linked.application, 'Planning preserves the full schema and acceptance fixtures');
+  assert.ok(planningInput.requirementChecks.every(row => row.tests.every(test => test.result === 'passed')));
+  assert.match(globalThis.__aiBody.messages[0].content, /Preserve existing native form\/data-view mappings/);
+  const visual = structuredClone(linked); visual.pages[0].sections[0].image = 'https://example.test/private-visual-asset';
+  visual.pages[0].sections[0].description = 'Unrelated visual copy';
+  globalThis.__aiResponse = response([safeOperation]);
+  await planWebsiteApplicationWithAI(visual, 'Index fields.');
+  assert.ok(!globalThis.__aiBody.messages[1].content.includes('private-visual-asset'));
+  assert.ok(!globalThis.__aiBody.messages[1].content.includes('Unrelated visual copy'));
+  visual.pages[0].sections[0].formAutomations = [{ enabled: false, webhookUrl: 'synthetic-private-webhook', headers: { authorization: 'synthetic-private-header' } }];
+  visual.pages[0].sections[0].formFields[0].placeholder = 'synthetic-private-placeholder';
+  visual.pages[0].sections[1].elements.push({ id: 'custom-button', type: 'button', action: 'custom-operation', customOperationId: 'custom-operation',
+    customOperationInputJson: '{"api_key":"synthetic-private-input"}', customOperationBindFormValues: false });
+  await planWebsiteApplicationWithAI(visual, 'Index fields.');
+  const safeContext = globalThis.__aiBody.messages[1].content;
+  for (const omitted of ['synthetic-private-webhook', 'synthetic-private-header', 'synthetic-private-placeholder', 'synthetic-private-input']) {
+    assert.ok(!safeContext.includes(omitted), 'Planning context excludes automation configuration, presentation text and custom input literals');
+  }
+  const projected = JSON.parse(safeContext).pageContracts[0];
+  assert.equal(projected.sections[0].hasEnabledFormAutomations, false);
+  assert.equal(projected.sections[1].customOperations[0].operationId, 'custom-operation');
+
+  for (const oversizedInstruction of ['x'.repeat(4_001)]) {
+    globalThis.__aiBody = undefined;
+    await assert.rejects(planWebsiteApplicationWithAI(linked, oversizedInstruction), /No request was sent|no request was sent/);
+    assert.equal(globalThis.__aiBody, undefined, 'Oversized instructions fail before provider invocation');
+  }
+  const oversized = { ...project, application: { version: 1, roles: [], pageAccess: [],
+    auth: { enabled: false, signUpEnabled: false, emailVerificationRequired: true },
+    tables: Array.from({ length: 20 }, (_, index) => ({ id: `table-${index}`, key: `table_${index}`, name: `Synthetic table ${index}`,
+      fields: Array.from({ length: 40 }, (_, field) => ({ id: `field-${index}-${field}`, key: `field_${field}`, name: `Synthetic field ${field}`, type: 'text', required: false })),
+      permissions: [{ operation: 'read', access: 'public' }],
+    })),
+  } };
+  globalThis.__aiBody = undefined;
+  await assert.rejects(planWebsiteApplicationWithAI(oversized, 'Index fields.'), /complete application planning context/);
+  assert.equal(globalThis.__aiBody, undefined, 'Oversized projects cannot send a sliced/incomplete schema');
+  assert.equal(JSON.stringify(linked), original);
   assert.equal(safePlan.fingerprint, applicationFingerprint(linked));
   assert.equal(JSON.stringify(linked), original, 'Planning preserves the original application and pages');
   const approved = { projectId: linked.cloudProjectId, fingerprint: safePlan.fingerprint, reviewed: true };
@@ -116,5 +157,5 @@ try {
   await assert.doesNotReject(planWebsiteApplicationWithAI(untested, 'Index fields.'));
   globalThis.__aiResponse = { data: { content: '{not valid' }, error: null };
   await assert.rejects(planWebsiteApplicationWithAI(project, 'Invalid JSON'));
-  console.log('PASS actual application AI planner and command: schema/binding/acceptance safety, atomic multi-operation rollback, stale native-page review rejection and undo/redo');
+  console.log('PASS actual application AI planner and command: schema/binding/acceptance safety, atomic multi-operation rollback, stale native-page reviews, complete bounded context with private-value omission, and undo/redo');
 } finally { await rm(temp, { recursive: true, force: true }); }

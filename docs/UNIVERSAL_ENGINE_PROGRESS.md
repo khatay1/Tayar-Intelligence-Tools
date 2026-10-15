@@ -52,7 +52,9 @@
 - Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred. Full automatic repair planning, schema repair and live rollback verification remain future work.
 
 
-## Safe AI application configuration repair — active follow-up
+## Safe AI application configuration repair — PR #242 merged
+
+- PR #242 merged as `24b89ef626e698eac6f8db97a08e98d21f24f78b` after Release Gate `38819005690` (#1854) and Vercel Preview passed. Post-merge verification is tracked on main Release Gate `38819363300` (#1855).
 
 - The shared application command now applies the existing repair guard to AI schema/auth/role/page-policy plans. It validates current form/data-view bindings against the candidate application and compares requirement coverage before/after, preserving every previously passing check. Schema validity alone cannot authorize breaking existing behavior. Manual configuration changes retain their existing reviewed editing path.
 - The existing planner dry run and actual editor application use the same command, so unsafe plans fail before review and again before application. A failure in a multi-operation plan discards the entire draft and adds no history entry. Safe plans use the existing full-project history/undo/redo boundary.
@@ -60,6 +62,16 @@
 - Extends the existing application-AI regression through the actual planning service and shared command with synthetic data. Covers still-valid schemas that change numeric payloads or anonymous page policy, removed create permission, field changes, atomic rollback, stale page configuration, safe indexing, undo/redo and pre-existing untested criteria. Existing page-only repair/foundation/coverage regressions remain passing.
 - TypeScript, scoped ESLint, affected regressions, all application/browser/owned/Edge generated-source consistency checks and whitespace validation passed locally. Generated artifacts remain unchanged because the shared runtime page types changed only at the type level.
 - This is a configuration repair boundary, not automatic schema repair planning, database migration application, persistence or live-provider evidence. Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred.
+
+
+## Complete bounded application planning context — active follow-up
+
+- The existing application planning request now includes the current native form/data-view mappings, field types/validation, custom-operation targets and requirement-test IDs/results. It reuses the same page projection as approval fingerprints, with an outbound projection that omits automation configuration, custom input literals, placeholders and unrelated visual content.
+- The AI instruction explicitly preserves native mappings and passing checks; diagnostic results remain local contract evidence. The existing shared command remains authoritative for validating both the model's proposed plan and the user's later application of it.
+- Removes silent string slicing of the user's instruction and serialized application context. Instructions over 4,000 characters and complete contexts outside the existing 32,000 context / 40,000 message / 60,000 serialized-body character budgets fail before the AI request. JSON within the budget is complete; no schema, mapping, criterion or instruction is silently omitted.
+- Extends the existing real planning-service regression to inspect complete schema/native mappings and diagnostic results, omission of synthetic private automation/input values and visual content, and pre-provider rejection of oversized instructions/projects. Existing schema repair, atomic rollback, stale review and undo/redo checks are reused.
+- TypeScript, scoped ESLint, the real planning-service/command regression, existing foundation checks and whitespace validation passed locally; no provider call or live database was used.
+- This does not add large-project context partitioning: an oversized project receives an explicit limit and requires a narrower scope. It does not claim automatic repair loops, live provider/database behavior or production activation. Customer keys/accounts, migrations, Production promotion and Social Hub remain deferred.
 
 
 ## Live repository check — 2026-10-14
