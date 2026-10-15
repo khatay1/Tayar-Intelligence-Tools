@@ -1,6 +1,7 @@
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { ApplicationWorkflowRejected, applicationWorkflowTransition } from './application-workflow';
+import { canAccessApplicationPage } from './application-access-policy';
 import type { WebsitePage } from './website-builder-model';
 import type { ProjectAcceptanceTest } from './project-specification';
 
@@ -19,7 +20,7 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? '';
 }
 
-/** Runs only closed, native form-value and workflow-definition protocols. It
+/** Runs only closed, native form-value, workflow-definition and page-policy protocols. It
  * never connects to a database, executes generated source, logs fixture values,
  * or claims a record was saved or a transition was persisted. */
 export function runApplicationAcceptanceTest(
@@ -28,6 +29,20 @@ export function runApplicationAcceptanceTest(
   test: ProjectAcceptanceTest,
 ): ApplicationAcceptanceTestResult {
   const id = `acceptance:${test.requirementId}:${test.criterionIndex + 1}:${test.id}`;
+  if (test.kind === 'page-access') {
+    if (!pages.some(page => page.id === test.pageId)) return {
+      id, kind: 'acceptance', result: 'failed', detail: 'The page access test target no longer exists.',
+    };
+    const user = test.principal.authenticated ? { is_anonymous: false } : null;
+    const accessible = canAccessApplicationPage(application, test.pageId, user, test.principal.roleIds);
+    if (accessible !== test.expected.accessible) return {
+      id, kind: 'acceptance', result: 'failed', detail: 'The current page access policy differs from the expected result.',
+    };
+    return {
+      id, kind: 'acceptance', result: 'passed',
+      detail: 'The current page access policy matches this synthetic principal; live authentication, server authorization and route delivery are not exercised.',
+    };
+  }
   if (test.kind === 'workflow-transition') {
     const table = application.tables.find(item => item.id === test.tableId);
     if (!table) return { id, kind: 'acceptance', result: 'failed', detail: 'The workflow test table no longer exists.' };

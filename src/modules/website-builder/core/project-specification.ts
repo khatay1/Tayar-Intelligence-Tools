@@ -40,6 +40,12 @@ export type ProjectAcceptanceTest = ProjectAcceptanceTestBase & (
     fromState: string;
     expected: { outcome: 'available'; toState: string } | { outcome: 'rejected' };
   }
+  | {
+    kind: 'page-access';
+    pageId: string;
+    principal: { authenticated: boolean; roleIds: string[] };
+    expected: { accessible: boolean };
+  }
 );
 
 type ObjectValue = Record<string, unknown>;
@@ -108,6 +114,7 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
   const acceptanceTests = catalog(value.acceptanceTests ?? [], 'acceptanceTests', [
     'id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected',
     'tableId', 'transitionId', 'fromState',
+    'principal',
   ]);
   for (const test of acceptanceTests) {
     const at = `acceptanceTests.${test.id}`;
@@ -162,6 +169,17 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
           || !canTransition) fail(`${at}.expected`, 'Expected available result must match the declared transition and source state.');
       } else if (test.expected.outcome !== 'rejected' || test.expected.toState !== undefined || canTransition) {
         fail(`${at}.expected`, 'Expected rejection must omit a destination and use a state outside the transition source.');
+      }
+    } else if (test.kind === 'page-access') {
+      shape(test, ['id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'principal', 'expected'], at);
+      if (!identifier(test.pageId)) fail(at, 'Page access tests must reference a valid page ID.');
+      if (shape(test.principal, ['authenticated', 'roleIds'], `${at}.principal`)) {
+        if (typeof test.principal.authenticated !== 'boolean') fail(`${at}.principal`, 'Page access tests require an explicit synthetic authentication state.');
+        const principalRoles = references(test.principal.roleIds, roleIds, `${at}.principal.roleIds`);
+        if (test.principal.authenticated === false && principalRoles.length) fail(`${at}.principal.roleIds`, 'Anonymous test principals cannot carry application roles.');
+      }
+      if (shape(test.expected, ['accessible'], `${at}.expected`) && typeof test.expected.accessible !== 'boolean') {
+        fail(`${at}.expected`, 'Expected page access must be a boolean.');
       }
     } else fail(at, 'Unsupported acceptance test kind.');
   }
