@@ -8,12 +8,26 @@ export interface ProjectSpecification {
   actors: Array<{ id: string; name: string; roleId?: string }>;
   entities: Array<{ id: string; scope: 'global' | 'owner' | 'organization' | 'branch'; classification: 'public' | 'internal' | 'confidential' | 'restricted' }>;
   requirements: Array<{ id: string; origin: 'explicit' | 'inferred'; acceptanceCriteria: string[] }>;
+  /** Optional and backward compatible. Only closed test kinds supported by the
+   * platform runner may contribute behavioral evidence. */
+  acceptanceTests?: ProjectAcceptanceTest[];
   operations: Array<{ id: string; summary: string; actorIds: string[]; entityIds: string[]; requirementIds: string[]; dependsOn: string[]; execution: 'native' | 'custom'; transactional: boolean; source?: string }>;
   rules: Array<{ id: string; summary: string; operationIds: string[] }>;
   tenancy: { mode: 'single' | 'organizations' | 'branches'; organizationEntityId?: string; branchEntityId?: string };
   integrations: Array<{ id: string; purpose: string; operationIds: string[]; scopes: string[]; activation: 'deferred' }>;
   privacy: Array<{ entityId: string; purpose: string; retentionDays: number | null }>;
   decisions: Array<{ id: string; kind: 'missing' | 'conflict' | 'unsupported'; summary: string; operationIds: string[]; blocking: boolean }>;
+}
+
+export interface ProjectAcceptanceTest {
+  id: string;
+  requirementId: string;
+  criterionIndex: number;
+  kind: 'form-values';
+  pageId: string;
+  sectionId: string;
+  input: Array<{ name: string; value: string }>;
+  expected: { outcome: 'accepted'; values: Record<string, unknown> } | { outcome: 'rejected' };
 }
 
 type ObjectValue = Record<string, unknown>;
@@ -50,9 +64,11 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
     if (new Set(entries).size !== entries.length || entries.some(id => !identifier(id) || !known.has(id))) fail(path, 'Unknown or duplicate reference.');
     return entries.filter(identifier);
   }
-  if (!shape(value, ['version', 'intent', 'actors', 'entities', 'requirements', 'operations', 'rules', 'tenancy', 'integrations', 'privacy', 'decisions'], 'specification')) return issues;
+  if (!shape(value, ['version', 'intent', 'actors', 'entities', 'requirements', 'acceptanceTests', 'operations', 'rules', 'tenancy', 'integrations', 'privacy', 'decisions'], 'specification')) return issues;
   if (value.version !== 1 || !text(value.intent, 2000)) fail('specification', 'Version 1 and a nonempty project intent are required.');
   const tableIds = new Set((Array.isArray(application.tables) ? application.tables : []).filter(object).map(table => table.id));
+  const fieldKeys = new Set((Array.isArray(application.tables) ? application.tables : []).filter(object)
+    .flatMap(table => Array.isArray(table.fields) ? table.fields.filter(object).map(field => field.key) : []));
   const roleIds = new Set((Array.isArray(application.roles) ? application.roles : []).filter(object).map(role => role.id));
   const requirementIds = new Set((Array.isArray(application.requirements?.items) ? application.requirements.items : []).filter(object).map(item => item.id));
   const actors = catalog(value.actors, 'actors', ['id', 'name', 'roleId']);
@@ -71,6 +87,46 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
     if (!criteria.length || criteria.some(criterion => !text(criterion))) fail(`requirements.${item.id}`, 'Define observable acceptance criteria; a page or button alone is not completion.');
   }
   for (const id of requirementIds) if (!requirements.some(item => item.id === id)) fail(`requirements.${id}`, 'Missing requirement acceptance criteria.');
+  const requirementById = new Map(requirements.map(item => [String(item.id), item]));
+  if (value.acceptanceTests !== undefined) {
+    try {
+      if (new TextEncoder().encode(JSON.stringify(value.acceptanceTests)).byteLength > 64 * 1024) fail('acceptanceTests', 'Acceptance tests exceed the 64 KiB specification limit.');
+    } catch { fail('acceptanceTests', 'Acceptance tests must be bounded JSON data.'); }
+  }
+  const acceptanceTests = catalog(value.acceptanceTests ?? [], 'acceptanceTests', ['id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected']);
+  for (const test of acceptanceTests) {
+    const at = `acceptanceTests.${test.id}`;
+    const requirement = requirementById.get(String(test.requirementId));
+    if (!requirementIds.has(test.requirementId as string) || !requirement) fail(at, 'Test must reference a declared requirement.');
+    if (!Number.isInteger(test.criterionIndex) || Number(test.criterionIndex) < 0
+      || Number(test.criterionIndex) >= (Array.isArray(requirement?.acceptanceCriteria) ? requirement.acceptanceCriteria.length : 0)) {
+      fail(at, 'Test must reference an existing acceptance criterion index.');
+    }
+    if (test.kind !== 'form-values' || !identifier(test.pageId) || !identifier(test.sectionId)) fail(at, 'Unsupported test kind or invalid form target.');
+    const inputs = list(test.input, `${at}.input`, 46);
+    const names = new Set<string>();
+    for (const [index, input] of inputs.entries()) {
+      const inputPath = `${at}.input[${index}]`;
+      if (!shape(input, ['name', 'value'], inputPath)) continue;
+      if (!/^[a-z][a-z0-9_]{0,79}$/.test(String(input.name))
+        || typeof input.value !== 'string' || input.value.length > 2048 || names.has(String(input.name))) {
+        fail(inputPath, 'Form test inputs must have unique bounded field names and string values.');
+      } else names.add(input.name as string);
+      if (typeof input.value === 'string' && (/(?:password|secret|token|credential|api[_-]?key)/i.test(String(input.name))
+        || /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----|\bBearer\s+|\b(?:sk|sb_secret|ghp|github_pat)_[A-Za-z0-9_-]{12,}/i.test(input.value))) {
+        fail(inputPath, 'Acceptance fixtures cannot contain credentials or secret-like values.');
+      }
+    }
+    if (!shape(test.expected, ['outcome', 'values'], `${at}.expected`)) continue;
+    if (test.expected.outcome === 'accepted') {
+      if (!object(test.expected.values) || Object.keys(test.expected.values).length > 45
+        || Object.entries(test.expected.values).some(([key, result]) => !/^[a-z][a-z0-9_]{0,79}$/.test(key)
+          || !fieldKeys.has(key)
+          || !boundedJson(result))) fail(`${at}.expected`, 'Accepted test results must be bounded JSON fields from the application schema.');
+    } else if (test.expected.outcome !== 'rejected' || test.expected.values !== undefined) {
+      fail(`${at}.expected`, 'Expected result must be accepted with values or rejected without values.');
+    }
+  }
   const operations = catalog(value.operations, 'operations', ['id', 'summary', 'actorIds', 'entityIds', 'requirementIds', 'dependsOn', 'execution', 'transactional', 'source']);
   const operationIds = new Set(operations.map(operation => operation.id));
   const covered = new Set<string>();
@@ -128,6 +184,14 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
     if (decision.blocking === true || decision.kind === 'conflict' || decision.kind === 'unsupported') fail(`decisions.${decision.id}`, `Unresolved project requirement: ${decision.summary}`);
   }
   return issues;
+}
+
+function boundedJson(value: unknown, depth = 0, state = { nodes: 0 }): boolean {
+  if (++state.nodes > 4096 || depth > 24) return false;
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return typeof value !== 'string' || value.length <= 2048;
+  if (typeof value === 'number') return Number.isFinite(value) && (!Number.isInteger(value) || Number.isSafeInteger(value));
+  if (Array.isArray(value)) return value.length <= 4096 && value.every(item => boundedJson(item, depth + 1, state));
+  return object(value) && Object.entries(value).every(([key, item]) => key.length <= 160 && boundedJson(item, depth + 1, state));
 }
 
 export function readProjectSpecification(value: unknown, application: ApplicationDefinition): ProjectSpecification {

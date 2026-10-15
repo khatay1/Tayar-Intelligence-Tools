@@ -24,6 +24,8 @@ try {
     actors: [{ id: 'operator', name: 'Operator', roleId: 'operator' }],
     entities: domains.map(id => ({ id, scope: 'owner', classification: id === 'clinic' || id === 'government' ? 'restricted' : 'internal' })),
     requirements: domains.map(id => ({ id: `req-${id}`, origin: id === 'custom-research' ? 'explicit' : 'inferred', acceptanceCriteria: [`The operator can read an authorized ${id} record.`] })),
+    acceptanceTests: [{ id: 'reject-blank-record', requirementId: 'req-retail', criterionIndex: 0, kind: 'form-values', pageId: 'retail-page', sectionId: 'retail-form',
+      input: [], expected: { outcome: 'rejected' } }],
     operations: domains.map(id => ({ id: `read-${id}`, summary: `Read authorized ${id} records.`, actorIds: ['operator'], entityIds: [id], requirementIds: [`req-${id}`], dependsOn: [], execution: 'native', transactional: false })),
     rules: domains.map(id => ({ id: `owner-${id}`, summary: `Only the record owner or authorized operator can read ${id}.`, operationIds: [`read-${id}`] })),
     tenancy: { mode: 'single' }, integrations: [],
@@ -47,6 +49,8 @@ try {
   assert.match(issues({ ...specification, decisions: [{ id: 'conflict-1', kind: 'conflict', summary: 'Two required policies disagree.', operationIds: [], blocking: false }] }), /Unresolved project requirement/);
   assert.match(issues({ ...specification, integrations: [{ id: 'erp', purpose: 'Synchronize approved records.', operationIds: ['read-retail'], scopes: [], activation: 'deferred' }] }), /permission scopes/);
   assert.match(issues({ ...specification, requirements: specification.requirements.map((requirement, index) => index ? requirement : { ...requirement, acceptanceCriteria: [] }) }), /observable acceptance criteria/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[0], criterionIndex: 3 }] }), /existing acceptance criterion index/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[0], input: [{ name: 'password', value: 'fixture-secret' }] }] }), /cannot contain credentials or secret-like values/);
   console.log('Project specification regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });

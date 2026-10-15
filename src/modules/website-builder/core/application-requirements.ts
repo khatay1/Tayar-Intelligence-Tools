@@ -1,6 +1,7 @@
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationDataView } from './application-data-view';
 import { compileApplicationCreateForm } from './application-form-runtime';
+import { runApplicationAcceptanceTest } from './application-acceptance-tests';
 import { parseApplicationCustomOperationAction } from './application-custom-operation-actions';
 import type { WebsitePage } from './website-builder-model';
 
@@ -66,6 +67,7 @@ export function buildApplicationRequirementCoverage(
   if (!application || !manifest?.items.length) return [];
   const current = currentImplementationEvidence(application, pages);
   const operations = manifest.specification?.operations ?? [];
+  const acceptanceTests = manifest.specification?.acceptanceTests ?? [];
   const acceptanceCriteria = new Map((manifest.specification?.requirements ?? [])
     .map(requirement => [requirement.id, requirement.acceptanceCriteria] as const));
   const customOperationIds = new Set(operations.filter(operation => operation.execution === 'custom').map(operation => operation.id));
@@ -81,16 +83,22 @@ export function buildApplicationRequirementCoverage(
         : `Current project does not compile implementation reference ${reference}.`,
     }));
     const criteria = acceptanceCriteria.get(item.id) ?? [];
-    // A string criterion is useful traceability, but it cannot prove behavior.
-    // Until a criterion-specific test runner exists, expose each missing test
-    // explicitly and keep delivery blocked instead of treating a compile check
-    // as proof that the requested behavior works.
-    criteria.forEach((criterion, index) => tests.push({
-      id: `acceptance:${item.id}:${index + 1}`,
-      kind: 'acceptance',
-      result: 'not-run',
-      detail: `No executable test is registered for acceptance criterion: ${criterion}`,
-    }));
+    // Criterion text is traceability, never proof. Execute only registered
+    // closed test kinds; keep unsupported or missing criteria explicitly
+    // unverified instead of treating a compile check as behavioral evidence.
+    criteria.forEach((criterion, index) => {
+      const linked = acceptanceTests.filter(test => test.requirementId === item.id && test.criterionIndex === index);
+      if (!linked.length) {
+        tests.push({
+          id: `acceptance:${item.id}:${index + 1}`,
+          kind: 'acceptance',
+          result: 'not-run',
+          detail: `No executable test is registered for acceptance criterion: ${criterion}`,
+        });
+        return;
+      }
+      for (const test of linked) tests.push(runApplicationAcceptanceTest(application, pages, test));
+    });
     const linkedOperations = operations.filter(operation => operation.requirementIds.includes(item.id));
     const operationIds = linkedOperations.map(operation => `operation:${operation.id}`);
     for (const operation of linkedOperations.filter(operation => operation.execution === 'custom')) {
@@ -132,7 +140,7 @@ export function formatApplicationRequirementCoverage(rows: ApplicationRequiremen
       ? [`  Acceptance criteria: ${row.acceptanceCriteria.join(' | ')}`]
       : ['  Acceptance criteria: Missing from structured project specification']),
     `  Implementation: ${row.implementation.join(', ') || 'Missing'}`,
-    `  Test: ${row.tests.map(test => test.id).join(', ') || 'Missing'}`,
+    `  Tests: ${row.tests.map(test => `${test.id}=${test.result}`).join(', ') || 'Missing'}`,
     `  Result: ${row.tests.length && row.tests.every(test => test.result === 'passed') ? 'passed'
       : row.tests.some(test => test.result === 'not-run') ? 'not-run (acceptance test missing)' : 'failed'}`,
     `  Delivery status: ${row.deliveryStatus}`,
