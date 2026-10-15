@@ -13,6 +13,9 @@ const capabilityPrefix: Record<string, string> = {
 export interface ApplicationRequirementCoverageRow {
   requirementId: string;
   requirement: string;
+  /** Observable intent from the validated ProjectSpecification. These strings
+   * are shown for traceability; they are not themselves treated as test proof. */
+  acceptanceCriteria: string[];
   implementation: string[];
   tests: Array<{ id: string; kind: 'contract'; result: 'passed' | 'failed'; detail: string }>;
   deliveryStatus: 'blocked' | 'contract-verified';
@@ -63,6 +66,8 @@ export function buildApplicationRequirementCoverage(
   if (!application || !manifest?.items.length) return [];
   const current = currentImplementationEvidence(application, pages);
   const operations = manifest.specification?.operations ?? [];
+  const acceptanceCriteria = new Map((manifest.specification?.requirements ?? [])
+    .map(requirement => [requirement.id, requirement.acceptanceCriteria] as const));
   const customOperationIds = new Set(operations.filter(operation => operation.execution === 'custom').map(operation => operation.id));
   return manifest.items.map(item => {
     const prefix = capabilityPrefix[item.capability];
@@ -101,6 +106,7 @@ export function buildApplicationRequirementCoverage(
     return {
       requirementId: item.id,
       requirement: item.summary,
+      acceptanceCriteria: [...(acceptanceCriteria.get(item.id) ?? [])],
       implementation: [...item.evidence, ...operationIds],
       tests,
       deliveryStatus: passed ? 'contract-verified' : 'blocked',
@@ -111,6 +117,9 @@ export function buildApplicationRequirementCoverage(
 export function formatApplicationRequirementCoverage(rows: ApplicationRequirementCoverageRow[]): string[] {
   return rows.flatMap(row => [
     `Requirement: ${row.requirementId} — ${row.requirement}`,
+    ...(row.acceptanceCriteria.length
+      ? [`  Acceptance criteria: ${row.acceptanceCriteria.join(' | ')}`]
+      : ['  Acceptance criteria: Missing from structured project specification']),
     `  Implementation: ${row.implementation.join(', ') || 'Missing'}`,
     `  Test: ${row.tests.map(test => test.id).join(', ') || 'Missing'}`,
     `  Result: ${row.tests.length && row.tests.every(test => test.result === 'passed') ? 'passed' : 'failed'}`,
