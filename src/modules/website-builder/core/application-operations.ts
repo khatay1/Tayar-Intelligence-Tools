@@ -24,8 +24,8 @@ export interface ApplicationOperationReview {
   reviewed: boolean;
 }
 
-export function applicationFingerprint(project: ApplicationProject): string {
-  return JSON.stringify({ application: readApplicationDefinition(project.application), pages: project.pages.map(page => ({
+export function applicationPageContracts(project: ApplicationProject) {
+  return project.pages.map(page => ({
     id: page.id,
     sections: (page.sections ?? []).map(section => ({
       id: section.id, type: section.type, applicationFormBinding: section.applicationFormBinding,
@@ -36,7 +36,11 @@ export function applicationFingerprint(project: ApplicationProject): string {
         customOperationInputJson: element.customOperationInputJson, customOperationBindFormValues: element.customOperationBindFormValues,
       })),
     })),
-  })) });
+  }));
+}
+
+export function applicationFingerprint(project: ApplicationProject): string {
+  return JSON.stringify({ application: readApplicationDefinition(project.application), pages: applicationPageContracts(project) });
 }
 
 /** One command for visual editors and reviewed AI plans, with the existing transaction/history engine. */
