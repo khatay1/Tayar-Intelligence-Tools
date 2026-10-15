@@ -4,7 +4,7 @@ import { compileApplicationDataView, parseApplicationDataViewValues } from './ap
 import { ApplicationWorkflowRejected, applicationWorkflowTransition } from './application-workflow';
 import { canAccessApplicationPage } from './application-access-policy';
 import { applicationBookingWithinSchedule, validApplicationBookingSchedule } from './application-booking-schedule';
-import type { WebsitePage } from './website-builder-model';
+import type { ApplicationContractPage } from './website-builder-model';
 import { projectAcceptanceInstant, type ProjectAcceptanceTest } from './project-specification';
 
 export interface ApplicationAcceptanceTestResult {
@@ -27,7 +27,7 @@ function canonical(value: unknown): string {
  * or claims a record was saved or a transition was persisted. */
 export function runApplicationAcceptanceTest(
   application: ApplicationDefinition,
-  pages: WebsitePage[],
+  pages: ApplicationContractPage[],
   test: ProjectAcceptanceTest,
 ): ApplicationAcceptanceTestResult {
   const id = `acceptance:${test.requirementId}:${test.criterionIndex + 1}:${test.id}`;

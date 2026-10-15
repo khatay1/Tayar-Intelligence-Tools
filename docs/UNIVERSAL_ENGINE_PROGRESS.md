@@ -2,7 +2,7 @@
 
 ## Current continuation checkpoint — 2026-10-15
 
-- PR #240, “Verify record payloads and resolve generated acceptance targets,” merged as `1f1c891b7556fd014bcb064d23c00ba7740e01de` after Release Gate `38816790364` (#1849) and Vercel Preview passed. Post-merge main Release Gate `38817139920` (#1850) passed. Previous main `83fd5d7a3717c7baeeaedd2cc997a16dce920678` passed Release Gate `38815199766` (#1848). Customer/provider activation remains deferred.
+- Current verified baseline `main` is `cc70a11bc8a766babe8ade0ab27afb6e9a805514`. PR #241, “Prevent AI repairs from breaking verified application behavior,” merged after Release Gate `38817627534` (#1852) and Vercel Preview passed. Post-merge main Release Gate `38817998218` (#1853) passed. PR #240 and its main Release Gate `38817139920` (#1850) also passed. Customer/provider activation remains deferred.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
 - PR #230 displays bounded custom-operation JSON results in an accessible collapsible panel using a `textContent` sink. Generation/reference-project, custom-operation flow/client/runtime, TypeScript, scoped ESLint, generated-artifact consistency and whitespace checks passed before merge. Generated Edge bundles were restored from trusted sources after the PR gate found stale copies.
@@ -42,7 +42,7 @@
 - Remaining work includes broader executable requirement evidence, live actor/data isolation and persistence checks, safe repair/rollback and external-service verification. Customer/provider activation remains the final phase; Social Hub stays deferred. No production promotion, credential, live database or migration-history changes were made.
 
 
-## Safe AI application repair — active follow-up
+## Safe AI application repair — PR #241 merged
 
 - The existing AI page-edit/repair path now validates application page access, bound forms and data views before advisory model review or candidate preview. Unbound contact forms, invalid bindings and removed protected pages fail closed.
 - Current requirement coverage is recomputed for the baseline and candidate. Every previously passing contract/acceptance check must still pass; existing untested criteria can stay untested so unrelated safe repairs remain possible. This does not claim live database/provider behavior or authorize schema/requirement changes.
@@ -50,6 +50,16 @@
 - The behavioral regression drives the real AI handler with synthetic model responses and an advisory model that would claim safety. Removing a required form or renaming a bound field is rejected before the advisory request, preview or mutation. A safe title edit applies and checkpoints; a declined preview applies nothing. Direct checks cover broken data views, page access, unbound forms, pre-existing untested criteria and unchanged baselines.
 - TypeScript, scoped ESLint, the real repair regression, existing candidate-audit/undo regressions and whitespace validation passed locally. Release Gate now runs the new repair regression beside the existing undo regression; no generated runtime bundle changed. The first PR gate exposed a legacy source-order assertion requiring validation after advisory review. Its expectation now matches the earlier fail-closed boundary; the real handler regression confirms failure prevents that model request.
 - Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred. Full automatic repair planning, schema repair and live rollback verification remain future work.
+
+
+## Safe AI application configuration repair — active follow-up
+
+- The shared application command now applies the existing repair guard to AI schema/auth/role/page-policy plans. It validates current form/data-view bindings against the candidate application and compares requirement coverage before/after, preserving every previously passing check. Schema validity alone cannot authorize breaking existing behavior. Manual configuration changes retain their existing reviewed editing path.
+- The existing planner dry run and actual editor application use the same command, so unsafe plans fail before review and again before application. A failure in a multi-operation plan discards the entire draft and adds no history entry. Safe plans use the existing full-project history/undo/redo boundary.
+- Review fingerprints now include native page/section/form/data-view/custom-action configuration instead of page IDs alone. Editing a bound form name/validation/mapping or a data-view action invalidates an outstanding plan with unchanged page IDs. Unrelated title/color edits do not invalidate schema review. Stored runtime rows and credentials are not introduced into the fingerprint.
+- Extends the existing application-AI regression through the actual planning service and shared command with synthetic data. Covers still-valid schemas that change numeric payloads or anonymous page policy, removed create permission, field changes, atomic rollback, stale page configuration, safe indexing, undo/redo and pre-existing untested criteria. Existing page-only repair/foundation/coverage regressions remain passing.
+- TypeScript, scoped ESLint, affected regressions, all application/browser/owned/Edge generated-source consistency checks and whitespace validation passed locally. Generated artifacts remain unchanged because the shared runtime page types changed only at the type level.
+- This is a configuration repair boundary, not automatic schema repair planning, database migration application, persistence or live-provider evidence. Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred.
 
 
 ## Live repository check — 2026-10-14

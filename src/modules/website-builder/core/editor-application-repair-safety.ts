@@ -3,26 +3,28 @@ import { readApplicationDefinition } from './application-validation';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { compileApplicationDataView } from './application-data-view';
 import { buildApplicationRequirementCoverage } from './application-requirements';
-import type { WebsitePage } from './website-builder-model';
+import type { ApplicationContractPage } from './website-builder-model';
 
-/** Validate a proposed page-only repair before preview or editor mutation. A
+/** Validate proposed page/configuration repairs before preview or editor mutation. A
  * previously untested criterion may stay untested; a passing check cannot regress.
  * These are current application contracts, not live database/provider evidence. */
 export function applicationRepairSafetyIssues(
   application: ApplicationDefinition | undefined,
-  baselinePages: WebsitePage[],
-  candidatePages: WebsitePage[],
+  baselinePages: ApplicationContractPage[],
+  candidatePages: ApplicationContractPage[],
+  candidateApplication: ApplicationDefinition | undefined = application,
 ): string[] {
-  if (!application) return [];
+  if (!application && !candidateApplication) return [];
+  if (!candidateApplication) return ['Application repair must preserve the application definition.'];
   try {
-    readApplicationDefinition(application, new Set(candidatePages.map(page => page.id)));
+    readApplicationDefinition(candidateApplication, new Set(candidatePages.map(page => page.id)));
     for (const page of candidatePages) for (const section of page.sections) {
       if (section.type === 'contact' && !section.applicationFormBinding) throw new Error();
-      if (section.applicationFormBinding) compileApplicationCreateForm(application, section, section.applicationFormBinding);
-      if (section.applicationDataView) compileApplicationDataView(application, section.applicationDataView);
+      if (section.applicationFormBinding) compileApplicationCreateForm(candidateApplication, section, section.applicationFormBinding);
+      if (section.applicationDataView) compileApplicationDataView(candidateApplication, section.applicationDataView);
     }
     const baseline = buildApplicationRequirementCoverage(application, baselinePages);
-    const candidate = new Map(buildApplicationRequirementCoverage(application, candidatePages).map(row => [row.requirementId, row]));
+    const candidate = new Map(buildApplicationRequirementCoverage(candidateApplication, candidatePages).map(row => [row.requirementId, row]));
     const issues: string[] = [];
     for (const row of baseline) {
       const current = new Map(candidate.get(row.requirementId)?.tests.map(test => [test.id, test.result]));

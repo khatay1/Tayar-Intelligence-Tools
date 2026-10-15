@@ -27,6 +27,9 @@ export interface WebsitePage {
   outputPath?: string;
 }
 
+/** Page surface needed by native application compilation and acceptance checks. */
+export type ApplicationContractPage = Pick<WebsitePage, 'id' | 'sections'>;
+
 export interface WebsiteClipboardContext {
   projectId: string | null;
   ownerId: string | null;
