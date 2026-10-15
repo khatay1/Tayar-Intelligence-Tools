@@ -1,5 +1,6 @@
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationCreateForm } from './application-form-runtime';
+import { compileApplicationDataView, parseApplicationDataViewValues } from './application-data-view';
 import { ApplicationWorkflowRejected, applicationWorkflowTransition } from './application-workflow';
 import { canAccessApplicationPage } from './application-access-policy';
 import { applicationBookingWithinSchedule, validApplicationBookingSchedule } from './application-booking-schedule';
@@ -21,7 +22,7 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? '';
 }
 
-/** Runs only closed, native form-value, workflow-definition, page-policy and booking-schedule protocols. It
+/** Runs only closed, native form/record-value, workflow-definition, page-policy and booking-schedule protocols. It
  * never connects to a database, executes generated source, logs fixture values,
  * or claims a record was saved or a transition was persisted. */
 export function runApplicationAcceptanceTest(
@@ -30,6 +31,26 @@ export function runApplicationAcceptanceTest(
   test: ProjectAcceptanceTest,
 ): ApplicationAcceptanceTestResult {
   const id = `acceptance:${test.requirementId}:${test.criterionIndex + 1}:${test.id}`;
+  if (test.kind === 'record-values') {
+    const section = pages.find(page => page.id === test.pageId)?.sections.find(section => section.id === test.sectionId);
+    let compiled: ReturnType<typeof compileApplicationDataView>;
+    try {
+      compiled = compileApplicationDataView(application, section?.applicationDataView);
+      if (!['create', 'update'].includes(test.operation) || !compiled.binding.actions.includes(test.operation)) throw new Error();
+    } catch {
+      return { id, kind: 'acceptance', result: 'failed', detail: 'The current data view no longer compiles with the tested record operation.' };
+    }
+    try {
+      const values = parseApplicationDataViewValues(compiled.table, Object.fromEntries(test.input.map(entry => [entry.name, entry.value])), test.operation === 'create');
+      return test.expected.outcome === 'accepted' && canonical(values) === canonical(test.expected.values)
+        ? { id, kind: 'acceptance', result: 'passed', detail: 'The current record parser produced the expected payload; server authorization, persistence and database effects are not exercised.' }
+        : { id, kind: 'acceptance', result: 'failed', detail: 'The current record parser accepted input with a different expected result.' };
+    } catch {
+      return test.expected.outcome === 'rejected'
+        ? { id, kind: 'acceptance', result: 'passed', detail: 'The current record parser rejected the invalid input before any write; server authorization and persistence are not exercised.' }
+        : { id, kind: 'acceptance', result: 'failed', detail: 'The current record parser rejected input expected to be accepted.' };
+    }
+  }
   if (test.kind === 'booking-schedule') {
     const schedule = application.tables.find(table => table.id === test.tableId)?.booking?.schedule;
     const from = projectAcceptanceInstant(test.startsAt), to = projectAcceptanceInstant(test.endsAt);

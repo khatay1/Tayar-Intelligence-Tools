@@ -35,6 +35,14 @@ export type ProjectAcceptanceTest = ProjectAcceptanceTestBase & (
     expected: { outcome: 'accepted'; values: Record<string, unknown> } | { outcome: 'rejected' };
   }
   | {
+    kind: 'record-values';
+    pageId: string;
+    sectionId: string;
+    operation: 'create' | 'update';
+    input: Array<{ name: string; value: string }>;
+    expected: { outcome: 'accepted'; values: Record<string, unknown> } | { outcome: 'rejected' };
+  }
+  | {
     kind: 'workflow-transition';
     tableId: string;
     transitionId: string;
@@ -130,7 +138,7 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
   const acceptanceTests = catalog(value.acceptanceTests ?? [], 'acceptanceTests', [
     'id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected',
     'tableId', 'transitionId', 'fromState',
-    'principal', 'startsAt', 'endsAt',
+    'principal', 'startsAt', 'endsAt', 'operation',
   ]);
   for (const test of acceptanceTests) {
     const at = `acceptanceTests.${test.id}`;
@@ -140,9 +148,13 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
       || Number(test.criterionIndex) >= (Array.isArray(requirement?.acceptanceCriteria) ? requirement.acceptanceCriteria.length : 0)) {
       fail(at, 'Test must reference an existing acceptance criterion index.');
     }
-    if (test.kind === 'form-values') {
-      shape(test, ['id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected'], at);
+    if (test.kind === 'form-values' || test.kind === 'record-values') {
+      shape(test, ['id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected',
+        ...(test.kind === 'record-values' ? ['operation'] : [])], at);
       if (!identifier(test.pageId) || !identifier(test.sectionId)) fail(at, 'Invalid form target.');
+      if (test.kind === 'record-values' && !['create', 'update'].includes(String(test.operation))) {
+        fail(`${at}.operation`, 'Record value tests require create or update.');
+      }
       const inputs = list(test.input, `${at}.input`, 46);
       const names = new Set<string>();
       for (const [index, input] of inputs.entries()) {

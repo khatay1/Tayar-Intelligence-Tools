@@ -68,7 +68,7 @@
     "smoke:media-studio:browser": "node scripts/media-studio-max-browser-regression.mjs",
     "smoke:account-privacy": "node scripts/account-privacy-regression.mjs && node scripts/remember-session-regression.mjs && node scripts/account-deletion-storage-regression.mjs && node scripts/cookie-storage-regression.mjs",
     "smoke:media-privacy": "node scripts/website-media-privacy-regression.mjs && node scripts/published-site-storage-regression.mjs && node scripts/glob-security-regression.mjs",
-    "smoke:website-builder:application-generation": "node scripts/project-specification-regression.mjs && node scripts/application-requirement-coverage-regression.mjs && node scripts/application-booking-acceptance-regression.mjs && node scripts/application-reference-projects-regression.mjs && node scripts/website-application-generation-regression.mjs",
+    "smoke:website-builder:application-generation": "node scripts/project-specification-regression.mjs && node scripts/application-requirement-coverage-regression.mjs && node scripts/application-booking-acceptance-regression.mjs && node scripts/application-record-acceptance-regression.mjs && node scripts/application-reference-projects-regression.mjs && node scripts/website-application-generation-regression.mjs",
     "preflight:website-builder:deployment-inventory": "node scripts/website-infrastructure-deployment-inventory.mjs",
     "smoke:website-builder:counters": "node scripts/application-counter-regression.mjs",
     "smoke:website-builder:transactions": "node scripts/application-transaction-regression.mjs",
