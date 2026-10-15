@@ -21,18 +21,22 @@ try {
   assert.deepEqual(validation.readApplicationDefinition(undefined), empty, 'Old projects have a safe empty application model');
   const table = {
     id: 'vehicles', key: 'vehicles', name: 'Vehicles',
-    fields: [{ id: 'vehicle-name', key: 'name', name: 'Name', type: 'text', required: true }],
-    permissions: [{ operation: 'read', access: 'public' }],
+    fields: [{ id: 'vehicle-name', key: 'name', name: 'Name', type: 'text', required: true, defaultValue: 'Untitled' }],
+    permissions: [{ operation: 'read', access: 'public' }, { operation: 'update', access: 'role', roleId: 'manager' }],
   };
   const review = project => ({ projectId: project.cloudProjectId ?? null, fingerprint: operations.applicationFingerprint(project), reviewed: true });
   const apply = (project, plan, source = 'manual', approval = review(project), previousHistory = history.createEditorHistory()) => command.runEditorCommand(project, operations.createApplicationCommand(plan, approval, source), { history: previousHistory });
-  const manual = apply(base, [{ type: 'put_table', table }]);
+  const manual = apply(base, [
+    { type: 'set_auth', auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true } },
+    { type: 'put_role', role: { id: 'manager', name: 'Manager' } },
+    { type: 'put_table', table },
+  ]);
   assert.equal(manual.transaction.ok, true);
   assert.equal(base.application, undefined, 'Original state must never mutate');
   const ai = apply(manual.project, [
     { type: 'set_auth', auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true } },
     { type: 'put_role', role: { id: 'manager', name: 'Manager' } },
-    { type: 'put_table', table: { ...table, fields: [{ ...table.fields[0], indexed: true, defaultValue: 'Untitled' }], permissions: [...table.permissions, { operation: 'update', access: 'role', roleId: 'manager' }] } },
+    { type: 'put_table', table: { ...table, fields: [{ ...table.fields[0], indexed: true }] } },
     { type: 'set_page_access', rules: [{ pageId: 'home', access: 'role', roleId: 'manager' }] },
   ], 'ai', review(manual.project), manual.history);
   assert.equal(ai.transaction.ok, true);
@@ -66,9 +70,9 @@ try {
   const unreviewed = command.runEditorCommand(base, pendingCommand, { history: history.createEditorHistory() });
   assert.equal(unreviewed.transaction.ok, false, 'Caller mutations cannot approve an already captured plan');
   const capturedPlan = [{ type: 'put_table', table: structuredClone(table) }];
-  const capturedCommand = operations.createApplicationCommand(capturedPlan, review(base), 'manual');
+  const capturedCommand = operations.createApplicationCommand(capturedPlan, review(manual.project), 'manual');
   capturedPlan[0].table.key = 'changed_after_review';
-  const captured = command.runEditorCommand(base, capturedCommand, { history: history.createEditorHistory() });
+  const captured = command.runEditorCommand(manual.project, capturedCommand, { history: history.createEditorHistory() });
   assert.equal(captured.project.application.tables[0].key, 'vehicles', 'Apply exactly the reviewed operation snapshot');
   const app = ai.project.application;
   for (const invalid of [

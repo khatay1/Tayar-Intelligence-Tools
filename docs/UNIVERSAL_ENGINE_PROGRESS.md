@@ -1,8 +1,9 @@
 # Universal engineering platform — verified checkpoint
 
-## Current continuation checkpoint — 2026-10-15
+## Current continuation checkpoint — 2026-10-16
 
-- Current verified baseline `main` is `cc70a11bc8a766babe8ade0ab27afb6e9a805514`. PR #241, “Prevent AI repairs from breaking verified application behavior,” merged after Release Gate `38817627534` (#1852) and Vercel Preview passed. Post-merge main Release Gate `38817998218` (#1853) passed. PR #240 and its main Release Gate `38817139920` (#1850) also passed. Customer/provider activation remains deferred.
+- Verified baseline `main` is `558c121f0ee7f4d9eb4130950b7db26da45102f0` (PR #243 merged); main Release Gate `38819839596` passed. PR #242 is merged as `24b89ef626e698eac6f8db97a08e98d21f24f78b`, and its main gate `38819363300` passed. Do not repeat either batch. Customer/provider activation remains deferred.
+- PR #214 was closed without merging: its custom-source specification, coverage, immutable release resolver and focused regressions already landed in `7ae9983`; those source/test files match the old branch. Its branch remains retained. Other old open PRs are not approved for integration; preserve the deferred Social Hub branch.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
 - PR #230 displays bounded custom-operation JSON results in an accessible collapsible panel using a `textContent` sink. Generation/reference-project, custom-operation flow/client/runtime, TypeScript, scoped ESLint, generated-artifact consistency and whitespace checks passed before merge. Generated Edge bundles were restored from trusted sources after the PR gate found stale copies.
@@ -13,6 +14,13 @@
 - PR #235 added the closed `form-values` acceptance-test protocol. It executes the current form compiler/converter, checks expected mapped output or rejection, rejects credential-like fixtures, and never claims a database write.
 - PR #236 added `workflow-transition`, checking only whether a declared model permits or rejects a transition from an enum state and destination; it does not execute authorization, conditions, SQL effects or persistence. Its first Release Gate exposed stale generated bundles; the corrected runtime, BYO Publish, backend-link and release chain was regenerated with the locked toolchain and verified by the passing PR and main gates.
 - PR #237 added `page-access` acceptance tests against the shared pure page-policy function for synthetic authenticated, roleless and anonymous principals. These checks do not prove login, server authorization or route delivery. Project-specification and requirement-coverage regressions, application-generation smoke, TypeScript, scoped ESLint, the application data-runtime regression, generated runtime/browser/Edge bundle checks and `git diff --check` pass locally. Authentication identity, persistence, integrations and external services still need their own executable evidence; delivery remains blocked until each criterion has a passing supported test. Production/customer-service activation stays in the final phase.
+
+## AI repair security and storage contracts — active follow-up
+
+- A regression reproduced an owner-to-authenticated permission expansion that left form/payload checks passing. The existing shared repair guard now rejects broader table-operation/page/workflow audiences, weakened Auth/email verification, newly enabled registration and changed refund authorization, even without requirement fixtures. SQL OR semantics are respected; owner and role audiences are incomparable. Explicit reviewed manual configuration remains available.
+- Existing table/field storage identities, constraints, defaults, references, formulas and native booking/counter/transaction/workflow/payment/file/notification/report contracts cannot be removed or changed by AI repair. New tables/fields, labels and ordinary indexes remain supported. Equivalent JSON member ordering does not produce a false contract change. These are editor safety checks, not a database migration engine or proof of live service behavior.
+- The actual planner/shared-command regression reuses all seven reference fixtures. It covers valid-but-unsafe schemas, the access audience matrix, protected pages with no tests, workflow/refund roles, atomic rejection with no history entry, safe additions/indexing, manual policy editing and existing undo/redo. The foundation fixture now establishes storage defaults and permissions through reviewed manual configuration before testing safe AI updates.
+- Next: mandatory PR Release Gate and merge only after success; then continue broader executable requirement/runtime evidence. Production, live database/migration history, customer credentials and Social Hub stay deferred.
 
 ## Acceptance evidence scope — PR #238 merged
 
@@ -64,7 +72,7 @@
 - This is a configuration repair boundary, not automatic schema repair planning, database migration application, persistence or live-provider evidence. Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred.
 
 
-## Complete bounded application planning context — active follow-up
+## Complete bounded application planning context — PR #243 merged
 
 - The existing application planning request now includes the current native form/data-view mappings, field types/validation, custom-operation targets and requirement-test IDs/results. It reuses the same page projection as approval fingerprints, with an outbound projection that omits automation configuration, custom input literals, placeholders and unrelated visual content.
 - The AI instruction explicitly preserves native mappings and passing checks; diagnostic results remain local contract evidence. The existing shared command remains authoritative for validating both the model's proposed plan and the user's later application of it.
