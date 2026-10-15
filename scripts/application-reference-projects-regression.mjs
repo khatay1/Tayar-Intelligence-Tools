@@ -77,8 +77,9 @@ try {
     assert.doesNotThrow(() => validate(prepared), `${reference.domain} generated application remains valid`);
     const coverage = buildApplicationRequirementCoverage(prepared, [coveragePage]);
     assert.equal(coverage.length, requirements.length, `${reference.domain} reports every requirement`);
-    assert.ok(coverage.every(row => row.deliveryStatus === 'contract-verified' && row.tests.every(test => test.result === 'passed')),
-      `${reference.domain} requirement coverage is current: ${JSON.stringify(coverage)}`);
+    assert.ok(coverage.every(row => row.deliveryStatus === 'blocked'
+      && row.tests.some(test => test.kind === 'acceptance' && test.result === 'not-run')),
+    `${reference.domain} stays blocked until criterion-specific tests execute: ${JSON.stringify(coverage)}`);
     const featureCoverageApplication = structuredClone(reference.definition);
     featureCoverageApplication.requirements = {
       version: 1, request: `Reference ${reference.domain} primary capability coverage.`,

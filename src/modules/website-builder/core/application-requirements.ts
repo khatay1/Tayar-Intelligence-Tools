@@ -17,7 +17,7 @@ export interface ApplicationRequirementCoverageRow {
    * are shown for traceability; they are not themselves treated as test proof. */
   acceptanceCriteria: string[];
   implementation: string[];
-  tests: Array<{ id: string; kind: 'contract'; result: 'passed' | 'failed'; detail: string }>;
+  tests: Array<{ id: string; kind: 'contract' | 'acceptance'; result: 'passed' | 'failed' | 'not-run'; detail: string }>;
   deliveryStatus: 'blocked' | 'contract-verified';
 }
 
@@ -72,13 +72,24 @@ export function buildApplicationRequirementCoverage(
   return manifest.items.map(item => {
     const prefix = capabilityPrefix[item.capability];
     const matching = item.evidence.some(entry => prefix === 'auth' ? entry === 'auth' : entry.startsWith(prefix));
-    const tests = item.evidence.map(reference => ({
+    const tests: ApplicationRequirementCoverageRow['tests'] = item.evidence.map(reference => ({
       id: `contract:${reference}`,
       kind: 'contract' as const,
       result: current.has(reference) ? 'passed' as const : 'failed' as const,
       detail: current.has(reference)
         ? `Current project compiles implementation reference ${reference}.`
         : `Current project does not compile implementation reference ${reference}.`,
+    }));
+    const criteria = acceptanceCriteria.get(item.id) ?? [];
+    // A string criterion is useful traceability, but it cannot prove behavior.
+    // Until a criterion-specific test runner exists, expose each missing test
+    // explicitly and keep delivery blocked instead of treating a compile check
+    // as proof that the requested behavior works.
+    criteria.forEach((criterion, index) => tests.push({
+      id: `acceptance:${item.id}:${index + 1}`,
+      kind: 'acceptance',
+      result: 'not-run',
+      detail: `No executable test is registered for acceptance criterion: ${criterion}`,
     }));
     const linkedOperations = operations.filter(operation => operation.requirementIds.includes(item.id));
     const operationIds = linkedOperations.map(operation => `operation:${operation.id}`);
@@ -122,7 +133,8 @@ export function formatApplicationRequirementCoverage(rows: ApplicationRequiremen
       : ['  Acceptance criteria: Missing from structured project specification']),
     `  Implementation: ${row.implementation.join(', ') || 'Missing'}`,
     `  Test: ${row.tests.map(test => test.id).join(', ') || 'Missing'}`,
-    `  Result: ${row.tests.length && row.tests.every(test => test.result === 'passed') ? 'passed' : 'failed'}`,
+    `  Result: ${row.tests.length && row.tests.every(test => test.result === 'passed') ? 'passed'
+      : row.tests.some(test => test.result === 'not-run') ? 'not-run (acceptance test missing)' : 'failed'}`,
     `  Delivery status: ${row.deliveryStatus}`,
   ]);
 }
@@ -133,5 +145,5 @@ export function applicationRequirementIssues(application: ApplicationDefinition 
   const manifest = application.requirements;
   if (!manifest?.items.length) return ['This application has no verified requirements manifest.'];
   return buildApplicationRequirementCoverage(application, pages).flatMap(row => row.deliveryStatus === 'contract-verified'
-    ? [] : [`Requirement "${row.requirement}" is no longer backed by a passing current-project contract test.`]);
+    ? [] : [`Requirement "${row.requirement}" lacks passing implementation checks or executable tests for every acceptance criterion.`]);
 }
