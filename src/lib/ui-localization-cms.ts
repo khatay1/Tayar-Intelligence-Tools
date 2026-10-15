@@ -6,6 +6,9 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  'Planning scope': 'نطاق التخطيط',
+  'All application data': 'كل بيانات التطبيق',
+  'AI can change only the selected table. Related tables are included for context and remain read-only.': 'يمكن للذكاء الاصطناعي تعديل الجدول المحدد فقط. تُضمّن الجداول المرتبطة لفهم السياق وتبقى للقراءة فقط.',
   "Aggregate reports": "التقارير المجمّعة",
   "Totals include all records the signed-in user can read. Search and page selection do not change totals.": "تشمل الإجماليات جميع السجلات المسموح للمستخدم المسجّل بقراءتها. البحث واختيار الصفحة لا يغيّران الإجماليات.",
   "Remove report": "إزالة التقرير",
@@ -186,6 +189,9 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  'Planning scope': 'Planeringens omfattning',
+  'All application data': 'Alla applikationsdata',
+  'AI can change only the selected table. Related tables are included for context and remain read-only.': 'AI kan bara ändra den valda tabellen. Relaterade tabeller ingår som sammanhang och är skrivskyddade.',
   "Aggregate reports": "Sammanställda rapporter",
   "Totals include all records the signed-in user can read. Search and page selection do not change totals.": "Summorna omfattar alla poster den inloggade användaren får läsa. Sökning och sidval ändrar inte summorna.",
   "Remove report": "Ta bort rapport",

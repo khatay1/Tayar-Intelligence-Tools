@@ -110,6 +110,60 @@ try {
   globalThis.__aiBody = undefined;
   await assert.rejects(planWebsiteApplicationWithAI(oversized, 'Index fields.'), /complete application planning context/);
   assert.equal(globalThis.__aiBody, undefined, 'Oversized projects cannot send a sliced/incomplete schema');
+  const selected = oversized.application.tables[0];
+  globalThis.__aiResponse = response([{ type: 'put_table', table: { ...selected, fields: selected.fields.map(field => ({ ...field, indexed: true })) } }]);
+  const scopedPlan = await planWebsiteApplicationWithAI(oversized, 'Index the selected table.', { tableId: selected.id });
+  const scopedContext = JSON.parse(globalThis.__aiBody.messages[1].content);
+  assert.equal(scopedPlan.fingerprint, applicationFingerprint(oversized), 'Review remains bound to the entire original project');
+  assert.deepEqual(scopedContext.application.tables.map(table => table.id), [selected.id]);
+  assert.deepEqual(scopedContext.application.tables[0], selected, 'The selected table is complete, never sliced');
+  assert.deepEqual(scopedContext.planningScope, { tableId: selected.id, readOnlyTableIds: [] });
+  assert.ok(!globalThis.__aiBody.messages[1].content.includes('Synthetic table 19'), 'Explicit scope avoids sending unrelated definitions');
+  const scopedApplied = runEditorCommand(oversized, createApplicationCommand(scopedPlan.operations,
+    { projectId: oversized.cloudProjectId, fingerprint: scopedPlan.fingerprint, reviewed: true }, 'ai'), { history: createEditorHistory() });
+  assert.equal(scopedApplied.transaction.ok, true);
+  assert.deepEqual(scopedApplied.project.application.tables.slice(1), oversized.application.tables.slice(1), 'Unrelated large-project tables remain unchanged');
+  for (const scope of [{ tableId: 'missing' }, { tableId: selected.id, extra: true }, null]) {
+    globalThis.__aiBody = undefined;
+    await assert.rejects(planWebsiteApplicationWithAI(oversized, 'Index fields.', scope), /existing table/);
+    assert.equal(globalThis.__aiBody, undefined);
+  }
+  for (const operation of [{ type: 'set_auth', auth: oversized.application.auth }, { type: 'put_table', table: oversized.application.tables[1] },
+    { type: 'put_table', table: { ...selected, id: 'new-table', key: 'new_table' } }]) {
+    globalThis.__aiResponse = response([operation]);
+    await assert.rejects(planWebsiteApplicationWithAI(oversized, 'Index selected fields.', { tableId: selected.id }), /selected table scope/);
+  }
+  globalThis.__aiResponse = response([{ type: 'put_table', table: { ...selected, fields: [...selected.fields, {
+    id: 'new-reference', key: 'new_reference', name: 'New reference', type: 'reference', required: false, referenceTableId: oversized.application.tables[1].id,
+  }] } }]);
+  await assert.rejects(planWebsiteApplicationWithAI(oversized, 'Add an unseen dependency.', { tableId: selected.id }), /dependencies outside/);
+  const retail = createApplicationReferenceProjects().find(reference => reference.domain === 'retail');
+  const dependencyProject = { cloudProjectId: 'retail', pages: [
+    { id: 'orders-page', sections: [{ id: 'orders-view', type: 'features', applicationDataView: { tableId: 'orders', columns: ['reference'], actions: ['transact'], pageSize: 10 } }] },
+    { id: 'unrelated-page', sections: [{ id: 'visual-only', type: 'features' }] },
+  ], application: retail.definition };
+  globalThis.__aiResponse = response([{ type: 'put_table', table: retail.definition.tables.find(table => table.id === 'orders') }]);
+  await planWebsiteApplicationWithAI(dependencyProject, 'Preserve the transaction table.', { tableId: 'orders' });
+  const dependencyContext = JSON.parse(globalThis.__aiBody.messages[1].content);
+  assert.deepEqual(new Set(dependencyContext.planningScope.readOnlyTableIds), new Set(['products', 'order-lines']), 'Transaction and cyclic reference dependencies are complete');
+  assert.deepEqual(dependencyContext.application.tables, retail.definition.tables);
+  assert.deepEqual(dependencyContext.pageIds, ['orders-page']);
+  assert.deepEqual(dependencyContext.pageContracts[0].sections[0].applicationDataView, dependencyProject.pages[0].sections[0].applicationDataView);
+  globalThis.__aiResponse = response([safeOperation]);
+  await planWebsiteApplicationWithAI(linked, 'Index fields.', { tableId: 'products' });
+  const scopedRequirements = JSON.parse(globalThis.__aiBody.messages[1].content);
+  assert.equal(scopedRequirements.application.requirements, undefined, 'Scoped context does not imply a complete project specification');
+  assert.ok(scopedRequirements.requirementChecks.some(row => row.requirementId === 'form'
+    && row.acceptanceCriteria.includes('The synthetic name converts unchanged.') && row.tests.every(test => test.result === 'passed')));
+  globalThis.__aiResponse = response([{ type: 'put_table', table: retail.definition.tables[0] }]);
+  await assert.rejects(planWebsiteApplicationWithAI(dependencyProject, 'Change a dependency.', { tableId: 'orders' }), /selected table scope/);
+  const hugeDependency = structuredClone(oversized);
+  for (let index = 0; index < hugeDependency.application.tables.length - 1; index++) hugeDependency.application.tables[index].fields.push({
+    id: `reference-${index}`, key: 'related', name: 'Related', type: 'reference', required: false, referenceTableId: hugeDependency.application.tables[index + 1].id,
+  });
+  globalThis.__aiBody = undefined;
+  await assert.rejects(planWebsiteApplicationWithAI(hugeDependency, 'Index fields.', { tableId: selected.id }), /complete application planning context/);
+  assert.equal(globalThis.__aiBody, undefined, 'An oversized dependency closure still fails before provider invocation');
   assert.equal(JSON.stringify(linked), original);
   assert.equal(safePlan.fingerprint, applicationFingerprint(linked));
   assert.equal(JSON.stringify(linked), original, 'Planning preserves the original application and pages');
@@ -286,5 +340,5 @@ try {
   await assert.doesNotReject(planWebsiteApplicationWithAI(untested, 'Index fields.'));
   globalThis.__aiResponse = { data: { content: '{not valid' }, error: null };
   await assert.rejects(planWebsiteApplicationWithAI(project, 'Invalid JSON'));
-  console.log('PASS actual application AI planner and command: access/auth/storage/native-contract safety, seven reused reference projects, atomic rollback, manual policy editing, bounded private context, stale reviews and undo/redo');
+  console.log('PASS actual application AI planner and command: access/auth/storage/native-contract safety, seven reference projects, scoped large-project planning/dependency closure, atomic rollback, bounded private context, stale reviews and undo/redo');
 } finally { await rm(temp, { recursive: true, force: true }); }
