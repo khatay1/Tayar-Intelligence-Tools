@@ -19,16 +19,28 @@ export interface ProjectSpecification {
   decisions: Array<{ id: string; kind: 'missing' | 'conflict' | 'unsupported'; summary: string; operationIds: string[]; blocking: boolean }>;
 }
 
-export interface ProjectAcceptanceTest {
+interface ProjectAcceptanceTestBase {
   id: string;
   requirementId: string;
   criterionIndex: number;
-  kind: 'form-values';
-  pageId: string;
-  sectionId: string;
-  input: Array<{ name: string; value: string }>;
-  expected: { outcome: 'accepted'; values: Record<string, unknown> } | { outcome: 'rejected' };
 }
+
+export type ProjectAcceptanceTest = ProjectAcceptanceTestBase & (
+  | {
+    kind: 'form-values';
+    pageId: string;
+    sectionId: string;
+    input: Array<{ name: string; value: string }>;
+    expected: { outcome: 'accepted'; values: Record<string, unknown> } | { outcome: 'rejected' };
+  }
+  | {
+    kind: 'workflow-transition';
+    tableId: string;
+    transitionId: string;
+    fromState: string;
+    expected: { outcome: 'available'; toState: string } | { outcome: 'rejected' };
+  }
+);
 
 type ObjectValue = Record<string, unknown>;
 const object = (value: unknown): value is ObjectValue => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -93,7 +105,10 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
       if (new TextEncoder().encode(JSON.stringify(value.acceptanceTests)).byteLength > 64 * 1024) fail('acceptanceTests', 'Acceptance tests exceed the 64 KiB specification limit.');
     } catch { fail('acceptanceTests', 'Acceptance tests must be bounded JSON data.'); }
   }
-  const acceptanceTests = catalog(value.acceptanceTests ?? [], 'acceptanceTests', ['id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected']);
+  const acceptanceTests = catalog(value.acceptanceTests ?? [], 'acceptanceTests', [
+    'id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected',
+    'tableId', 'transitionId', 'fromState',
+  ]);
   for (const test of acceptanceTests) {
     const at = `acceptanceTests.${test.id}`;
     const requirement = requirementById.get(String(test.requirementId));
@@ -102,30 +117,53 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
       || Number(test.criterionIndex) >= (Array.isArray(requirement?.acceptanceCriteria) ? requirement.acceptanceCriteria.length : 0)) {
       fail(at, 'Test must reference an existing acceptance criterion index.');
     }
-    if (test.kind !== 'form-values' || !identifier(test.pageId) || !identifier(test.sectionId)) fail(at, 'Unsupported test kind or invalid form target.');
-    const inputs = list(test.input, `${at}.input`, 46);
-    const names = new Set<string>();
-    for (const [index, input] of inputs.entries()) {
-      const inputPath = `${at}.input[${index}]`;
-      if (!shape(input, ['name', 'value'], inputPath)) continue;
-      if (!/^[a-z][a-z0-9_]{0,79}$/.test(String(input.name))
-        || typeof input.value !== 'string' || input.value.length > 2048 || names.has(String(input.name))) {
-        fail(inputPath, 'Form test inputs must have unique bounded field names and string values.');
-      } else names.add(input.name as string);
-      if (typeof input.value === 'string' && (/(?:password|secret|token|credential|api[_-]?key)/i.test(String(input.name))
-        || /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----|\bBearer\s+|\b(?:sk|sb_secret|ghp|github_pat)_[A-Za-z0-9_-]{12,}/i.test(input.value))) {
-        fail(inputPath, 'Acceptance fixtures cannot contain credentials or secret-like values.');
+    if (test.kind === 'form-values') {
+      shape(test, ['id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected'], at);
+      if (!identifier(test.pageId) || !identifier(test.sectionId)) fail(at, 'Invalid form target.');
+      const inputs = list(test.input, `${at}.input`, 46);
+      const names = new Set<string>();
+      for (const [index, input] of inputs.entries()) {
+        const inputPath = `${at}.input[${index}]`;
+        if (!shape(input, ['name', 'value'], inputPath)) continue;
+        if (!/^[a-z][a-z0-9_]{0,79}$/.test(String(input.name))
+          || typeof input.value !== 'string' || input.value.length > 2048 || names.has(String(input.name))) {
+          fail(inputPath, 'Form test inputs must have unique bounded field names and string values.');
+        } else names.add(input.name as string);
+        if (typeof input.value === 'string' && (/(?:password|secret|token|credential|api[_-]?key)/i.test(String(input.name))
+          || /-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----|\bBearer\s+|\b(?:sk|sb_secret|ghp|github_pat)_[A-Za-z0-9_-]{12,}/i.test(input.value))) {
+          fail(inputPath, 'Acceptance fixtures cannot contain credentials or secret-like values.');
+        }
       }
-    }
-    if (!shape(test.expected, ['outcome', 'values'], `${at}.expected`)) continue;
-    if (test.expected.outcome === 'accepted') {
-      if (!object(test.expected.values) || Object.keys(test.expected.values).length > 45
-        || Object.entries(test.expected.values).some(([key, result]) => !/^[a-z][a-z0-9_]{0,79}$/.test(key)
-          || !fieldKeys.has(key)
-          || !boundedJson(result))) fail(`${at}.expected`, 'Accepted test results must be bounded JSON fields from the application schema.');
-    } else if (test.expected.outcome !== 'rejected' || test.expected.values !== undefined) {
-      fail(`${at}.expected`, 'Expected result must be accepted with values or rejected without values.');
-    }
+      if (!shape(test.expected, ['outcome', 'values'], `${at}.expected`)) continue;
+      if (test.expected.outcome === 'accepted') {
+        if (!object(test.expected.values) || Object.keys(test.expected.values).length > 45
+          || Object.entries(test.expected.values).some(([key, result]) => !/^[a-z][a-z0-9_]{0,79}$/.test(key)
+            || !fieldKeys.has(key)
+            || !boundedJson(result))) fail(`${at}.expected`, 'Accepted test results must be bounded JSON fields from the application schema.');
+      } else if (test.expected.outcome !== 'rejected' || test.expected.values !== undefined) {
+        fail(`${at}.expected`, 'Expected result must be accepted with values or rejected without values.');
+      }
+    } else if (test.kind === 'workflow-transition') {
+      shape(test, ['id', 'requirementId', 'criterionIndex', 'kind', 'tableId', 'transitionId', 'fromState', 'expected'], at);
+      const table = application.tables.find(item => item.id === test.tableId);
+      const transition = table?.workflow?.transitions.find(item => item.id === test.transitionId);
+      const stateField = table?.fields.find(field => field.id === table.workflow?.fieldId);
+      if (!identifier(test.tableId) || !table || !transition || !identifier(test.transitionId)) {
+        fail(at, 'Workflow tests must reference an existing table and declared transition.');
+      }
+      if (typeof test.fromState !== 'string' || test.fromState.length > 120
+        || stateField?.type !== 'enum' || !stateField.options?.includes(test.fromState)) {
+        fail(`${at}.fromState`, 'Workflow test state must be a declared value of the workflow enum field.');
+      }
+      if (!shape(test.expected, ['outcome', 'toState'], `${at}.expected`)) continue;
+      const canTransition = !!transition && Array.isArray(transition.from) && transition.from.includes(test.fromState as string);
+      if (test.expected.outcome === 'available') {
+        if (typeof test.expected.toState !== 'string' || test.expected.toState !== transition?.to
+          || !canTransition) fail(`${at}.expected`, 'Expected available result must match the declared transition and source state.');
+      } else if (test.expected.outcome !== 'rejected' || test.expected.toState !== undefined || canTransition) {
+        fail(`${at}.expected`, 'Expected rejection must omit a destination and use a state outside the transition source.');
+      }
+    } else fail(at, 'Unsupported acceptance test kind.');
   }
   const operations = catalog(value.operations, 'operations', ['id', 'summary', 'actorIds', 'entityIds', 'requirementIds', 'dependsOn', 'execution', 'transactional', 'source']);
   const operationIds = new Set(operations.map(operation => operation.id));
