@@ -1,3 +1,5 @@
+import { applicationRepairSafetyIssues } from './editor-application-repair-safety';
+import type { ApplicationDefinition } from './application-model';
 import type { Language } from '@/context/PreferencesContext';
 import { createAIService } from '@/lib/ai/service';
 import { auditAIWebsiteCandidate, updateSectionContent, validateAIProjectIntegrity } from './editor-ai-candidate-audit';
@@ -24,6 +26,7 @@ import type { WebsiteCmsState } from '../core/website-cms';
 import type { WebsiteLocalizationConfig } from '../core/website-localization';
 
 export interface AIChangeHandlerDependencies {
+  application?: ApplicationDefinition;
   activePageId: string;
   activeUserIdRef: React.MutableRefObject<string | null>;
   aiAbortControllerRef: React.MutableRefObject<AbortController | null>;
@@ -92,6 +95,7 @@ export interface AIChangeHandlerDependencies {
 }
 
 export function createAIChangeHandler({
+  application,
   activePageId,
   activeUserIdRef,
   aiAbortControllerRef,
@@ -2715,6 +2719,14 @@ export function createAIChangeHandler({
         return { ...page, slug };
       });
 
+      const integrityErrors = [
+        ...validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols),
+        ...applicationRepairSafetyIssues(application, snapshot.pages, nextPages),
+      ];
+      if (integrityErrors.length) {
+        throw new Error(`AI change blocked by project safety validation: ${integrityErrors.join(' ')}`);
+      }
+
       const appliedPlanCoverage = evaluateAIWebsitePlanCoverage(
         agentPlan.steps || [],
         operations.filter((_, index) => appliedOperationIds.has(`operation-${index + 1}`)),
@@ -2855,10 +2867,6 @@ export function createAIChangeHandler({
 
       if (!operationCanApply()) return;
 
-      const integrityErrors = validateAIProjectIntegrity(nextPages, nextHomePageId, nextSymbols);
-      if (integrityErrors.length) {
-        throw new Error(`AI change blocked by project safety validation: ${integrityErrors.join(' ')}`);
-      }
 
       const finalActive = nextPages.find((page) => page.id === activeAfterPatch?.id) || nextPages[0];
       const previousPagesById = new Map(snapshot.pages.map((page) => [page.id, page]));

@@ -2,7 +2,7 @@
 
 ## Current continuation checkpoint — 2026-10-15
 
-- Current verified baseline `main` is `83fd5d7a3717c7baeeaedd2cc997a16dce920678`. PR #239, “Add booking schedule acceptance tests,” merged after Release Gate `38814794143` (#1847) and Vercel Preview passed. Post-merge main Release Gate `38815199766` (#1848) passed. Customer/provider activation remains deferred.
+- PR #240, “Verify record payloads and resolve generated acceptance targets,” merged as `1f1c891b7556fd014bcb064d23c00ba7740e01de` after Release Gate `38816790364` (#1849) and Vercel Preview passed. Post-merge main verification is recorded below when complete. Previous main `83fd5d7a3717c7baeeaedd2cc997a16dce920678` passed Release Gate `38815199766` (#1848). Customer/provider activation remains deferred.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
 - PR #230 displays bounded custom-operation JSON results in an accessible collapsible panel using a `textContent` sink. Generation/reference-project, custom-operation flow/client/runtime, TypeScript, scoped ESLint, generated-artifact consistency and whitespace checks passed before merge. Generated Edge bundles were restored from trusted sources after the PR gate found stale copies.
@@ -32,14 +32,24 @@
 - Application-generation smoke, existing booking regression, published-runtime and owned-source regressions, TypeScript, scoped ESLint, all affected generated runtime/Edge consistency checks and whitespace validation passed locally. Generated dependencies were rebuilt from their trusted generators with the locked esbuild version.
 
 
-## Record payload acceptance and generated target resolution — active follow-up
+## Record payload acceptance and generated target resolution — PR #240 merged
 
 - Adds closed `record-values` tests for the existing data-view create/update parser. Tests name a page, section and operation, use bounded synthetic string fixtures, and compare the exact converted payload or require input rejection. Coverage is restricted to `records` and `view:<bound-table-id>:<operation>`; it cannot satisfy read, another table/operation, authentication or formula requirements.
 - The current view must compile and expose the tested action before parsing. Missing/invalid targets fail even for negative expectations. Existing fixture limits, closed shapes, unique field names and credential-like input rejection apply. Reports omit fixture values.
 - Covers numeric/boolean/date/JSON conversion, required/default behavior, unknown fields, and refusal to directly write workflow states or generated formula fields. This proves only payload validation, not server authorization, persistence, generated database results or effects.
 - Fixes a discovered generation gap: page-based acceptance fixtures previously retained model-supplied IDs while generation assigned new page/section IDs. Generated page slugs and explicit unique section anchors now resolve atomically to saved IDs for record, form and page-policy tests. Missing/ambiguous targets and unavailable record actions reject generation without editor mutations. Existing manifests without tests remain unchanged.
-- The existing generation-handler regression verifies persisted normalized fixtures, real coverage results, response immutability and atomic malformed/missing/ambiguous-target rejection. Seven reference projects are reused. Focused specification, coverage, booking/record acceptance, reference-project and real generation-handler checks passed; TypeScript, scoped ESLint, affected generated-source consistency and runtime checks are recorded with this batch before publishing.
+- The existing generation-handler regression verifies persisted normalized fixtures, real coverage results, response immutability and atomic malformed/missing/ambiguous-target rejection. Seven reference projects are reused. Focused specification, coverage, booking/record acceptance, reference-project and real generation-handler checks passed; TypeScript, scoped ESLint, affected generated-source consistency, data-view/AI/published-runtime/owned-source regressions and whitespace checks passed locally. The uploaded tree matched the tested local tree; PR Release Gate `38816790364` (#1849) and Vercel Preview passed before merge.
 - Remaining work includes broader executable requirement evidence, live actor/data isolation and persistence checks, safe repair/rollback and external-service verification. Customer/provider activation remains the final phase; Social Hub stays deferred. No production promotion, credential, live database or migration-history changes were made.
+
+
+## Safe AI application repair — active follow-up
+
+- The existing AI page-edit/repair path now validates application page access, bound forms and data views before advisory model review or candidate preview. Unbound contact forms, invalid bindings and removed protected pages fail closed.
+- Current requirement coverage is recomputed for the baseline and candidate. Every previously passing contract/acceptance check must still pass; existing untested criteria can stay untested so unrelated safe repairs remain possible. This does not claim live database/provider behavior or authorize schema/requirement changes.
+- The controller supplies the current application to the existing lazy AI change handler. Validation failures never mutate editor pages, replace undo snapshots or create project checkpoints. Safe accepted changes retain the existing before/after checkpoints and undo path; rejected previews remain inert.
+- The behavioral regression drives the real AI handler with synthetic model responses and an advisory model that would claim safety. Removing a required form or renaming a bound field is rejected before the advisory request, preview or mutation. A safe title edit applies and checkpoints; a declined preview applies nothing. Direct checks cover broken data views, page access, unbound forms, pre-existing untested criteria and unchanged baselines.
+- TypeScript, scoped ESLint, the real repair regression, existing candidate-audit/undo regressions and whitespace validation passed locally. Release Gate now runs the new repair regression beside the existing undo regression; no generated runtime bundle changed.
+- Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred. Full automatic repair planning, schema repair and live rollback verification remain future work.
 
 
 ## Live repository check — 2026-10-14
