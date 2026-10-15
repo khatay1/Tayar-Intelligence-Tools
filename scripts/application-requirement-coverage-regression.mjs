@@ -36,15 +36,19 @@ try {
     applicationFormBinding: { operation: 'create', tableId: 'tasks', fields: [{ formFieldId: 'title-input', tableFieldId: 'title' }] } }] }];
   const rows = buildApplicationRequirementCoverage(application, pages);
   assert.equal(rows.length, 3);
-  assert.ok(rows.every(row => row.deliveryStatus === 'contract-verified'), JSON.stringify(rows));
+  assert.ok(rows.every(row => row.deliveryStatus === 'blocked'), JSON.stringify(rows));
   assert.deepEqual(rows[1].implementation, ['form:tasks', 'operation:op-task-form']);
   assert.deepEqual(rows[1].acceptanceCriteria, ['A valid owner task is saved.', 'Invalid titles are rejected.']);
   assert.equal(rows[1].tests[0].result, 'passed');
-  assert.match(formatApplicationRequirementCoverage(rows).join('\n'), /Requirement: task-form[\s\S]*Acceptance criteria: A valid owner task is saved\. \| Invalid titles are rejected\.[\s\S]*Implementation: form:tasks[\s\S]*Result: passed[\s\S]*Delivery status: contract-verified/);
-  assert.deepEqual(applicationRequirementIssues(application, pages), []);
+  assert.deepEqual(rows[1].tests.slice(1).map(test => [test.id, test.kind, test.result]), [
+    ['acceptance:task-form:1', 'acceptance', 'not-run'],
+    ['acceptance:task-form:2', 'acceptance', 'not-run'],
+  ]);
+  assert.match(formatApplicationRequirementCoverage(rows).join('\n'), /Requirement: task-form[\s\S]*Acceptance criteria: A valid owner task is saved\. \| Invalid titles are rejected\.[\s\S]*Implementation: form:tasks[\s\S]*Result: not-run \(acceptance test missing\)[\s\S]*Delivery status: blocked/);
+  assert.equal(applicationRequirementIssues(application, pages).length, 3, 'No requirement is deliverable until every acceptance criterion has an executable test');
   const missingPageRows = buildApplicationRequirementCoverage(application, [{ ...pages[0], id: 'other-page' }]);
   assert.equal(missingPageRows.find(row => row.requirementId === 'task-page').deliveryStatus, 'blocked');
-  assert.match(applicationRequirementIssues(application, [{ ...pages[0], id: 'other-page' }])[0], /passing current-project contract test/);
+  assert.match(applicationRequirementIssues(application, [{ ...pages[0], id: 'other-page' }])[0], /executable tests for every acceptance criterion/);
   const brokenForm = structuredClone(pages);
   brokenForm[0].sections[0].applicationFormBinding.fields[0].tableFieldId = 'missing';
   assert.equal(buildApplicationRequirementCoverage(application, brokenForm).find(row => row.requirementId === 'task-form').tests[0].result, 'failed');
