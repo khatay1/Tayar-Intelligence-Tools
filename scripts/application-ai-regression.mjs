@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
+import { createApplicationReferenceProjects } from './fixtures/application-reference-projects.mjs';
 
 const temp = await mkdtemp(join(tmpdir(), 'tayar-application-ai-'));
 try {
@@ -11,7 +12,7 @@ try {
   const entry = join(temp, 'entry.ts');
   await writeFile(entry, [
     'src/modules/website-builder/services/websiteApplicationAIService.ts',
-    ...['application-operations', 'editor-command', 'editor-history'].map(name => `src/modules/website-builder/core/${name}.ts`),
+    ...['application-operations', 'application-validation', 'editor-command', 'editor-history'].map(name => `src/modules/website-builder/core/${name}.ts`),
   ].map(path => `export * from ${JSON.stringify(resolve(path))};`).join('\n'));
   await build({
     entryPoints: [entry],
@@ -22,7 +23,7 @@ try {
       bundler.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({ contents: 'export const supabase = { functions: { invoke: async (_, request) => { globalThis.__aiBody = request.body; return globalThis.__aiResponse; } } };', loader: 'js' }));
     } }],
   });
-  const { planWebsiteApplicationWithAI, applicationFingerprint, createApplicationCommand, runEditorCommand, createEditorHistory, undoEditorHistory, redoEditorHistory } = (await import(pathToFileURL(outfile))).default;
+  const { planWebsiteApplicationWithAI, applicationFingerprint, createApplicationCommand, runEditorCommand, createEditorHistory, undoEditorHistory, redoEditorHistory, readApplicationDefinition } = (await import(pathToFileURL(outfile))).default;
   const project = { cloudProjectId: 'app-one', pages: [{ id: 'home' }], application: undefined };
   const base = { id: 'products', key: 'products', name: 'Products', fields: [{ id: 'product-name', key: 'name', name: 'Name', type: 'text', required: true }], permissions: [{ operation: 'read', access: 'public' }] };
   globalThis.__aiResponse = { data: { json: { summary: 'Products', warnings: [], operations: [{ type: 'put_table', table: base }] } }, error: null };
@@ -152,10 +153,138 @@ try {
   }
   const cosmetic = structuredClone(linked); cosmetic.pages[0].sections[0].title = 'Improved title'; cosmetic.pages[0].sections[0].background = '#123456';
   assert.equal(applicationFingerprint(cosmetic), safePlan.fingerprint, 'Unrelated visual edits do not invalidate schema review');
+  // Payload/compile evidence stays green when row access is widened. The
+  // deterministic repair boundary must protect security even without fixtures.
+  const privateProject = structuredClone(linked);
+  delete privateProject.application.requirements;
+  privateProject.application.roles = [{ id: 'operator', name: 'Operator' }, { id: 'other', name: 'Other' }];
+  privateProject.application.pageAccess = [{ pageId: 'home', access: 'role', roleId: 'operator' }];
+  const privateTable = privateProject.application.tables[0];
+  const privateReview = { projectId: privateProject.cloudProjectId, fingerprint: applicationFingerprint(privateProject), reviewed: true };
+  for (const operation of [
+    { type: 'put_table', table: { ...privateTable, permissions: privateTable.permissions.map(rule => ({ ...rule, access: 'authenticated' })) } },
+    { type: 'put_table', table: { ...privateTable, permissions: [...privateTable.permissions, { operation: 'read', access: 'role', roleId: 'other' }] } },
+    { type: 'put_table', table: { ...privateTable, permissions: [...privateTable.permissions, { operation: 'delete', access: 'owner' }] } },
+    { type: 'set_page_access', rules: [{ pageId: 'home', access: 'authenticated' }] },
+    { type: 'set_page_access', rules: [{ pageId: 'home', access: 'role', roleId: 'other' }] },
+    { type: 'set_page_access', rules: [] },
+    ...[{ enabled: false }, { signUpEnabled: true }, { emailVerificationRequired: false }].map(change => ({ type: 'set_auth', auth: { ...privateProject.application.auth, ...change } })),
+  ]) {
+    globalThis.__aiResponse = response([safeOperation, operation]);
+    await assert.rejects(planWebsiteApplicationWithAI(privateProject, 'Repair configuration.'), /AI application change blocked|Authentication is required/);
+    const result = runEditorCommand(privateProject, createApplicationCommand([safeOperation, operation], privateReview, 'ai'), { history: createEditorHistory() });
+    assert.equal(result.transaction.ok, false, 'AI cannot expand access without a manual policy change');
+    assert.deepEqual(result.project, privateProject); assert.equal(result.history.past.length, 0);
+  }
+  const manualExpansion = { type: 'put_table', table: { ...privateTable, permissions: privateTable.permissions.map(rule => ({ ...rule, access: 'authenticated' })) } };
+  const manual = runEditorCommand(privateProject, createApplicationCommand([manualExpansion], privateReview, 'manual'), { history: createEditorHistory() });
+  assert.equal(manual.transaction.ok, true, 'Explicit reviewed manual permission editing remains available');
+  for (const access of ['public', 'authenticated', 'owner', 'role']) {
+    const source = structuredClone(privateProject);
+    source.application.tables[0].permissions = [{ operation: 'read', access, ...(access === 'role' ? { roleId: 'operator' } : {}) }];
+    source.pages[0].sections = [];
+    for (const nextAccess of ['public', 'authenticated', 'owner', 'role']) {
+      const operation = { type: 'put_table', table: { ...source.application.tables[0],
+        permissions: [{ operation: 'read', access: nextAccess, ...(nextAccess === 'role' ? { roleId: 'operator' } : {}) }] } };
+      const review = { projectId: source.cloudProjectId, fingerprint: applicationFingerprint(source), reviewed: true };
+      const result = runEditorCommand(source, createApplicationCommand([operation], review, 'ai'), { history: createEditorHistory() });
+      const subset = access === 'public' || (access === 'authenticated' && nextAccess !== 'public') || access === nextAccess;
+      assert.equal(result.transaction.ok, subset, `${access} → ${nextAccess} must preserve the permitted audience`);
+    }
+  }
+  const workflowProject = structuredClone(privateProject);
+  workflowProject.application.tables[0].fields.push({ id: 'state', key: 'state', name: 'State', type: 'enum', required: true, defaultValue: 'pending', options: ['pending', 'approved'] });
+  workflowProject.application.tables[0].workflow = { fieldId: 'state', transitions: [
+    { id: 'approve', label: 'Approve', from: ['pending'], to: 'approved', access: 'role', roleId: 'operator' },
+  ] };
+  const workflowTable = workflowProject.application.tables[0];
+  for (const audience of [{ access: 'authenticated' }, { access: 'owner' }, { access: 'role', roleId: 'other' }]) {
+    const changed = { ...workflowTable, workflow: { ...workflowTable.workflow,
+      transitions: [{ ...workflowTable.workflow.transitions[0], ...audience, roleId: audience.roleId }] } };
+    const operation = { type: 'put_table', table: changed };
+    globalThis.__aiResponse = response([operation]);
+    await assert.rejects(planWebsiteApplicationWithAI(workflowProject, 'Repair workflow.'), /AI application change blocked/);
+  }
+  const publicProject = { ...project, application: { version: 1, roles: [], pageAccess: [], tables: [base], auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true } } };
+  globalThis.__aiResponse = response([{ type: 'set_auth', auth: { ...publicProject.application.auth, enabled: false } }]);
+  await assert.rejects(planWebsiteApplicationWithAI(publicProject, 'Repair authentication.'), /AI application change blocked/);
+  const storageProject = structuredClone(privateProject); storageProject.pages[0].sections = [];
+  const storedTable = storageProject.application.tables[0];
+  for (const change of [
+    table => { table.key = 'renamed_products'; },
+    table => { table.fields.shift(); },
+    table => { table.fields[0].key = 'renamed_title'; },
+    table => { table.fields[0].required = false; },
+    table => { table.fields[0].unique = true; },
+    table => { table.fields[1].defaultValue = 2; },
+  ]) {
+    const changed = structuredClone(storedTable); change(changed);
+    readApplicationDefinition({ ...storageProject.application, tables: [changed] });
+    globalThis.__aiResponse = response([{ type: 'put_table', table: changed }]);
+    await assert.rejects(planWebsiteApplicationWithAI(storageProject, 'Repair schema.'), /AI application change blocked/);
+  }
+  const removalReview = { projectId: storageProject.cloudProjectId, fingerprint: applicationFingerprint(storageProject), reviewed: true };
+  const removal = runEditorCommand(storageProject, createApplicationCommand([{ type: 'remove_table', tableId: storedTable.id }], removalReview, 'ai'), { history: createEditorHistory() });
+  assert.equal(removal.transaction.ok, false); assert.deepEqual(removal.project, storageProject); assert.equal(removal.history.past.length, 0);
+  const additive = { ...storedTable, fields: [...storedTable.fields.map(field => ({ ...field, name: 'Updated label', indexed: true })),
+    { id: 'optional-note', key: 'optional_note', name: 'Optional note', type: 'text', required: false }] };
+  globalThis.__aiResponse = response([{ type: 'put_table', table: additive }]);
+  await assert.doesNotReject(planWebsiteApplicationWithAI(storageProject, 'Add a field and improve labels and indexes.'));
+  for (const reference of createApplicationReferenceProjects()) {
+    const source = { cloudProjectId: reference.domain, pages: [{ id: 'overview', sections: [] }], application: structuredClone(reference.definition) };
+    const nativeChanges = [];
+    for (const table of source.application.tables) {
+      for (const key of ['booking', 'counter', 'transaction', 'workflow', 'attachments']) if (table[key]) {
+        const changed = structuredClone(table);
+        if (key === 'counter') changed.counter.maximum = 1000;
+        else if (key === 'transaction') changed.transaction.counterDirection = 'increment';
+        else delete changed[key];
+        nativeChanges.push(changed);
+      }
+      for (const field of table.fields.filter(field => field.formula)) {
+        const changed = structuredClone(table); changed.fields.find(item => item.id === field.id).formula.operation = 'subtract';
+        nativeChanges.push(changed);
+      }
+    }
+    for (const table of nativeChanges) {
+      readApplicationDefinition({ ...source.application, tables: source.application.tables.map(current => current.id === table.id ? table : current) });
+      globalThis.__aiResponse = response([{ type: 'put_table', table }]);
+      await assert.rejects(planWebsiteApplicationWithAI(source, 'Repair native rules.'), /AI application change blocked/,
+        `${reference.domain} preserves existing native behavior even without acceptance fixtures`);
+    }
+    // JSON member order and ordinary presentation/index updates have no effect
+    // on the preserved storage/native contract.
+    const table = source.application.tables[0];
+    const reordered = Object.fromEntries(Object.entries(table).reverse());
+    reordered.fields = reordered.fields.map(field => Object.fromEntries(Object.entries({ ...field, name: 'Updated label', indexed: true }).reverse()));
+    globalThis.__aiResponse = response([{ type: 'put_table', table: reordered }]);
+    await assert.doesNotReject(planWebsiteApplicationWithAI(source, 'Index and label existing fields.'));
+  }
+  const paid = createApplicationReferenceProjects().find(reference => reference.domain === 'retail').definition;
+  paid.roles.push({ id: 'finance', name: 'Finance' });
+  paid.tables[0].fields.push({ id: 'unit-price', key: 'unit_price', name: 'Unit price', type: 'number', required: true, defaultValue: 100 });
+  paid.tables[1].payment = { provider: 'stripe', currency: 'sek', itemUnitAmountFieldId: 'unit-price', refundRoleId: 'finance' };
+  const moneyProject = { cloudProjectId: 'money', pages: [{ id: 'overview', sections: [] }], application: paid };
+  readApplicationDefinition(paid);
+  for (const change of [payment => { payment.refundRoleId = 'reviewer'; }, payment => { payment.currency = 'usd'; }]) {
+    const table = structuredClone(paid.tables[1]); change(table.payment);
+    globalThis.__aiResponse = response([{ type: 'put_table', table }]);
+    await assert.rejects(planWebsiteApplicationWithAI(moneyProject, 'Repair payments.'), /AI application change blocked/);
+  }
+  for (const key of ['reports', 'notifications']) {
+    const source = structuredClone(storageProject);
+    source.application.tables[0][key] = key === 'reports'
+      ? [{ id: 'count-entries', name: 'Entries', operation: 'count' }]
+      : [{ id: 'created-email', connectionId: 'customer-email', event: { type: 'created' }, subject: 'Entry created', text: 'Synthetic entry notification.' }];
+    readApplicationDefinition(source.application);
+    const table = structuredClone(source.application.tables[0]); delete table[key];
+    globalThis.__aiResponse = response([{ type: 'put_table', table }]);
+    await assert.rejects(planWebsiteApplicationWithAI(source, 'Repair optional rules.'), /AI application change blocked/);
+  }
   const untested = structuredClone(linked); delete untested.application.requirements.specification.acceptanceTests;
   globalThis.__aiResponse = response([safeOperation]);
   await assert.doesNotReject(planWebsiteApplicationWithAI(untested, 'Index fields.'));
   globalThis.__aiResponse = { data: { content: '{not valid' }, error: null };
   await assert.rejects(planWebsiteApplicationWithAI(project, 'Invalid JSON'));
-  console.log('PASS actual application AI planner and command: schema/binding/acceptance safety, atomic multi-operation rollback, stale native-page reviews, complete bounded context with private-value omission, and undo/redo');
+  console.log('PASS actual application AI planner and command: access/auth/storage/native-contract safety, seven reused reference projects, atomic rollback, manual policy editing, bounded private context, stale reviews and undo/redo');
 } finally { await rm(temp, { recursive: true, force: true }); }
