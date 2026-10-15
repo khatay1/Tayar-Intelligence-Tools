@@ -34,6 +34,8 @@ try {
         input: [], expected: { outcome: 'rejected' } },
       { id: 'advance-open-record', requirementId: 'req-retail', criterionIndex: 1, kind: 'workflow-transition',
         tableId: 'retail', transitionId: 'mark-ready', fromState: 'open', expected: { outcome: 'available', toState: 'ready' } },
+      { id: 'allow-operator-page', requirementId: 'req-retail', criterionIndex: 0, kind: 'page-access', pageId: 'retail-page',
+        principal: { authenticated: true, roleIds: ['operator'] }, expected: { accessible: true } },
     ],
     operations: domains.map(id => ({ id: `read-${id}`, summary: `Read authorized ${id} records.`, actorIds: ['operator'], entityIds: [id], requirementIds: [`req-${id}`], dependsOn: [], execution: 'native', transactional: false })),
     rules: domains.map(id => ({ id: `owner-${id}`, summary: `Only the record owner or authorized operator can read ${id}.`, operationIds: [`read-${id}`] })),
@@ -64,6 +66,9 @@ try {
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[1], fromState: 'closed' }] }), /declared value of the workflow enum field/);
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[1], expected: { outcome: 'available', toState: 'closed' } }] }), /match the declared transition/);
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[1], expected: { outcome: 'rejected' } }] }), /outside the transition source/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[2], principal: { authenticated: true, roleIds: ['unknown'] } }] }), /Unknown or duplicate reference/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[2], principal: { authenticated: false, roleIds: ['operator'] } }] }), /Anonymous test principals cannot carry application roles/);
+  assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[2], expected: { accessible: 'yes' } }] }), /Expected page access must be a boolean/);
   console.log('Project specification regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });

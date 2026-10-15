@@ -12,6 +12,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { ApplicationDefinition, ApplicationTable } from './application-model';
 import { readApplicationDefinition } from './application-validation';
 import { createPublishedCustomOperationClient } from './application-custom-operation-client';
+import { canAccessApplicationPage } from './application-access-policy';
+export { canAccessApplicationPage } from './application-access-policy';
 
 export interface ApplicationPublicBackend {
   url: string;
@@ -24,13 +26,6 @@ export interface ApplicationListOptions {
   offset?: number;
   sort?: { field: string; direction: 'asc' | 'desc' };
   filters?: Array<{ field: string; operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'ilike'; value: string | number | boolean }>;
-}
-
-export function canAccessApplicationPage(definition: ApplicationDefinition, pageId: string, user: { is_anonymous?: boolean } | null, roles: readonly string[] = []): boolean {
-  const rule = definition.pageAccess.find(item => item.pageId === pageId);
-  if (!rule || rule.access === 'public') return true;
-  if (!definition.auth.enabled || !user || user.is_anonymous) return false;
-  return rule.access === 'authenticated' || (rule.access === 'role' && !!rule.roleId && roles.includes(rule.roleId));
 }
 
 function projectRef(url: string): string {

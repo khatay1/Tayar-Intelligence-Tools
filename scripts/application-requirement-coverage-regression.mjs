@@ -11,7 +11,8 @@ try {
   await build({ entryPoints: ['src/modules/website-builder/core/application-requirements.ts'], bundle: true, platform: 'node', format: 'cjs', outfile });
   const { buildApplicationRequirementCoverage, applicationRequirementIssues, formatApplicationRequirementCoverage } = (await import(pathToFileURL(outfile))).default;
   const application = {
-    version: 1, roles: [], auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true }, pageAccess: [],
+    version: 1, roles: [{ id: 'member', name: 'Member' }], auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
+    pageAccess: [{ pageId: 'tasks-page', access: 'role', roleId: 'member' }],
     tables: [
       { id: 'tasks', key: 'tasks', name: 'Tasks', fields: [
         { id: 'title', key: 'title', name: 'Title', type: 'text', required: true },
@@ -35,7 +36,7 @@ try {
       requirements: [
         { id: 'account', origin: 'explicit', acceptanceCriteria: ['A signed-in non-anonymous user is identified.'] },
         { id: 'task-form', origin: 'explicit', acceptanceCriteria: ['A valid task title is converted for submission.', 'Blank task titles are rejected.'] },
-        { id: 'task-page', origin: 'explicit', acceptanceCriteria: ['The tasks page is available after sign-in.'] },
+        { id: 'task-page', origin: 'explicit', acceptanceCriteria: ['A member can open the tasks page.'] },
         { id: 'task-workflow', origin: 'explicit', acceptanceCriteria: ['An open task can advance to done.'] },
       ],
       acceptanceTests: [
@@ -47,6 +48,12 @@ try {
           tableId: 'task-states', transitionId: 'finish', fromState: 'open', expected: { outcome: 'available', toState: 'done' } },
         { id: 'reject-finished-task', requirementId: 'task-workflow', criterionIndex: 0, kind: 'workflow-transition',
           tableId: 'task-states', transitionId: 'finish', fromState: 'done', expected: { outcome: 'rejected' } },
+        { id: 'allow-member-page', requirementId: 'task-page', criterionIndex: 0, kind: 'page-access', pageId: 'tasks-page',
+          principal: { authenticated: true, roleIds: ['member'] }, expected: { accessible: true } },
+        { id: 'deny-roleless-page', requirementId: 'task-page', criterionIndex: 0, kind: 'page-access', pageId: 'tasks-page',
+          principal: { authenticated: true, roleIds: [] }, expected: { accessible: false } },
+        { id: 'deny-anonymous-page', requirementId: 'task-page', criterionIndex: 0, kind: 'page-access', pageId: 'tasks-page',
+          principal: { authenticated: false, roleIds: [] }, expected: { accessible: false } },
       ],
       operations: ['account', 'task-form', 'task-page', 'task-workflow'].map(id => ({ id: `op-${id}`, summary: `Implements ${id}.`,
         actorIds: ['owner'], entityIds: [id === 'task-workflow' ? 'task-states' : 'tasks'], requirementIds: [id], dependsOn: [], execution: 'native', transactional: false })),
@@ -62,7 +69,7 @@ try {
   const rows = buildApplicationRequirementCoverage(application, pages);
   assert.equal(rows.length, 4);
   assert.equal(rows[1].deliveryStatus, 'contract-verified', 'The form criterion contract tests execute against the current compiler');
-  assert.ok(rows.filter(row => ['account', 'task-page'].includes(row.requirementId)).every(row => row.deliveryStatus === 'blocked'), JSON.stringify(rows));
+  assert.equal(rows.find(row => row.requirementId === 'account').deliveryStatus, 'blocked');
   assert.deepEqual(rows[1].implementation, ['form:tasks', 'operation:op-task-form']);
   assert.deepEqual(rows[1].acceptanceCriteria, ['A valid task title is converted for submission.', 'Blank task titles are rejected.']);
   assert.equal(rows[1].tests[0].result, 'passed');
@@ -80,6 +87,18 @@ try {
   ]);
   assert.match(workflowRow.tests[1].detail, /authorization, conditions and persistence are not exercised/);
   assert.match(workflowRow.tests[2].detail, /before any database write/);
+  const pageRow = rows.find(row => row.requirementId === 'task-page');
+  assert.equal(pageRow.deliveryStatus, 'contract-verified');
+  assert.deepEqual(pageRow.tests.slice(1).map(test => [test.id, test.result]), [
+    ['acceptance:task-page:1:allow-member-page', 'passed'],
+    ['acceptance:task-page:1:deny-roleless-page', 'passed'],
+    ['acceptance:task-page:1:deny-anonymous-page', 'passed'],
+  ]);
+  assert.match(pageRow.tests[1].detail, /live authentication, server authorization and route delivery are not exercised/);
+  const missingPageAccessTarget = structuredClone(application);
+  missingPageAccessTarget.requirements.specification.acceptanceTests[4].pageId = 'missing-page';
+  assert.equal(buildApplicationRequirementCoverage(missingPageAccessTarget, pages)
+    .find(row => row.requirementId === 'task-page').tests[1].result, 'failed');
   const malformedWorkflow = structuredClone(application);
   malformedWorkflow.tables[1].workflow.transitions = null;
   assert.equal(buildApplicationRequirementCoverage(malformedWorkflow, pages)
@@ -88,7 +107,7 @@ try {
   const report = formatApplicationRequirementCoverage(rows).join('\n');
   assert.match(report, /Requirement: task-form[\s\S]*Acceptance criteria: A valid task title is converted for submission\. \| Blank task titles are rejected\.[\s\S]*Implementation: form:tasks[\s\S]*Tests: contract:form:tasks=passed, acceptance:task-form:1:valid-task-title=passed, acceptance:task-form:2:blank-task-title=passed[\s\S]*Result: passed[\s\S]*Delivery status: contract-verified/);
   assert.ok(!report.includes('Draft task'), 'Coverage reports never expose acceptance fixture values');
-  assert.equal(applicationRequirementIssues(application, pages).length, 2, 'Only requirements without criterion tests stay blocked');
+  assert.equal(applicationRequirementIssues(application, pages).length, 1, 'Only requirements without criterion tests stay blocked');
   const missingPageRows = buildApplicationRequirementCoverage(application, [{ ...pages[0], id: 'other-page' }]);
   assert.equal(missingPageRows.find(row => row.requirementId === 'task-page').deliveryStatus, 'blocked');
   assert.match(applicationRequirementIssues(application, [{ ...pages[0], id: 'other-page' }])[0], /executable tests for every acceptance criterion/);
