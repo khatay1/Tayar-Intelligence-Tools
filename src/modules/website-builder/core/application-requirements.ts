@@ -4,7 +4,7 @@ import { compileApplicationCreateForm } from './application-form-runtime';
 import { runApplicationAcceptanceTest } from './application-acceptance-tests';
 import { parseApplicationCustomOperationAction } from './application-custom-operation-actions';
 import type { ProjectAcceptanceTest } from './project-specification';
-import type { WebsitePage } from './website-builder-model';
+import type { ApplicationContractPage } from './website-builder-model';
 
 const capabilityPrefix: Record<string, string> = {
   page: 'page:', auth: 'auth', form: 'form:', records: 'view:',
@@ -14,7 +14,7 @@ const capabilityPrefix: Record<string, string> = {
 
 /** A passing closed test only supplies evidence for its own capability and
  * current implementation target. Linking an ID cannot widen that evidence. */
-function acceptanceTestReference(test: ProjectAcceptanceTest, pages: WebsitePage[]): { capability: string; reference: string } | null {
+function acceptanceTestReference(test: ProjectAcceptanceTest, pages: ApplicationContractPage[]): { capability: string; reference: string } | null {
   if (test.kind === 'page-access') return { capability: 'page', reference: `page:${test.pageId}` };
   if (test.kind === 'workflow-transition') return { capability: 'workflow', reference: `workflow:${test.tableId}` };
   if (test.kind === 'booking-schedule') return { capability: 'booking', reference: `booking:${test.tableId}` };
@@ -42,7 +42,7 @@ export interface ApplicationRequirementCoverageRow {
   deliveryStatus: 'blocked' | 'contract-verified';
 }
 
-function currentImplementationEvidence(application: ApplicationDefinition, pages: WebsitePage[]): Set<string> {
+function currentImplementationEvidence(application: ApplicationDefinition, pages: ApplicationContractPage[]): Set<string> {
   const evidence = new Set<string>();
   if (application.auth.enabled) evidence.add('auth');
   for (const page of pages) {
@@ -81,7 +81,7 @@ function currentImplementationEvidence(application: ApplicationDefinition, pages
  * the current pages. It deliberately does not claim deployment or live-provider success. */
 export function buildApplicationRequirementCoverage(
   application: ApplicationDefinition | undefined,
-  pages: WebsitePage[],
+  pages: ApplicationContractPage[],
 ): ApplicationRequirementCoverageRow[] {
   const manifest = application?.requirements;
   if (!application || !manifest?.items.length) return [];
@@ -184,7 +184,7 @@ export function formatApplicationRequirementCoverage(rows: ApplicationRequiremen
 }
 
 /** Recompute evidence from the current editable project; saved claims never prove completion by themselves. */
-export function applicationRequirementIssues(application: ApplicationDefinition | undefined, pages: WebsitePage[]): string[] {
+export function applicationRequirementIssues(application: ApplicationDefinition | undefined, pages: ApplicationContractPage[]): string[] {
   if (!application || (!application.auth.enabled && !application.tables.length)) return [];
   const manifest = application.requirements;
   if (!manifest?.items.length) return ['This application has no verified requirements manifest.'];

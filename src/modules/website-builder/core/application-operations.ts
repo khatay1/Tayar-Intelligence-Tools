@@ -1,6 +1,8 @@
 import { createEditorCommand, type EditorCommand } from './editor-command';
 import type { EditorChangeSource } from './editor-transaction';
 import type { ApplicationDefinition, ApplicationPageAccess, ApplicationRole, ApplicationTable } from './application-model';
+import { applicationRepairSafetyIssues } from './editor-application-repair-safety';
+import type { WebsiteSection } from './types';
 import { readApplicationDefinition } from './application-validation';
 
 export type ApplicationOperation =
@@ -13,7 +15,7 @@ export type ApplicationOperation =
 
 export interface ApplicationProject {
   cloudProjectId?: string | null;
-  pages: Array<{ id: string }>;
+  pages: Array<{ id: string; sections?: WebsiteSection[] }>;
   application?: ApplicationDefinition;
 }
 export interface ApplicationOperationReview {
@@ -23,7 +25,18 @@ export interface ApplicationOperationReview {
 }
 
 export function applicationFingerprint(project: ApplicationProject): string {
-  return JSON.stringify({ application: readApplicationDefinition(project.application), pageIds: project.pages.map(page => page.id) });
+  return JSON.stringify({ application: readApplicationDefinition(project.application), pages: project.pages.map(page => ({
+    id: page.id,
+    sections: (page.sections ?? []).map(section => ({
+      id: section.id, type: section.type, applicationFormBinding: section.applicationFormBinding,
+      applicationDataView: section.applicationDataView, formFields: section.formFields,
+      formAutomations: section.formAutomations, formSuccessAction: section.formSuccessAction,
+      elements: section.elements?.filter(element => element.type === 'button' && element.action === 'custom-operation').map(element => ({
+        id: element.id, type: element.type, action: element.action, customOperationId: element.customOperationId,
+        customOperationInputJson: element.customOperationInputJson, customOperationBindFormValues: element.customOperationBindFormValues,
+      })),
+    })),
+  })) });
 }
 
 /** One command for visual editors and reviewed AI plans, with the existing transaction/history engine. */
@@ -64,7 +77,13 @@ export function createApplicationCommand<P extends ApplicationProject>(operation
           default: throw new Error('Unsupported application operation.');
         }
       }
-      project.application = readApplicationDefinition(application, new Set(project.pages.map(page => page.id)));
+      const candidate = readApplicationDefinition(application, new Set(project.pages.map(page => page.id)));
+      if (source === 'ai') {
+        const pages = project.pages.map(page => ({ id: page.id, sections: page.sections ?? [] }));
+        const issues = applicationRepairSafetyIssues(project.application, pages, pages, candidate);
+        if (issues.length) throw new Error(`AI application change blocked: ${issues.join(' ')}`);
+      }
+      project.application = candidate;
     },
   });
 }
