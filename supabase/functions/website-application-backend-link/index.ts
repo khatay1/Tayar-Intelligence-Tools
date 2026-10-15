@@ -48,8 +48,43 @@ var APPLICATION_FILE_TYPES = [
 ];
 var APPLICATION_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
-// src/modules/website-builder/core/project-specification.ts
+// src/modules/website-builder/core/application-booking-schedule.ts
 var object = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+function validApplicationBookingSchedule(value) {
+  if (!object(value) || Object.keys(value).some((key) => !["maxDurationMinutes", "timeZone", "weekly", "exceptions"].includes(key)) || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
+  } catch {
+    return false;
+  }
+  for (const window2 of value.weekly) {
+    if (!object(window2) || Object.keys(window2).sort().join(",") !== "day,endMinute,startMinute" || !Number.isInteger(window2.day) || Number(window2.day) < 1 || Number(window2.day) > 7 || !Number.isInteger(window2.startMinute) || Number(window2.startMinute) < 0 || !Number.isInteger(window2.endMinute) || Number(window2.endMinute) > 1440 || Number(window2.endMinute) <= Number(window2.startMinute)) return false;
+  }
+  const windows = value.weekly;
+  if (windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
+  if (value.exceptions !== void 0) {
+    if (!Array.isArray(value.exceptions) || value.exceptions.length > 366) return false;
+    const dates = /* @__PURE__ */ new Set();
+    for (const exception of value.exceptions) {
+      if (!object(exception) || Object.keys(exception).sort().join(",") !== "date,windows" || typeof exception.date !== "string" || (!/^\d{4}-\d{2}-\d{2}$/.test(exception.date) || exception.date.startsWith("0000-")) || !Number.isFinite(Date.parse(exception.date)) || new Date(exception.date).toISOString().slice(0, 10) !== exception.date || dates.has(exception.date) || !Array.isArray(exception.windows) || exception.windows.length > 4) return false;
+      dates.add(exception.date);
+      for (const window2 of exception.windows) {
+        if (!object(window2) || Object.keys(window2).sort().join(",") !== "endMinute,startMinute" || !Number.isInteger(window2.startMinute) || !Number.isInteger(window2.endMinute) || Number(window2.startMinute) < 0 || Number(window2.endMinute) > 1440 || Number(window2.startMinute) >= Number(window2.endMinute)) return false;
+      }
+      const special = exception.windows;
+      if (special.some((left, index) => special.some((right, other) => other > index && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
+    }
+  }
+  return true;
+}
+
+// src/modules/website-builder/core/project-specification.ts
+function projectAcceptanceInstant(value) {
+  if (typeof value !== "string" || !/^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return null;
+  const instant = Date.parse(value);
+  return Number.isFinite(instant) && new Date(instant).toISOString() === value ? instant : null;
+}
+var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var identifier = (value) => typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value);
 var text = (value, limit = 800) => typeof value === "string" && !!value.trim() && value.length <= limit;
 var customSourceLimitBytes = 64 * 1024;
@@ -59,7 +94,7 @@ function projectSpecificationIssues(value, application) {
     issues.push(`${path}: ${message}`);
   };
   function shape(input, keys, path) {
-    if (!object(input)) {
+    if (!object2(input)) {
       fail(path, "Expected a specification object.");
       return false;
     }
@@ -91,10 +126,10 @@ function projectSpecificationIssues(value, application) {
   }
   if (!shape(value, ["version", "intent", "actors", "entities", "requirements", "acceptanceTests", "operations", "rules", "tenancy", "integrations", "privacy", "decisions"], "specification")) return issues;
   if (value.version !== 1 || !text(value.intent, 2e3)) fail("specification", "Version 1 and a nonempty project intent are required.");
-  const tableIds = new Set((Array.isArray(application.tables) ? application.tables : []).filter(object).map((table) => table.id));
-  const fieldKeys = new Set((Array.isArray(application.tables) ? application.tables : []).filter(object).flatMap((table) => Array.isArray(table.fields) ? table.fields.filter(object).map((field) => field.key) : []));
-  const roleIds = new Set((Array.isArray(application.roles) ? application.roles : []).filter(object).map((role) => role.id));
-  const requirementIds = new Set((Array.isArray(application.requirements?.items) ? application.requirements.items : []).filter(object).map((item) => item.id));
+  const tableIds = new Set((Array.isArray(application.tables) ? application.tables : []).filter(object2).map((table) => table.id));
+  const fieldKeys = new Set((Array.isArray(application.tables) ? application.tables : []).filter(object2).flatMap((table) => Array.isArray(table.fields) ? table.fields.filter(object2).map((field) => field.key) : []));
+  const roleIds = new Set((Array.isArray(application.roles) ? application.roles : []).filter(object2).map((role) => role.id));
+  const requirementIds = new Set((Array.isArray(application.requirements?.items) ? application.requirements.items : []).filter(object2).map((item) => item.id));
   const actors = catalog(value.actors, "actors", ["id", "name", "roleId"]);
   if (!actors.length) fail("actors", "Define the people or systems using this project.");
   for (const actor of actors) if (!text(actor.name, 160) || actor.roleId !== void 0 && !roleIds.has(actor.roleId)) fail(`actors.${actor.id}`, "Actor name or application role is invalid.");
@@ -130,7 +165,9 @@ function projectSpecificationIssues(value, application) {
     "tableId",
     "transitionId",
     "fromState",
-    "principal"
+    "principal",
+    "startsAt",
+    "endsAt"
   ]);
   for (const test of acceptanceTests) {
     const at = `acceptanceTests.${test.id}`;
@@ -156,7 +193,7 @@ function projectSpecificationIssues(value, application) {
       }
       if (!shape(test.expected, ["outcome", "values"], `${at}.expected`)) continue;
       if (test.expected.outcome === "accepted") {
-        if (!object(test.expected.values) || Object.keys(test.expected.values).length > 45 || Object.entries(test.expected.values).some(([key, result]) => !/^[a-z][a-z0-9_]{0,79}$/.test(key) || !fieldKeys.has(key) || !boundedJson(result))) fail(`${at}.expected`, "Accepted test results must be bounded JSON fields from the application schema.");
+        if (!object2(test.expected.values) || Object.keys(test.expected.values).length > 45 || Object.entries(test.expected.values).some(([key, result]) => !/^[a-z][a-z0-9_]{0,79}$/.test(key) || !fieldKeys.has(key) || !boundedJson(result))) fail(`${at}.expected`, "Accepted test results must be bounded JSON fields from the application schema.");
       } else if (test.expected.outcome !== "rejected" || test.expected.values !== void 0) {
         fail(`${at}.expected`, "Expected result must be accepted with values or rejected without values.");
       }
@@ -177,6 +214,18 @@ function projectSpecificationIssues(value, application) {
         if (typeof test.expected.toState !== "string" || test.expected.toState !== transition?.to || !canTransition) fail(`${at}.expected`, "Expected available result must match the declared transition and source state.");
       } else if (test.expected.outcome !== "rejected" || test.expected.toState !== void 0 || canTransition) {
         fail(`${at}.expected`, "Expected rejection must omit a destination and use a state outside the transition source.");
+      }
+    } else if (test.kind === "booking-schedule") {
+      shape(test, ["id", "requirementId", "criterionIndex", "kind", "tableId", "startsAt", "endsAt", "expected"], at);
+      const table = application.tables.find((item) => item.id === test.tableId);
+      if (!identifier(test.tableId) || !table?.booking?.schedule || !validApplicationBookingSchedule(table.booking.schedule)) {
+        fail(at, "Booking schedule tests must reference a table with a valid declared booking schedule.");
+      }
+      if (projectAcceptanceInstant(test.startsAt) === null || projectAcceptanceInstant(test.endsAt) === null) {
+        fail(at, "Booking schedule fixtures require canonical UTC instants: YYYY-MM-DDTHH:mm:ss.sssZ.");
+      }
+      if (shape(test.expected, ["withinSchedule"], `${at}.expected`) && typeof test.expected.withinSchedule !== "boolean") {
+        fail(`${at}.expected`, "Expected schedule membership must be a boolean.");
       }
     } else if (test.kind === "page-access") {
       shape(test, ["id", "requirementId", "criterionIndex", "kind", "pageId", "principal", "expected"], at);
@@ -256,12 +305,12 @@ function boundedJson(value, depth = 0, state = { nodes: 0 }) {
   if (value === null || typeof value === "string" || typeof value === "boolean") return typeof value !== "string" || value.length <= 2048;
   if (typeof value === "number") return Number.isFinite(value) && (!Number.isInteger(value) || Number.isSafeInteger(value));
   if (Array.isArray(value)) return value.length <= 4096 && value.every((item) => boundedJson(item, depth + 1, state));
-  return object(value) && Object.entries(value).every(([key, item]) => key.length <= 160 && boundedJson(item, depth + 1, state));
+  return object2(value) && Object.entries(value).every(([key, item]) => key.length <= 160 && boundedJson(item, depth + 1, state));
 }
 
 // src/modules/website-builder/core/application-email-notifications.ts
 var identifier2 = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
-var object2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function applicationEmailTemplateParts(value, fields) {
   const parts = [];
   let cursor = 0;
@@ -284,10 +333,10 @@ function applicationEmailTemplateParts(value, fields) {
   return parts;
 }
 function validateApplicationEmailNotification(value, table) {
-  if (!object2(value) || Object.keys(value).sort().join(",") !== "connectionId,event,id,subject,text" || typeof value.id !== "string" || !identifier2.test(value.id) || typeof value.connectionId !== "string" || !identifier2.test(value.connectionId) || typeof value.subject !== "string" || !value.subject.trim() || value.subject.length > 200 || Array.from(value.subject).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) || typeof value.text !== "string" || !value.text.trim() || value.text.length > 16e3 || value.text.includes("\0")) return "Invalid email notification rule.";
+  if (!object3(value) || Object.keys(value).sort().join(",") !== "connectionId,event,id,subject,text" || typeof value.id !== "string" || !identifier2.test(value.id) || typeof value.connectionId !== "string" || !identifier2.test(value.connectionId) || typeof value.subject !== "string" || !value.subject.trim() || value.subject.length > 200 || Array.from(value.subject).some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127) || typeof value.text !== "string" || !value.text.trim() || value.text.length > 16e3 || value.text.includes("\0")) return "Invalid email notification rule.";
   if (!table.permissions.some((permission) => permission.operation === "read" && permission.access === "owner")) return "Email recipients require owner read access.";
   const event = value.event;
-  if (!object2(event)) return "Unknown email notification event.";
+  if (!object3(event)) return "Unknown email notification event.";
   if (event.type === "created" && Object.keys(event).join(",") === "type") {
     if (!table.permissions.some((permission) => permission.operation === "create" && permission.access !== "public")) return "Email source write unavailable.";
   } else if (event.type === "transition" && Object.keys(event).sort().join(",") === "transitionId,type") {
@@ -302,36 +351,6 @@ function validateApplicationEmailNotification(value, table) {
     return error instanceof Error ? error.message : "Invalid email notification rule.";
   }
   return null;
-}
-
-// src/modules/website-builder/core/application-booking-schedule.ts
-var object3 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-function validApplicationBookingSchedule(value) {
-  if (!object3(value) || Object.keys(value).some((key) => !["maxDurationMinutes", "timeZone", "weekly", "exceptions"].includes(key)) || typeof value.timeZone !== "string" || value.timeZone.length > 80 || !/^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/.test(value.timeZone) || !Number.isInteger(value.maxDurationMinutes) || Number(value.maxDurationMinutes) < 1 || Number(value.maxDurationMinutes) > 1440 || !Array.isArray(value.weekly) || !value.weekly.length || value.weekly.length > 28) return false;
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value.timeZone }).format(0);
-  } catch {
-    return false;
-  }
-  for (const window2 of value.weekly) {
-    if (!object3(window2) || Object.keys(window2).sort().join(",") !== "day,endMinute,startMinute" || !Number.isInteger(window2.day) || Number(window2.day) < 1 || Number(window2.day) > 7 || !Number.isInteger(window2.startMinute) || Number(window2.startMinute) < 0 || !Number.isInteger(window2.endMinute) || Number(window2.endMinute) > 1440 || Number(window2.endMinute) <= Number(window2.startMinute)) return false;
-  }
-  const windows = value.weekly;
-  if (windows.some((left, index) => windows.some((right, other) => other > index && left.day === right.day && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
-  if (value.exceptions !== void 0) {
-    if (!Array.isArray(value.exceptions) || value.exceptions.length > 366) return false;
-    const dates = /* @__PURE__ */ new Set();
-    for (const exception of value.exceptions) {
-      if (!object3(exception) || Object.keys(exception).sort().join(",") !== "date,windows" || typeof exception.date !== "string" || (!/^\d{4}-\d{2}-\d{2}$/.test(exception.date) || exception.date.startsWith("0000-")) || !Number.isFinite(Date.parse(exception.date)) || new Date(exception.date).toISOString().slice(0, 10) !== exception.date || dates.has(exception.date) || !Array.isArray(exception.windows) || exception.windows.length > 4) return false;
-      dates.add(exception.date);
-      for (const window2 of exception.windows) {
-        if (!object3(window2) || Object.keys(window2).sort().join(",") !== "endMinute,startMinute" || !Number.isInteger(window2.startMinute) || !Number.isInteger(window2.endMinute) || Number(window2.startMinute) < 0 || Number(window2.endMinute) > 1440 || Number(window2.startMinute) >= Number(window2.endMinute)) return false;
-      }
-      const special = exception.windows;
-      if (special.some((left, index) => special.some((right, other) => other > index && left.startMinute < right.endMinute && right.startMinute < left.endMinute))) return false;
-    }
-  }
-  return true;
 }
 
 // src/modules/website-builder/core/application-booking-recurrence.ts

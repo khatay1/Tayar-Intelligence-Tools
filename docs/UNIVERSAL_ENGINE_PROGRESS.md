@@ -2,7 +2,7 @@
 
 ## Current continuation checkpoint — 2026-10-15
 
-- Current baseline `main` is `3b133755ee8818e26603eb0ed56e0121aa410359`. PR #237, “Add page access acceptance tests,” merged after its Release Gate and Vercel Preview passed. The browser job needed one retry after an intermittent Chromium timeout. Generated runtime dependencies are included. Production promotion and customer/provider activation remain deferred.
+- Current baseline `main` is `7c86fa3f94cf5f20a607dae7d100d6d1b2f4e687`. PR #238, “Bind acceptance evidence to its requirement scope,” merged after Release Gate `38812957249` (#1845) and Vercel Preview passed. Post-merge main Release Gate `38813369657` (#1846) passed. Customer/provider activation remains deferred.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
 - PR #230 displays bounded custom-operation JSON results in an accessible collapsible panel using a `textContent` sink. Generation/reference-project, custom-operation flow/client/runtime, TypeScript, scoped ESLint, generated-artifact consistency and whitespace checks passed before merge. Generated Edge bundles were restored from trusted sources after the PR gate found stale copies.
@@ -13,13 +13,24 @@
 - PR #235 added the closed `form-values` acceptance-test protocol. It executes the current form compiler/converter, checks expected mapped output or rejection, rejects credential-like fixtures, and never claims a database write.
 - PR #236 added `workflow-transition`, checking only whether a declared model permits or rejects a transition from an enum state and destination; it does not execute authorization, conditions, SQL effects or persistence. Its first Release Gate exposed stale generated bundles; the corrected runtime, BYO Publish, backend-link and release chain was regenerated with the locked toolchain and verified by the passing PR and main gates.
 - PR #237 added `page-access` acceptance tests against the shared pure page-policy function for synthetic authenticated, roleless and anonymous principals. These checks do not prove login, server authorization or route delivery. Project-specification and requirement-coverage regressions, application-generation smoke, TypeScript, scoped ESLint, the application data-runtime regression, generated runtime/browser/Edge bundle checks and `git diff --check` pass locally. Authentication identity, persistence, integrations and external services still need their own executable evidence; delivery remains blocked until each criterion has a passing supported test. Production/customer-service activation stays in the final phase.
-## Acceptance evidence scope — active follow-up
+
+## Acceptance evidence scope — PR #238 merged
 
 - Closed acceptance tests now match both the requirement capability and its current declared implementation target: `form-values` → `form:<bound-table-id>`, `workflow-transition` → `workflow:<table-id>`, and `page-access` → `page:<page-id>`. Relinking a passing page/form/workflow test cannot verify authentication, payments, external services or another implementation target.
 - A legacy manifest without structured acceptance criteria remains editable/generatable, but compile-only evidence cannot approve delivery. Missing criteria are explicitly `not-run`. Tests remain bounded contract evidence; semantic equivalence to arbitrary natural-language criteria is not claimed.
 - Focused coverage regressions exercise cross-capability and cross-target relinking, missing specifications, and the existing delivery approval/report path. Seven reference projects retain their compiler evidence while staying blocked without behavioral acceptance evidence.
 - Application-generation smoke, attachments regression, TypeScript, scoped ESLint, generated runtime/owned runtime/backend-link/release/BYO bundle consistency checks and whitespace validation passed locally. No generated artifact changed.
 - Read-only migration investigation confirmed that Supabase Preview's “Remote migration versions not found in local migrations directory” failure already existed before PR #237. Timestamp/name alignment needs a reviewed historical source map; no database history, migration SQL, Auth setting, credential or provider flag was changed.
+
+
+## Booking schedule acceptance — active follow-up
+
+- Adds the closed `booking-schedule` test kind against the existing published booking schedule policy, linked only to `booking:<table-id>` evidence. Fixtures contain a table ID, two canonical UTC instants and expected `withinSchedule` boolean; malformed or normalized dates are rejected.
+- Checks current weekly hours, maximum elapsed duration, reversed intervals, closing boundaries, date closures/special windows and time-zone behavior across a DST change. Missing/invalid schedules fail even when the expected result is negative; editing the schedule invalidates stale expectations.
+- This is interval-policy evidence only. It does not authenticate actors, inspect resource availability, reserve resources, prove conflict prevention or persist a booking. Those criteria remain unverified by this test kind.
+- The existing AI generation path accepts and preserves the new contract and rejects malformed fixtures atomically. Cross-capability and cross-table relinking remain blocked. Seven reference projects are reused, not recreated.
+- Application-generation smoke, existing booking regression, published-runtime and owned-source regressions, TypeScript, scoped ESLint, all affected generated runtime/Edge consistency checks and whitespace validation passed locally. Generated dependencies were rebuilt from their trusted generators with the locked esbuild version.
+
 
 ## Live repository check — 2026-10-14
 

@@ -210,6 +210,24 @@ try {
       applicationDataView: { tableId: 'appointments', columns: bookingFields.map(field => field.id), actions: ['create'], pageSize: 10 } }] }] };
   const realBooking = await run(bookingResponse, 6, 'بدي حجز المواعيد');
   assert.equal(realBooking.state.AiStage, 'ready'); assert.deepEqual(realBooking.state.Application.tables[0].booking, bookingRule);
+  const scheduleTest = { id: 'within-hours', requirementId: 'safe-booking', criterionIndex: 0, kind: 'booking-schedule', tableId: 'appointments',
+    startsAt: '2026-10-19T10:00:00.000Z', endsAt: '2026-10-19T10:30:00.000Z', expected: { withinSchedule: true } };
+  const scheduledBookingResponse = { ...bookingResponse,
+    application: { ...bookingResponse.application, tables: [{ ...bookingResponse.application.tables[0], booking: { ...bookingRule,
+      schedule: { timeZone: 'UTC', maxDurationMinutes: 60, weekly: [{ day: 1, startMinute: 540, endMinute: 1020 }] } } }] },
+    projectSpecification: { ...projectSpecification,
+      requirements: [{ id: 'safe-booking', origin: 'explicit', acceptanceCriteria: ['A synthetic interval fits the declared working hours.'] }],
+      operations: [{ ...projectSpecification.operations[2], requirementIds: ['safe-booking'], dependsOn: [] }],
+      rules: [], acceptanceTests: [scheduleTest] },
+  };
+  const scheduledBooking = await run(scheduledBookingResponse, 6, 'Build booking working hours', true);
+  assert.equal(scheduledBooking.state.AiStage, 'ready');
+  assert.deepEqual(scheduledBooking.state.Application.requirements.specification.acceptanceTests, [scheduleTest]);
+  const invalidScheduleFixture = structuredClone(scheduledBookingResponse);
+  invalidScheduleFixture.projectSpecification.acceptanceTests[0].startsAt = '2026-02-30T10:00:00.000Z';
+  const rejectedSchedule = await run(invalidScheduleFixture, 6, 'Build booking working hours', true);
+  assert.equal(rejectedSchedule.state.AiStage, 'error');
+  assert.equal(rejectedSchedule.state.Pages, undefined, 'An invalid booking acceptance fixture rejects generation atomically');
   for (const prompt of ['Build recurring appointments', 'Build a booking waitlist', 'Build booking working hours', 'Book a doctor and room using multiple resources']) {
     const incompleteBooking = await run(bookingResponse, 6, prompt);
     assert.equal(incompleteBooking.state.AiStage, 'error'); assert.equal(incompleteBooking.state.Pages, undefined); assert.equal(incompleteBooking.checkpoints.length, 0);

@@ -2,8 +2,9 @@ import type { ApplicationDefinition } from './application-model';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { ApplicationWorkflowRejected, applicationWorkflowTransition } from './application-workflow';
 import { canAccessApplicationPage } from './application-access-policy';
+import { applicationBookingWithinSchedule, validApplicationBookingSchedule } from './application-booking-schedule';
 import type { WebsitePage } from './website-builder-model';
-import type { ProjectAcceptanceTest } from './project-specification';
+import { projectAcceptanceInstant, type ProjectAcceptanceTest } from './project-specification';
 
 export interface ApplicationAcceptanceTestResult {
   id: string;
@@ -20,7 +21,7 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? '';
 }
 
-/** Runs only closed, native form-value, workflow-definition and page-policy protocols. It
+/** Runs only closed, native form-value, workflow-definition, page-policy and booking-schedule protocols. It
  * never connects to a database, executes generated source, logs fixture values,
  * or claims a record was saved or a transition was persisted. */
 export function runApplicationAcceptanceTest(
@@ -29,6 +30,17 @@ export function runApplicationAcceptanceTest(
   test: ProjectAcceptanceTest,
 ): ApplicationAcceptanceTestResult {
   const id = `acceptance:${test.requirementId}:${test.criterionIndex + 1}:${test.id}`;
+  if (test.kind === 'booking-schedule') {
+    const schedule = application.tables.find(table => table.id === test.tableId)?.booking?.schedule;
+    const from = projectAcceptanceInstant(test.startsAt), to = projectAcceptanceInstant(test.endsAt);
+    if (!schedule || !validApplicationBookingSchedule(schedule) || from === null || to === null) return {
+      id, kind: 'acceptance', result: 'failed', detail: 'The booking schedule test requires a current valid schedule and canonical UTC instants.',
+    };
+    const withinSchedule = applicationBookingWithinSchedule(schedule, from, to);
+    return withinSchedule === test.expected.withinSchedule
+      ? { id, kind: 'acceptance', result: 'passed', detail: 'The current booking schedule matches the expected interval policy; authorization, resource availability, conflicts and persistence are not exercised.' }
+      : { id, kind: 'acceptance', result: 'failed', detail: 'The current booking schedule differs from the expected interval policy.' };
+  }
   if (test.kind === 'page-access') {
     if (!pages.some(page => page.id === test.pageId)) return {
       id, kind: 'acceptance', result: 'failed', detail: 'The page access test target no longer exists.',
