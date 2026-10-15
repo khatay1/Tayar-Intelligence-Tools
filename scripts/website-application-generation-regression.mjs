@@ -158,10 +158,16 @@ try {
   createDeliveryActions({ ...deliveryArgs, application: verifiedApplication }).markProjectDelivered();
   assert.equal(deliveryMutations, 1, 'unapproved current builds cannot be marked delivered');
   createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, application: verifiedApplication }).markProjectDelivered();
-  assert.equal(deliveryMutations, 2, 'approved verified applications can be marked delivered');
+  assert.equal(deliveryMutations, 1, 'local policy/contract tests and a URL cannot prove application runtime delivery');
+  createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, application: verifiedApplication,
+    getLaunchReadiness: () => ({ score: 100, checks: [{ label: 'Published website', ok: true }, { label: 'Live verification', ok: true }], auditPoints: 40 }),
+  }).markProjectDelivered();
+  assert.equal(deliveryMutations, 1, 'generic launch checklist flags cannot substitute for release-bound runtime and service evidence');
   createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, publishedUrl: '', application: verifiedApplication }).markProjectDelivered();
-  assert.equal(deliveryMutations, 2, 'an unpublished application cannot be marked delivered');
-  assert.equal(alerts, 5);
+  assert.equal(deliveryMutations, 1, 'an unpublished application cannot be marked delivered');
+  assert.equal(alerts, 7);
+  createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, application: undefined }).markProjectDelivered();
+  assert.equal(deliveryMutations, 2, 'brochure delivery retains its existing path');
   const dataView = { tableId: 'appointments', columns: ['visit_date'], actions: ['update', 'delete'], pageSize: 10 };
   const dashboardResponse = { ...response, requirements: [{ id: 'record-editor', summary: 'Users can update saved records.', capability: 'records', evidence: ['view:appointments:update'] }], application: { ...application, tables: [{ ...table, permissions: [...table.permissions, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] }] },
     pages: [...response.pages, { name: 'Records', slug: 'records', sections: [{ type: 'features', title: 'My records', applicationDataView: dataView }] }] };

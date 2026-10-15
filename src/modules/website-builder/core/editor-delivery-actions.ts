@@ -83,6 +83,14 @@ export function createDeliveryActions({
       window.alert(l('Complete every launch readiness check before marking the application delivered.'));
       return;
     }
+    // This editor has contract evidence and generic launch flags, but no
+    // trusted attestation bound to the current customer release/requirements.
+    // Fail closed until that server-verified handoff exists; a URL, manual
+    // checklist or saved approval cannot attest Auth, RLS, writes or providers.
+    if (isApplication) {
+      window.alert(l('Application delivery is blocked until the current release has verified runtime and service evidence. Local tests and a published URL are insufficient.'));
+      return;
+    }
     if (!publishedUrl && !window.confirm(l('This project is not currently published. Mark it delivered anyway?'))) return;
     setDeliveryConfig((current) => ({ ...current, status: 'delivered', deliveredAt: new Date().toISOString() }));
     setSaved(false);

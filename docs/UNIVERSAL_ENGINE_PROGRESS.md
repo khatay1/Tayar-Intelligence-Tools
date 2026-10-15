@@ -2,7 +2,7 @@
 
 ## Current continuation checkpoint — 2026-10-16
 
-- Verified baseline `main` is `558c121f0ee7f4d9eb4130950b7db26da45102f0` (PR #243 merged); main Release Gate `38819839596` passed. PR #242 is merged as `24b89ef626e698eac6f8db97a08e98d21f24f78b`, and its main gate `38819363300` passed. Do not repeat either batch. Customer/provider activation remains deferred.
+- Verified baseline `main` is `1680eb486fb03cb8b4787c1beb45ae2ad4cc99a8` (PR #244 merged after Release Gate `38821230329` and Vercel Preview passed). Its post-merge main gate is tracked in GitHub. Parent main `558c121` (PR #243) passed Release Gate `38819839596`. PR #242 is merged as `24b89ef626e698eac6f8db97a08e98d21f24f78b`, and its main gate `38819363300` passed. Do not repeat either batch. Customer/provider activation remains deferred.
 - PR #214 was closed without merging: its custom-source specification, coverage, immutable release resolver and focused regressions already landed in `7ae9983`; those source/test files match the old branch. Its branch remains retained. Other old open PRs are not approved for integration; preserve the deferred Social Hub branch.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
@@ -15,12 +15,19 @@
 - PR #236 added `workflow-transition`, checking only whether a declared model permits or rejects a transition from an enum state and destination; it does not execute authorization, conditions, SQL effects or persistence. Its first Release Gate exposed stale generated bundles; the corrected runtime, BYO Publish, backend-link and release chain was regenerated with the locked toolchain and verified by the passing PR and main gates.
 - PR #237 added `page-access` acceptance tests against the shared pure page-policy function for synthetic authenticated, roleless and anonymous principals. These checks do not prove login, server authorization or route delivery. Project-specification and requirement-coverage regressions, application-generation smoke, TypeScript, scoped ESLint, the application data-runtime regression, generated runtime/browser/Edge bundle checks and `git diff --check` pass locally. Authentication identity, persistence, integrations and external services still need their own executable evidence; delivery remains blocked until each criterion has a passing supported test. Production/customer-service activation stays in the final phase.
 
-## AI repair security and storage contracts — active follow-up
+## Application delivery proof — active follow-up
+
+- Reproduced a real delivery bypass: a project with one passing synthetic page-policy criterion and a recorded URL could be marked delivered, although its report explicitly said deployment/runtime/services were unverified. Generic all-green launch flags also supplied no release-bound behavioral proof.
+- The existing delivery action now fails closed for applications after its existing contract/approval/publishing checks. Definition approval and evidence-report export still work; brochure delivery keeps its existing path. English, Arabic and Swedish explain the missing runtime/service evidence.
+- Actual generation/delivery regression, TypeScript, scoped ESLint, i18n coverage and whitespace checks passed locally. No provider calls, database changes or charges were performed.
+- Remaining blocker: this editor has no trusted server-verified attestation bound to the current immutable customer release and all required behaviors/providers. Do not reopen delivery with a client boolean, checklist or saved approval. Implement that handoff and collect Preview evidence before final activation. Next independent source work: explicit bounded table planning for large projects.
+
+## AI repair security and storage contracts — PR #244 merged
 
 - A regression reproduced an owner-to-authenticated permission expansion that left form/payload checks passing. The existing shared repair guard now rejects broader table-operation/page/workflow audiences, weakened Auth/email verification, newly enabled registration and changed refund authorization, even without requirement fixtures. SQL OR semantics are respected; owner and role audiences are incomparable. Explicit reviewed manual configuration remains available.
 - Existing table/field storage identities, constraints, defaults, references, formulas and native booking/counter/transaction/workflow/payment/file/notification/report contracts cannot be removed or changed by AI repair. New tables/fields, labels and ordinary indexes remain supported. Equivalent JSON member ordering does not produce a false contract change. These are editor safety checks, not a database migration engine or proof of live service behavior.
 - The actual planner/shared-command regression reuses all seven reference fixtures. It covers valid-but-unsafe schemas, the access audience matrix, protected pages with no tests, workflow/refund roles, atomic rejection with no history entry, safe additions/indexing, manual policy editing and existing undo/redo. The foundation fixture now establishes storage defaults and permissions through reviewed manual configuration before testing safe AI updates.
-- Next: mandatory PR Release Gate and merge only after success; then continue broader executable requirement/runtime evidence. Production, live database/migration history, customer credentials and Social Hub stay deferred.
+- PR #244 merged after Release Gate `38821230329` and Vercel Preview passed. TypeScript, scoped ESLint, planner/page-repair/foundation regressions and whitespace checks passed locally. Production, live database/migration history, customer credentials and Social Hub stay deferred.
 
 ## Acceptance evidence scope — PR #238 merged
 
