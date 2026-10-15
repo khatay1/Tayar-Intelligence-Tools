@@ -1,4 +1,5 @@
 import type { ApplicationDefinition } from './application-model';
+import { validApplicationBookingSchedule } from './application-booking-schedule';
 
 /** Domain-neutral planning metadata. References the existing application's
  * requirements/schema; descriptions are never evidence of executed code/tests. */
@@ -46,7 +47,22 @@ export type ProjectAcceptanceTest = ProjectAcceptanceTestBase & (
     principal: { authenticated: boolean; roleIds: string[] };
     expected: { accessible: boolean };
   }
+  | {
+    kind: 'booking-schedule';
+    tableId: string;
+    startsAt: string;
+    endsAt: string;
+    expected: { withinSchedule: boolean };
+  }
 );
+
+/** Canonical UTC instants keep acceptance fixtures independent of local parsing
+ * and reject calendar normalization such as February 30 becoming March 2. */
+export function projectAcceptanceInstant(value: unknown): number | null {
+  if (typeof value !== 'string' || !/^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return null;
+  const instant = Date.parse(value);
+  return Number.isFinite(instant) && new Date(instant).toISOString() === value ? instant : null;
+}
 
 type ObjectValue = Record<string, unknown>;
 const object = (value: unknown): value is ObjectValue => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -114,7 +130,7 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
   const acceptanceTests = catalog(value.acceptanceTests ?? [], 'acceptanceTests', [
     'id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'sectionId', 'input', 'expected',
     'tableId', 'transitionId', 'fromState',
-    'principal',
+    'principal', 'startsAt', 'endsAt',
   ]);
   for (const test of acceptanceTests) {
     const at = `acceptanceTests.${test.id}`;
@@ -169,6 +185,18 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
           || !canTransition) fail(`${at}.expected`, 'Expected available result must match the declared transition and source state.');
       } else if (test.expected.outcome !== 'rejected' || test.expected.toState !== undefined || canTransition) {
         fail(`${at}.expected`, 'Expected rejection must omit a destination and use a state outside the transition source.');
+      }
+    } else if (test.kind === 'booking-schedule') {
+      shape(test, ['id', 'requirementId', 'criterionIndex', 'kind', 'tableId', 'startsAt', 'endsAt', 'expected'], at);
+      const table = application.tables.find(item => item.id === test.tableId);
+      if (!identifier(test.tableId) || !table?.booking?.schedule || !validApplicationBookingSchedule(table.booking.schedule)) {
+        fail(at, 'Booking schedule tests must reference a table with a valid declared booking schedule.');
+      }
+      if (projectAcceptanceInstant(test.startsAt) === null || projectAcceptanceInstant(test.endsAt) === null) {
+        fail(at, 'Booking schedule fixtures require canonical UTC instants: YYYY-MM-DDTHH:mm:ss.sssZ.');
+      }
+      if (shape(test.expected, ['withinSchedule'], `${at}.expected`) && typeof test.expected.withinSchedule !== 'boolean') {
+        fail(`${at}.expected`, 'Expected schedule membership must be a boolean.');
       }
     } else if (test.kind === 'page-access') {
       shape(test, ['id', 'requirementId', 'criterionIndex', 'kind', 'pageId', 'principal', 'expected'], at);
