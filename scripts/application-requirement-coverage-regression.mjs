@@ -18,7 +18,18 @@ try {
       { id: 'account', summary: 'Authenticate the user.', capability: 'auth', evidence: ['auth'] },
       { id: 'task-form', summary: 'Save an owner task.', capability: 'form', evidence: ['form:tasks'] },
       { id: 'task-page', summary: 'Show the task page.', capability: 'page', evidence: ['page:tasks-page'] },
-    ] },
+    ], specification: {
+      version: 1, intent: 'A protected task list.', actors: [{ id: 'owner', name: 'Task owner' }],
+      entities: [{ id: 'tasks', scope: 'owner', classification: 'internal' }],
+      requirements: [
+        { id: 'account', origin: 'explicit', acceptanceCriteria: ['A signed-in non-anonymous user is identified.'] },
+        { id: 'task-form', origin: 'explicit', acceptanceCriteria: ['A valid owner task is saved.', 'Invalid titles are rejected.'] },
+        { id: 'task-page', origin: 'explicit', acceptanceCriteria: ['The tasks page is available after sign-in.'] },
+      ],
+      operations: ['account', 'task-form', 'task-page'].map(id => ({ id: `op-${id}`, summary: `Implements ${id}.`,
+        actorIds: ['owner'], entityIds: ['tasks'], requirementIds: [id], dependsOn: [], execution: 'native', transactional: false })),
+      rules: [], tenancy: { mode: 'single' }, integrations: [], privacy: [], decisions: [],
+    } },
   };
   const pages = [{ id: 'tasks-page', slug: 'tasks', sections: [{ id: 'task-form', type: 'contact',
     formFields: [{ id: 'title-input', name: 'title', label: 'Title', type: 'text', required: true }],
@@ -26,9 +37,10 @@ try {
   const rows = buildApplicationRequirementCoverage(application, pages);
   assert.equal(rows.length, 3);
   assert.ok(rows.every(row => row.deliveryStatus === 'contract-verified'), JSON.stringify(rows));
-  assert.deepEqual(rows[1].implementation, ['form:tasks']);
+  assert.deepEqual(rows[1].implementation, ['form:tasks', 'operation:op-task-form']);
+  assert.deepEqual(rows[1].acceptanceCriteria, ['A valid owner task is saved.', 'Invalid titles are rejected.']);
   assert.equal(rows[1].tests[0].result, 'passed');
-  assert.match(formatApplicationRequirementCoverage(rows).join('\n'), /Requirement: task-form[\s\S]*Implementation: form:tasks[\s\S]*Result: passed[\s\S]*Delivery status: contract-verified/);
+  assert.match(formatApplicationRequirementCoverage(rows).join('\n'), /Requirement: task-form[\s\S]*Acceptance criteria: A valid owner task is saved\. \| Invalid titles are rejected\.[\s\S]*Implementation: form:tasks[\s\S]*Result: passed[\s\S]*Delivery status: contract-verified/);
   assert.deepEqual(applicationRequirementIssues(application, pages), []);
   const missingPageRows = buildApplicationRequirementCoverage(application, [{ ...pages[0], id: 'other-page' }]);
   assert.equal(missingPageRows.find(row => row.requirementId === 'task-page').deliveryStatus, 'blocked');
@@ -39,7 +51,7 @@ try {
   assert.deepEqual(buildApplicationRequirementCoverage({ ...application, requirements: undefined }, pages), []);
 
   const customApplication = structuredClone(application);
-  customApplication.requirements.specification = { operations: [{ id: 'custom-task', requirementIds: ['task-form'], execution: 'custom' }] };
+  customApplication.requirements.specification.operations = [{ id: 'custom-task', requirementIds: ['task-form'], execution: 'custom' }];
   const customPages = structuredClone(pages);
   customPages[0].sections.push({ id: 'run-task', type: 'features', elements: [{ id: 'run-task-button', type: 'button',
     action: 'custom-operation', customOperationId: 'custom-task', customOperationInputJson: '{"task":"current"}' }] });
