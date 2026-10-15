@@ -30,7 +30,11 @@ function chromeBinary() {
 }
 
 function start(command, args, options = {}) {
-  const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...options });
+  const child = spawn(command, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...(process.platform !== 'win32' ? { detached: true } : {}),
+    ...options,
+  });
   const output = [];
   const capture = (chunk) => { output.push(String(chunk)); if (output.length > 120) output.shift(); };
   child.stdout?.on('data', capture);
@@ -39,10 +43,24 @@ function start(command, args, options = {}) {
 }
 
 async function stop(child) {
-  if (!child || child.exitCode !== null) return;
-  child.kill('SIGTERM');
-  await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1200)]);
-  if (child.exitCode === null) child.kill('SIGKILL');
+  if (!child?.pid) return;
+  const signalTree = (signal) => {
+    if (process.platform === 'win32') {
+      if (signal === 'SIGKILL') spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+      else if (child.exitCode === null) child.kill(signal);
+      return;
+    }
+    try { process.kill(-child.pid, signal); }
+    catch { if (child.exitCode === null) child.kill(signal); }
+  };
+  signalTree('SIGTERM');
+  if (child.exitCode === null) {
+    await Promise.race([new Promise((resolve) => child.once('exit', resolve)), sleep(1200)]);
+  }
+  // The browser's parent can exit while renderer/cache subprocesses still
+  // hold its profile. Kill the whole detached process group before removal.
+  signalTree('SIGKILL');
+  await Promise.race([new Promise((resolve) => child.exitCode !== null ? resolve() : child.once('exit', resolve)), sleep(300)]);
 }
 
 async function waitHttp(url, timeout = 15_000) {
@@ -225,7 +243,7 @@ async function regression() {
       await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk, modifiers: 2 });
     };
 
-    await waitFor('Website Builder desktop shell', `document.querySelector('.tayar-v2-shell') && document.querySelectorAll('[data-tayar-canvas-element-id]').length >= 2 && document.documentElement.dir === 'ltr'`);
+    await waitFor('Website Builder desktop shell', `document.querySelector('.tayar-v2-shell') && document.querySelectorAll('[data-tayar-canvas-element-id]').length >= 2 && document.documentElement.dir === 'ltr'`, 20_000);
     await evaluate('document.fonts.ready.then(() => true)');
     await waitFor('desktop panel layout after styles load', `(() => {
       const left = document.querySelector('.tayar-v2-left-sidebar')?.getBoundingClientRect();
@@ -405,7 +423,9 @@ async function regression() {
     await stop(chrome?.child);
     for (const attempt of chromeAttempts) await stop(attempt.child);
     await stop(vite.child);
-    for (const directory of userDataDirs) fs.rmSync(directory, { recursive: true, force: true });
+    for (const directory of userDataDirs) {
+      await fs.promises.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
   }
 }
 
