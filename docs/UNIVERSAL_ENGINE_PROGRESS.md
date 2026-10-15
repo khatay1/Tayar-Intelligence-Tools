@@ -1,14 +1,8 @@
-Warning: truncated output (original token count: 8061)
-Total output lines: 502
-
-Warning: truncated output (original token count: 8002)
-Total output lines: 499
-
 # Universal engineering platform — verified checkpoint
 
 ## Current continuation checkpoint — 2026-10-15
 
-- Current `main` is `c97e6f2542cb91552d9dde0f6a208b5202e76fb2`. PR #236, “Add workflow transition acceptance tests,” merged after Release Gate `38769797041`, `quality`, and Vercel Preview passed; post-merge main Release Gate `38770746893` passed. The corrected locked-toolchain runtime, BYO Publish, backend-link and release bundles are included. No Production deployment or provider activation was performed.
+- Current baseline `main` is `3b133755ee8818e26603eb0ed56e0121aa410359`. PR #237, “Add page access acceptance tests,” merged after its Release Gate and Vercel Preview passed. The browser job needed one retry after an intermittent Chromium timeout. Generated runtime dependencies are included. Production promotion and customer/provider activation remain deferred.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
 - PR #230 displays bounded custom-operation JSON results in an accessible collapsible panel using a `textContent` sink. Generation/reference-project, custom-operation flow/client/runtime, TypeScript, scoped ESLint, generated-artifact consistency and whitespace checks passed before merge. Generated Edge bundles were restored from trusted sources after the PR gate found stale copies.
@@ -18,7 +12,14 @@ Total output lines: 499
 - The post-merge main Release Gate initially failed in Website Builder browser regression: the shell was not ready within 10 seconds and cleanup raced Chrome profile subprocesses (`ENOTEMPTY`). PR #232 increased the shell wait and now terminates detached browser/server process groups before removing profiles. Its PR browser regression passed; post-merge main Release Gate `38735797782` passed. Local browser execution remains unavailable here because Chrome/Chromium is absent.
 - PR #235 added the closed `form-values` acceptance-test protocol. It executes the current form compiler/converter, checks expected mapped output or rejection, rejects credential-like fixtures, and never claims a database write.
 - PR #236 added `workflow-transition`, checking only whether a declared model permits or rejects a transition from an enum state and destination; it does not execute authorization, conditions, SQL effects or persistence. Its first Release Gate exposed stale generated bundles; the corrected runtime, BYO Publish, backend-link and release chain was regenerated with the locked toolchain and verified by the passing PR and main gates.
-- Current follow-up adds `page-access` acceptance tests against the shared pure page-policy function for synthetic authenticated, roleless and anonymous principals. These checks do not prove login, server authorization or route delivery. Project-specification and requirement-coverage regressions, application-generation smoke, TypeScript, scoped ESLint, the application data-runtime regression, generated runtime/browser/Edge bundle checks and `git diff --check` pass locally. Authentication identity, persistence, integrations and external services still need their own executable evidence; delivery remains blocked until each criterion has a passing supported test. Production/customer-service activation stays in the final phase.
+- PR #237 added `page-access` acceptance tests against the shared pure page-policy function for synthetic authenticated, roleless and anonymous principals. These checks do not prove login, server authorization or route delivery. Project-specification and requirement-coverage regressions, application-generation smoke, TypeScript, scoped ESLint, the application data-runtime regression, generated runtime/browser/Edge bundle checks and `git diff --check` pass locally. Authentication identity, persistence, integrations and external services still need their own executable evidence; delivery remains blocked until each criterion has a passing supported test. Production/customer-service activation stays in the final phase.
+## Acceptance evidence scope — active follow-up
+
+- Closed acceptance tests now match both the requirement capability and its current declared implementation target: `form-values` → `form:<bound-table-id>`, `workflow-transition` → `workflow:<table-id>`, and `page-access` → `page:<page-id>`. Relinking a passing page/form/workflow test cannot verify authentication, payments, external services or another implementation target.
+- A legacy manifest without structured acceptance criteria remains editable/generatable, but compile-only evidence cannot approve delivery. Missing criteria are explicitly `not-run`. Tests remain bounded contract evidence; semantic equivalence to arbitrary natural-language criteria is not claimed.
+- Focused coverage regressions exercise cross-capability and cross-target relinking, missing specifications, and the existing delivery approval/report path. Seven reference projects retain their compiler evidence while staying blocked without behavioral acceptance evidence.
+- Application-generation smoke, attachments regression, TypeScript, scoped ESLint, generated runtime/owned runtime/backend-link/release/BYO bundle consistency checks and whitespace validation passed locally. No generated artifact changed.
+- Read-only migration investigation confirmed that Supabase Preview's “Remote migration versions not found in local migrations directory” failure already existed before PR #237. Timestamp/name alignment needs a reviewed historical source map; no database history, migration SQL, Auth setting, credential or provider flag was changed.
 
 ## Live repository check — 2026-10-14
 

@@ -92,8 +92,10 @@ try {
     const coverageWithPrimaryFeature = buildApplicationRequirementCoverage(featureCoverageApplication, [coveragePage]);
     const featureCoverage = coverageWithPrimaryFeature.find(row => row.requirementId === 'primary-feature');
     assert.equal(featureCoverage?.tests[0]?.id, `contract:${featureEvidence}`);
-    assert.equal(featureCoverage?.deliveryStatus, 'contract-verified',
+    assert.equal(featureCoverage?.tests[0]?.result, 'passed',
       `${reference.domain} primary capability is backed by its compiled data view: ${JSON.stringify(featureCoverage)}`);
+    assert.equal(featureCoverage?.deliveryStatus, 'blocked',
+      `${reference.domain} compilation without structured acceptance criteria cannot prove behavioral coverage`);
     const unboundFeaturePage = structuredClone(coveragePage);
     const featureSection = unboundFeaturePage.sections.find(section => section.applicationDataView.tableId === featureTable.id);
     if (featureAction) featureSection.applicationDataView.actions = featureSection.applicationDataView.actions.filter(action => action !== featureAction);

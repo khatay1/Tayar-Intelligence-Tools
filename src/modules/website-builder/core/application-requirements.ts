@@ -3,6 +3,7 @@ import { compileApplicationDataView } from './application-data-view';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { runApplicationAcceptanceTest } from './application-acceptance-tests';
 import { parseApplicationCustomOperationAction } from './application-custom-operation-actions';
+import type { ProjectAcceptanceTest } from './project-specification';
 import type { WebsitePage } from './website-builder-model';
 
 const capabilityPrefix: Record<string, string> = {
@@ -10,6 +11,20 @@ const capabilityPrefix: Record<string, string> = {
   booking: 'booking:', counter: 'counter:', transaction: 'transaction:', workflow: 'workflow:', formula: 'formula:', files: 'files:',
   payment: 'payment:', email: 'email:', reports: 'reports:',
 };
+
+/** A passing closed test only supplies evidence for its own capability and
+ * current implementation target. Linking an ID cannot widen that evidence. */
+function acceptanceTestReference(test: ProjectAcceptanceTest, pages: WebsitePage[]): { capability: string; reference: string } | null {
+  if (test.kind === 'page-access') return { capability: 'page', reference: `page:${test.pageId}` };
+  if (test.kind === 'workflow-transition') return { capability: 'workflow', reference: `workflow:${test.tableId}` };
+  if (test.kind === 'form-values') {
+    const section = pages.find(page => page.id === test.pageId)?.sections.find(section => section.id === test.sectionId);
+    return section?.applicationFormBinding
+      ? { capability: 'form', reference: `form:${section.applicationFormBinding.tableId}` }
+      : null;
+  }
+  return null;
+}
 
 export interface ApplicationRequirementCoverageRow {
   requirementId: string;
@@ -83,6 +98,12 @@ export function buildApplicationRequirementCoverage(
         : `Current project does not compile implementation reference ${reference}.`,
     }));
     const criteria = acceptanceCriteria.get(item.id) ?? [];
+    if (!criteria.length) tests.push({
+      id: `acceptance:${item.id}`,
+      kind: 'acceptance',
+      result: 'not-run',
+      detail: 'No structured acceptance criteria are registered for this requirement.',
+    });
     // Criterion text is traceability, never proof. Execute only registered
     // closed test kinds; keep unsupported or missing criteria explicitly
     // unverified instead of treating a compile check as behavioral evidence.
@@ -97,7 +118,17 @@ export function buildApplicationRequirementCoverage(
         });
         return;
       }
-      for (const test of linked) tests.push(runApplicationAcceptanceTest(application, pages, test));
+      for (const test of linked) {
+        const scope = acceptanceTestReference(test, pages);
+        if (!scope || scope.capability !== item.capability || !item.evidence.includes(scope.reference)) {
+          tests.push({
+            id: `acceptance:${test.requirementId}:${test.criterionIndex + 1}:${test.id}`,
+            kind: 'acceptance',
+            result: 'failed',
+            detail: 'This test does not cover the requirement capability and its declared implementation reference.',
+          });
+        } else tests.push(runApplicationAcceptanceTest(application, pages, test));
+      }
     });
     const linkedOperations = operations.filter(operation => operation.requirementIds.includes(item.id));
     const operationIds = linkedOperations.map(operation => `operation:${operation.id}`);

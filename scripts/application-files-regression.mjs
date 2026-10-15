@@ -40,7 +40,8 @@ try {
   assert.match(migrate(app, changed).join('\n'), /create or replace function private.app_files_0_access/);
   const withManifest = { ...app, requirements: { version: 1, request: 'Upload documents', items: [{ id: 'req-files', summary: 'Attach files', capability: 'files', evidence: ['files:documents'] }] } };
   validate(withManifest);
-  assert.deepEqual(requirements(withManifest, [{ id: 'dashboard', sections: [{ applicationDataView: binding }] }]), []);
+  assert.equal(requirements(withManifest, [{ id: 'dashboard', sections: [{ applicationDataView: binding }] }]).length, 1,
+    'A compiled file binding without structured acceptance criteria cannot prove delivery coverage');
   assert.equal(requirements(withManifest, [{ id: 'dashboard', sections: [] }]).length, 1);
 
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_fixture' };
