@@ -1,0 +1,380 @@
+{
+  "version": 1,
+  "observedAt": "2026-10-16",
+  "projectRef": "pnbllxdlskljcakyaylt",
+  "baselineCommit": "1680eb486fb03cb8b4787c1beb45ae2ad4cc99a8",
+  "normalization": "Remove trailing CR/LF only; preserve every other SQL byte. Remote statements joined by LF.",
+  "renamed": [
+    {
+      "name": "disable_unsafe_website_publish_scheduler",
+      "localVersion": "20260925094500",
+      "remoteVersion": "20260925072841",
+      "path": "supabase/migrations/20260925094500_disable_unsafe_website_publish_scheduler.sql",
+      "sqlSha256": "8a9a0d86b4a6fd037ed65f33c1c8c7ad8b2dd37cf09629d8d90ae9b9772d00de"
+    },
+    {
+      "name": "team_workspace_authorization_null_guards",
+      "localVersion": "20261005143000",
+      "remoteVersion": "20261005150631",
+      "path": "supabase/migrations/20261005143000_team_workspace_authorization_null_guards.sql",
+      "sqlSha256": "8ee4aa149a7ec33e3ac9a38b5af462e87108bddb2a8c9f1e43299fb9523293ae"
+    },
+    {
+      "name": "local_tool_consumption_receipt",
+      "localVersion": "20261005143100",
+      "remoteVersion": "20261005150649",
+      "path": "supabase/migrations/20261005143100_local_tool_consumption_receipt.sql",
+      "sqlSha256": "bfb33a9b93b874b8152aad031f6608cdc42b70c73d9e4684243cc00e555d88e9"
+    },
+    {
+      "name": "website_legacy_form_rate_limit_identity",
+      "localVersion": "20261005122312",
+      "remoteVersion": "20261005150706",
+      "path": "supabase/migrations/20261005122312_website_legacy_form_rate_limit_identity.sql",
+      "sqlSha256": "f30ea19dd4da249822a717858f62054f54766b85eec3c0c037cdc5be2fbbad1d"
+    },
+    {
+      "name": "atomic_ai_quota_reservations",
+      "localVersion": "20261005165000",
+      "remoteVersion": "20261005150724",
+      "path": "supabase/migrations/20261005165000_atomic_ai_quota_reservations.sql",
+      "sqlSha256": "d9bc16b2ed24a452bdd87704754eb7932adff00a038310182b362a5cb2a213e7"
+    },
+    {
+      "name": "private_draft_media",
+      "localVersion": "20261006104228",
+      "remoteVersion": "20261006105659",
+      "path": "supabase/migrations/20261006104228_private_draft_media.sql",
+      "sqlSha256": "0d3f895026e5b52e9e8587537f856b91439f324dd57eb84566e5cdad81734dae"
+    },
+    {
+      "name": "close_public_draft_storage",
+      "localVersion": "20261006104445",
+      "remoteVersion": "20261006163656",
+      "path": "supabase/migrations/20261006104445_close_public_draft_storage.sql",
+      "sqlSha256": "3861778b1d39a317e680103cce30e060b3f6628fe8606b15ca96e33a43e38d96"
+    },
+    {
+      "name": "harden_custom_domain_control",
+      "localVersion": "20261006211000",
+      "remoteVersion": "20261006193404",
+      "path": "supabase/migrations/20261006211000_harden_custom_domain_control.sql",
+      "sqlSha256": "f6d3fe5ef8235e95fcc2717de88dce8085836565f17da32ff069b5435b9c133a"
+    },
+    {
+      "name": "website_byo_infrastructure_connections",
+      "localVersion": "20260928205027",
+      "remoteVersion": "20261007160506",
+      "path": "supabase/migrations/20260928205027_website_byo_infrastructure_connections.sql",
+      "sqlSha256": "318d1d23e544eac71db628f1baab3d0d1e93833eb4fe675ac9a4cb05722ca51e"
+    },
+    {
+      "name": "website_byo_oauth_state",
+      "localVersion": "20260928215024",
+      "remoteVersion": "20261007160513",
+      "path": "supabase/migrations/20260928215024_website_byo_oauth_state.sql",
+      "sqlSha256": "c015a8c5985eca0aaad3ce8c02d272c699a0f48aa78ccd128d8a53b0d35ba3ba"
+    },
+    {
+      "name": "website_byo_connection_handoff",
+      "localVersion": "20260928215959",
+      "remoteVersion": "20261007160520",
+      "path": "supabase/migrations/20260928215959_website_byo_connection_handoff.sql",
+      "sqlSha256": "222340c651cc32747bfc0dfc4ae2cf99e825b8a7e2abdeb5bb5775f13ffa4ec4"
+    },
+    {
+      "name": "website_byo_github_export_cursor",
+      "localVersion": "20260929001500",
+      "remoteVersion": "20261007160527",
+      "path": "supabase/migrations/20260929001500_website_byo_github_export_cursor.sql",
+      "sqlSha256": "b70d9a116561948239c46c20e6393d89524d12289e47ef1af03f4ad478c0eaf1"
+    },
+    {
+      "name": "website_byo_supabase_oauth_custody",
+      "localVersion": "20260929170000",
+      "remoteVersion": "20261007160536",
+      "path": "supabase/migrations/20260929170000_website_byo_supabase_oauth_custody.sql",
+      "sqlSha256": "33ef46203a1bfadda96ef46d28ae47c3200f970a87368777b7d95721b024ddc4"
+    },
+    {
+      "name": "website_byo_supabase_disconnect",
+      "localVersion": "20260929182500",
+      "remoteVersion": "20261007160543",
+      "path": "supabase/migrations/20260929182500_website_byo_supabase_disconnect.sql",
+      "sqlSha256": "afb71312d5fc8af0f6b0409ad93e6650aa36e42ed3afc44f923001ad01f3710b"
+    },
+    {
+      "name": "website_byo_custody_cleanup_schedule",
+      "localVersion": "20260929190000",
+      "remoteVersion": "20261007160550",
+      "path": "supabase/migrations/20260929190000_website_byo_custody_cleanup_schedule.sql",
+      "sqlSha256": "142096822d1cb9362062a063bcaf2023ef3c28895fc4281fb1790d2ae628fb80"
+    },
+    {
+      "name": "website_byo_supabase_project_binding",
+      "localVersion": "20260929223000",
+      "remoteVersion": "20261007160601",
+      "path": "supabase/migrations/20260929223000_website_byo_supabase_project_binding.sql",
+      "sqlSha256": "1f9324bd03465ac5649a3476171df56b66c78b4718bcb8b07c3463cbe48241ec"
+    },
+    {
+      "name": "website_byo_vercel_project_binding",
+      "localVersion": "20260929233000",
+      "remoteVersion": "20261007160608",
+      "path": "supabase/migrations/20260929233000_website_byo_vercel_project_binding.sql",
+      "sqlSha256": "fee20abb945dee81c11c6981857e189d63f73ad362201bd0ae1c0118e024c6bd"
+    },
+    {
+      "name": "website_byo_vercel_disconnect",
+      "localVersion": "20260930003000",
+      "remoteVersion": "20261007160616",
+      "path": "supabase/migrations/20260930003000_website_byo_vercel_disconnect.sql",
+      "sqlSha256": "85f8879798cf96a2ee9b13e002eef537ef5c023ca543e103d7519a8f109acc21"
+    },
+    {
+      "name": "website_byo_vercel_deployment_attempt",
+      "localVersion": "20260930013000",
+      "remoteVersion": "20261007160623",
+      "path": "supabase/migrations/20260930013000_website_byo_vercel_deployment_attempt.sql",
+      "sqlSha256": "55b9d974825afaae677de11a5b9f272072fd8413f60bf59c2219c14e7ec7fbda"
+    },
+    {
+      "name": "website_project_secrets",
+      "localVersion": "20260926233000",
+      "remoteVersion": "20261007160706",
+      "path": "supabase/migrations/20260926233000_website_project_secrets.sql",
+      "sqlSha256": "e6a07435fc77882483921d944700503f44afcca7638304fb617bb63de11f7f69"
+    },
+    {
+      "name": "website_application_backend_bindings",
+      "localVersion": "20260927001500",
+      "remoteVersion": "20261007160713",
+      "path": "supabase/migrations/20260927001500_website_application_backend_bindings.sql",
+      "sqlSha256": "11c46a4624436d6e4c711277083ab37466f98bfd24bd3f52d883d3a49b05b3fe"
+    },
+    {
+      "name": "website_byo_vercel_secret_handoff",
+      "localVersion": "20260930020000",
+      "remoteVersion": "20261007160733",
+      "path": "supabase/migrations/20260930020000_website_byo_vercel_secret_handoff.sql",
+      "sqlSha256": "8206eb7db5d69a178606e970115bd634a1808b0cfa047a192b55083d16cc58f6"
+    },
+    {
+      "name": "website_byo_vercel_secret_removal",
+      "localVersion": "20260930023000",
+      "remoteVersion": "20261007160743",
+      "path": "supabase/migrations/20260930023000_website_byo_vercel_secret_removal.sql",
+      "sqlSha256": "207a292844e09df4133a7009a9343e3127770f66c5480c72ea7f3fc12de77c31"
+    },
+    {
+      "name": "website_byo_publish_checkpoint",
+      "localVersion": "20260930030000",
+      "remoteVersion": "20261007160752",
+      "path": "supabase/migrations/20260930030000_website_byo_publish_checkpoint.sql",
+      "sqlSha256": "a8c3e730c6c1459553858014c851667294c9aff0a488b2d2e8563bfbd99efed5"
+    },
+    {
+      "name": "website_byo_publish_adapters",
+      "localVersion": "20260930033000",
+      "remoteVersion": "20261007160800",
+      "path": "supabase/migrations/20260930033000_website_byo_publish_adapters.sql",
+      "sqlSha256": "eb74383ddeca32379ed8b75bdd769a2c3405676994e83a1c86263f2a8ee31db2"
+    },
+    {
+      "name": "website_byo_vercel_promotion",
+      "localVersion": "20260930040000",
+      "remoteVersion": "20261007160809",
+      "path": "supabase/migrations/20260930040000_website_byo_vercel_promotion.sql",
+      "sqlSha256": "46404e352794b0abf4940ccdfb5afa260d3d0a94c99bfe2b5f1b123619020b04"
+    },
+    {
+      "name": "website_byo_production_publish_checkpoint",
+      "localVersion": "20260930043000",
+      "remoteVersion": "20261007160817",
+      "path": "supabase/migrations/20260930043000_website_byo_production_publish_checkpoint.sql",
+      "sqlSha256": "993506bd4a991b763d6f7c6662446be2e00a609931d6dd91848444a47c90ebd2"
+    },
+    {
+      "name": "website_byo_publish_targets",
+      "localVersion": "20260930050000",
+      "remoteVersion": "20261007160826",
+      "path": "supabase/migrations/20260930050000_website_byo_publish_targets.sql",
+      "sqlSha256": "987b88d944b8d4dd5dd3b3a199a641926bc56e0059b1bcb751a46cfa9fa0291f"
+    },
+    {
+      "name": "website_byo_runtime_binding",
+      "localVersion": "20260930053000",
+      "remoteVersion": "20261007160834",
+      "path": "supabase/migrations/20260930053000_website_byo_runtime_binding.sql",
+      "sqlSha256": "5d2a41906d3acc167b98a3bee79cb21d6e523fc36b8922ed660955f6ec6fa164"
+    },
+    {
+      "name": "website_byo_runtime_binding_reconciliation",
+      "localVersion": "20260930054500",
+      "remoteVersion": "20261007160846",
+      "path": "supabase/migrations/20260930054500_website_byo_runtime_binding_reconciliation.sql",
+      "sqlSha256": "21a7f5e442a81d8040bc5c52c0426db41249ef88b30cc76bbe8384d22a1ef757"
+    },
+    {
+      "name": "website_byo_supabase_migration_attempts",
+      "localVersion": "20260930220555",
+      "remoteVersion": "20261007160900",
+      "path": "supabase/migrations/20260930220555_website_byo_supabase_migration_attempts.sql",
+      "sqlSha256": "94f470fd20629809aecefd54ac8a506e45527126f956aaa57ea6a686a220085b"
+    },
+    {
+      "name": "website_byo_supabase_migration_target",
+      "localVersion": "20261001172554",
+      "remoteVersion": "20261007160907",
+      "path": "supabase/migrations/20261001172554_website_byo_supabase_migration_target.sql",
+      "sqlSha256": "406683c6559c26b4d51d8279ea0f3855cb71a7fe914c483459fb3fd72dc9a65b"
+    },
+    {
+      "name": "website_byo_backend_preparation_target",
+      "localVersion": "20261001180025",
+      "remoteVersion": "20261007160916",
+      "path": "supabase/migrations/20261001180025_website_byo_backend_preparation_target.sql",
+      "sqlSha256": "aa09f889abe94f2879a26d445f1a240af89fdfcccc4fbd0669b29342be138f75"
+    },
+    {
+      "name": "website_byo_runtime_binding_identity",
+      "localVersion": "20261002083524",
+      "remoteVersion": "20261007160924",
+      "path": "supabase/migrations/20261002083524_website_byo_runtime_binding_identity.sql",
+      "sqlSha256": "0d28f735a1cc3cda9a293cdae0eb9bb040155dbe6878a90eeb5f541f28cd0a6e"
+    },
+    {
+      "name": "website_byo_runtime_environment_receipts",
+      "localVersion": "20261002084455",
+      "remoteVersion": "20261007160932",
+      "path": "supabase/migrations/20261002084455_website_byo_runtime_environment_receipts.sql",
+      "sqlSha256": "89afbc3d5ff5a88bec2f673a5058cf636d93333f3560290634029a22eb9faa31"
+    },
+    {
+      "name": "website_byo_runtime_environment_rotation",
+      "localVersion": "20261002085813",
+      "remoteVersion": "20261007160939",
+      "path": "supabase/migrations/20261002085813_website_byo_runtime_environment_rotation.sql",
+      "sqlSha256": "c18875577dba989534bb6793565eb6442ec01f2746daba674dcabbcddda088d4"
+    },
+    {
+      "name": "website_byo_deployment_runtime_receipt",
+      "localVersion": "20261002090825",
+      "remoteVersion": "20261007160947",
+      "path": "supabase/migrations/20261002090825_website_byo_deployment_runtime_receipt.sql",
+      "sqlSha256": "835d22a1bb18149494fa4da34851648fc87d04f042b901f462940004d3656133"
+    },
+    {
+      "name": "website_byo_production_runtime_environment",
+      "localVersion": "20261002100908",
+      "remoteVersion": "20261007160959",
+      "path": "supabase/migrations/20261002100908_website_byo_production_runtime_environment.sql",
+      "sqlSha256": "e97052a0436298283d7e6176857f3a58c84c12115eecd16eaae60df208f0cf48"
+    },
+    {
+      "name": "website_byo_vercel_runtime_disconnect_cleanup",
+      "localVersion": "20261002144040",
+      "remoteVersion": "20261007161009",
+      "path": "supabase/migrations/20261002144040_website_byo_vercel_runtime_disconnect_cleanup.sql",
+      "sqlSha256": "890b58fc223f8c0353d84d6f441f52f31d44a8e828e6d697ad3e09c3c91bf326"
+    },
+    {
+      "name": "website_byo_github_oauth_custody",
+      "localVersion": "20261003231500",
+      "remoteVersion": "20261007161017",
+      "path": "supabase/migrations/20261003231500_website_byo_github_oauth_custody.sql",
+      "sqlSha256": "a0d5f8d88a45db6d216bbcdc9ad8d7c24185585c6f70d1bbd5edc79e59769006"
+    },
+    {
+      "name": "website_byo_github_custody_cleanup_schedule",
+      "localVersion": "20261003231600",
+      "remoteVersion": "20261007161024",
+      "path": "supabase/migrations/20261003231600_website_byo_github_custody_cleanup_schedule.sql",
+      "sqlSha256": "f650087cf277b51293e858bc5df9b4de4edd5aa31f86f4458ca74e2f4933fab8"
+    },
+    {
+      "name": "website_byo_vercel_secret_handoff_recovery",
+      "localVersion": "20261004110500",
+      "remoteVersion": "20261007161032",
+      "path": "supabase/migrations/20261004110500_website_byo_vercel_secret_handoff_recovery.sql",
+      "sqlSha256": "18aeed1c87602a19bca4cb3ead646c17fe7551cc5dc62ad975834115a5452f37"
+    },
+    {
+      "name": "website_byo_stripe_runtime_binding",
+      "localVersion": "20261004113000",
+      "remoteVersion": "20261007161039",
+      "path": "supabase/migrations/20261004113000_website_byo_stripe_runtime_binding.sql",
+      "sqlSha256": "d9865a94ce838ef0072da2d3c362f7270913d93cb7df48b5faff66349582e99e"
+    },
+    {
+      "name": "website_byo_stripe_publish_runtime",
+      "localVersion": "20261004150000",
+      "remoteVersion": "20261007161047",
+      "path": "supabase/migrations/20261004150000_website_byo_stripe_publish_runtime.sql",
+      "sqlSha256": "4fe69125e5ffbf1659a39678adc2110d739be5408255b768fd0db8db86d48ac9"
+    },
+    {
+      "name": "phase_zero_advisor_hardening",
+      "localVersion": "20261011183711",
+      "remoteVersion": "20261011184736",
+      "path": "supabase/migrations/20261011183711_phase_zero_advisor_hardening.sql",
+      "sqlSha256": "d657b5b1d28cc82e54ccf88e7f30d0ce0086012979c0e0ee0e5f62cc4ccb4c2d"
+    }
+  ],
+  "localWithoutRemoteName": [
+    {
+      "path": "supabase/migrations/20260925092000_website_publish_scheduler_readiness.sql",
+      "version": "20260925092000",
+      "name": "website_publish_scheduler_readiness",
+      "sqlSha256": "9806a5483f7659accee17929e475de5d538ed4f0fba1d718537d3cd7ede47d32"
+    },
+    {
+      "path": "supabase/migrations/20261003220000_website_byo_supabase_oauth_capacity.sql",
+      "version": "20261003220000",
+      "name": "website_byo_supabase_oauth_capacity",
+      "sqlSha256": "d18c6fd6575849823c4d02c4bf251c8b36637464a1df43705793f3e4e7068d24"
+    },
+    {
+      "path": "supabase/migrations/20261003223000_website_publish_redirects.sql",
+      "version": "20261003223000",
+      "name": "website_publish_redirects",
+      "sqlSha256": "621811b9dcc2ee26f60f25900ba0a2a5c6eaeb85af6a3365740cf7e3d9ed4d7e"
+    },
+    {
+      "path": "supabase/migrations/20261003224500_website_publish_redirects_validation_fix.sql",
+      "version": "20261003224500",
+      "name": "website_publish_redirects_validation_fix",
+      "sqlSha256": "2f526f727875a0744323fc6c7ca0ecdf834c99865ae4ddd5f071cb7876e478f5"
+    },
+    {
+      "path": "supabase/migrations/20261003230000_website_publish_redirects_explicit_grants.sql",
+      "version": "20261003230000",
+      "name": "website_publish_redirects_explicit_grants",
+      "sqlSha256": "549d322989e3a88d9a5f154702f590f1e28031d4bf6bc69375857045df724e18"
+    },
+    {
+      "path": "supabase/migrations/20261009210000_website_byo_email_publish_runtime.sql",
+      "version": "20261009210000",
+      "name": "website_byo_email_publish_runtime",
+      "sqlSha256": "c404e512775c39186654f877d3a82ba5278d8b5adc25782ed2171fa58a51672c"
+    },
+    {
+      "path": "supabase/migrations/20261009220000_website_owned_runtime_secret_staging.sql",
+      "version": "20261009220000",
+      "name": "website_owned_runtime_secret_staging",
+      "sqlSha256": "7acb761ed6970c6b689c147f160ab257885b81a19a65c7fe9aabb3a74ff160c7"
+    },
+    {
+      "path": "supabase/migrations/20261013233709_website_custom_execution_quota.sql",
+      "version": "20261013233709",
+      "name": "website_custom_execution_quota",
+      "sqlSha256": "dc8fb31d3dcdd613d99b037948648ec8e47b7998f115f87fa95500732f64a52e"
+    },
+    {
+      "path": "supabase/migrations/20261014195000_count_custom_execution_errors.sql",
+      "version": "20261014195000",
+      "name": "count_custom_execution_errors",
+      "sqlSha256": "55d62cf4907483edb43afe049913458c5fa9b02f2e8e94083a8ae616e0295a0d"
+    }
+  ]
+}

@@ -50,6 +50,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Historical migration source identity (offline, no database writes)
+        run: |
+          node scripts/migration-source-map-regression.mjs
+          node scripts/verify-migration-source-map.mjs
+
       - name: Project health
         run: npm run health:project
 
