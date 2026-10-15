@@ -18,6 +18,10 @@ function acceptanceTestReference(test: ProjectAcceptanceTest, pages: WebsitePage
   if (test.kind === 'page-access') return { capability: 'page', reference: `page:${test.pageId}` };
   if (test.kind === 'workflow-transition') return { capability: 'workflow', reference: `workflow:${test.tableId}` };
   if (test.kind === 'booking-schedule') return { capability: 'booking', reference: `booking:${test.tableId}` };
+  if (test.kind === 'record-values') {
+    const binding = pages.find(page => page.id === test.pageId)?.sections.find(section => section.id === test.sectionId)?.applicationDataView;
+    return binding ? { capability: 'records', reference: `view:${binding.tableId}:${test.operation}` } : null;
+  }
   if (test.kind === 'form-values') {
     const section = pages.find(page => page.id === test.pageId)?.sections.find(section => section.id === test.sectionId);
     return section?.applicationFormBinding

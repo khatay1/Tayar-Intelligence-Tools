@@ -2,7 +2,7 @@
 
 ## Current continuation checkpoint — 2026-10-15
 
-- Current baseline `main` is `7c86fa3f94cf5f20a607dae7d100d6d1b2f4e687`. PR #238, “Bind acceptance evidence to its requirement scope,” merged after Release Gate `38812957249` (#1845) and Vercel Preview passed. Post-merge main Release Gate `38813369657` (#1846) passed. Customer/provider activation remains deferred.
+- Current verified baseline `main` is `83fd5d7a3717c7baeeaedd2cc997a16dce920678`. PR #239, “Add booking schedule acceptance tests,” merged after Release Gate `38814794143` (#1847) and Vercel Preview passed. Post-merge main Release Gate `38815199766` (#1848) passed. Customer/provider activation remains deferred.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
 - PR #230 displays bounded custom-operation JSON results in an accessible collapsible panel using a `textContent` sink. Generation/reference-project, custom-operation flow/client/runtime, TypeScript, scoped ESLint, generated-artifact consistency and whitespace checks passed before merge. Generated Edge bundles were restored from trusted sources after the PR gate found stale copies.
@@ -23,13 +23,23 @@
 - Read-only migration investigation confirmed that Supabase Preview's “Remote migration versions not found in local migrations directory” failure already existed before PR #237. Timestamp/name alignment needs a reviewed historical source map; no database history, migration SQL, Auth setting, credential or provider flag was changed.
 
 
-## Booking schedule acceptance — active follow-up
+## Booking schedule acceptance — PR #239 merged
 
 - Adds the closed `booking-schedule` test kind against the existing published booking schedule policy, linked only to `booking:<table-id>` evidence. Fixtures contain a table ID, two canonical UTC instants and expected `withinSchedule` boolean; malformed or normalized dates are rejected.
 - Checks current weekly hours, maximum elapsed duration, reversed intervals, closing boundaries, date closures/special windows and time-zone behavior across a DST change. Missing/invalid schedules fail even when the expected result is negative; editing the schedule invalidates stale expectations.
 - This is interval-policy evidence only. It does not authenticate actors, inspect resource availability, reserve resources, prove conflict prevention or persist a booking. Those criteria remain unverified by this test kind.
 - The existing AI generation path accepts and preserves the new contract and rejects malformed fixtures atomically. Cross-capability and cross-table relinking remain blocked. Seven reference projects are reused, not recreated.
 - Application-generation smoke, existing booking regression, published-runtime and owned-source regressions, TypeScript, scoped ESLint, all affected generated runtime/Edge consistency checks and whitespace validation passed locally. Generated dependencies were rebuilt from their trusted generators with the locked esbuild version.
+
+
+## Record payload acceptance and generated target resolution — active follow-up
+
+- Adds closed `record-values` tests for the existing data-view create/update parser. Tests name a page, section and operation, use bounded synthetic string fixtures, and compare the exact converted payload or require input rejection. Coverage is restricted to `records` and `view:<bound-table-id>:<operation>`; it cannot satisfy read, another table/operation, authentication or formula requirements.
+- The current view must compile and expose the tested action before parsing. Missing/invalid targets fail even for negative expectations. Existing fixture limits, closed shapes, unique field names and credential-like input rejection apply. Reports omit fixture values.
+- Covers numeric/boolean/date/JSON conversion, required/default behavior, unknown fields, and refusal to directly write workflow states or generated formula fields. This proves only payload validation, not server authorization, persistence, generated database results or effects.
+- Fixes a discovered generation gap: page-based acceptance fixtures previously retained model-supplied IDs while generation assigned new page/section IDs. Generated page slugs and explicit unique section anchors now resolve atomically to saved IDs for record, form and page-policy tests. Missing/ambiguous targets and unavailable record actions reject generation without editor mutations. Existing manifests without tests remain unchanged.
+- The existing generation-handler regression verifies persisted normalized fixtures, real coverage results, response immutability and atomic malformed/missing/ambiguous-target rejection. Seven reference projects are reused. Focused specification, coverage, booking/record acceptance, reference-project and real generation-handler checks passed; TypeScript, scoped ESLint, affected generated-source consistency and runtime checks are recorded with this batch before publishing.
+- Remaining work includes broader executable requirement evidence, live actor/data isolation and persistence checks, safe repair/rollback and external-service verification. Customer/provider activation remains the final phase; Social Hub stays deferred. No production promotion, credential, live database or migration-history changes were made.
 
 
 ## Live repository check — 2026-10-14

@@ -189,7 +189,8 @@ function projectSpecificationIssues(value, application) {
     "fromState",
     "principal",
     "startsAt",
-    "endsAt"
+    "endsAt",
+    "operation"
   ]);
   for (const test of acceptanceTests) {
     const at = `acceptanceTests.${test.id}`;
@@ -198,9 +199,22 @@ function projectSpecificationIssues(value, application) {
     if (!Number.isInteger(test.criterionIndex) || Number(test.criterionIndex) < 0 || Number(test.criterionIndex) >= (Array.isArray(requirement?.acceptanceCriteria) ? requirement.acceptanceCriteria.length : 0)) {
       fail(at, "Test must reference an existing acceptance criterion index.");
     }
-    if (test.kind === "form-values") {
-      shape(test, ["id", "requirementId", "criterionIndex", "kind", "pageId", "sectionId", "input", "expected"], at);
+    if (test.kind === "form-values" || test.kind === "record-values") {
+      shape(test, [
+        "id",
+        "requirementId",
+        "criterionIndex",
+        "kind",
+        "pageId",
+        "sectionId",
+        "input",
+        "expected",
+        ...test.kind === "record-values" ? ["operation"] : []
+      ], at);
       if (!identifier(test.pageId) || !identifier(test.sectionId)) fail(at, "Invalid form target.");
+      if (test.kind === "record-values" && !["create", "update"].includes(String(test.operation))) {
+        fail(`${at}.operation`, "Record value tests require create or update.");
+      }
       const inputs = list(test.input, `${at}.input`, 46);
       const names = /* @__PURE__ */ new Set();
       for (const [index, input] of inputs.entries()) {

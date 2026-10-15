@@ -168,7 +168,28 @@ export function prepareGeneratedApplication(
   if (requireSpecification && generated.projectSpecification === undefined) {
     throw new Error('Agent application generation requires a structured project specification. No unverifiable application was applied.');
   }
-  if (generated.projectSpecification !== undefined) completed.requirements!.specification = readProjectSpecification(generated.projectSpecification, completed);
+  if (generated.projectSpecification !== undefined) {
+    const specification = readProjectSpecification(generated.projectSpecification, completed);
+    if (specification.acceptanceTests) specification.acceptanceTests = specification.acceptanceTests.map(test => {
+      if (test.kind !== 'page-access' && test.kind !== 'form-values' && test.kind !== 'record-values') return test;
+      const targets = pages.filter(page => page.slug === test.pageId || page.id === test.pageId);
+      if (targets.length !== 1) throw new Error('An acceptance test targets a missing or ambiguous generated page. No partial application was applied.');
+      const page = targets[0];
+      if (test.kind === 'page-access') return { ...test, pageId: page.id };
+      const sections = page.sections.filter(section => section.anchorId === test.sectionId || section.id === test.sectionId);
+      if (sections.length !== 1) throw new Error('An acceptance test targets a missing or ambiguous generated section. No partial application was applied.');
+      const section = sections[0];
+      if (test.kind === 'form-values') {
+        if (!section.applicationFormBinding) throw new Error('A form acceptance test requires a generated form binding.');
+        compileApplicationCreateForm(completed, section, section.applicationFormBinding);
+      } else {
+        const view = compileApplicationDataView(completed, section.applicationDataView);
+        if (!view.binding.actions.includes(test.operation)) throw new Error('A record acceptance test requires the declared data-view action.');
+      }
+      return { ...test, pageId: page.id, sectionId: section.id };
+    });
+    completed.requirements!.specification = specification;
+  }
   return readApplicationDefinition(completed, new Set(pages.map(page => page.id)));
 }
 

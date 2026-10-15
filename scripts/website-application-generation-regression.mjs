@@ -169,6 +169,46 @@ try {
   assert.equal(dashboard.state.AiStage, 'ready');
   assert.deepEqual(dashboard.state.Pages[2].sections[0].applicationDataView, dataView);
   assert.deepEqual(dashboard.checkpoints.at(-1)[1].pages[2].sections[0].applicationDataView, dataView);
+  const recordTest = { id: 'valid-record', requirementId: 'record-editor', criterionIndex: 0, kind: 'record-values',
+    pageId: 'records', sectionId: 'record-editor', operation: 'update', input: [{ name: 'visit_date', value: '2026-10-19' }],
+    expected: { outcome: 'accepted', values: { visit_date: '2026-10-19' } } };
+  const recordResponse = structuredClone(dashboardResponse);
+  recordResponse.pages[2].sections[0].anchorId = 'record-editor';
+  recordResponse.projectSpecification = { ...projectSpecification,
+    requirements: [{ id: 'record-editor', origin: 'explicit', acceptanceCriteria: ['A synthetic record date converts for update.'] }],
+    operations: [{ ...projectSpecification.operations[2], requirementIds: ['record-editor'], dependsOn: [] }],
+    rules: [], acceptanceTests: [recordTest] };
+  const recordBuild = await run(recordResponse, 6, 'Build record management', true);
+  assert.equal(recordBuild.state.AiStage, 'ready');
+  assert.match(recordBuild.request.prompt, /kind="record-values"/);
+  assert.deepEqual(recordBuild.state.Application.requirements.specification.acceptanceTests, [{ ...recordTest,
+    pageId: recordBuild.state.Pages[2].id, sectionId: recordBuild.state.Pages[2].sections[0].id }]);
+  assert.equal(recordResponse.projectSpecification.acceptanceTests[0].pageId, 'records', 'Normalization must not mutate the AI response');
+  const coverageOut = join(dir, 'coverage.cjs');
+  await build({ entryPoints: ['src/modules/website-builder/core/application-requirements.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: coverageOut });
+  const { buildApplicationRequirementCoverage } = require(coverageOut);
+  assert.equal(buildApplicationRequirementCoverage(recordBuild.state.Application, recordBuild.state.Pages)[0].deliveryStatus, 'contract-verified');
+  for (const override of [{ operation: 'delete' }, { pageId: 'missing' }, { sectionId: 'missing' }, { operation: 'create' }]) {
+    const invalidRecord = structuredClone(recordResponse);
+    Object.assign(invalidRecord.projectSpecification.acceptanceTests[0], override);
+    const rejected = await run(invalidRecord, 6, 'Build record management', true);
+    assert.equal(rejected.state.AiStage, 'error');
+    assert.equal(rejected.state.Pages, undefined, 'Invalid record fixtures must reject generation atomically');
+    assert.equal(rejected.checkpoints.length, 0);
+  }
+  const formResponse = { ...response, projectSpecification: { ...projectSpecification, acceptanceTests: [{
+    id: 'form-date', requirementId: 'saved-request', criterionIndex: 0, kind: 'form-values', pageId: 'booking', sectionId: 'booking-form',
+    input: [{ name: 'visit_date', value: '2026-10-19' }], expected: { outcome: 'accepted', values: { visit_date: '2026-10-19' } },
+  }, { id: 'protected-page', requirementId: 'booking-page', criterionIndex: 0, kind: 'page-access', pageId: 'booking',
+    principal: { authenticated: true, roleIds: [] }, expected: { accessible: true } }] } };
+  const formBuild = await run(formResponse, 6, 'Build saved records with a patient portal', true);
+  assert.equal(formBuild.state.AiStage, 'ready');
+  assert.ok(buildApplicationRequirementCoverage(formBuild.state.Application, formBuild.state.Pages).slice(1).every(row => row.deliveryStatus === 'contract-verified'));
+  const ambiguous = structuredClone(recordResponse);
+  ambiguous.pages[2].sections.push({ ...ambiguous.pages[2].sections[0] });
+  const rejectedAmbiguous = await run(ambiguous, 6, 'Build record management', true);
+  assert.equal(rejectedAmbiguous.state.AiStage, 'error');
+  assert.equal(rejectedAmbiguous.checkpoints.length, 0);
   const readOnlyResponse = { ...response,
     requirements: [{ id: 'record-reader', summary: 'Users can read their saved records.', capability: 'records', evidence: ['view:appointments:read'] }],
     application: { ...application, pageAccess: [], tables: [{ ...table, permissions: [{ operation: 'read', access: 'owner' }] }] },
