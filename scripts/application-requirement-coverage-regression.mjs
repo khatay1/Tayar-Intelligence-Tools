@@ -108,6 +108,31 @@ try {
   assert.match(report, /Requirement: task-form[\s\S]*Acceptance criteria: A valid task title is converted for submission\. \| Blank task titles are rejected\.[\s\S]*Implementation: form:tasks[\s\S]*Tests: contract:form:tasks=passed, acceptance:task-form:1:valid-task-title=passed, acceptance:task-form:2:blank-task-title=passed[\s\S]*Result: passed[\s\S]*Delivery status: contract-verified/);
   assert.ok(!report.includes('Draft task'), 'Coverage reports never expose acceptance fixture values');
   assert.equal(applicationRequirementIssues(application, pages).length, 1, 'Only requirements without criterion tests stay blocked');
+  for (const kind of ['form-values', 'workflow-transition', 'page-access']) {
+    const unrelated = structuredClone(application);
+    const test = unrelated.requirements.specification.acceptanceTests.find(test => test.kind === kind);
+    test.requirementId = 'account';
+    test.criterionIndex = 0;
+    const row = buildApplicationRequirementCoverage(unrelated, pages).find(row => row.requirementId === 'account');
+    assert.equal(row.deliveryStatus, 'blocked', `${kind} cannot prove authentication merely by being linked to its criterion`);
+    assert.match(row.tests.at(-1).detail, /does not cover the requirement capability/);
+  }
+  for (const [requirementId, evidence] of [
+    ['task-form', ['form:other-tasks']], ['task-page', ['page:other-page']], ['task-workflow', ['workflow:other-states']],
+  ]) {
+    const unrelated = structuredClone(application);
+    unrelated.requirements.items.find(item => item.id === requirementId).evidence = evidence;
+    const otherPages = structuredClone(pages);
+    otherPages.push({ id: 'other-page', slug: 'other', sections: [] });
+    const row = buildApplicationRequirementCoverage(unrelated, otherPages).find(row => row.requirementId === requirementId);
+    assert.ok(row.tests.filter(test => test.kind === 'acceptance').every(test => test.result === 'failed'),
+      'A test for another implementation target cannot satisfy a criterion');
+  }
+  const missingCriteria = structuredClone(application);
+  delete missingCriteria.requirements.specification;
+  assert.ok(buildApplicationRequirementCoverage(missingCriteria, pages).every(row => row.deliveryStatus === 'blocked'),
+    'Legacy compile evidence without structured criteria cannot claim behavioral coverage');
+  assert.match(buildApplicationRequirementCoverage(missingCriteria, pages)[0].tests.at(-1).detail, /No structured acceptance criteria/);
   const missingPageRows = buildApplicationRequirementCoverage(application, [{ ...pages[0], id: 'other-page' }]);
   assert.equal(missingPageRows.find(row => row.requirementId === 'task-page').deliveryStatus, 'blocked');
   assert.match(applicationRequirementIssues(application, [{ ...pages[0], id: 'other-page' }])[0], /executable tests for every acceptance criterion/);

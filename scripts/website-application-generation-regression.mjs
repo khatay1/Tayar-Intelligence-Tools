@@ -134,22 +134,34 @@ try {
   createDeliveryActions({ ...deliveryArgs, application }).approveForDelivery();
   assert.equal(deliveryMutations, 0, 'applications without a verified requirement manifest cannot be approved');
   createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).approveForDelivery();
+  assert.equal(deliveryMutations, 0, 'legacy compile evidence without structured criteria cannot allow approval');
+  const verifiedApplication = structuredClone(built.state.Application);
+  verifiedApplication.requirements.items = verifiedApplication.requirements.items.filter(item => item.id === 'booking-page');
+  verifiedApplication.requirements.specification = {
+    ...structuredClone(projectSpecification),
+    requirements: [{ id: 'booking-page', origin: 'explicit', acceptanceCriteria: ['The declared page policy permits a signed-in user.'] }],
+    operations: [{ ...projectSpecification.operations[1], dependsOn: [] }],
+    rules: [],
+    acceptanceTests: [{ id: 'signed-in-page', requirementId: 'booking-page', criterionIndex: 0, kind: 'page-access',
+      pageId: built.state.Pages[1].id, principal: { authenticated: true, roleIds: [] }, expected: { accessible: true } }],
+  };
+  createDeliveryActions({ ...deliveryArgs, application: verifiedApplication }).approveForDelivery();
   assert.equal(deliveryMutations, 1, 'verified application requirements allow approval');
-  assert.match(createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).buildDeliveryReport(), /REQUIREMENT COVERAGE MATRIX[\s\S]*Requirement: account-access[\s\S]*Delivery status: contract-verified/);
-  const deliveryReport = createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).buildDeliveryReport();
+  assert.match(createDeliveryActions({ ...deliveryArgs, application: verifiedApplication }).buildDeliveryReport(), /REQUIREMENT COVERAGE MATRIX[\s\S]*Requirement: booking-page[\s\S]*Delivery status: contract-verified/);
+  const deliveryReport = createDeliveryActions({ ...deliveryArgs, application: verifiedApplication }).buildDeliveryReport();
   assert.match(deliveryReport, /DELIVERY EVIDENCE[\s\S]*Project definition: Present \(\d+ pages\)[\s\S]*Requirement contracts: \d+\/\d+ passed; 0 blocked requirements[\s\S]*Build artifact: Not verified by this report[\s\S]*Published URL recorded; deployment health not verified[\s\S]*Live runtime and external services: Not verified by this report/);
-  const unverifiedReport = createDeliveryActions({ ...deliveryArgs, publishedUrl: '', application: built.state.Application }).buildDeliveryReport();
+  const unverifiedReport = createDeliveryActions({ ...deliveryArgs, publishedUrl: '', application: verifiedApplication }).buildDeliveryReport();
   assert.match(unverifiedReport, /Deployment: Not published/);
   assert.match(unverifiedReport, /Build artifact: Not verified by this report/);
-  createDeliveryActions({ ...deliveryArgs, pages: built.state.Pages.filter(page => page.slug !== 'booking'), application: built.state.Application }).approveForDelivery();
+  createDeliveryActions({ ...deliveryArgs, pages: built.state.Pages.filter(page => page.slug !== 'booking'), application: verifiedApplication }).approveForDelivery();
   assert.equal(deliveryMutations, 1, 'stale requirement evidence cannot approve a changed application');
-  createDeliveryActions({ ...deliveryArgs, application: built.state.Application }).markProjectDelivered();
+  createDeliveryActions({ ...deliveryArgs, application: verifiedApplication }).markProjectDelivered();
   assert.equal(deliveryMutations, 1, 'unapproved current builds cannot be marked delivered');
-  createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, application: built.state.Application }).markProjectDelivered();
+  createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, application: verifiedApplication }).markProjectDelivered();
   assert.equal(deliveryMutations, 2, 'approved verified applications can be marked delivered');
-  createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, publishedUrl: '', application: built.state.Application }).markProjectDelivered();
+  createDeliveryActions({ ...deliveryArgs, approvalCurrent: true, publishedUrl: '', application: verifiedApplication }).markProjectDelivered();
   assert.equal(deliveryMutations, 2, 'an unpublished application cannot be marked delivered');
-  assert.equal(alerts, 4);
+  assert.equal(alerts, 5);
   const dataView = { tableId: 'appointments', columns: ['visit_date'], actions: ['update', 'delete'], pageSize: 10 };
   const dashboardResponse = { ...response, requirements: [{ id: 'record-editor', summary: 'Users can update saved records.', capability: 'records', evidence: ['view:appointments:update'] }], application: { ...application, tables: [{ ...table, permissions: [...table.permissions, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] }] },
     pages: [...response.pages, { name: 'Records', slug: 'records', sections: [{ type: 'features', title: 'My records', applicationDataView: dataView }] }] };
@@ -172,9 +184,12 @@ try {
       setDeliveryConfig: updater => { approvals++; updater(deliveryConfig); } };
     globalThis.window.alert = () => {};
     createDeliveryActions(readerArgs).approveForDelivery();
-    assert.equal(approvals, 1, 'a real read-only dashboard can be approved');
+    assert.equal(approvals, 0, 'a compiled read-only dashboard still needs criterion-specific tests before approval');
+    assert.match(createDeliveryActions(readerArgs).buildDeliveryReport(), /contract:view:appointments:read=passed/);
     createDeliveryActions({ ...readerArgs, pages: reader.state.Pages.map(page => ({ ...page, sections: [] })) }).approveForDelivery();
-    assert.equal(approvals, 1, 'removing the read-only binding invalidates approval');
+    assert.equal(approvals, 0, 'removing the read-only binding cannot allow approval');
+    assert.match(createDeliveryActions({ ...readerArgs, pages: reader.state.Pages.map(page => ({ ...page, sections: [] })) })
+      .buildDeliveryReport(), /contract:view:appointments:read=failed/);
   }
   for (const invalid of [
     { ...dashboardResponse, application: undefined },
