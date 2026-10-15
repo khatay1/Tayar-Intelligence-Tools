@@ -80,6 +80,11 @@ try {
   ]);
   assert.match(workflowRow.tests[1].detail, /authorization, conditions and persistence are not exercised/);
   assert.match(workflowRow.tests[2].detail, /before any database write/);
+  const malformedWorkflow = structuredClone(application);
+  malformedWorkflow.tables[1].workflow.transitions = null;
+  assert.equal(buildApplicationRequirementCoverage(malformedWorkflow, pages)
+    .find(row => row.requirementId === 'task-workflow').tests[2].result, 'failed',
+  'Malformed workflow definitions cannot be counted as expected transition rejections');
   const report = formatApplicationRequirementCoverage(rows).join('\n');
   assert.match(report, /Requirement: task-form[\s\S]*Acceptance criteria: A valid task title is converted for submission\. \| Blank task titles are rejected\.[\s\S]*Implementation: form:tasks[\s\S]*Tests: contract:form:tasks=passed, acceptance:task-form:1:valid-task-title=passed, acceptance:task-form:2:blank-task-title=passed[\s\S]*Result: passed[\s\S]*Delivery status: contract-verified/);
   assert.ok(!report.includes('Draft task'), 'Coverage reports never expose acceptance fixture values');

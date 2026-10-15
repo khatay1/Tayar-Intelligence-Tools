@@ -1,6 +1,6 @@
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationCreateForm } from './application-form-runtime';
-import { applicationWorkflowTransition } from './application-workflow';
+import { ApplicationWorkflowRejected, applicationWorkflowTransition } from './application-workflow';
 import type { WebsitePage } from './website-builder-model';
 import type { ProjectAcceptanceTest } from './project-specification';
 
@@ -40,8 +40,8 @@ export function runApplicationAcceptanceTest(
         id, kind: 'acceptance', result: 'failed', detail: 'The declared workflow destination differs from the expected state.',
       };
       return { id, kind: 'acceptance', result: 'passed', detail: 'The current workflow definition permits the declared transition from this state; authorization, conditions and persistence are not exercised.' };
-    } catch {
-      return test.expected.outcome === 'rejected'
+    } catch (error) {
+      return test.expected.outcome === 'rejected' && error instanceof ApplicationWorkflowRejected
         ? { id, kind: 'acceptance', result: 'passed', detail: 'The current workflow definition rejects this transition from the supplied state before any database write.' }
         : { id, kind: 'acceptance', result: 'failed', detail: 'The current workflow definition rejected a transition expected to be available.' };
     }
