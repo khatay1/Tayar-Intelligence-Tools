@@ -2813,6 +2813,7 @@ const [seo, setSeo] = useState<WebsiteSEO>(defaultSEO);
   });
 
     const applyAIChange = createLazyAIChangeHandler({
+    application,
     activePageId,
     activeUserIdRef,
     aiAbortControllerRef,
