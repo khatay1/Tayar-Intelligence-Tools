@@ -24,11 +24,15 @@ try {
   const actions = await buildModule('actions', 'src/modules/website-builder/core/application-custom-operation-actions.ts');
   const clientModule = await buildModule('client', 'src/modules/website-builder/core/application-custom-operation-client.ts');
   const routeModule = await buildModule('route', 'server/website-application-custom-operation-route.ts', { '@': resolve('src') });
-  const { bindApplicationCustomOperationFormValues, parseApplicationCustomOperationAction } = actions;
+  const { bindApplicationCustomOperationFormValues, parseApplicationCustomOperationAction, serializeApplicationCustomOperationResult } = actions;
   const { createPublishedCustomOperationClient } = clientModule;
   const { servePublishedCustomOperationRequest } = routeModule;
 
   const parsedAction = parseApplicationCustomOperationAction('approve_case', '{"decision":"approved"}', new Set(['approve_case']), true);
+  assert.equal(serializeApplicationCustomOperationResult('<img src=x onerror=alert(1)>'), '<img src=x onerror=alert(1)>',
+    'HTML-like results stay plain text for the browser textContent sink');
+  assert.equal(serializeApplicationCustomOperationResult({ accepted: true }), '{"accepted":true}');
+  assert.equal(serializeApplicationCustomOperationResult('x'.repeat(32 * 1024 + 1)), null, 'oversized display output is rejected');
   const action = { ...parsedAction, input: bindApplicationCustomOperationFormValues(parsedAction.input,
     [['caseId', 'c-17']], new Set(['caseId'])) };
   assert.deepEqual(action, { operationId: 'approve_case', input: { decision: 'approved', form: { caseId: 'c-17' } }, bindFormValues: true });

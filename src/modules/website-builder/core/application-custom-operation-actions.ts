@@ -6,6 +6,15 @@ export interface ApplicationCustomOperationAction {
 
 const operationIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const maxInputBytes = 32 * 1024;
+const maxOutputBytes = 32 * 1024;
+
+/** Convert a validated JSON result into bounded text for a textContent sink. */
+export function serializeApplicationCustomOperationResult(result: unknown): string | null {
+  try {
+    const output = typeof result === 'string' ? result : JSON.stringify(result);
+    return typeof output === 'string' && new TextEncoder().encode(output).byteLength <= maxOutputBytes ? output : null;
+  } catch { return null; }
+}
 
 /** Resolve a page action against the trusted custom-operation catalog. Auth and
  * server authorization remain the execution client's responsibility. */

@@ -342,6 +342,8 @@ try {
   assert.match(customOperationHtml, /data-tayar-custom-operation-input="\{&quot;caseId&quot;:&quot;case-17&quot;\}"/);
   assert.match(customOperationHtml, /<button[^>]*disabled/);
   assert.match(customOperationHtml, /data-tayar-custom-operation-status/);
+  assert.match(customOperationHtml, /<details data-tayar-custom-operation-result hidden><summary>Result<\/summary><pre><\/pre><\/details>/,
+    'custom operations provide an initially hidden, accessible result panel');
   const boundOperationHtml = sectionToHtml({ id: 'bound-contact', type: 'contact', elements: [
     { ...customOperationButton, customOperationBindFormValues: true },
   ], formFields: [{ id: 'email-field', name: 'email', label: 'Email', type: 'email', required: true }],
