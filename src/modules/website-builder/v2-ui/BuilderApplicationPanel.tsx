@@ -11,12 +11,12 @@ import { BuilderApplicationBookingRule } from './BuilderApplicationBookingRule';
 import BuilderApplicationBackendPanel from './BuilderApplicationBackendPanel';
 import { useLocalizer } from '@/lib/ui-localization-cms';
 import { createApplicationDefinition, type ApplicationAccess, type ApplicationDataOperation, type ApplicationDefinition, type ApplicationField, type ApplicationFieldType, type ApplicationTable } from '../core/application-model';
-import { applicationFingerprint, type ApplicationOperation } from '../core/application-operations';
+import { applicationFingerprint, type ApplicationOperation, type ApplicationProject } from '../core/application-operations';
 import { planWebsiteApplicationWithAI, type ApplicationAIPlan } from '../services/websiteApplicationAIService';
 
 interface Props {
   value?: ApplicationDefinition;
-  pages: Array<{ id: string; name: string }>;
+  pages: Array<ApplicationProject['pages'][number] & { name: string }>;
   cloudProjectId: string | null;
   loadSequence: number;
   disabled?: boolean;
@@ -43,9 +43,11 @@ export function BuilderApplicationPanel({ value, pages, cloudProjectId, loadSequ
   const [roleName, setRoleName] = useState('');
   const [error, setError] = useState('');
   const [prompt, setPrompt] = useState('');
+  const [tableScope, setTableScope] = useState('');
   const [aiPlan, setAiPlan] = useState<ApplicationAIPlan>();
   const [planning, setPlanning] = useState(false);
-  const scope = `${loadSequence}:${cloudProjectId ?? ''}:${applicationFingerprint({ cloudProjectId, pages, application: value })}`;
+  useEffect(() => { setTableScope(''); setAiPlan(undefined); }, [cloudProjectId, loadSequence]);
+  const scope = `${loadSequence}:${cloudProjectId ?? ''}:${tableScope}:${applicationFingerprint({ cloudProjectId, pages, application: value })}`;
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
   function commit(ops: ApplicationOperation[]) { setError(onApply(ops) ?? ''); }
@@ -54,7 +56,7 @@ export function BuilderApplicationPanel({ value, pages, cloudProjectId, loadSequ
     const expectedScope = scope;
     setPlanning(true); setError(''); setAiPlan(undefined);
     try {
-      const result = await planWebsiteApplicationWithAI({ cloudProjectId, pages, application: value }, prompt);
+      const result = await planWebsiteApplicationWithAI({ cloudProjectId, pages, application: value }, prompt, tableScope ? { tableId: tableScope } : undefined);
       if (expectedScope !== scopeRef.current) throw new Error('The project changed while AI was planning. Create a new plan.');
       setAiPlan(result);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Application AI planning failed.'); }
@@ -66,6 +68,11 @@ export function BuilderApplicationPanel({ value, pages, cloudProjectId, loadSequ
     <BuilderApplicationBackendPanel key={`${scope}:${hasUnsavedChanges}`} projectId={cloudProjectId} definition={value} saved={!hasUnsavedChanges} disabled={disabled} />
     {error && <p role="alert">{error}</p>}
     <details><summary>{l('Plan application changes with AI')}</summary>
+      <label>{l('Planning scope')}<select disabled={disabled || planning} value={tableScope} onChange={event => { setTableScope(event.target.value); setAiPlan(undefined); }}>
+        <option value="">{l('All application data')}</option>
+        {app.tables.map(table => <option key={table.id} value={table.id}>{table.name}</option>)}
+      </select></label>
+      {tableScope && <p>{l('AI can change only the selected table. Related tables are included for context and remain read-only.')}</p>}
       <textarea aria-label={l('Describe application changes')} value={prompt} disabled={disabled || planning} maxLength={4_000} onChange={event => setPrompt(event.target.value)} />
       <button type="button" disabled={disabled || planning || !prompt.trim()} onClick={() => void prepareAIPlan()}>{planning ? l('Planning…') : l('Plan with AI')}</button>
       {aiPlan && <div data-testid="application-ai-plan-review"><p>{aiPlan.summary}</p>

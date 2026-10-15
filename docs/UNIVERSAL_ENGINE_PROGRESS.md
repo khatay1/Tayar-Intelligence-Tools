@@ -2,7 +2,7 @@
 
 ## Current continuation checkpoint — 2026-10-16
 
-- Verified baseline `main` is `1680eb486fb03cb8b4787c1beb45ae2ad4cc99a8` (PR #244 merged after Release Gate `38821230329` and Vercel Preview passed). Its post-merge main gate is tracked in GitHub. Parent main `558c121` (PR #243) passed Release Gate `38819839596`. PR #242 is merged as `24b89ef626e698eac6f8db97a08e98d21f24f78b`, and its main gate `38819363300` passed. Do not repeat either batch. Customer/provider activation remains deferred.
+- Verified baseline `main` is `1680eb486fb03cb8b4787c1beb45ae2ad4cc99a8` (PR #244 merged after Release Gate `38821230329` and Vercel Preview passed). Post-merge main Release Gate `38821601902` passed. Parent main `558c121` (PR #243) passed Release Gate `38819839596`. PR #242 is merged as `24b89ef626e698eac6f8db97a08e98d21f24f78b`, and its main gate `38819363300` passed. Do not repeat either batch. Customer/provider activation remains deferred.
 - PR #214 was closed without merging: its custom-source specification, coverage, immutable release resolver and focused regressions already landed in `7ae9983`; those source/test files match the old branch. Its branch remains retained. Other old open PRs are not approved for integration; preserve the deferred Social Hub branch.
 - PR #146 remains merged; the original owned-runtime staleness and application data-view browser regression were repaired and its Release Gate passed. No recurrence was found in the latest verified gates.
 - The last recorded Production deployment is READY at `ab55075ea6f8ebd09b71994a0e631efe12e96024`, behind `main`. Production promotion and runtime/custom-execution activation remain deferred; no external production changes were made in this session.
@@ -18,9 +18,17 @@
 ## Application delivery proof — active follow-up
 
 - Reproduced a real delivery bypass: a project with one passing synthetic page-policy criterion and a recorded URL could be marked delivered, although its report explicitly said deployment/runtime/services were unverified. Generic all-green launch flags also supplied no release-bound behavioral proof.
-- The existing delivery action now fails closed for applications after its existing contract/approval/publishing checks. Definition approval and evidence-report export still work; brochure delivery keeps its existing path. English, Arabic and Swedish explain the missing runtime/service evidence.
+- The existing delivery action now fails closed for applications after its existing contract/approval/publishing checks. Definition approval and evidence-report export still work; brochure delivery keeps its existing path. The existing English/Arabic/Swedish publish-and-verify message is reused; browser flags cannot stand in for missing runtime/service evidence.
 - Actual generation/delivery regression, TypeScript, scoped ESLint, i18n coverage and whitespace checks passed locally. No provider calls, database changes or charges were performed.
-- Remaining blocker: this editor has no trusted server-verified attestation bound to the current immutable customer release and all required behaviors/providers. Do not reopen delivery with a client boolean, checklist or saved approval. Implement that handoff and collect Preview evidence before final activation. Next independent source work: explicit bounded table planning for large projects.
+- Remaining blocker: this editor has no trusted server-verified attestation bound to the current immutable customer release and all required behaviors/providers. Do not reopen delivery with a client boolean, checklist or saved approval. Implement that handoff and collect Preview evidence before final activation. This batch also supports explicit bounded table planning for large projects, described below.
+
+## Bounded incremental table planning — active follow-up
+
+- The existing planner/UI now offer an explicit table scope. It sends the selected table, the complete outgoing reference/transaction dependency closure (including cycles), relevant native forms/data views/page policies and requirement results/criteria. Related tables, Auth, roles and policies are read-only. Scoped context is explicitly identified; it does not masquerade as the full specification.
+- Returned operations can update only the selected existing table. New/other-table/Auth/role/page operations and references to previously unseen dependencies are rejected. The original complete project fingerprint, full schema and repair guard still govern dry run and actual application. No editor/history mutation occurs while planning.
+- A large unrelated schema can now be planned without sending every table; full tables and dependencies are never sliced. If the selected dependency closure still exceeds the existing context/body limits, it fails before a provider request. This is bounded table editing, not arbitrary cross-project context partitioning or unverified provider success.
+- Planner regressions cover a previously oversized 20-table project, exact context, cyclic transaction/reference dependencies, bound native views, scoped requirement criteria, out-of-scope operation/dependency rejection and an oversized closure. TypeScript, focused ESLint and i18n checks passed. Planning controls and scope explanation use the existing CMS UI translation supplement; published runtime dictionaries/bundles remain unchanged and both BYO publish/application release generator checks pass.
+- Next: inspect the latest PR #245 head gate once complete, merge only the verified head, then bind behavioral runtime/service evidence to immutable customer releases. Customer keys, migration history, Production and Social Hub remain deferred.
 
 ## AI repair security and storage contracts — PR #244 merged
 

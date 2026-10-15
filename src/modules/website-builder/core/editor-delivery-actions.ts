@@ -88,7 +88,7 @@ export function createDeliveryActions({
     // Fail closed until that server-verified handoff exists; a URL, manual
     // checklist or saved approval cannot attest Auth, RLS, writes or providers.
     if (isApplication) {
-      window.alert(l('Application delivery is blocked until the current release has verified runtime and service evidence. Local tests and a published URL are insufficient.'));
+      window.alert(l('Publish and verify the application before marking it delivered.'));
       return;
     }
     if (!publishedUrl && !window.confirm(l('This project is not currently published. Mark it delivered anyway?'))) return;
