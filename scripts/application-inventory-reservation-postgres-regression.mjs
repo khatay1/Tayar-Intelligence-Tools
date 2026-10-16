@@ -24,9 +24,10 @@ try {
     "export { compileApplicationInventoryReservationSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-inventory-reservation-sql')) + ';',
     "export { applicationCounterInfrastructure, compileApplicationCounterSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-counter-sql')) + ';',
     "export { verifyOwnedStockReservationCatalog } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-catalog')) + ';',
+    "export { verifyOwnedStockReservationInstallation } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-installation')) + ';',
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters, verifyOwnedStockReservationCatalog: verifyCatalog } = require(outfile);
+  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters, verifyOwnedStockReservationCatalog: verifyCatalog, verifyOwnedStockReservationInstallation: verifyInstallation } = require(outfile);
   const app = {
     version: 1, auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     pageAccess: [], roles: [], tables: [{
@@ -134,12 +135,80 @@ try {
     })) }));
   }
   assert.equal(verified, true, 'Exact stock functions, private receipt schema and trigger must be verified');
+  // Exercise the real read-only Supabase Management API binding against this
+  // isolated PostgreSQL catalog. No customer token, account or host is used.
+  const connectionId = '99999999-9999-4999-8999-999999999999';
+  const projectId = '88888888-8888-4888-8888-888888888888';
+  const projectRef = 'abcdefghijklmnopqrst';
+  const connection = {
+    id: connectionId, ownerId: owner, projectId, provider: 'supabase', environment: 'preview',
+    accountId: 'account-owner', targetId: projectRef, permissions: ['database:read'],
+    status: 'ready', version: 4, operationId: null,
+    verifiedAt: '2026-10-16T12:00:00.000Z', updatedAt: '2026-10-16T12:00:00.000Z',
+  };
+  let currentConnection = structuredClone(connection);
+  let allowed = true, networkCalls = 0, connectionReads = 0;
+  const attestation = {
+    ownerId: owner, projectId, environment: 'preview', connectionId, connectionVersion: 4,
+    definition: app, itemTableId: 'products', accessToken: 'fixture-only-no-customer-credentials',
+    async isCurrent() { return allowed; },
+    async readConnection() { connectionReads++; return structuredClone(currentConnection); },
+    async fetcher(url, init) {
+      networkCalls++;
+      assert.equal(url, 'https://api.supabase.com/v1/projects/' + projectRef + '/database/query/read-only');
+      assert.equal(init.method, 'POST');
+      assert.equal(init.redirect, 'error');
+      assert.equal(init.cache, 'no-store');
+      assert.equal(init.headers.Authorization, 'Bearer fixture-only-no-customer-credentials');
+      const statement = JSON.parse(init.body).query;
+      assert.match(statement, /^select /i);
+      const rows = JSON.parse(await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`));
+      return Response.json(rows, { status: 201 });
+    },
+  };
+  assert.equal(await verifyInstallation(attestation), true,
+    'The live catalog must be attested only via exact owner-owned read-only Supabase project');
+  assert.equal(networkCalls, 4, 'Catalog evidence is read-only and bounded to four queries');
+  const noNetwork = async (overrides, reason) => {
+    const before = networkCalls;
+    assert.equal(await verifyInstallation({ ...attestation, ...overrides }), false, reason);
+    assert.equal(networkCalls, before, 'Invalid scope must fail before network traffic');
+  };
+  await noNetwork({ ownerId: foreign }, 'An unrelated owner cannot reuse a connection');
+  await noNetwork({ projectId: foreign }, 'A different project cannot reuse connection');
+  await noNetwork({ connectionId: foreign }, 'A different connection ID is unavailable');
+  await noNetwork({ connectionVersion: 3 }, 'Old connection version is unavailable');
+  await noNetwork({ environment: 'production' }, 'Preview proof cannot cross into Production');
+  await noNetwork({ itemTableId: 'missing' }, 'Unknown item table blocks evidence');
+  await noNetwork({ accessToken: 'token\\nmalformed' }, 'Invalid custody token must not be used');
+  allowed = false;
+  await noNetwork({}, 'Stale source scope cannot reuse catalog evidence');
+  allowed = true;
+  for (const change of [
+    { ownerId: foreign }, { projectId: foreign }, { provider: 'github' },
+    { environment: 'production' }, { version: 5 }, { status: 'setup-incomplete' },
+    { permissions: [] }, { targetId: null }, { targetId: 'wrong-host' },
+  ]) {
+    currentConnection = { ...connection, ...change };
+    await noNetwork({}, 'Only exact owner-bound ready Supabase connections may supply evidence');
+  }
+  currentConnection = structuredClone(connection);
+  let reads = 0;
+  assert.equal(await verifyInstallation({ ...attestation, async readConnection() {
+    reads++;
+    return reads === 1 ? structuredClone(connection) : { ...connection, version: 5 };
+  } }), false, 'Connection rotation during catalog read invalidates attestation');
+  currentConnection = structuredClone(connection);
+  assert.equal(await verifyInstallation(attestation), true, 'Current connection restores attestation');
+
   await query('revoke execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) from authenticated;');
   assert.equal(await verify(), false, 'Permission drift must block publication');
+  assert.equal(await verifyInstallation(attestation), false, 'Read-only installation check refuses grant drift');
   await query('grant execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) to authenticated;');
   assert.equal(await verify(), true, 'Restored exact grants allow proof');
   await query('alter table public.app_products disable trigger app_stock_reservation_floor_0;');
   assert.equal(await verify(), false, 'Disabled reservation floor prevents proof');
+  assert.equal(await verifyInstallation(attestation), false, 'Read-only installation check refuses disabled floor trigger');
     console.log('PASS actual PostgreSQL stock reservation: auth, rollback, concurrent holds, immutable receipts, floor trigger and idempotent fulfillment');
 } finally {
   await rm(dir, { recursive: true, force: true });
