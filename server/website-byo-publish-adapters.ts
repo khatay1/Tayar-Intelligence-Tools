@@ -3,6 +3,7 @@ import { ProductionCandidateRequiredError } from '../src/modules/website-builder
 import { captureWebsiteOwnedApplicationSource, captureWebsiteOwnedProductionSource, type OwnedSourceReader } from './website-owned-source-capture';
 import { readOwnedReleaseIdentity } from './website-owned-release-identity';
 import { recordWebsiteProductionSourceCandidate } from './website-production-source-candidate';
+import { captureWebsiteByoPublishTargets } from './website-byo-publish-targets';
 import { discoverOwnedVercelDeployment, inspectOwnedVercelDeployment,
   type OwnedVercelDeploymentReport } from './website-owned-vercel-deployment';
 import { createWebsiteByoPublishStore, initializeWebsiteByoPublishOperation } from './website-byo-publish-store';
@@ -219,17 +220,25 @@ export async function runWebsiteOwnedByoPublish(input:{
  * Existing export custody/cursor CAS persists the dedicated Production branch
  * and its exact source digest. A lost/stale completion remains recoverable. */
 export async function prepareWebsiteOwnedProductionSource(input:
-  Parameters<typeof captureWebsiteOwnedProductionSource>[0] & {
+  Omit<Parameters<typeof captureWebsiteOwnedProductionSource>[0], 'previewGithubConnectionId' | 'productionGithubConnectionId'> & {
     client: Client; operationId: string; previewOperationId: string; githubClientId: string; githubClientSecret: string; fetcher?: typeof fetch;
   }) {
   if (typeof window !== 'undefined' || !uuid.test(input.operationId) || !uuid.test(input.previewOperationId)
-    || input.operationId === input.previewOperationId) throw new Error('Production source export is unavailable.');
+    || input.operationId === input.previewOperationId || 'previewGithubConnectionId' in input
+    || 'productionGithubConnectionId' in input) throw new Error('Production source export is unavailable.');
   try {
-    const captured = await captureWebsiteOwnedProductionSource(input);
+    const selected = await captureWebsiteByoPublishTargets({ client: input.client, projectId: input.projectId,
+      ownerId: input.ownerId, requireProductionSource: true });
+    const github = selected.targets.githubProduction, vercel = selected.targets.vercelProduction;
+    if (!github || !vercel) throw new Error();
+    const source = await captureWebsiteOwnedProductionSource({ ...input,
+      previewGithubConnectionId: selected.targets.githubPreview.connectionId, productionGithubConnectionId: github.connectionId });
+    if (source.connection.version !== github.version || source.vercel.id !== vercel.connectionId || source.vercel.version !== vercel.version) throw new Error();
+    const captured = { ...source, isCurrent: async () => await selected.isCurrent() && await source.isCurrent() };
     const identity = await readOwnedReleaseIdentity(captured.files);
     if (identity.environment !== 'production' || identity.projectId !== input.projectId || !await captured.isCurrent()) throw new Error();
     const result = await exportWebsiteProjectToOwnedGitHub({ projectId: input.projectId, ownerId: input.ownerId,
-      connectionId: input.productionGithubConnectionId, environment: 'production', operationId: input.operationId,
+      connectionId: github.connectionId, environment: 'production', operationId: input.operationId,
       reader: input.reader, client: input.client, githubClientId: input.githubClientId, githubClientSecret: input.githubClientSecret,
       expectedSourceDigest: captured.sourceDigest, fetcher: input.fetcher,
       compile: async () => { if (!await captured.isCurrent()) throw new Error(); return captured.files; },
@@ -242,7 +251,7 @@ export async function prepareWebsiteOwnedProductionSource(input:
       const candidate = await recordWebsiteProductionSourceCandidate({ client: input.client, reader: input.reader,
         isCurrent: captured.isCurrent,
         candidate: { status: 'source-prepared', previewSourceDigest: captured.previewSourceDigest, operationId: input.operationId, projectId: input.projectId, ownerId: input.ownerId,
-          previewOperationId: input.previewOperationId, githubConnectionId: input.productionGithubConnectionId,
+          previewOperationId: input.previewOperationId, githubConnectionId: github.connectionId,
           snapshotDigest: captured.snapshotDigest, runtimeDigest: identity.runtimeDigest, sourceDigest: captured.sourceDigest, headSha: result.headSha } });
       return { ...metadata, candidate };
     } catch { return { ...metadata, status: 'recovery-required' as const }; }

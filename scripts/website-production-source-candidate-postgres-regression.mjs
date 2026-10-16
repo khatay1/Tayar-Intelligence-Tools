@@ -162,3 +162,23 @@ for (const role of ['anon', 'authenticated']) {
   refused(`set role ${role};${beginRuntime()}`); refused(`set role ${role};${commitRuntime()}`); refused(`set role ${role};${reconcileRuntime}`);
 }
 console.log('PASS Production runtime PostgreSQL: distinct backend digests, exact one-shot preparation/recovery, historical Preview refusal, invalid IDs and stale binding/lease/repository denial (receipt DDL reused; provider transport absent)');
+
+migration('supabase/migrations/20261016110000_website_production_source_targets.sql');
+const readTargets = `select public.website_byo_publish_targets('${project}','${owner}')`;
+const targets = JSON.parse(psql(asService(readTargets)));
+assert.deepEqual(targets, { githubPreview: { connectionId: pg, version: 1 }, githubProduction: { connectionId: g, version: 1 },
+  vercelPreview: { connectionId: pv, version: 1 }, vercelProduction: { connectionId: v, version: 1 } });
+assert.doesNotMatch(JSON.stringify(targets), /publishable|accessToken|backend|sourceDigest/);
+for (const change of [
+  `update private.website_infrastructure_connections set target_id='99' where id='${g}'`,
+  `update private.website_infrastructure_connections set account_id='78' where id='${g}'`,
+  `update private.website_infrastructure_connections set owner_id='${id(99)}' where id='${g}'`,
+  `update private.website_infrastructure_connections set status='credentials-revoked' where id='${g}'`,
+]) {
+  const changed = JSON.parse(psql(`begin;${change};${asService(readTargets)}rollback;`));
+  assert.equal(changed.githubProduction, null); assert.deepEqual(changed.githubPreview, targets.githubPreview);
+}
+assert.equal(JSON.parse(psql(`begin;update private.website_vercel_integration_custody set repository_id='99' where connection_id='${v}';${asService(readTargets)}rollback;`)).vercelProduction, null);
+assert.equal(psql(asService(`select public.website_byo_publish_targets('${project}','${id(99)}')`)), '');
+for (const role of ['anon', 'authenticated']) refused(`set role ${role};${readTargets}`);
+console.log('PASS Production target PostgreSQL: service-selected exact repository/account, separate environment IDs, revoked/foreign/lease mismatch refusal and preserved Preview selection');
