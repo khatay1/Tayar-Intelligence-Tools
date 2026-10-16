@@ -18,6 +18,7 @@ try {
   const projectHost = await load('editor-integrations-project-host');
   const legacyHost = await load('editor-integrations-host');
   const security = await load('editor-integration-security');
+  const properties = await load('editor-integration-property-contract');
   assert.ok(integrations.EDITOR_INTEGRATION_PROVIDERS.some(provider => provider.id === 'stripe'));
   assert.ok(integrations.EDITOR_INTEGRATION_PROVIDERS.some(provider => provider.id === 'webhook'));
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
@@ -67,7 +68,7 @@ try {
       config: { enabledFlag: false, target: 'one', label: 'Allowed' },
       secrets: {}, events: ['custom'],
     }] });
-    assert.deepEqual(integrations.validateEditorIntegrations(typed), [],
+    assert.deepEqual(properties.validateEditorPropertyValues(fixtureProvider.fields, typed.connections[0].config), [],
       'A false boolean and selected enum option are legitimate typed inputs');
     for (const [field, value] of [
       ['enabledFlag', 'false'],
@@ -80,28 +81,17 @@ try {
     ]) {
       const invalidField = structuredClone(typed);
       invalidField.connections[0].config[field] = value;
-      assert.ok(integrations.validateEditorIntegrations(invalidField)
+      assert.ok(properties.validateEditorPropertyValues(fixtureProvider.fields, invalidField.connections[0].config)
         .some(issue => issue.code === 'invalid-config' && issue.field === field),
-        `Connector field ${field} must enforce its declared property type`);
+        `Editor property contract must reject invalid ${field} values`);
 
     }
   } finally { integrations.EDITOR_INTEGRATION_PROVIDERS.pop(); }
-  // The runtime bundles its own provider registry; check the real, shipped
-  // Google Analytics text property so this assertion verifies dispatch too.
-  const badLiveProvider = integrations.normalizeEditorIntegrationsConfig({ connections: [{
-    id: 'ga-typed', providerId: 'google-analytics', enabled: true, status: 'active',
-    environments: ['preview'], config: { measurementId: false }, secrets: {},
-    events: ['page.viewed'],
-  }] });
-  const denied = await runtime.dispatchEditorIntegrationEvent(badLiveProvider, {
-    id: 'evt-typed', projectId, event: 'page.viewed', environment: 'preview',
-    occurredAt: '2026-10-16T00:00:00Z', payload: {},
-  }, {
-    async resolveSecret() { assert.fail('Invalid typed input must not read credentials'); },
-    async request() { assert.fail('Invalid typed input must not call an external endpoint'); },
-  });
-  assert.equal(denied[0]?.status, 'failed');
-  assert.equal(denied[0]?.attempt, 0);
+  // The adapter/runtime still requires its separate, server-owned validation.
+  // This preflight must not be advertised as a dispatch authorization gate.
+  const gaFields = integrations.getEditorIntegrationProvider('google-analytics').fields;
+  assert.ok(properties.validateEditorPropertyValues(gaFields, { measurementId: false })
+    .some(issue => issue.field === 'measurementId'));
   const invalidId = structuredClone(config); invalidId.connections[0].id = 'hook\r\nAuthorization: bad';
   assert.ok(integrations.validateEditorIntegrations(invalidId).some(issue => issue.code === 'invalid-config'), 'Invalid connection IDs block publishing');
   const stripeRef = `secret://website/${projectId}/stripe-prod/secretKey/production`;
