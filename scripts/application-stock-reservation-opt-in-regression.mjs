@@ -134,6 +134,17 @@ try {
     assert.equal(generatedApplication(requirement,managed,prompt).tables[0].stockReservations,true,
       'Reservation generation requires its actual saved and bound mutation control');
   }
+  const managed=structuredClone(pages);managed[0].sections[0].applicationDataView.actions.push('stock-reservation');
+  const managedGeneration={...generated,requirements:[...generated.requirements,
+    {id:'held_stock',summary:'Hold and settle inventory',capability:'records',evidence:['view:items:stock-reservation']}]};
+  for (const prompt of ['Stock per warehouse','Inventory across multiple locations',
+    'Multi-warehouse stock balances','مخزون متعدد المستودعات','أرصدة المخزون لكل موقع',
+    'Lagersaldo per lager']) {
+    assert.throws(()=>generatedApplication(managedGeneration,managed,prompt),/Physical stock balances by location/,
+      'A location label and an otherwise valid stock view cannot pass for warehouse-specific physical quantities');
+  }
+  assert.equal(generatedApplication(managedGeneration,managed,'Reserve inventory at a labeled location').tables[0].stockReservations,true,
+    'A stock location label does not imply a separate physical warehouse balance');
   for (const flag of [false, 'true', {}, 1]) {
     const malformed = structuredClone(saved); malformed.tables[0].stockReservations = flag;
     assert.ok(issues(malformed).length, 'Only an explicit true stock declaration is accepted');
