@@ -259,7 +259,7 @@ try {
     if (!Object.hasOwn(values, name)) return { data: null, error: { message: 'unsupported fixture RPC' } };
     const params = values[name]().map(value => typeof value === 'number' ? String(value) : "'" + value + "'").join(',');
     try {
-      const output = await query(\`\${login(owner)} select public.\${name}(\${params});\`);
+      const output = await query(`${login(owner)} select public.${name}(${params});`);
       const actual = output.split('\n').at(-1);
       return { data: name === 'app_stock_available_0' ? Number(actual) : actual, error: null };
     } catch { return { data: null, error: { message: 'database-internal-detail-must-not-escape' } }; }
