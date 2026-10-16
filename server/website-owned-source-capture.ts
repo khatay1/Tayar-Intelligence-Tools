@@ -129,6 +129,7 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     },
   });
   if (!captured.value) throw new Error('Customer runtime scope is unavailable.');
+  if (source.connection.environment !== input.environment) throw new Error('Customer source environment changed.');
   const initial = captured.value;
   const boundIdentity = JSON.stringify(initial.binding);
   const supabaseIdentity = identity(initial.supabase), vercelIdentity = identity(initial.vercel);
@@ -145,4 +146,31 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     vercel: structuredClone(initial.vercel), capabilities: structuredClone(state.capabilities!),
     stripeRuntime:state.stripeRuntime?structuredClone(state.stripeRuntime):null,
     emailRuntime:state.emailRuntime?structuredClone(state.emailRuntime):null,isCurrent };
+}
+
+/** Compile distinct Production source from the same saved specification as
+ * the verified Preview, with separate database and environment connections.
+ * Reuses the current compiler/scope verifier. This does not deploy or activate. */
+export async function captureWebsiteOwnedProductionSource(input:
+  Omit<Parameters<typeof captureWebsiteOwnedApplicationSource>[0], 'environment' | 'githubConnectionId'> & {
+    previewGithubConnectionId: string;
+    productionGithubConnectionId: string;
+    expectedPreviewSourceDigest: string;
+  }) {
+  if (typeof window !== 'undefined' || !/^[a-f0-9]{64}$/.test(input.expectedPreviewSourceDigest)
+    || input.previewGithubConnectionId === input.productionGithubConnectionId) throw new Error('Production source preparation is unavailable.');
+  try {
+    const preview = await captureWebsiteOwnedApplicationSource({ ...input, environment: 'preview', githubConnectionId: input.previewGithubConnectionId });
+    if (preview.sourceDigest !== input.expectedPreviewSourceDigest) throw new Error();
+    const production = await captureWebsiteOwnedApplicationSource({ ...input, environment: 'production', githubConnectionId: input.productionGithubConnectionId });
+    if (production.snapshotDigest !== preview.snapshotDigest || production.sourceDigest === preview.sourceDigest
+      || production.supabase.id === preview.supabase.id || production.binding.backend.projectRef === preview.binding.backend.projectRef
+      || production.vercel.id === preview.vercel.id || production.vercel.targetId !== preview.vercel.targetId
+      || production.vercel.accountId !== preview.vercel.accountId
+      || production.connection.targetId !== preview.connection.targetId || production.connection.accountId !== preview.connection.accountId
+      || production.binding.applicationOrigin !== preview.binding.applicationOrigin) throw new Error();
+    const isCurrent = async () => await preview.isCurrent() && await production.isCurrent();
+    if (!await isCurrent()) throw new Error();
+    return { ...production, previewSourceDigest: preview.sourceDigest, isCurrent };
+  } catch { throw new Error('Production source preparation is unavailable.'); }
 }

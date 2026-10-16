@@ -1,4 +1,5 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
+import {ProductionCandidateRequiredError} from '../src/modules/website-builder/core/application-production-candidate';
 import type {ByoPublishCheckpoint} from './website-byo-publish-worker';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -61,5 +62,8 @@ export async function handleWebsiteByoPublish(request:Request,context:{
       :await context.readStatus({...scope,environment});
     if(!await owns())throw new Error();const body=safe(result,scope,environment);
     return json(body.status==='ready'?200:body.status==='blocked'?409:202,body);
-  }catch{return json(409,{error:'Publish could not be reconciled. Refresh and try again.'});}
+  }catch(error){
+    if(action==='production'&&error instanceof ProductionCandidateRequiredError)return json(409,{error:error.message,code:error.code});
+    return json(409,{error:'Publish could not be reconciled. Refresh and try again.'});
+  }
 }

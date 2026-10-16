@@ -4,6 +4,14 @@
 // server/website-byo-publish-deployment-entry.ts
 import { createClient as createClient3 } from "npm:@supabase/supabase-js@2.57.4";
 
+// src/modules/website-builder/core/application-production-candidate.ts
+var ProductionCandidateRequiredError = class extends Error {
+  code = "production-candidate-required";
+  constructor() {
+    super("Production publishing requires a separately staged and verified Production release.");
+  }
+};
+
 // server/website-byo-publish-endpoint.ts
 var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var stages = /* @__PURE__ */ new Set(["created", "validated", "exporting", "exported", "observing", "blocked", "promoting", "verifying-production", "ready"]);
@@ -70,7 +78,8 @@ async function handleWebsiteByoPublish(request2, context) {
     if (!await owns()) throw new Error();
     const body = safe(result, scope, environment);
     return json(body.status === "ready" ? 200 : body.status === "blocked" ? 409 : 202, body);
-  } catch {
+  } catch (error) {
+    if (action === "production" && error instanceof ProductionCandidateRequiredError) return json(409, { error: error.message, code: error.code });
     return json(409, { error: "Publish could not be reconciled. Refresh and try again." });
   }
 }
@@ -379,7 +388,7 @@ async function captureWebsiteGitHubExportSource(input) {
     }
   }
   if (!await isCurrent()) throw new Error("GitHub export source changed.");
-  return { files: captured, sourceDigest, connection: capturedConnection, isCurrent };
+  return { files: captured, sourceDigest, snapshotDigest, connection: capturedConnection, isCurrent };
 }
 
 // src/modules/website-builder/core/application-files-runtime.ts
@@ -13188,6 +13197,7 @@ async function captureWebsiteOwnedApplicationSource(input) {
     }
   });
   if (!captured.value) throw new Error("Customer runtime scope is unavailable.");
+  if (source.connection.environment !== input.environment) throw new Error("Customer source environment changed.");
   const initial = captured.value;
   const boundIdentity = JSON.stringify(initial.binding);
   const supabaseIdentity = identity5(initial.supabase), vercelIdentity2 = identity5(initial.vercel);
@@ -13735,6 +13745,26 @@ async function json3(fetcher, url, token4) {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
   return parsed;
 }
+async function inspectOwnedVercelProductionCandidate(input) {
+  try {
+    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id3.test(input.accountId) || !project3.test(input.projectId) || !deployment4.test(input.deploymentId) || !sha7.test(input.sourceCommitSha) || !/^tayar\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/production$/i.test(input.sourceBranch)) throw new Error();
+    const query = team2.test(input.accountId) ? `?teamId=${encodeURIComponent(input.accountId)}` : "";
+    const read = async () => {
+      if (!await input.isCurrent()) throw new Error();
+      const value = await json3(input.fetcher ?? fetch, `https://api.vercel.com/v13/deployments/${input.deploymentId}${query}`, input.accessToken);
+      const meta = value.meta;
+      if (value.id !== input.deploymentId || value.projectId !== input.projectId || value.ownerId !== input.accountId || value.target !== "production" || value.readyState !== "READY" || !meta || typeof meta !== "object" || Array.isArray(meta) || meta.githubCommitSha !== input.sourceCommitSha || meta.githubCommitRef !== input.sourceBranch || typeof value.url !== "string" || !/^[a-z0-9-]+\.vercel\.app$/.test(value.url)) throw new Error();
+      return { deploymentId: input.deploymentId, sourceCommitSha: input.sourceCommitSha, liveUrl: `https://${value.url}` };
+    };
+    const first = await read();
+    if (!await input.isCurrent()) throw new Error();
+    const second = await read();
+    if (JSON.stringify(first) !== JSON.stringify(second) || !await input.isCurrent()) throw new Error();
+    return second;
+  } catch {
+    throw new ProductionCandidateRequiredError();
+  }
+}
 async function readOwnedVercelProductionDomains(input) {
   if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id3.test(input.accountId) || !project3.test(input.projectId) || !branch2.test(input.productionBranch) || input.productionBranch.includes("..")) throw new Error("Vercel production domains are unavailable.");
   const teamScope = team2.test(input.accountId), scope = teamScope ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
@@ -13774,7 +13804,7 @@ async function promoteAndVerifyOwnedVercelDeployment(input) {
   const amp = teamScope ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
   const observe = async () => {
     const deployed = await json3(fetcher, `https://api.vercel.com/v13/deployments/${input.deploymentId}${query}`, input.accessToken), meta = deployed.meta;
-    if (deployed.id !== input.deploymentId || deployed.projectId !== input.projectId || deployed.ownerId !== input.accountId || deployed.readyState !== "READY" || !meta || typeof meta !== "object" || Array.isArray(meta) || meta.githubCommitSha !== input.sourceCommitSha || meta.githubCommitRef !== input.sourceBranch) throw new Error();
+    if (deployed.id !== input.deploymentId || deployed.projectId !== input.projectId || deployed.ownerId !== input.accountId || deployed.readyState !== "READY" || deployed.target !== "production" || !meta || typeof meta !== "object" || Array.isArray(meta) || meta.githubCommitSha !== input.sourceCommitSha || meta.githubCommitRef !== input.sourceBranch) throw new Error();
     const assigned = await json3(fetcher, `https://api.vercel.com/v2/deployments/${input.deploymentId}/aliases${query}`, input.accessToken);
     if (!Array.isArray(assigned.aliases) || assigned.aliases.length > 100) throw new Error();
     const aliases2 = validDomains(assigned.aliases.map((raw) => {
@@ -13795,6 +13825,7 @@ async function promoteAndVerifyOwnedVercelDeployment(input) {
   };
   try {
     if (!await input.isCurrent()) throw new Error();
+    await inspectOwnedVercelProductionCandidate(input);
     if (input.issuePromotion) {
       try {
         const response = await fetcher(
@@ -13933,6 +13964,7 @@ async function commitId(operationId, version, report) {
 async function runWebsiteOwnedVercelPromotion(input) {
   if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewConnectionId, input.productionConnectionId].every((v) => uuid11.test(v)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !project5.test(input.vercelProjectId) || !deployment6.test(input.deploymentId) || !sha9.test(input.sourceCommitSha) || !provider2.test(input.accountId) || ![input.sourceBranch, input.productionBranch].every((v) => branch4.test(v) && !v.includes("..")) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !await input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   try {
+    await inspectOwnedVercelProductionCandidate({ ...input, projectId: input.vercelProjectId });
     const prior = await input.client.rpc("website_vercel_promotion_for_worker", {
       p_production_connection_id: input.productionConnectionId,
       p_project_id: input.projectId,
@@ -15772,7 +15804,6 @@ async function runWebsiteOwnedByoProductionPublish(input) {
   };
   try {
     const previewStore = createWebsiteByoPublishStore(previewScope), store = createWebsiteByoPublishStore(productionScope);
-    if (!await store.read(input.operationId)) await initializeWebsiteByoPublishOperation(productionScope);
     const custodyResult = await input.client.rpc("website_read_vercel_integration_custody", {
       p_connection_id: input.productionVercelConnectionId,
       p_project_id: input.projectId,
@@ -15781,6 +15812,19 @@ async function runWebsiteOwnedByoProductionPublish(input) {
     });
     if (custodyResult.error || !await owner()) throw new Error();
     const custody = parseCustody(custodyResult.data, "production");
+    const candidate = await previewStore.read(input.previewOperationId);
+    if (!candidate?.deploymentId || !candidate.headSha) throw new Error();
+    await inspectOwnedVercelProductionCandidate({
+      accessToken: custody.accessToken,
+      accountId: custody.accountId,
+      projectId: custody.vercelProjectId,
+      deploymentId: candidate.deploymentId,
+      sourceCommitSha: candidate.headSha,
+      sourceBranch: `tayar/${input.projectId}/production`,
+      isCurrent: owner,
+      fetcher: input.fetcher
+    });
+    if (!await store.read(input.operationId)) await initializeWebsiteByoPublishOperation(productionScope);
     return await runByoProductionPublishWorker({
       operationId: input.operationId,
       previewOperationId: input.previewOperationId,
@@ -15839,7 +15883,8 @@ async function runWebsiteOwnedByoProductionPublish(input) {
         });
       }
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof ProductionCandidateRequiredError) throw error;
     throw new Error("BYO production publish adapters unavailable.");
   }
 }

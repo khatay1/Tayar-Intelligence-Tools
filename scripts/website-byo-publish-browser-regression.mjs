@@ -7,6 +7,7 @@ const fetcher=async(url,init)=>{assert.equal(url,'https://platform.example/funct
   if(body.action==='production')return Response.json({status:'blocked',operationId:body.operationId,environment:'production',stage:'blocked',version:2,liveUrl:null},{status:409});
   return Response.json({status:'pending',operationId:body.operationId,environment:'preview',stage:'observing',version:1,liveUrl:null},{status:202});};
 const transport={platformUrl:'https://platform.example',anonKey:'anon-public-key',getSession:async()=>({ownerId,accessToken:'header.payload.signature'}),fetcher};
+await assert.rejects(mod.startWebsiteByoPreview({scope:{...scope,ownerId:'11111111-1111-4111-111111111111'},transport,storage}),/changed/);assert.equal(requests.length,0);
 const first=await mod.startWebsiteByoPreview({scope,transport,storage});assert.equal(first.status,'pending');assert.match(first.operationId,/^[0-9a-f-]{36}$/);assert.equal(requests[0].action,'preview');
 const retry=await mod.startWebsiteByoPreview({scope,transport,storage});assert.equal(retry.operationId,first.operationId,'pending retry reuses operation');
 pollReady=true;const ready=await mod.pollWebsiteByoPublish({scope,transport,storage,environment:'preview'});assert.equal(ready.status,'ready');assert.equal(ready.operationId,first.operationId);
@@ -15,6 +16,10 @@ const restored=await mod.pollWebsiteByoPublish({scope,transport,storage,environm
 const blocked=await mod.startWebsiteByoProduction({scope,transport,storage});assert.equal(blocked.status,'blocked');assert.equal(requests.at(-1).previewOperationId,first.operationId);
 const productionRetry=await mod.startWebsiteByoProduction({scope,transport,storage,newOperation:true});assert.notEqual(productionRetry.operationId,blocked.operationId);
 assert.equal(await mod.pollWebsiteByoPublish({scope,transport,storage,environment:'production'}),null,'blocked operations are not polled');
+const candidateTransport={...transport,fetcher:async()=>Response.json({code:'production-candidate-required',error:'sb_secret_MUST_NOT_ESCAPE'},{status:409})};
+await assert.rejects(mod.startWebsiteByoProduction({scope,transport:candidateTransport,storage,newOperation:true}),error=>error.code==='production-candidate-required'&&/separately staged/.test(error.message)&&!error.message.includes('sb_secret'));
+assert.equal(mod.readStoredWebsiteByoPublishOperation({scope,environment:'production',storage}).status,'blocked');
+assert.equal(await mod.pollWebsiteByoPublish({scope,transport:candidateTransport,storage,environment:'production'}),null,'missing candidate stops automatic polling');
 current=false;await assert.rejects(mod.startWebsiteByoPreview({scope,transport,storage}),/changed/);
 assert.ok(!JSON.stringify([...values.values()]).includes('header.payload.signature'),'session storage contains no token');
 console.log('PASS BYO publish browser: scoped durable UUIDs, pending reuse, ready-preview production binding, blocked stop and stale-project refusal');

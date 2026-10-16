@@ -10,7 +10,7 @@ try{
   const{beginWebsiteVercelPromotion:begin,claimWebsiteVercelPromotion:claim,commitWebsiteVercelPromotion:commit}=(await import(pathToFileURL(serviceOut))).default;
   const{runWebsiteOwnedVercelPromotion:runWorker}=(await import(pathToFileURL(workerOut))).default;
   const accessToken='customer-vercel-token',accountId='team_customer1234',projectId='prj_booking1234',deploymentId='dpl_deployment1234';
-  const sourceCommitSha='a'.repeat(40),sourceBranch='tayar/22222222-2222-4222-8222-222222222222/preview';
+  const sourceCommitSha='a'.repeat(40),sourceBranch='tayar/22222222-2222-4222-8222-222222222222/production';
   const expectedAliases=['booking.example.com','booking.vercel.app'];let domainReads=0;
   const domainFetcher=async(url)=>{domainReads++;assert.match(url,/production=true&verified=true&redirects=false/);return Response.json({domains:expectedAliases.map(name=>({name,projectId,verified:true,redirect:null,gitBranch:null,customEnvironmentId:null}))});};
   assert.deepEqual(await readDomains({accessToken,accountId,projectId,productionBranch:'main',isCurrent:async()=>true,fetcher:domainFetcher}),expectedAliases);
@@ -20,14 +20,14 @@ try{
   let posts=0,gets=0;
   const providerFetcher=async(url,init)=>{const path=url.replace('https://api.vercel.com','');assert.equal(init.headers.Authorization,`Bearer ${accessToken}`);
     if(init.method==='POST'){posts++;assert.equal(path,`/v10/projects/${projectId}/promote/${deploymentId}?teamId=${accountId}`);return new Response(null,{status:202});}
-    gets++;if(path.startsWith(`/v13/deployments/${deploymentId}`))return Response.json({id:deploymentId,projectId,ownerId:accountId,readyState:'READY',meta:{githubCommitSha:sourceCommitSha,githubCommitRef:sourceBranch}});
+    gets++;if(path.startsWith(`/v13/deployments/${deploymentId}`))return Response.json({id:deploymentId,projectId,ownerId:accountId,readyState:'READY',target:'production',url:'candidate-production.vercel.app',meta:{githubCommitSha:sourceCommitSha,githubCommitRef:sourceBranch}});
     if(path.startsWith(`/v2/deployments/${deploymentId}/aliases`))return Response.json({aliases:expectedAliases.map((alias,index)=>({uid:`alias_${index}`,alias,created:new Date().toISOString()}))});
     assert.match(path,new RegExp(`/v1/projects/${projectId}/promote/aliases`));return Response.json({aliases:expectedAliases.map((alias,index)=>({id:`alias_${index}`,alias,status:'SUCCESS'})),pagination:{count:2,next:null,prev:null}});};
   const report=await promote({accessToken,accountId,projectId,deploymentId,sourceCommitSha,sourceBranch,expectedAliases,issuePromotion:true,isCurrent:async()=>true,fetcher:providerFetcher});
-  assert.deepEqual(report,{status:'ready',deploymentId,sourceCommitSha,aliases:expectedAliases,liveUrl:'https://booking.example.com'});assert.equal(posts,1);assert.equal(gets,6);
+  assert.deepEqual(report,{status:'ready',deploymentId,sourceCommitSha,aliases:expectedAliases,liveUrl:'https://booking.example.com'});assert.equal(posts,1);assert.equal(gets,8);
   await promote({accessToken,accountId,projectId,deploymentId,sourceCommitSha,sourceBranch,expectedAliases,issuePromotion:false,isCurrent:async()=>true,fetcher:providerFetcher});assert.equal(posts,1);
   let unstable=0;await assert.rejects(promote({accessToken,accountId,projectId,deploymentId,sourceCommitSha,sourceBranch,expectedAliases,issuePromotion:false,isCurrent:async()=>true,
-    fetcher:async(url,init)=>{if(url.includes('/deployments/')&&!url.includes('/aliases'))return Response.json({id:deploymentId,projectId,ownerId:accountId,readyState:'READY',meta:{githubCommitSha:sourceCommitSha,githubCommitRef:sourceBranch}});
+    fetcher:async(url,init)=>{if(url.includes('/deployments/')&&!url.includes('/aliases'))return Response.json({id:deploymentId,projectId,ownerId:accountId,readyState:'READY',target:'production',url:'candidate-production.vercel.app',meta:{githubCommitSha:sourceCommitSha,githubCommitRef:sourceBranch}});
       if(url.includes('/deployments/')&&url.includes('/aliases')){unstable++;return Response.json({aliases:(unstable>1?expectedAliases.slice(1):expectedAliases).map((alias,index)=>({uid:`a${index}`,alias,created:new Date().toISOString()}))});}
       return Response.json({aliases:expectedAliases.map((alias,index)=>({id:`a${index}`,alias,status:'SUCCESS'})),pagination:{count:2,next:null,prev:null}});}}),/unavailable/);
 
@@ -58,8 +58,8 @@ try{
   assert.equal(reconciled.status,'ready');assert.equal(workerPosts,1);assert.deepEqual(reconcileRpc,workerRpc);
   let recoveredReads=0;const recovered=await runWorker({client:{async rpc(name){assert.equal(name,'website_vercel_promotion_for_worker');return{data:{version:3,operationId:ids.operationId,status:'ready',deploymentId,sourceCommitSha,expectedAliases,observedAliases:expectedAliases,liveUrl:'https://booking.example.com',productionConnectionVersion:4,runtimeEnvironmentReceiptVersion:runtime.runtimeEnvironmentReceiptVersion,runtimeEnvironmentIds:runtime.runtimeEnvironmentIds},error:null};}},...ids,...runtime,
     previewConnectionVersion:5,productionConnectionVersion:4,previewAttemptVersion:2,vercelProjectId:projectId,deploymentId,
-    sourceCommitSha,sourceBranch,accessToken,accountId,productionBranch:'main',isCurrent:async()=>true,fetcher:async()=>{recoveredReads++;throw Error();}});
-  assert.equal(recovered.status,'ready');assert.equal(recovered.connectionVersion,4);assert.equal(recoveredReads,0,'committed ready recovery performs no provider request');
+    sourceCommitSha,sourceBranch,accessToken,accountId,productionBranch:'main',isCurrent:async()=>true,fetcher:async()=>{recoveredReads++;return Response.json({id:deploymentId,projectId,ownerId:accountId,readyState:'READY',target:'production',url:'candidate-production.vercel.app',meta:{githubCommitSha:sourceCommitSha,githubCommitRef:sourceBranch}});}});
+  assert.equal(recovered.status,'ready');assert.equal(recovered.connectionVersion,4);assert.equal(recoveredReads,2,'committed recovery rechecks immutable Production target without a promotion write');
   const sql=(await readFile('supabase/migrations/20260930040000_website_byo_vercel_promotion.sql','utf8'))+(await readFile('supabase/migrations/20261002100908_website_byo_production_runtime_environment.sql','utf8'));
   assert.match(sql,/status text not null check \(status in \('prepared','claimed','ready'\)\)/);assert.match(sql,/if v_row[.]status='prepared'/);assert.match(sql,/v_issue:=true/);
   assert.match(sql,/a[.]target='preview' and a[.]status='ready'/);assert.match(sql,/pvc[.]account_id=rvc[.]account_id/);assert.match(sql,/pvc[.]repository_id=rvc[.]repository_id/);

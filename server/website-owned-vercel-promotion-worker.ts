@@ -1,5 +1,5 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
-import {promoteAndVerifyOwnedVercelDeployment,readOwnedVercelProductionDomains,
+import {promoteAndVerifyOwnedVercelDeployment,readOwnedVercelProductionDomains,inspectOwnedVercelProductionCandidate,
   type OwnedVercelPromotionReport} from './website-owned-vercel-promotion';
 import {beginWebsiteVercelPromotion,claimWebsiteVercelPromotion,commitWebsiteVercelPromotion}
   from '../src/modules/website-builder/services/websiteVercelPromotionService';
@@ -30,6 +30,7 @@ export async function runWebsiteOwnedVercelPromotion(input:{client:Client;operat
     ||!provider.test(input.accountId)||![input.sourceBranch,input.productionBranch].every(v=>branch.test(v)&&!v.includes('..'))
     ||!input.accessToken||input.accessToken.length>4096||/[\r\n]/.test(input.accessToken)||!await input.isCurrent())throw new Error('Vercel promotion unavailable.');
   try{
+    await inspectOwnedVercelProductionCandidate({...input,projectId:input.vercelProjectId});
     const prior=await input.client.rpc('website_vercel_promotion_for_worker',{p_production_connection_id:input.productionConnectionId,
       p_project_id:input.projectId,p_owner_id:input.ownerId});if(prior.error||!await input.isCurrent())throw new Error();
     const row=prior.data as Record<string,unknown>|null,version=row===null?0:row.version;
