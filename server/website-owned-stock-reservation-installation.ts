@@ -3,6 +3,7 @@ import { assertInfrastructureConnection, type InfrastructureConnection } from '.
 import { compileApplicationInventoryReservationSchema } from '../src/modules/website-builder/core/application-inventory-reservation-sql';
 import { createOwnedSupabaseReadOnlyQuery } from './website-owned-supabase-catalog';
 import { verifyOwnedStockReservationCatalog } from './website-owned-stock-reservation-catalog';
+import { createBoundedOwnedStockCatalogFetcher } from './website-owned-stock-reservation-catalog-transport';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const projectRef = /^[a-z]{20}$/;
@@ -58,7 +59,8 @@ export async function verifyOwnedStockReservationInstallation(input: {
     // This query is intentionally constructed from the server-owned targetId,
     // never from a caller-supplied hostname or editable project configuration.
     const query = createOwnedSupabaseReadOnlyQuery({
-      projectRef: first.targetId, accessToken: input.accessToken, fetcher: input.fetcher,
+      projectRef: first.targetId, accessToken: input.accessToken,
+      fetcher: createBoundedOwnedStockCatalogFetcher(input.fetcher),
     });
     if (!await verifyOwnedStockReservationCatalog(input.definition, input.itemTableId, query)) return false;
 
