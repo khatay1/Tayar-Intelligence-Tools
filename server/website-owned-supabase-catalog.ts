@@ -18,51 +18,19 @@ type Query = (sql: string) => Promise<unknown>;
 export function createOwnedSupabaseReadOnlyQuery(input: {
   projectRef: string; accessToken: string; fetcher?: typeof fetch;
 }): Query {
-  if (!/^[a-z]{20}$/.test(input.projectRef) || typeof input.accessToken !== 'string'
-    || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken)) {
+  if (!/^[a-z]{20}$/.test(input.projectRef) || !input.accessToken || /[\r\n]/.test(input.accessToken)) {
     throw new Error('Customer Supabase catalog access is unavailable.');
   }
   const fetcher = input.fetcher ?? fetch;
   const url = `https://api.supabase.com/v1/projects/${input.projectRef}/database/query/read-only`;
-  // This query is executed only by server-owned catalog verifiers. A bounded
-  // response and whole-request deadline prevent one remote project from
-  // exhausting a publish worker. Never log OAuth tokens or provider bodies.
-  const maxBodyBytes = 1_048_576;
   return async query => {
-    if (typeof query !== 'string' || !query || query.length > 65_536)
-      throw new Error('Customer Supabase catalog read failed.');
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8_000);
-    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     try {
       const response = await fetcher(url, { method: 'POST', headers: {
         Authorization: `Bearer ${input.accessToken}`, 'Content-Type': 'application/json',
-      }, body: JSON.stringify({ query }), redirect: 'error', cache: 'no-store', signal: controller.signal });
-      const rawLength = response.headers.get('content-length');
-      if (response.status !== 201 || !response.body
-        || (rawLength !== null && (!/^\d+$/.test(rawLength) || Number(rawLength) > maxBodyBytes))) throw new Error();
-      reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let length = 0;
-      for (;;) {
-        const result = await reader.read();
-        if (result.done) break;
-        length += result.value.byteLength;
-        if (length > maxBodyBytes) throw new Error();
-        chunks.push(result.value);
-      }
-      const bytes = new Uint8Array(length);
-      let offset = 0;
-      for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-      const payload: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-      if (!Array.isArray(payload)) throw new Error();
-      return payload;
+      }, body: JSON.stringify({ query }), redirect: 'error', cache: 'no-store' });
+      if (response.status !== 201) throw new Error();
+      return await response.json();
     } catch { throw new Error('Customer Supabase catalog read failed.'); }
-    finally {
-      clearTimeout(timer);
-      controller.abort();
-      if (reader) { try { await reader.cancel(); } catch { /* Disposal is best effort. */ } }
-    }
   };
 }
 
