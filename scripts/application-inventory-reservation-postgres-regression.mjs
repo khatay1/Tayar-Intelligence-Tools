@@ -409,7 +409,7 @@ try {
     // database. Only the provider HTTP/Auth transport is simulated locally.
     const fixtureSource=`import {mountApplicationDataView} from './src/modules/website-builder/browser/application-data-view';
       import {createOwnedApplicationDataRuntime} from './src/modules/website-builder/core/application-data-runtime';
-      const nativeFetch=globalThis.fetch;
+      void (async()=>{const nativeFetch=globalThis.fetch;
       globalThis.fetch=(input,init={})=>nativeFetch('/provider',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({url:String(input),method:init.method??'GET',headers:Object.fromEntries(new Headers(init.headers)),body:init.body})});
       const wait=async predicate=>{for(let i=0;i<400;i++){if(predicate())return;await new Promise(r=>setTimeout(r,10));}throw Error('Stock UI timed out');};
       const runtime=createOwnedApplicationDataRuntime(${JSON.stringify(savedStockApp)},${JSON.stringify(backend)},${JSON.stringify(projectRef)});
@@ -420,7 +420,7 @@ try {
         await wait(button);button().click();
         await wait(()=>host.shadowRoot.querySelector('[role=status]').textContent.includes('Available: 1.'));
         await nativeFetch('/result',{method:'POST',body:'PASS browser UI -> saved opt-in -> SDK -> PostgreSQL availability'});
-      }catch(error){await nativeFetch('/result',{method:'POST',body:'FAIL '+error.stack});}finally{stop?.();runtime.dispose();}`;
+      }catch(error){await nativeFetch('/result',{method:'POST',body:'FAIL '+error.stack});}finally{stop?.();runtime.dispose();}})();`;
     const built=await build({stdin:{contents:fixtureSource,resolveDir:process.cwd(),sourcefile:'stock-database-browser.ts'},bundle:true,write:false,platform:'browser',format:'iife',target:'es2020',minify:true});
     const providerFetch=globalThis.fetch;
     let report, timer, browser, browserLog='';
