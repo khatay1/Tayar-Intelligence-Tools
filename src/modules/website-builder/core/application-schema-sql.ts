@@ -3,6 +3,7 @@ import { compileApplicationFilesSchema } from './application-files-sql';
 import { compileApplicationBookingSchedule } from './application-booking-schedule-sql';
 import { compileApplicationReports } from './application-reports-sql';
 import { applicationCounterInfrastructure, compileApplicationCounterSchema } from './application-counter-sql';
+import { compileApplicationInventoryReservationSchema } from './application-inventory-reservation-sql';
 import { applicationTransactionInfrastructure, compileApplicationTransactionSchema } from './application-transaction-sql';
 import { applicationWorkflowInfrastructure, compileApplicationWorkflowSchema } from './application-workflow-sql';
 import type { ApplicationDefinition, ApplicationField, ApplicationPermission, ApplicationTable } from './application-model';
@@ -306,12 +307,14 @@ $$;`,
 
 /** Initial schema for one isolated generated-app Supabase database. No migration of existing data. */
 export function compileInitialApplicationSchema(input: ApplicationDefinition, options?: {
-  emailNotificationsProvisioned?: boolean;stripeOrderPaymentsProvisioned?:boolean;
+  emailNotificationsProvisioned?: boolean;stripeOrderPaymentsProvisioned?:boolean;stockReservationsProvisioned?:boolean;
 }): string[] {
   const app = readApplicationDefinition(input);
   if (app.tables.some(table => table.notifications?.length) && options?.emailNotificationsProvisioned !== true) throw new Error('Email notification provisioning requires the customer-owned queue, credentials and scheduled worker.');
   if(app.tables.some(table=>table.payment)&&options?.stripeOrderPaymentsProvisioned!==true)
     throw new Error('Stripe order payment provisioning requires the customer-owned ledger, webhook and server actions.');
+  if (app.tables.some(table => table.stockReservations) && options?.stockReservationsProvisioned !== true)
+    throw new Error('Stock reservations require a verified owner-only customer backend.');
   const statements: string[] = [];
   statements.push(...bookingInfrastructure(app));
   statements.push('create schema private;');
@@ -365,6 +368,8 @@ end $$;`);
     statements.push(...compileApplicationFilesSchema(app, tableIndex));
     statements.push(...compileApplicationReports(app, tableIndex));
   }
+  for (const table of app.tables) if (table.stockReservations)
+    statements.push(...compileApplicationInventoryReservationSchema(app, table.id));
   return statements;
 }
 
@@ -390,6 +395,8 @@ export function compileAdditiveApplicationMigration(previous: ApplicationDefinit
     throw new Error('Removing or changing booking rules requires a separately reviewed data migration.');
   }
   if (before.tables.some((table, index) => table.counter && JSON.stringify(table.counter) !== JSON.stringify(after.tables[index].counter))) throw new Error('Removing or changing counter rules requires a separately reviewed data migration.');
+  if (after.tables.some((table, index) => JSON.stringify(table.stockReservations) !== JSON.stringify(before.tables[index]?.stockReservations)))
+    throw new Error('Stock reservation changes require a separately verified backend migration.');
   if (before.tables.some((table, index) => table.transaction && JSON.stringify(table.transaction) !== JSON.stringify(after.tables[index].transaction))) throw new Error('Removing or changing transaction rules requires a separately reviewed data migration.');
   if (before.tables.some((table, index) => table.payment && JSON.stringify(table.payment) !== JSON.stringify(after.tables[index].payment))) throw new Error('Removing or changing payment rules requires a separately reviewed payment migration.');
   if (before.tables.some((table, index) => table.attachments && JSON.stringify(table.attachments) !== JSON.stringify(after.tables[index].attachments))) throw new Error('Removing or changing attachment rules requires a separately reviewed storage migration.');
