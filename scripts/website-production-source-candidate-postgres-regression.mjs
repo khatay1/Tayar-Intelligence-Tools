@@ -121,8 +121,8 @@ const pairDigests = environment => psql(`select jsonb_build_object(
  from private.website_byo_runtime_bindings b join private.website_infrastructure_connections s on s.id=b.supabase_connection_id
  where b.project_id='${project}' and b.environment='${environment}'`);
 const productionDigests = pairDigests('production'), previewDigests = pairDigests('preview');
-const beginRuntime = (backend = s, digests = productionDigests) => `select public.website_begin_vercel_production_runtime_environment(
- '${project}','${owner}',1,'${backend}',1,'${v}',1,'prj_customer1234','${digests}'::jsonb,'${runtimeOperation}')`;
+const beginRuntime = (backend = s, digests = productionDigests, operation = runtimeOperation) => `select public.website_begin_vercel_production_runtime_environment(
+ '${project}','${owner}',1,'${backend}',1,'${v}',1,'prj_customer1234','${digests}'::jsonb,'${operation}')`;
 const environmentIds = JSON.stringify({ SUPABASE_ANON_KEY: 'env_production_anon', SUPABASE_URL: 'env_production_url' });
 const commitRuntime = (ids = environmentIds) => `select public.website_commit_vercel_production_runtime_environment(
  '${project}','${owner}',1,'${runtimeOperation}','${ids}'::jsonb,'[]'::jsonb,'${runtimeCommit}')`;
@@ -154,7 +154,10 @@ for (const change of runtimeChanges) assert.equal(psql(`begin;${change};${asServ
 // silently reused as a verified independent Production binding.
 const historical = `update private.website_vercel_runtime_environment_receipts set supabase_connection_id='${ps}',value_digests='${previewDigests}'::jsonb where project_id='${project}' and environment='production'`;
 assert.equal(psql(`begin;${historical};${asService(reconcileRuntime)}rollback;`), '');
-assert.equal(JSON.parse(psql(`begin;${historical};${asService(beginRuntime())}rollback;`)).status, 'preparing');
+refused(`begin;${historical};${asService(beginRuntime())}rollback;`);
+const historicalRotation = JSON.parse(psql(`begin;${historical};${asService(beginRuntime(s, productionDigests, id(82)))}rollback;`));
+assert.equal(historicalRotation.status, 'preparing'); assert.equal(historicalRotation.newlyClaimed, true);
+assert.deepEqual(historicalRotation.supersededEnvironmentIds, JSON.parse(environmentIds));
 for (const role of ['anon', 'authenticated']) {
   refused(`set role ${role};${beginRuntime()}`); refused(`set role ${role};${commitRuntime()}`); refused(`set role ${role};${reconcileRuntime}`);
 }
