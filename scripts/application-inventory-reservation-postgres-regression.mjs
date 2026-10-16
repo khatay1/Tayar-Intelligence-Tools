@@ -120,7 +120,7 @@ try {
   });
   const verified = await verify();
   if (!verified) {
-    const manifest = [...sql.matchAll(/create function (private|public)\\.(app_stock_[a-z0-9_]+)\\(([^)]*)\\) returns (text|trigger) language (plpgsql|sql) security (definer|invoker) set search_path = '' as \\$(stock_[a-z]+)\\$([\\s\\S]*?)\\$\\7\\$;/g)]
+    const manifest = [...sql.matchAll(/create function (private|public)\.(app_stock_[a-z0-9_]+)\(([^)]*)\) returns (text|trigger) language (plpgsql|sql) security (definer|invoker) set search_path = '' as \$(stock_[a-z]+)\$([\s\S]*?)\$\7\$;/g)]
       .map(x => ({ key: x[1] + '.' + x[2], args: x[3], source: x[8], result: x[4], lang: x[5], definer: x[6] === 'definer' }));
     console.error('Stock proof diagnostics:', JSON.stringify({ manifest: manifest.map(x => x.key), queries: proofRows.map((rows,index) => ({
       index, rows: rows.map(row => index === 0 ? {
@@ -129,6 +129,7 @@ try {
         anon:row.anon_execute, authenticated:row.authenticated_execute,
         matchSource:manifest.find(x => x.key === row.schema_name + '.' + row.function_name)?.source === row.source,
         sourceLength:row.source?.length, expectedLength:manifest.find(x => x.key === row.schema_name + '.' + row.function_name)?.source?.length,
+        sourceStart:row.source?.slice(0,90), expectedStart:manifest.find(x => x.key === row.schema_name + '.' + row.function_name)?.source?.slice(0,90),
       } : row),
     })) }));
   }
