@@ -96,8 +96,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     "  return case when decision = 'release' then 'released' else 'fulfilled' end;",
     'end $stock_finalize$;',
   ].join('\n');
-  // Read-only availability is a UI hint. The locked reservation procedure
-  // remains authoritative when stock changes concurrently.
+  // Owner-only availability hints are not an atomic purchase authorization.
   const availabilitySql = [
     'create function private.' + checking + '(item_id uuid) returns numeric language plpgsql security definer set search_path = \'\' as $stock_available + ledger + ' (actor_id uuid not null, reservation_id uuid not null,',
     '  item_id uuid not null references ' + product + '(id) on delete restrict, location_id uuid not null,',
@@ -136,7 +135,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     'grant execute on function private.' + checking + '(uuid) to authenticated;',
     'create function public.' + checking + '(item_id uuid) returns numeric language sql security invoker set search_path = \'\' as $stock_public$ select private.' + checking + '(item_id) $stock_public$;',
     'revoke all on function public.' + checking + '(uuid) from public,anon;',
-    'grant execute on function public.' + checking + '(uuid) to authenticated;',
+    'grant execute on function public.' + checking + '(uuid) to authenticated;'
   ];
 }
 ,
