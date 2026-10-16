@@ -108,6 +108,8 @@ export interface ApplicationTable {
   permissions: ApplicationPermission[];
   booking?: ApplicationBookingRule;
   counter?: ApplicationCounterRule;
+  /** Explicitly opt into owner-only reservation SQL; still requires separately proven backend activation. */
+  stockReservations?: { mode: 'owner' };
   transaction?: ApplicationTransactionRule;
   payment?: ApplicationPaymentRule;
   workflow?: ApplicationWorkflowRule;
