@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:https';
+import { createServer, get } from 'node:https';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -295,8 +295,22 @@ try {
   }
   html = html.replace('</head>', '<script src="/mock.js"></script></head>');
   html = html.replace('</body>', '<script src="/harness.js"></script></body>');
+  // Prove the privileged HTTPS loopback proxy before starting Chrome. A
+  // listening TCP process alone does not establish TLS/HTTP reachability.
+  await new Promise((resolveProbe, rejectProbe) => {
+    const request = get({ hostname: '127.0.0.1', port: 443, path: '/index.html',
+      servername: projectId + '.apps.tayar.se', rejectUnauthorized: false, timeout: 3000 }, response => {
+      response.resume();
+      response.once('end', () => response.statusCode === 200 ? resolveProbe() : rejectProbe(new Error('HTTPS loopback fixture is unavailable')));
+      response.once('error', rejectProbe);
+    });
+    request.once('error', rejectProbe);
+    request.once('timeout', () => request.destroy(new Error('HTTPS loopback fixture timed out')));
+  });
+  serverRequests.length = 0;
   const detached = process.platform !== 'win32';
   const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-proxy-server',
+    '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-sync', '--password-store=basic', '--use-mock-keychain',
     '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer;
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
