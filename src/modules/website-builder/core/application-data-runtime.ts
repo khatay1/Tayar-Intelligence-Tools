@@ -3,6 +3,7 @@ import { createApplicationPaymentRuntime } from './application-payment-runtime';
 import { parseApplicationReports } from './application-reports';
 import { expandApplicationBookingRecurrence, applicationBookingOccurrenceIds } from './application-booking-recurrence';
 import { ApplicationCounterRejected, parseApplicationCounterDelta } from './application-counter';
+import { createApplicationStockReservationRpc, ApplicationStockRpcRejected } from './application-stock-reservation-rpc';
 import { ApplicationTransactionRejected, parseApplicationTransactionLines } from './application-transaction';
 import { ApplicationBookingRejected, applicationBookingDatabaseRejection, validateApplicationBookingValues } from './application-booking';
 import { ApplicationWorkflowRejected, applicationWorkflowTransition } from './application-workflow';
@@ -131,15 +132,17 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
 /** Customer-owned browser execution uses the same validated Auth/CRUD model.
  * Protected page delivery still requires a separately verified server route. */
 export function createOwnedApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend,
-  expectedProjectRef: string, browserSession?: { projectId: string; applicationOrigin: string }) {
+  expectedProjectRef: string, browserSession?: { projectId: string; applicationOrigin: string },
+  stockReservationTableIds?: readonly string[]) {
   const client = createOwnedApplicationClient(config, expectedProjectRef);
   return buildApplicationDataRuntime(definition, config, client,
-    browserSession ? createOwnedApplicationBrowserSessionBridge(client, browserSession) : null, browserSession?.applicationOrigin);
+    browserSession ? createOwnedApplicationBrowserSessionBridge(client, browserSession) : null, browserSession?.applicationOrigin,
+    undefined, stockReservationTableIds);
 }
 
 function buildApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, client: SupabaseClient,
   sessionBridge: ReturnType<typeof createApplicationBrowserSessionBridge> | null, paymentOrigin?: string,
-  customOperationClient?: ReturnType<typeof createPublishedCustomOperationClient>) {
+  customOperationClient?: ReturnType<typeof createPublishedCustomOperationClient>, stockReservationTableIds?: readonly string[]) {
   const app = readApplicationDefinition(definition);
   let disposed = false;
   const table = (id: string) => {
@@ -162,7 +165,36 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
     if (identity.error || !identity.data.user || identity.data.user.is_anonymous || identity.data.user.id !== expectedUserId) throw new Error('Application write identity changed.');
     return token;
   };
+  // Explicit opt-in only for the owned runtime. This list is wiring, not proof
+  // of SQL installation or delivery readiness; publication must verify those
+  // independently. Copy it so a later caller mutation cannot enable a table.
+  let stockTables: ReadonlySet<string> | undefined;
+  if (stockReservationTableIds !== undefined) {
+    if (!Array.isArray(stockReservationTableIds) || !stockReservationTableIds.length
+      || stockReservationTableIds.length > app.tables.length
+      || new Set(stockReservationTableIds).size !== stockReservationTableIds.length) throw new ApplicationStockRpcRejected();
+    for (const id of stockReservationTableIds) {
+      createApplicationStockReservationRpc(app, id, { rpc: async () => { throw new ApplicationStockRpcRejected(); } });
+    }
+    stockTables = new Set(stockReservationTableIds);
+  }
+  const stockReservations = stockTables ? (tableId: string, expectedUserId: string) => {
+    if (disposed || !stockTables.has(tableId)) throw new ApplicationStockRpcRejected();
+    try { rowId(expectedUserId); } catch { throw new ApplicationStockRpcRejected(); }
+    return createApplicationStockReservationRpc(app, tableId, {
+      async rpc(name, args) {
+        // Pin the original user's token on the request. Supabase's ambient
+        // session may change while awaiting a response, including on sign-out.
+        const token = await captureWriteToken(expectedUserId);
+        if (!token) throw new ApplicationStockRpcRejected();
+        const response = await client.rpc(name, args).setHeader('Authorization', `Bearer ${token}`);
+        if (await captureWriteToken(expectedUserId) !== token) throw new ApplicationStockRpcRejected();
+        return response;
+      },
+    });
+  } : undefined;
   return {
+    stockReservations,
     customOperations: customOperationClient,
     payments: createApplicationPaymentRuntime(paymentOrigin, captureWriteToken, async owner => {
       if (disposed) throw new Error('Payment view is closed.');

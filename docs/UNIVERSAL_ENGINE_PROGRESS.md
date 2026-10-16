@@ -645,3 +645,34 @@ regressions, strict TypeScript, scoped ESLint and whitespace checks pass locally
 Remaining activation work requires immutable runtime identity, platform quota
 custody and sandbox credentials to be integrated without exposing Tayar secrets
 to customer code. Production remains unpromoted.
+
+## Owner stock — authenticated customer runtime wiring (2026-10-16)
+
+Continuation from `main@782132ae` (#264); its post-merge Release Gate
+`38963443115` passed. The existing customer-owned data runtime now accepts an
+explicit list of stock table IDs and exposes `stockReservations(tableId,
+expectedUserId)` for available/reserve/release/fulfill using its own Supabase
+client. Every RPC verifies a permanent user, pins that user's captured token on
+the request, and rechecks identity/token and disposal before returning a result.
+A switched account cannot receive another account's result; a retained stock
+handle cannot operate after disposal. Errors remain generic and receipts are
+caller-retained for safe retry after an uncertain outcome.
+
+The ordinary/platform runtime and default customer runtime expose no stock
+adapter. Table selection is copied, validates the same owner-only integer
+counter rules as SQL, and cannot be changed by mutating the input list. A shared
+eligibility helper removes SQL installation code from the browser RPC import.
+The existing real Supabase SDK regression covers all four operations, exact
+customer endpoint/public key and pinned Authorization, invalid/anonymous/missing
+identity, provider failures, account switches and disposal during a request.
+Existing PostgreSQL coverage remains the authority for stock concurrency/expiry.
+
+This is runtime wiring, **not customer-ready inventory activation**. No saved
+application opt-in, generated stock UI, trusted installation workflow or
+publish-readiness integration is claimed. An installation attestation must
+still accompany the exact customer app/database before mounting controls.
+Location UUIDs remain labels, not warehouse balances. No customer database,
+Production, credentials or Social Hub changes were made. Next: connect explicit
+saved stock requirements to source/provisioning/readiness and generated UI,
+then prove the UI-to-database flow. PR and exact-head CI results are recorded in
+issue #253 after the gate completes.

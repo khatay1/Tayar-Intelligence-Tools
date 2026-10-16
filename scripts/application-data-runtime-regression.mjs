@@ -133,6 +133,77 @@ try {
     assert.equal(ownedRows.length, 1);
     assert.match(requests.at(-1).url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/app_vehicles/);
     assert.ok(!requests.at(-1).url.includes('pnbllxdlskljcakyaylt'));
+    // Exercise stock through the REAL Supabase SDK transport and the existing
+    // owned runtime, rather than a hand-written RPC bridge. PostgreSQL semantics
+    // remain covered by application-inventory-reservation-postgres-regression.
+    const stockApp = { ...structuredClone(app), auth: { ...app.auth, enabled: true }, tables: [{
+      id: 'items', key: 'items', name: 'Items',
+      fields: [{ id: 'quantity', key: 'quantity', name: 'Quantity', type: 'number', required: true, defaultValue: 0 }],
+      permissions: [{ operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }],
+      counter: { fieldId: 'quantity', minimum: 0, integer: true },
+    }] };
+    assert.equal(owned.stockReservations, undefined);
+    assert.equal(createApplicationDataRuntime(stockApp, config, platform).stockReservations, undefined);
+    for (const invalid of [[], ['missing'], ['items', 'items'], ['vehicles'], 'items']) {
+      assert.throws(() => createOwnedApplicationDataRuntime(stockApp, config, config.projectRef, undefined, invalid),
+        /Customer inventory action unavailable/);
+    }
+    const selection = ['items'];
+    let stockRuntime;
+    let stockCalls = 0, switchOnStock = false, closeOnStock = false, providerError = false, anonymous = false;
+    const previousStockFetch = globalThis.fetch;
+    globalThis.fetch = async (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/auth/v1/user')) return Response.json({ id: currentUserId, is_anonymous: anonymous });
+      if (!url.includes('/rpc/app_stock_')) return previousStockFetch(input, init);
+      stockCalls++;
+      assert.equal(new URL(url).origin, config.url);
+      assert.equal(new Headers(init.headers).get('Authorization'), `Bearer ${token}`);
+      assert.equal(new Headers(init.headers).get('apikey'), config.publishableKey);
+      const args = JSON.parse(init.body);
+      assert.ok(!Object.hasOwn(args, 'owner_id'), 'The user cannot supply the database actor');
+      if (switchOnStock) currentUserId = otherUserId;
+      if (closeOnStock) stockRuntime.dispose();
+      if (providerError) return Response.json({ message: 'SECRET_STOCK_SQL' }, { status: 403 });
+      if (url.endsWith('/app_stock_available_0')) return Response.json(3);
+      if (url.endsWith('/app_stock_reserve_0')) {
+        assert.deepEqual(args, { item_id: userId, location_id: otherUserId, reservation_id: requestId, amount: 2 });
+        return Response.json('reserved');
+      }
+      assert.equal(url.endsWith('/app_stock_finalize_0'), true);
+      return Response.json(args.decision === 'release' ? 'released' : 'fulfilled');
+    };
+    stockRuntime = createOwnedApplicationDataRuntime(stockApp, config, config.projectRef, undefined, selection);
+    selection[0] = 'injected';
+    assert.throws(() => stockRuntime.stockReservations('injected', userId), /inventory action unavailable/);
+    assert.throws(() => stockRuntime.stockReservations('items', undefined), /inventory action unavailable/);
+    const stock = stockRuntime.stockReservations('items', userId);
+    try {
+      currentUserId = userId;
+      await assert.rejects(stock.available(userId), /inventory action unavailable/);
+      assert.equal(stockCalls, 0, 'No stock request before sign-in');
+      await stockRuntime.auth.signIn('stock-owner@example.invalid', 'fixture-password');
+      assert.equal(await stock.available(userId), 3);
+      assert.equal(await stock.reserve(userId, otherUserId, requestId, 2), 'reserved');
+      assert.equal(await stock.settle(requestId, 'release'), 'released');
+      assert.equal(await stock.settle(requestId, 'fulfill'), 'fulfilled');
+      const beforeStockInvalid = stockCalls;
+      await assert.rejects(stock.reserve(userId, otherUserId, requestId, 0), /inventory action unavailable/);
+      currentUserId = otherUserId;
+      await assert.rejects(stock.available(userId), /inventory action unavailable/);
+      currentUserId = userId; anonymous = true;
+      await assert.rejects(stock.available(userId), /inventory action unavailable/);
+      assert.equal(stockCalls, beforeStockInvalid, 'Invalid input, anonymous and changed actors must never invoke stock RPC');
+      anonymous = false; providerError = true;
+      await assert.rejects(stock.available(userId), error => !String(error).includes('SECRET_STOCK_SQL') && /inventory action unavailable/.test(String(error)));
+      providerError = false; switchOnStock = true;
+      await assert.rejects(stock.available(userId), /inventory action unavailable/);
+      currentUserId = userId; switchOnStock = false; closeOnStock = true;
+      await assert.rejects(stock.reserve(userId, otherUserId, requestId, 2), /inventory action unavailable/);
+      const closedCount = stockCalls;
+      await assert.rejects(stock.available(userId), /inventory action unavailable/);
+      assert.equal(stockCalls, closedCount, 'A retained stock handle cannot outlive runtime disposal');
+    } finally { stockRuntime.dispose(); globalThis.fetch = previousStockFetch; }
     owned.dispose();
     once.dispose();
   } finally { globalThis.fetch = previousFetch; }
