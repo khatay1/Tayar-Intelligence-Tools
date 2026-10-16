@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const databaseUrl = process.env.TAYAR_PRODUCTION_CANDIDATE_TEST_DATABASE_URL;
@@ -61,7 +62,7 @@ assert.deepEqual(JSON.parse(psql(asService(read))), result);
 assert.equal(psql(asService(`select public.website_read_production_source_candidate('${operation}','${project}','${id(99)}')`)), '');
 assert.equal(psql(asService(`select public.website_read_production_source_candidate('${operation}','${id(99)}','${owner}')`)), '');
 assert.doesNotMatch(JSON.stringify(result), /publishable|backend|scope|liveUrl|deploymentId|ready/);
-const refused = sql => assert.throws(() => psql(sql), error => /Production source candidate|permission denied/.test(String(error.stderr)));
+const refused = sql => assert.throws(() => psql(sql), error => /Production (source candidate|runtime environment)|permission denied/.test(String(error.stderr)));
 for (const change of [{ owner: id(99) }, { project: id(99) }, { previewOperation: operation }, { github: pg },
   { previewDigest: '0'.repeat(64) }, { sourceDigest: '0'.repeat(64) }, { head: '0'.repeat(40) },
   { runtimeDigest: '0'.repeat(64) }, { snapshotDigest: 'bad' }]) refused(asService(record(change)));
@@ -94,3 +95,70 @@ assert.equal(psql("select relrowsecurity from pg_class where oid='private.websit
 assert.equal(psql('select count(*) from private.website_production_source_candidates'), '1');
 assert.deepEqual(JSON.parse(psql(asService(read))), result);
 console.log('PASS Production source PostgreSQL: actual registry/cursor/binding migrations, private service-only immutable record, isolation, stale-scope refusal and exact retries (isolated fixture; no provider/deployment approval)');
+
+// Reuse the historical receipt table/rotation DDL without installing unrelated
+// promotion/deployment coordinators into this isolated fixture database.
+for (const [path, boundary] of [
+  ['20261002084455_website_byo_runtime_environment_receipts.sql', 'create function public.website_begin_vercel_runtime_environment('],
+  ['20261002085813_website_byo_runtime_environment_rotation.sql', 'create or replace function public.website_begin_vercel_runtime_environment('],
+  ['20261002100908_website_byo_production_runtime_environment.sql', 'create function public.website_begin_vercel_production_runtime_environment('],
+]) {
+  const source = readFileSync('supabase/migrations/' + path, 'utf8');
+  assert.equal(source.split(boundary).length, 2); psql(source.split(boundary)[0]);
+}
+psql(`create table private.website_vercel_integration_custody(
+ connection_id uuid primary key,project_id uuid,owner_id uuid,environment text,connection_version bigint,
+ vercel_project_id text,account_id text,custody_expires_at timestamptz,
+ repository_id text,repository_owner text,repository_name text,production_branch text);
+ insert into private.website_vercel_integration_custody values
+ ('${pv}','${project}','${owner}','preview',1,'prj_customer1234','team_customer1234',now()+interval '1 hour','88','customer','app','main'),
+ ('${v}','${project}','${owner}','production',1,'prj_customer1234','team_customer1234',now()+interval '1 hour','88','customer','app','main');`);
+migration('supabase/migrations/20261016103000_website_production_backend_receipt_isolation.sql');
+const runtimeOperation = id(80), runtimeCommit = id(81);
+const pairDigests = environment => psql(`select jsonb_build_object(
+ 'SUPABASE_URL',encode(sha256(convert_to('https://'||s.target_id||'.supabase.co','UTF8')),'hex'),
+ 'SUPABASE_ANON_KEY',encode(sha256(convert_to(b.publishable_key,'UTF8')),'hex'))
+ from private.website_byo_runtime_bindings b join private.website_infrastructure_connections s on s.id=b.supabase_connection_id
+ where b.project_id='${project}' and b.environment='${environment}'`);
+const productionDigests = pairDigests('production'), previewDigests = pairDigests('preview');
+const beginRuntime = (backend = s, digests = productionDigests, operation = runtimeOperation) => `select public.website_begin_vercel_production_runtime_environment(
+ '${project}','${owner}',1,'${backend}',1,'${v}',1,'prj_customer1234','${digests}'::jsonb,'${operation}')`;
+const environmentIds = JSON.stringify({ SUPABASE_ANON_KEY: 'env_production_anon', SUPABASE_URL: 'env_production_url' });
+const commitRuntime = (ids = environmentIds) => `select public.website_commit_vercel_production_runtime_environment(
+ '${project}','${owner}',1,'${runtimeOperation}','${ids}'::jsonb,'[]'::jsonb,'${runtimeCommit}')`;
+const reconcileRuntime = `select public.website_reconcile_vercel_production_runtime_environment(
+ '${project}','${owner}',1,'${runtimeOperation}','${environmentIds}'::jsonb,'[]'::jsonb,'${runtimeCommit}')`;
+refused(asService(beginRuntime(ps, previewDigests)));
+refused(asService(beginRuntime(s, previewDigests)));
+assert.equal(psql('select count(*) from private.website_vercel_runtime_environment_receipts'), '0', 'Preview cannot claim a Production receipt');
+const claim = JSON.parse(psql(asService(beginRuntime())));
+assert.equal(claim.status, 'preparing'); assert.equal(claim.newlyClaimed, true);
+assert.equal(JSON.parse(psql(asService(beginRuntime()))).newlyClaimed, false, 'Uncertain retry cannot authorize another provider write');
+refused(asService(commitRuntime('{}')));
+refused(asService(commitRuntime('{"SUPABASE_ANON_KEY":"env_duplicate","SUPABASE_URL":"env_duplicate"}')));
+const runtimeChanges = [
+  `update public.projects set content=jsonb_set(content,'{application}','{"version":2}') where id='${project}'`,
+  `update private.website_byo_runtime_bindings set version=version+1 where project_id='${project}' and environment='production'`,
+  `update private.website_infrastructure_connections set version=version+1 where id='${s}'`,
+  `update private.website_infrastructure_connections set status='credentials-revoked' where id='${v}'`,
+  `update private.website_infrastructure_connections set target_id='zyxwvutsrqponmlkjihg' where id='${ps}'`,
+  `update private.website_vercel_integration_custody set custody_expires_at=now()-interval '1 minute' where connection_id='${v}'`,
+  `update private.website_vercel_integration_custody set repository_id='99' where connection_id='${pv}'`,
+];
+for (const change of runtimeChanges) refused(`begin;${change};${asService(commitRuntime())}rollback;`);
+assert.equal(psql(asService(commitRuntime())), '2');
+assert.equal(psql(asService(reconcileRuntime)), '2');
+assert.equal(JSON.parse(psql(asService(beginRuntime()))).status, 'verified');
+for (const change of runtimeChanges) assert.equal(psql(`begin;${change};${asService(reconcileRuntime)}rollback;`), '', change);
+// A historical Production receipt copied from Preview cannot be recovered or
+// silently reused as a verified independent Production binding.
+const historical = `update private.website_vercel_runtime_environment_receipts set supabase_connection_id='${ps}',value_digests='${previewDigests}'::jsonb where project_id='${project}' and environment='production'`;
+assert.equal(psql(`begin;${historical};${asService(reconcileRuntime)}rollback;`), '');
+refused(`begin;${historical};${asService(beginRuntime())}rollback;`);
+const historicalRotation = JSON.parse(psql(`begin;${historical};${asService(beginRuntime(s, productionDigests, id(82)))}rollback;`));
+assert.equal(historicalRotation.status, 'preparing'); assert.equal(historicalRotation.newlyClaimed, true);
+assert.deepEqual(historicalRotation.supersededEnvironmentIds, JSON.parse(environmentIds));
+for (const role of ['anon', 'authenticated']) {
+  refused(`set role ${role};${beginRuntime()}`); refused(`set role ${role};${commitRuntime()}`); refused(`set role ${role};${reconcileRuntime}`);
+}
+console.log('PASS Production runtime PostgreSQL: distinct backend digests, exact one-shot preparation/recovery, historical Preview refusal, invalid IDs and stale binding/lease/repository denial (receipt DDL reused; provider transport absent)');

@@ -144,7 +144,7 @@ jobs:
           psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_custom_execution_quota_test;'
           TAYAR_CUSTOM_EXECUTION_QUOTA_TEST_DATABASE_URL=postgres://postgres:booking-test-only@localhost:5432/tayar_custom_execution_quota_test node scripts/website-custom-execution-quota-postgres-regression.mjs
 
-      - name: Isolated Production source checkpoint database regression
+      - name: Isolated Production source and runtime receipt database regression
         env:
           TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
           TAYAR_PRODUCTION_CANDIDATE_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_production_candidate_test
