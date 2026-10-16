@@ -90,5 +90,59 @@ try {
     fetcher: async () => Response.json({ message: 'secret remote detail' }, { status: 403 }) })('select 1'),
   error => !String(error).includes('secret remote detail'));
   assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'wrong', accessToken: 'token' }), /unavailable/);
+  assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'abcdefghijklmnopqrst',
+    accessToken: 't'.repeat(4097) }), /unavailable/);
+  assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'abcdefghijklmnopqrst',
+    accessToken: 'token\\nforged' }), /unavailable/);
+  const testRef = 'abcdefghijklmnopqrst';
+  const read = (fetcher) => createOwnedSupabaseReadOnlyQuery({
+    projectRef: testRef, accessToken: 'fixture-only', fetcher,
+  });
+  let requestCount = 0;
+  const known = read(async (_url, init) => {
+    requestCount++;
+    assert.equal(init.signal.aborted, false, 'Deadline covers all network and stream work');
+    return Response.json([{ count: 1 }], { status: 201 });
+  });
+  assert.deepEqual(await known('select 1'), [{ count: 1 }]);
+  assert.equal(requestCount, 1);
+  await assert.rejects(known('x'.repeat(65_537)), /catalog read failed/);
+  assert.equal(requestCount, 1, 'Oversized query fails before sending an OAuth header');
+
+  for (const invalid of [
+    () => new Response(null, { status: 201 }),
+    () => Response.json({ token: 'unsafe-provider-detail' }, { status: 201 }),
+    () => new Response('{bad JSON', { status: 201 }),
+    () => new Response(new Uint8Array([255]), { status: 201 }),
+    () => new Response('[]', { status: 201, headers: { 'content-length': '1048577' } }),
+    () => new Response('[]', { status: 201, headers: { 'content-length': 'unknown' } }),
+  ]) await assert.rejects(read(async () => invalid())('select 1'),
+    error => error.message === 'Customer Supabase catalog read failed.'
+      && !String(error).includes('unsafe-provider-detail'));
+
+  let cancelled = false;
+  const excessive = read(async () => new Response(new ReadableStream({
+    start(controller) { controller.enqueue(new Uint8Array(1_048_577)); },
+    cancel() { cancelled = true; },
+  }), { status: 201 }));
+  await assert.rejects(excessive('select 1'), /catalog read failed/);
+  assert.equal(cancelled, true, 'Oversized streamed catalog evidence is cancelled');
+
+  const savedTimer = globalThis.setTimeout;
+  try {
+    globalThis.setTimeout = (callback, ms, ...args) => {
+      assert.equal(ms, 8000, 'Catalog read has one 8s deadline');
+      return savedTimer(callback, 2, ...args);
+    };
+    let aborted = false;
+    const hanging = read(async (_url, init) => new Promise((_resolve, reject) => {
+      init.signal.addEventListener('abort', () => { aborted = true; reject(new Error('oauth-secret-not-visible')); }, { once: true });
+    }));
+    await assert.rejects(hanging('select 1'), error =>
+      error.message === 'Customer Supabase catalog read failed.' && !String(error).includes('oauth-secret-not-visible'));
+    assert.equal(aborted, true, 'Read-only HTTP request aborts on the enforced deadline');
+  } finally {
+    globalThis.setTimeout = savedTimer;
+  }
   console.log('PASS owned Supabase read-only catalog: exact scope, RLS, grants, policy semantics and fail-closed responses (mocked HTTP)');
 } finally { await rm(dir, { recursive: true, force: true }); }
