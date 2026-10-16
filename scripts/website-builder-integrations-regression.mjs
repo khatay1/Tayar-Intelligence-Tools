@@ -47,6 +47,53 @@ try {
   assert.ok(issues.some(issue => issue.code === 'invalid-url'));
   assert.ok(issues.some(issue => issue.code === 'missing-secret'));
   assert.ok(issues.some(issue => issue.code === 'unsupported-event'));
+  // Evaluate Activepieces-style typed property contracts without embedding
+  // or executing external pieces. Values must fail closed before dispatch.
+  const fixtureProvider = {
+    id: 'integration-contract-fixture', name: 'Contract fixture', category: 'api',
+    description: 'Regression only', capabilities: [],
+    fields: [
+      { key: 'enabledFlag', label: 'Enabled flag', type: 'boolean', required: true },
+      { key: 'target', label: 'Target', type: 'select', required: true,
+        options: [{ label: 'One', value: 'one' }, { label: 'Two', value: 'two' }] },
+      { key: 'label', label: 'Label', type: 'text', required: true },
+    ],
+  };
+  integrations.EDITOR_INTEGRATION_PROVIDERS.push(fixtureProvider);
+  try {
+    const typed = integrations.normalizeEditorIntegrationsConfig({ connections: [{
+      id: 'contract', providerId: fixtureProvider.id, name: 'Contract',
+      enabled: true, environments: ['preview'], status: 'configured',
+      config: { enabledFlag: false, target: 'one', label: 'Allowed' },
+      secrets: {}, events: ['custom'],
+    }] });
+    assert.deepEqual(integrations.validateEditorIntegrations(typed), [],
+      'A false boolean and selected enum option are legitimate typed inputs');
+    for (const [field, value] of [
+      ['enabledFlag', 'false'],
+      ['enabledFlag', 1],
+      ['target', 'unlisted'],
+      ['target', true],
+      ['label', true],
+      ['label', ' '.repeat(2)],
+      ['label', 'x'.repeat(5001)],
+    ]) {
+      const invalidField = structuredClone(typed);
+      invalidField.connections[0].config[field] = value;
+      assert.ok(integrations.validateEditorIntegrations(invalidField)
+        .some(issue => issue.code === 'invalid-config' && issue.field === field),
+        `Connector field ${field} must enforce its declared property type`);
+      const denied = await runtime.dispatchEditorIntegrationEvent(invalidField, {
+        id: 'evt-typed', projectId, event: 'custom', environment: 'preview',
+        occurredAt: '2026-10-16T00:00:00Z', payload: {},
+      }, {
+        async resolveSecret() { assert.fail('Invalid typed input must not read credentials'); },
+        async request() { assert.fail('Invalid typed input must not call an external endpoint'); },
+      });
+      assert.equal(denied[0]?.status, 'failed');
+      assert.equal(denied[0]?.attempt, 0);
+    }
+  } finally { integrations.EDITOR_INTEGRATION_PROVIDERS.pop(); }
   const invalidId = structuredClone(config); invalidId.connections[0].id = 'hook\r\nAuthorization: bad';
   assert.ok(integrations.validateEditorIntegrations(invalidId).some(issue => issue.code === 'invalid-config'), 'Invalid connection IDs block publishing');
   const stripeRef = `secret://website/${projectId}/stripe-prod/secretKey/production`;
