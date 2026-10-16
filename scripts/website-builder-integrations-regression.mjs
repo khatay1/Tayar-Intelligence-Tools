@@ -83,17 +83,25 @@ try {
       assert.ok(integrations.validateEditorIntegrations(invalidField)
         .some(issue => issue.code === 'invalid-config' && issue.field === field),
         `Connector field ${field} must enforce its declared property type`);
-      const denied = await runtime.dispatchEditorIntegrationEvent(invalidField, {
-        id: 'evt-typed', projectId, event: 'custom', environment: 'preview',
-        occurredAt: '2026-10-16T00:00:00Z', payload: {},
-      }, {
-        async resolveSecret() { assert.fail('Invalid typed input must not read credentials'); },
-        async request() { assert.fail('Invalid typed input must not call an external endpoint'); },
-      });
-      assert.equal(denied[0]?.status, 'failed');
-      assert.equal(denied[0]?.attempt, 0);
+
     }
   } finally { integrations.EDITOR_INTEGRATION_PROVIDERS.pop(); }
+  // The runtime bundles its own provider registry; check the real, shipped
+  // Google Analytics text property so this assertion verifies dispatch too.
+  const badLiveProvider = integrations.normalizeEditorIntegrationsConfig({ connections: [{
+    id: 'ga-typed', providerId: 'google-analytics', enabled: true, status: 'active',
+    environments: ['preview'], config: { measurementId: false }, secrets: {},
+    events: ['page.viewed'],
+  }] });
+  const denied = await runtime.dispatchEditorIntegrationEvent(badLiveProvider, {
+    id: 'evt-typed', projectId, event: 'page.viewed', environment: 'preview',
+    occurredAt: '2026-10-16T00:00:00Z', payload: {},
+  }, {
+    async resolveSecret() { assert.fail('Invalid typed input must not read credentials'); },
+    async request() { assert.fail('Invalid typed input must not call an external endpoint'); },
+  });
+  assert.equal(denied[0]?.status, 'failed');
+  assert.equal(denied[0]?.attempt, 0);
   const invalidId = structuredClone(config); invalidId.connections[0].id = 'hook\r\nAuthorization: bad';
   assert.ok(integrations.validateEditorIntegrations(invalidId).some(issue => issue.code === 'invalid-config'), 'Invalid connection IDs block publishing');
   const stripeRef = `secret://website/${projectId}/stripe-prod/secretKey/production`;
