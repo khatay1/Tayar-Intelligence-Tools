@@ -146,6 +146,24 @@ export function validateEditorIntegrations(config: EditorIntegrationsConfig): Ed
         if (!connection.secrets[field.key]?.ref) issues.push({ connectionId: connection.id, field: field.key, code: 'missing-secret', message: `${field.label} is required.` });
       } else if (connection.config[field.key] === undefined || connection.config[field.key] === '') issues.push({ connectionId: connection.id, field: field.key, code: 'missing-field', message: `${field.label} is required.` });
     }
+    // A connector's declared property types are execution-time contracts,
+    // not merely labels on the editor. This is the small, self-contained
+    // pattern evaluated from Activepieces MIT action input properties; no
+    // Activepieces runtime, secrets or code is embedded into Tayar.
+    for (const field of provider.fields) {
+      if (field.secret || field.type === 'url') continue;
+      const value = connection.config[field.key];
+      if (value === undefined || value === '') continue;
+      const invalid = field.type === 'boolean'
+        ? typeof value !== 'boolean'
+        : field.type === 'select'
+          ? typeof value !== 'string' || value.length > 200
+            || !Array.isArray(field.options) || !field.options.some(option => option.value === value)
+          : typeof value !== 'string' || value.length > 5000
+            || (field.required === true && !value.trim());
+      if (invalid) issues.push({ connectionId: connection.id, field: field.key, code: 'invalid-config',
+        message: `${field.label} has an invalid declared field value.` });
+    }
     for (const field of provider.fields.filter(item => item.type === 'url')) {
       const value = connection.config[field.key];
       if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection.id, field: field.key, code: 'invalid-url', message: `${field.label} must use a public HTTPS URL without embedded credentials.` });
