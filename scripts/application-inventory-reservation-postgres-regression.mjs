@@ -296,7 +296,8 @@ try {
   // row locks, expiry and receipts are executed by the database, not emulated.
   const sdkItem = 'aaaa0000-6666-4666-8666-666666666666';
   const sdkReceipt = 'aaaa0000-7777-4777-8777-777777777777';
-  await query(`insert into public.app_products(id,owner_id,quantity) values ('${sdkItem}','${owner}',2);`);
+  await query(`insert into public.app_products(id,owner_id) values ('${sdkItem}','${owner}');
+    ${login(owner)} select public.app_adjust_counter_0('${sdkItem}',2,gen_random_uuid());`);
   const backend = { url: 'https://abcdefghijklmnopqrst.supabase.co', projectRef: 'abcdefghijklmnopqrst', publishableKey: 'sb_publishable_stock_test' };
   const tokens = new Map([owner, foreign].map(id => [id,
     `a.${Buffer.from(JSON.stringify({ sub:id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600 })).toString('base64url')}.signature`]));
