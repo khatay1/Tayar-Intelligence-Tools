@@ -186,9 +186,10 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
         // Pin the original user's token on the request. Supabase's ambient
         // session may change while awaiting a response, including on sign-out.
         const token = await captureWriteToken(expectedUserId);
-        if (!token) throw new ApplicationStockRpcRejected();
+        if (disposed || !token) throw new ApplicationStockRpcRejected();
         const response = await client.rpc(name, args).setHeader('Authorization', `Bearer ${token}`);
-        if (await captureWriteToken(expectedUserId) !== token) throw new ApplicationStockRpcRejected();
+        const currentToken = await captureWriteToken(expectedUserId);
+        if (disposed || currentToken !== token) throw new ApplicationStockRpcRejected();
         return response;
       },
     });

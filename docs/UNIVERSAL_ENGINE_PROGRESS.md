@@ -676,3 +676,14 @@ Production, credentials or Social Hub changes were made. Next: connect explicit
 saved stock requirements to source/provisioning/readiness and generated UI,
 then prove the UI-to-database flow. PR and exact-head CI results are recorded in
 issue #253 after the gate completes.
+
+PR #265 follow-up: the first Release Gate correctly caught a stale transitive
+Vercel connection Edge bundle. Regenerate affected connection/backend bundles;
+do not bypass consistency checks. Added fail-closed checks for disposal during
+either awaited identity verification. The stock PostgreSQL regression now also
+routes the real owned runtime and Supabase SDK through an HTTP fixture to the
+actual isolated database, covering concurrent last-unit reservations,
+lost-response retry, account switch after commit, reconciliation without a
+second decrement, foreign-owner denial and expired fulfillment. Native database
+results must pass on the final PR SHA before merge. Infrastructure activation
+preflight remains intentionally unready because final credentials are deferred.

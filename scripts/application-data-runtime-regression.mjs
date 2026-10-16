@@ -150,11 +150,14 @@ try {
     }
     const selection = ['items'];
     let stockRuntime;
-    let stockCalls = 0, switchOnStock = false, closeOnStock = false, providerError = false, anonymous = false;
+    let stockCalls = 0, switchOnStock = false, closeOnStock = false, closeOnIdentity = 0, providerError = false, anonymous = false;
     const previousStockFetch = globalThis.fetch;
     globalThis.fetch = async (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
-      if (url.endsWith('/auth/v1/user')) return Response.json({ id: currentUserId, is_anonymous: anonymous });
+      if (url.endsWith('/auth/v1/user')) {
+        if (closeOnIdentity > 0 && --closeOnIdentity === 0) stockRuntime.dispose();
+        return Response.json({ id: currentUserId, is_anonymous: anonymous });
+      }
       if (!url.includes('/rpc/app_stock_')) return previousStockFetch(input, init);
       stockCalls++;
       assert.equal(new URL(url).origin, config.url);
@@ -203,6 +206,16 @@ try {
       const closedCount = stockCalls;
       await assert.rejects(stock.available(userId), /inventory action unavailable/);
       assert.equal(stockCalls, closedCount, 'A retained stock handle cannot outlive runtime disposal');
+      closeOnStock = false;
+      for (const check of [1, 2]) {
+        stockRuntime = createOwnedApplicationDataRuntime(stockApp, config, config.projectRef, undefined, ['items']);
+        await stockRuntime.auth.signIn('stock-owner@example.invalid', 'fixture-password');
+        const handle = stockRuntime.stockReservations('items', userId), before = stockCalls;
+        closeOnIdentity = check;
+        await assert.rejects(handle.available(userId), /inventory action unavailable/);
+        assert.equal(stockCalls, before + (check === 1 ? 0 : 1),
+          'Disposal during asynchronous identity verification blocks the request or its late result');
+      }
     } finally { stockRuntime.dispose(); globalThis.fetch = previousStockFetch; }
     owned.dispose();
     once.dispose();

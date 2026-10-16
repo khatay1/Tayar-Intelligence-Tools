@@ -26,10 +26,11 @@ try {
     "export { verifyOwnedStockReservationCatalog } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-catalog')) + ';',
     "export { verifyOwnedStockReservationInstallation } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-installation')) + ';',
     "export { createApplicationStockReservationRpc, ApplicationStockRpcRejected } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-stock-reservation-rpc')) + ';',
+    "export { createOwnedApplicationDataRuntime } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-data-runtime')) + ';',
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile });
   const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters, verifyOwnedStockReservationCatalog: verifyCatalog, verifyOwnedStockReservationInstallation: verifyInstallation, createApplicationStockReservationRpc: stockRpc,
-    ApplicationStockRpcRejected: StockRpcRejected } = require(outfile);
+    ApplicationStockRpcRejected: StockRpcRejected, createOwnedApplicationDataRuntime: ownedRuntime } = require(outfile);
   const app = {
     version: 1, auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     pageAccess: [], roles: [], tables: [{
@@ -289,6 +290,69 @@ try {
     ({ data:null,error: { message:'provider-secret-not-visible' } }) });
   await assert.rejects(broken.available(item), error =>
     error instanceof StockRpcRejected && !String(error).includes('provider-secret-not-visible'));
+
+  // Real owned runtime -> actual Supabase SDK -> simulated HTTP transport ->
+  // real isolated PostgreSQL. Only HTTP/Auth are fixtures; stock operations,
+  // row locks, expiry and receipts are executed by the database, not emulated.
+  const sdkItem = 'aaaa0000-6666-4666-8666-666666666666';
+  const sdkReceipt = 'aaaa0000-7777-4777-8777-777777777777';
+  await query(`insert into public.app_products(id,owner_id,quantity) values ('${sdkItem}','${owner}',2);`);
+  const backend = { url: 'https://abcdefghijklmnopqrst.supabase.co', projectRef: 'abcdefghijklmnopqrst', publishableKey: 'sb_publishable_stock_test' };
+  const tokens = new Map([owner, foreign].map(id => [id,
+    `a.${Buffer.from(JSON.stringify({ sub:id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600 })).toString('base64url')}.signature`]));
+  const oldFetch = globalThis.fetch;
+  let dropAfterCommit = false, switchAfterCommit = false, runtime;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    assert.equal(url.origin, backend.url, 'The SDK may only address the dedicated test customer host');
+    if (url.pathname === '/auth/v1/token') {
+      const actor = JSON.parse(init.body).email === 'foreign@example.invalid' ? foreign : owner;
+      return Response.json({ access_token:tokens.get(actor),refresh_token:'fixture-refresh',token_type:'bearer',expires_in:3600,user:{id:actor,is_anonymous:false} });
+    }
+    const authorization = new Headers(init.headers).get('Authorization');
+    const actor = [...tokens].find(([,token]) => authorization === `Bearer ${token}`)?.[0];
+    assert.ok(actor, 'Every RPC and identity check must carry a pinned authenticated actor');
+    if (url.pathname === '/auth/v1/user') return Response.json({ id:actor,is_anonymous:false });
+    assert.equal(new Headers(init.headers).get('apikey'), backend.publishableKey);
+    assert.equal(init.method, 'POST');
+    const args = JSON.parse(init.body), name = url.pathname.split('/').at(-1);
+    const argumentKeys = { app_stock_available_0:['item_id'], app_stock_reserve_0:['item_id','location_id','reservation_id','amount'], app_stock_finalize_0:['reservation_id','decision'] };
+    assert.ok(Object.hasOwn(argumentKeys,name));
+    assert.deepEqual(Object.keys(args).sort(), [...argumentKeys[name]].sort());
+    const parameters = argumentKeys[name].map(key => typeof args[key] === 'number' ? String(args[key]) : "'"+String(args[key]).replace(/'/g,"''")+"'").join(',');
+    let result;
+    try { result = (await query(`${login(actor)} select public.${name}(${parameters});`)).split('\n').at(-1); }
+    catch { return Response.json({ code:'P0001',message:'private-database-detail' },{status:400}); }
+    if (switchAfterCommit) { switchAfterCommit = false; await runtime.auth.signIn('foreign@example.invalid','fixture-password'); }
+    if (dropAfterCommit) { dropAfterCommit = false; return Response.json({message:'response-lost-after-commit'},{status:503}); }
+    return Response.json(name === 'app_stock_available_0' ? Number(result) : result);
+  };
+  try {
+    runtime = ownedRuntime(app,backend,backend.projectRef,undefined,['products']);
+    await runtime.auth.signIn('owner@example.invalid','fixture-password');
+    const stock = runtime.stockReservations('products',owner);
+    assert.equal(await stock.available(sdkItem),2);
+    dropAfterCommit = true;
+    await assert.rejects(stock.reserve(sdkItem,location,sdkReceipt,1),StockRpcRejected);
+    assert.equal(await stock.reserve(sdkItem,location,sdkReceipt,1),'already-reserved','Lost response retry must use the original receipt');
+    assert.equal(await stock.available(sdkItem),1);
+    const competing = ['aaaa0000-8888-4888-8888-888888888888','aaaa0000-9999-4999-8999-999999999999'];
+    const outcomes = await Promise.allSettled(competing.map(id => stock.reserve(sdkItem,location,id,1)));
+    assert.equal(outcomes.filter(result => result.status === 'fulfilled').length,1,'Concurrent real SDK calls cannot oversell the last unit');
+    assert.equal(await stock.available(sdkItem),0);
+    assert.equal(await stock.settle(competing[outcomes.findIndex(result => result.status === 'fulfilled')],'release'),'released');
+    switchAfterCommit = true;
+    await assert.rejects(stock.settle(sdkReceipt,'fulfill'),StockRpcRejected,'An in-flight account switch hides the committed result');
+    await assert.rejects(runtime.stockReservations('products',foreign).available(sdkItem),StockRpcRejected,'Real database rejects a correctly authenticated foreign owner');
+    await runtime.auth.signIn('owner@example.invalid','fixture-password');
+    assert.equal(await stock.settle(sdkReceipt,'fulfill'),'already-fulfilled');
+    assert.equal(await stock.available(sdkItem),1,'Reconciliation cannot decrement stock twice');
+    const expired = 'aaaa0000-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    assert.equal(await stock.reserve(sdkItem,location,expired,1),'reserved');
+    await query(`update private.app_stock_reservations_0 set expires_at=statement_timestamp()-interval '1 second' where reservation_id='${expired}';`);
+    assert.equal(await stock.settle(expired,'fulfill'),'already-expired');
+    assert.equal(await stock.available(sdkItem),1);
+  } finally { runtime?.dispose(); globalThis.fetch = oldFetch; }
 
   await query('revoke execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) from authenticated;');
   assert.equal(await verify(), false, 'Permission drift must block publication');
