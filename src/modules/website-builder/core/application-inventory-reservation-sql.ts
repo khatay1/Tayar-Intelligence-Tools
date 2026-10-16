@@ -1,5 +1,5 @@
 import type { ApplicationDefinition } from './application-model';
-import { readApplicationDefinition } from './application-validation';
+import { applicationInventoryReservationTarget } from './application-inventory-reservation-target';
 
 /**
  * Opt-in inventory reservations on TOP of Tayar's existing counter source of truth.
@@ -17,17 +17,7 @@ import { readApplicationDefinition } from './application-validation';
  * generated application publication and customer runtime path.
  */
 export function compileApplicationInventoryReservationSchema(input: ApplicationDefinition, itemTableId: string): string[] {
-  const app = readApplicationDefinition(input);
-  const index = app.tables.findIndex(table => table.id === itemTableId);
-  const table = app.tables[index];
-  const ownerOnly = table && (['read', 'update'] as const).every(operation => {
-    const permissions = table.permissions.filter(p => p.operation === operation);
-    return permissions.length > 0 && permissions.every(p => p.access === 'owner');
-  });
-  if (index < 0 || !table?.counter || !table.counter.integer || table.counter.minimum !== 0
-    || !app.auth.enabled || !ownerOnly) {
-    throw new Error('Owner-scoped integer stock counter required.');
-  }
+  const { index, table } = applicationInventoryReservationTarget(input, itemTableId);
   const field = table.fields.find(field => field.id === table.counter!.fieldId)!;
   const product = 'public."app_' + table.key + '"';
   const column = '"' + field.key + '"';

@@ -1,6 +1,5 @@
 import type { ApplicationDefinition } from './application-model';
-import { readApplicationDefinition } from './application-validation';
-import { compileApplicationInventoryReservationSchema } from './application-inventory-reservation-sql';
+import { applicationInventoryReservationTarget } from './application-inventory-reservation-target';
 
 /**
  * Browser-neutral RPC contract for the optional dedicated customer Supabase
@@ -46,10 +45,7 @@ export function createApplicationStockReservationRpc(
   if (!bridge || typeof bridge.rpc !== 'function') throw new ApplicationStockRpcRejected();
   let index: number;
   try {
-    const app = readApplicationDefinition(definition);
-    index = app.tables.findIndex(table => table.id === itemTableId);
-    if (index < 0 || !compileApplicationInventoryReservationSchema(app, itemTableId).length)
-      throw new Error();
+    index = applicationInventoryReservationTarget(definition, itemTableId).index;
   } catch { throw new ApplicationStockRpcRejected(); }
   async function invoke(name: string, args: Record<string, string | number>): Promise<unknown> {
     try {
