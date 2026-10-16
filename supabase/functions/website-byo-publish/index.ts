@@ -13237,6 +13237,61 @@ var keys = [
   "headSha"
 ].sort().join(",");
 
+// server/website-byo-publish-targets.ts
+var uuid7 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function parseTarget(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row2 = value;
+  if (Object.keys(row2).some((key2) => !["connectionId", "version"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid7.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1) throw new Error();
+  return { connectionId: row2.connectionId, version: row2.version };
+}
+function parse(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row2 = value;
+  if (Object.keys(row2).some((key2) => !["githubPreview", "githubProduction", "vercelPreview", "vercelProduction"].includes(key2))) throw new Error();
+  const result = {
+    githubPreview: parseTarget(row2.githubPreview),
+    githubProduction: row2.githubProduction == null ? null : parseTarget(row2.githubProduction),
+    vercelPreview: parseTarget(row2.vercelPreview),
+    vercelProduction: row2.vercelProduction === null ? null : parseTarget(row2.vercelProduction)
+  };
+  const ids2 = [result.githubPreview.connectionId, result.vercelPreview.connectionId];
+  if (result.vercelProduction) ids2.push(result.vercelProduction.connectionId);
+  if (result.githubProduction) ids2.push(result.githubProduction.connectionId);
+  if (new Set(ids2).size !== ids2.length) throw new Error();
+  return result;
+}
+var identity2 = (value) => JSON.stringify(value);
+async function captureWebsiteByoPublishTargets(input) {
+  if (typeof window !== "undefined" || !uuid7.test(input.projectId) || !uuid7.test(input.ownerId))
+    throw new Error("BYO publish targets unavailable.");
+  const read = async () => {
+    const { data, error } = await input.client.rpc("website_byo_publish_targets", {
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId
+    });
+    if (error || data === null) throw new Error();
+    return parse(data);
+  };
+  try {
+    const targets = await read();
+    if (input.requireProduction && !targets.vercelProduction) throw new Error();
+    if (input.requireProductionSource && (!targets.githubProduction || !targets.vercelProduction)) throw new Error();
+    const captured = identity2(targets);
+    const isCurrent = async () => {
+      try {
+        return identity2(await read()) === captured;
+      } catch {
+        return false;
+      }
+    };
+    if (!await isCurrent()) throw new Error();
+    return { targets: structuredClone(targets), isCurrent };
+  } catch {
+    throw new Error("BYO publish targets unavailable.");
+  }
+}
+
 // server/website-owned-vercel-deployment.ts
 var id2 = /^[A-Za-z0-9_-]{3,128}$/;
 var team = /^team_[A-Za-z0-9]{8,128}$/;
@@ -13368,7 +13423,7 @@ async function inspectOwnedVercelDeployment(input) {
 }
 
 // server/website-byo-publish-store.ts
-var uuid7 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid8 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var digest3 = /^[0-9a-f]{64}$/;
 var sha4 = /^[0-9a-f]{40}$/;
 var env = /^[A-Z][A-Z0-9_]{1,99}$/;
@@ -13387,7 +13442,7 @@ var previewEdges = /* @__PURE__ */ new Set([
 ]);
 var productionEdges = /* @__PURE__ */ new Set(["created:validated", "validated:promoting", "promoting:verifying-production", "verifying-production:ready"]);
 function assertScope(scope) {
-  if (typeof window !== "undefined" || ![scope.operationId, scope.projectId, scope.ownerId].every((v) => uuid7.test(v)) || !["preview", "production"].includes(scope.environment) || !scope.isCurrent()) throw new Error("BYO publish checkpoint unavailable.");
+  if (typeof window !== "undefined" || ![scope.operationId, scope.projectId, scope.ownerId].every((v) => uuid8.test(v)) || !["preview", "production"].includes(scope.environment) || !scope.isCurrent()) throw new Error("BYO publish checkpoint unavailable.");
 }
 function assertEvidence(v) {
   const empty = v.requiredEnvironment.length === 0, source = v.sourceDigest !== null, head = v.headSha !== null, attempt = v.attemptVersion !== null;
@@ -13403,7 +13458,7 @@ function checkpoint(value, scope) {
   const required2 = v.requiredEnvironment;
   const aliases2 = v.productionAliases;
   const sorted = [...required2].sort();
-  if (v.operationId !== scope.operationId || v.projectId !== scope.projectId || v.ownerId !== scope.ownerId || v.environment !== scope.environment || !stages2.has(v.stage) || !Number.isSafeInteger(v.version) || v.version < 1 || required2.length > 64 || required2.some((x) => !env.test(x)) || new Set(required2).size !== required2.length || required2.some((x, i) => x !== sorted[i]) || v.sourceDigest !== null && (typeof v.sourceDigest !== "string" || !digest3.test(v.sourceDigest)) || v.headSha !== null && (typeof v.headSha !== "string" || !sha4.test(v.headSha)) || v.attemptVersion !== null && (!Number.isSafeInteger(v.attemptVersion) || v.attemptVersion < 1) || v.deploymentId !== null && (typeof v.deploymentId !== "string" || !deployment2.test(v.deploymentId)) || v.liveUrl !== null && (typeof v.liveUrl !== "string" || !live.test(v.liveUrl)) || v.previewOperationId !== null && (typeof v.previewOperationId !== "string" || !uuid7.test(v.previewOperationId)) || v.promotionVersion !== null && (!Number.isSafeInteger(v.promotionVersion) || v.promotionVersion < 1) || aliases2.length > 100 || aliases2.some((x) => !hostname.test(x)) || new Set(aliases2).size !== aliases2.length || aliases2.some((x, i) => x !== [...aliases2].sort()[i])) throw new Error();
+  if (v.operationId !== scope.operationId || v.projectId !== scope.projectId || v.ownerId !== scope.ownerId || v.environment !== scope.environment || !stages2.has(v.stage) || !Number.isSafeInteger(v.version) || v.version < 1 || required2.length > 64 || required2.some((x) => !env.test(x)) || new Set(required2).size !== required2.length || required2.some((x, i) => x !== sorted[i]) || v.sourceDigest !== null && (typeof v.sourceDigest !== "string" || !digest3.test(v.sourceDigest)) || v.headSha !== null && (typeof v.headSha !== "string" || !sha4.test(v.headSha)) || v.attemptVersion !== null && (!Number.isSafeInteger(v.attemptVersion) || v.attemptVersion < 1) || v.deploymentId !== null && (typeof v.deploymentId !== "string" || !deployment2.test(v.deploymentId)) || v.liveUrl !== null && (typeof v.liveUrl !== "string" || !live.test(v.liveUrl)) || v.previewOperationId !== null && (typeof v.previewOperationId !== "string" || !uuid8.test(v.previewOperationId)) || v.promotionVersion !== null && (!Number.isSafeInteger(v.promotionVersion) || v.promotionVersion < 1) || aliases2.length > 100 || aliases2.some((x) => !hostname.test(x)) || new Set(aliases2).size !== aliases2.length || aliases2.some((x, i) => x !== [...aliases2].sort()[i])) throw new Error();
   const row2 = v;
   assertEvidence(row2);
   return { ...row2, requiredEnvironment: [...required2], productionAliases: [...aliases2] };
@@ -13506,12 +13561,12 @@ function createWebsiteByoPublishStore(scope) {
 }
 
 // server/website-byo-publish-worker.ts
-var uuid8 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid9 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var sha5 = /^[0-9a-f]{40}$/;
 var digest4 = /^[0-9a-f]{64}$/;
 var env2 = /^[A-Z][A-Z0-9_]{1,99}$/;
 async function runByoPublishWorker(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((v) => uuid8.test(v)) || input.environment !== "preview" || !await input.isCurrent()) throw new Error("BYO publish unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((v) => uuid9.test(v)) || input.environment !== "preview" || !await input.isCurrent()) throw new Error("BYO publish unavailable.");
   let state = await input.store.read(input.operationId);
   if (!state || state.operationId !== input.operationId || state.projectId !== input.projectId || state.ownerId !== input.ownerId || state.environment !== input.environment || !Number.isSafeInteger(state.version) || state.version < 1) throw new Error("BYO publish unavailable.");
   const move = async (next) => {
@@ -13667,7 +13722,7 @@ async function verifyOwnedDeployedRuntime(input) {
 }
 
 // server/website-byo-production-publish-worker.ts
-var uuid9 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid10 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var digest5 = /^[0-9a-f]{64}$/;
 var sha6 = /^[0-9a-f]{40}$/;
 var deployment3 = /^dpl_[A-Za-z0-9]{8,128}$/;
@@ -13676,7 +13731,7 @@ function preview(value, input) {
   return value.operationId === input.previewOperationId && value.projectId === input.projectId && value.ownerId === input.ownerId && value.environment === "preview" && value.stage === "ready" && digest5.test(value.sourceDigest ?? "") && sha6.test(value.headSha ?? "") && Number.isSafeInteger(value.attemptVersion) && Number(value.attemptVersion) > 0 && deployment3.test(value.deploymentId ?? "") && !!value.liveUrl;
 }
 async function runByoProductionPublishWorker(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewOperationId].every((v) => uuid9.test(v)) || input.operationId === input.previewOperationId || !await input.isCurrent()) throw new Error("BYO production publish unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewOperationId].every((v) => uuid10.test(v)) || input.operationId === input.previewOperationId || !await input.isCurrent()) throw new Error("BYO production publish unavailable.");
   let state = await input.store.read(input.operationId);
   if (!state || state.operationId !== input.operationId || state.projectId !== input.projectId || state.ownerId !== input.ownerId || state.environment !== "production" || !Number.isSafeInteger(state.version) || state.version < 1) throw new Error("BYO production publish unavailable.");
   const move = async (next) => {
@@ -13869,7 +13924,7 @@ async function promoteAndVerifyOwnedVercelDeployment(input) {
 }
 
 // src/modules/website-builder/services/websiteVercelPromotionService.ts
-var uuid10 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider = /^[A-Za-z0-9_-]{3,128}$/;
 var project4 = /^prj_[A-Za-z0-9]{8,128}$/;
 var deployment5 = /^dpl_[A-Za-z0-9]{8,128}$/;
@@ -13890,7 +13945,7 @@ async function beginWebsiteVercelPromotion(input) {
     throw new Error("Vercel promotion unavailable.");
   }
   const environmentIds = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.previewConnectionId, input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid10.test(value)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 0 || !project4.test(input.vercelProjectId) || !deployment5.test(input.deploymentId) || !sha8.test(input.sourceCommitSha) || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(environmentIds).length !== 2 || Object.keys(environmentIds).some((key2) => !environmentName.test(key2)) || Object.keys(environmentIds).join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(environmentIds).some((value) => !provider.test(value)) || new Set(Object.values(environmentIds)).size !== 2 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
+  if (typeof window !== "undefined" || ![input.previewConnectionId, input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid11.test(value)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 0 || !project4.test(input.vercelProjectId) || !deployment5.test(input.deploymentId) || !sha8.test(input.sourceCommitSha) || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(environmentIds).length !== 2 || Object.keys(environmentIds).some((key2) => !environmentName.test(key2)) || Object.keys(environmentIds).join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(environmentIds).some((value) => !provider.test(value)) || new Set(Object.values(environmentIds)).size !== 2 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_promotion", {
     p_preview_connection_id: input.previewConnectionId,
     p_production_connection_id: input.productionConnectionId,
@@ -13912,7 +13967,7 @@ async function beginWebsiteVercelPromotion(input) {
   return data;
 }
 async function claimWebsiteVercelPromotion(input) {
-  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid10.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
+  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid11.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   const { data, error } = await input.client.rpc("website_claim_vercel_promotion", {
     p_production_connection_id: input.productionConnectionId,
     p_project_id: input.projectId,
@@ -13931,7 +13986,7 @@ async function commitWebsiteVercelPromotion(input) {
   } catch {
     throw new Error("Vercel promotion unavailable.");
   }
-  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid10.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || input.report.status !== "ready" || !deployment5.test(input.report.deploymentId) || !sha8.test(input.report.sourceCommitSha) || input.report.liveUrl !== `https://${observed[0]}` || !input.isCurrent())
+  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid11.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || input.report.status !== "ready" || !deployment5.test(input.report.deploymentId) || !sha8.test(input.report.sourceCommitSha) || input.report.liveUrl !== `https://${observed[0]}` || !input.isCurrent())
     throw new Error("Vercel promotion unavailable.");
   const args = {
     p_production_connection_id: input.productionConnectionId,
@@ -13962,7 +14017,7 @@ async function commitWebsiteVercelPromotion(input) {
 }
 
 // server/website-owned-vercel-promotion-worker.ts
-var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider2 = /^[A-Za-z0-9_-]{3,128}$/;
 var project5 = /^prj_[A-Za-z0-9]{8,128}$/;
 var deployment6 = /^dpl_[A-Za-z0-9]{8,128}$/;
@@ -13977,7 +14032,7 @@ async function commitId(operationId, version, report) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 async function runWebsiteOwnedVercelPromotion(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewConnectionId, input.productionConnectionId].every((v) => uuid11.test(v)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !project5.test(input.vercelProjectId) || !deployment6.test(input.deploymentId) || !sha9.test(input.sourceCommitSha) || !provider2.test(input.accountId) || ![input.sourceBranch, input.productionBranch].every((v) => branch4.test(v) && !v.includes("..")) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !await input.isCurrent()) throw new Error("Vercel promotion unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewConnectionId, input.productionConnectionId].every((v) => uuid12.test(v)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !project5.test(input.vercelProjectId) || !deployment6.test(input.deploymentId) || !sha9.test(input.sourceCommitSha) || !provider2.test(input.accountId) || ![input.sourceBranch, input.productionBranch].every((v) => branch4.test(v) && !v.includes("..")) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !await input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   try {
     await inspectOwnedVercelProductionCandidate({ ...input, projectId: input.vercelProjectId });
     const prior = await input.client.rpc("website_vercel_promotion_for_worker", {
@@ -14070,7 +14125,7 @@ async function runWebsiteOwnedVercelPromotion(input) {
 }
 
 // server/website-owned-vercel-runtime-environment.ts
-var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider3 = /^[A-Za-z0-9_-]{3,128}$/;
 var project6 = /^prj_[A-Za-z0-9]{8,128}$/;
 var names = ["SUPABASE_ANON_KEY", "SUPABASE_URL"];
@@ -14092,7 +14147,7 @@ function ids(value) {
 }
 async function prepareOwnedVercelRuntimeEnvironment(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid12.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid13.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
     assertInfrastructureConnection(input.supabase);
     assertInfrastructureConnection(input.vercel);
     const b = input.binding, s = input.supabase, v = input.vercel, branch10 = `tayar/${input.projectId}/preview`;
@@ -14210,7 +14265,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
 }
 async function prepareOwnedVercelProductionRuntimeEnvironment(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid12.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid13.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
     assertInfrastructureConnection(input.supabase);
     assertInfrastructureConnection(input.previewVercel);
     assertInfrastructureConnection(input.productionVercel);
@@ -14328,7 +14383,7 @@ async function prepareOwnedVercelProductionRuntimeEnvironment(input) {
 }
 
 // server/website-owned-vercel-environment.ts
-var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider4 = /^[A-Za-z0-9_-]{3,128}$/;
 var project7 = /^prj_[A-Za-z0-9]{8,128}$/;
 var key = /^[A-Z][A-Z0-9_]{1,99}$/;
@@ -14351,7 +14406,7 @@ function verifiedHandoff(value, expectedVersion) {
   return { handoffVersion: expectedVersion, environmentId: row2.environmentId };
 }
 async function handoffOwnedSecretToVercel(input) {
-  if (typeof window !== "undefined" || ![input.handoffId, input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((v) => uuid13.test(v)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !connection.test(input.sourceConnectionId) || !field.test(input.sourceField) || !key.test(input.environmentKey) || !["preview", "staging", "production"].includes(input.sourceEnvironment) || !["preview", "production"].includes(input.target) || !validBranch(input.gitBranch) || input.target === "production" && input.gitBranch !== "" || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error("Vercel secret handoff unavailable.");
+  if (typeof window !== "undefined" || ![input.handoffId, input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((v) => uuid14.test(v)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !connection.test(input.sourceConnectionId) || !field.test(input.sourceField) || !key.test(input.environmentKey) || !["preview", "staging", "production"].includes(input.sourceEnvironment) || !["preview", "production"].includes(input.target) || !validBranch(input.gitBranch) || input.target === "production" && input.gitBranch !== "" || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error("Vercel secret handoff unavailable.");
   const completedArgs = {
     p_id: input.handoffId,
     p_connection_id: input.connectionId,
@@ -14569,7 +14624,7 @@ async function verifyOwnedStripeAccount(input) {
     throw new Error("Stripe account verification unavailable.");
   }
 }
-var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var providerId = /^[A-Za-z0-9_-]{3,128}$/;
 var integrationId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 function stripeRuntimeReceipt(value, expectedConnectionVersion, expectedHandoffVersion) {
@@ -14596,7 +14651,7 @@ async function handoffOwnedStripeRuntime(input) {
       input.operationId,
       input.handoffCommitId,
       input.stripeCommitId
-    ].every((value) => uuid14.test(value)) || !integrationId.test(input.sourceConnectionId) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !Number.isSafeInteger(input.expectedStripeConnectionVersion) || input.expectedStripeConnectionVersion < 0 || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error();
+    ].every((value) => uuid15.test(value)) || !integrationId.test(input.sourceConnectionId) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !Number.isSafeInteger(input.expectedStripeConnectionVersion) || input.expectedStripeConnectionVersion < 0 || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error();
     const publicMatch = publishable.exec(input.publishableKey);
     const expectedMode = input.environment === "production" ? "live" : "test";
     if (!publicMatch || publicMatch[1] !== expectedMode) throw new Error();
@@ -14683,8 +14738,8 @@ async function handoffOwnedStripeRuntime(input) {
 }
 
 // server/website-owned-email-runtime.ts
-var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var identity2 = /^[A-Za-z0-9_-]{3,128}$/;
+var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var identity3 = /^[A-Za-z0-9_-]{3,128}$/;
 var project8 = /^prj_[A-Za-z0-9]{8,128}$/;
 var connection2 = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 var environmentKey = /^TAYAR_RESEND_(0[1-9]|[1-9][0-9])_API_KEY$/;
@@ -14695,7 +14750,7 @@ function object9(value) {
 }
 async function inspectOwnedEmailRuntimeForPublish(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid15.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !connection2.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !environmentKey.test(input.environmentKey)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid16.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !connection2.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !environmentKey.test(input.environmentKey)) throw new Error();
     const { data, error } = await input.client.rpc("website_email_runtime_state_for_worker", {
       p_project_id: input.projectId,
       p_owner_id: input.ownerId,
@@ -14711,7 +14766,7 @@ async function inspectOwnedEmailRuntimeForPublish(input) {
     const keys2 = ["environmentId", "handoffId", "handoffOperationId", "handoffStatus", "handoffVersion", "ready", "sourceAvailable"];
     if (Object.keys(row2).sort().join(",") !== keys2.sort().join(",")) throw new Error();
     const handoffId = row2.handoffId, status2 = row2.handoffStatus, operationId = row2.handoffOperationId, environmentId = row2.environmentId;
-    if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid15.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid15.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity2.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
+    if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid16.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid16.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity3.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
     return structuredClone(row2);
   } catch {
     throw new Error("Email runtime state unavailable.");
@@ -14719,7 +14774,7 @@ async function inspectOwnedEmailRuntimeForPublish(input) {
 }
 async function verifyOwnedEmailRuntimeDestination(input) {
   try {
-    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !identity2.test(input.userId) || !identity2.test(input.accountId) || !project8.test(input.vercelProjectId) || !identity2.test(input.environmentId) || !environmentKey.test(input.environmentKey) || !uuid15.test(input.projectId) || !uuid15.test(input.handoffOperationId) || !await input.isCurrent()) throw new Error();
+    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !identity3.test(input.userId) || !identity3.test(input.accountId) || !project8.test(input.vercelProjectId) || !identity3.test(input.environmentId) || !environmentKey.test(input.environmentKey) || !uuid16.test(input.projectId) || !uuid16.test(input.handoffOperationId) || !await input.isCurrent()) throw new Error();
     const team3 = input.accountId !== input.userId ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
     const response = await (input.fetcher ?? fetch)(`https://api.vercel.com/v10/projects/${input.vercelProjectId}/env?decrypt=false${team3}`, {
       method: "GET",
@@ -14924,7 +14979,7 @@ async function verifyGitHubInstallationRepository(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubOAuthCustodyService.ts
-var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var numeric3 = /^[1-9][0-9]{0,19}$/;
 var repoName2 = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
 var branch7 = /^[a-zA-Z0-9_./-]{1,200}$/;
@@ -15009,7 +15064,7 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
     });
     if (!await input.isCurrentOwner() || observed.accountId !== connection3.accountId || observed.repositoryId !== connection3.targetId || observed.repositoryFullName !== custody.repositoryFullName || observed.defaultBranch !== custody.defaultBranch) throw new Error();
     const operationId = crypto.randomUUID();
-    if (!uuid16.test(operationId)) throw new Error();
+    if (!uuid17.test(operationId)) throw new Error();
     const base = {
       p_connection_id: connection3.id,
       p_project_id: connection3.projectId,
@@ -15044,12 +15099,12 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportCursorService.ts
-var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var sha10 = /^[0-9a-f]{40}$/i;
 var digest6 = /^[0-9a-f]{64}$/i;
 var numeric4 = /^[1-9][0-9]{0,19}$/;
 function assertScope2(input) {
-  if (typeof window !== "undefined" || !uuid17.test(input.connectionId) || !uuid17.test(input.projectId) || !uuid17.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid18.test(input.connectionId) || !uuid18.test(input.projectId) || !uuid18.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
 }
 async function readWebsiteGitHubExportCursor(input) {
   assertScope2(input);
@@ -15100,7 +15155,7 @@ async function initializeWebsiteGitHubExportCursor(input) {
 }
 async function commitWebsiteGitHubExportCursor(input) {
   assertScope2(input);
-  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha10.test(input.cursor.lastHeadSha) || !sha10.test(input.newHeadSha) || !digest6.test(input.sourceDigest) || !uuid17.test(input.operationId)) {
+  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha10.test(input.cursor.lastHeadSha) || !sha10.test(input.newHeadSha) || !digest6.test(input.sourceDigest) || !uuid18.test(input.operationId)) {
     throw new Error("GitHub export cursor changed.");
   }
   const args = {
@@ -15141,9 +15196,9 @@ async function commitWebsiteGitHubExportCursor(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportWorker.ts
-var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function exportWebsiteProjectToOwnedGitHub(input) {
-  if (typeof window !== "undefined" || !uuid18.test(input.projectId) || !uuid18.test(input.ownerId) || !uuid18.test(input.connectionId) || !uuid18.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid19.test(input.projectId) || !uuid19.test(input.ownerId) || !uuid19.test(input.connectionId) || !uuid19.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
   const source = await captureWebsiteGitHubExportSource(input);
   if (input.expectedSourceDigest !== void 0 && source.sourceDigest !== input.expectedSourceDigest) {
     throw new Error("GitHub export source changed.");
@@ -15258,7 +15313,7 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
 }
 
 // src/modules/website-builder/services/websiteVercelDeploymentAttemptService.ts
-var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var providerProject = /^prj_[A-Za-z0-9]{8,128}$/;
 var providerDeployment = /^dpl_[A-Za-z0-9]{8,128}$/;
 var sha11 = /^[0-9a-f]{40}$/;
@@ -15279,7 +15334,7 @@ function validateReport(report) {
 async function beginWebsiteVercelDeploymentAttempt(input) {
   const required2 = [...input.requiredEnvironment].sort();
   const ids2 = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid19.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha11.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key2) => !env3.test(key2)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid20.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha11.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key2) => !env3.test(key2)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_deployment_attempt", {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -15300,7 +15355,7 @@ async function beginWebsiteVercelDeploymentAttempt(input) {
 }
 async function commitWebsiteVercelDeploymentObservation(input) {
   const missingEnvironment = validateReport(input.report);
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid19.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid20.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
   const args = {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -15347,7 +15402,7 @@ async function commitWebsiteVercelDeploymentObservation(input) {
 }
 
 // server/website-byo-publish-adapters.ts
-var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider5 = /^[A-Za-z0-9_-]{3,128}$/;
 var gitName2 = /^[A-Za-z0-9_.-]{1,100}$/;
 var project9 = /^prj_[A-Za-z0-9]{8,128}$/;
@@ -15375,7 +15430,7 @@ function parseCustody(value, environment) {
   return v;
 }
 async function runWebsiteOwnedByoPublish(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid20.test(v)) || input.environment !== "preview" || !provider5.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid21.test(v)) || input.environment !== "preview" || !provider5.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
   const scope = {
     client: input.client,
     operationId: input.operationId,
@@ -15794,7 +15849,7 @@ async function runWebsiteOwnedByoProductionPublish(input) {
     input.ownerId,
     input.previewVercelConnectionId,
     input.productionVercelConnectionId
-  ].every((v) => uuid20.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
+  ].every((v) => uuid21.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
   let current = true;
   const owner = async () => {
     if (!current) return false;
@@ -15901,58 +15956,6 @@ async function runWebsiteOwnedByoProductionPublish(input) {
   } catch (error) {
     if (error instanceof ProductionCandidateRequiredError) throw error;
     throw new Error("BYO production publish adapters unavailable.");
-  }
-}
-
-// server/website-byo-publish-targets.ts
-var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function parseTarget(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
-  const row2 = value;
-  if (Object.keys(row2).some((key2) => !["connectionId", "version"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid21.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1) throw new Error();
-  return { connectionId: row2.connectionId, version: row2.version };
-}
-function parse(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
-  const row2 = value;
-  if (Object.keys(row2).some((key2) => !["githubPreview", "vercelPreview", "vercelProduction"].includes(key2))) throw new Error();
-  const result = {
-    githubPreview: parseTarget(row2.githubPreview),
-    vercelPreview: parseTarget(row2.vercelPreview),
-    vercelProduction: row2.vercelProduction === null ? null : parseTarget(row2.vercelProduction)
-  };
-  const ids2 = [result.githubPreview.connectionId, result.vercelPreview.connectionId];
-  if (result.vercelProduction) ids2.push(result.vercelProduction.connectionId);
-  if (new Set(ids2).size !== ids2.length) throw new Error();
-  return result;
-}
-var identity3 = (value) => JSON.stringify(value);
-async function captureWebsiteByoPublishTargets(input) {
-  if (typeof window !== "undefined" || !uuid21.test(input.projectId) || !uuid21.test(input.ownerId))
-    throw new Error("BYO publish targets unavailable.");
-  const read = async () => {
-    const { data, error } = await input.client.rpc("website_byo_publish_targets", {
-      p_project_id: input.projectId,
-      p_owner_id: input.ownerId
-    });
-    if (error || data === null) throw new Error();
-    return parse(data);
-  };
-  try {
-    const targets = await read();
-    if (input.requireProduction && !targets.vercelProduction) throw new Error();
-    const captured = identity3(targets);
-    const isCurrent = async () => {
-      try {
-        return identity3(await read()) === captured;
-      } catch {
-        return false;
-      }
-    };
-    if (!await isCurrent()) throw new Error();
-    return { targets: structuredClone(targets), isCurrent };
-  } catch {
-    throw new Error("BYO publish targets unavailable.");
   }
 }
 

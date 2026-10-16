@@ -100,7 +100,11 @@ try {
     return { status: 'exported', headSha: 'c'.repeat(40) };
   };
   let recorded = null;
+  let targetScope = { githubPreview: { connectionId: previewGithub, version: 1 }, githubProduction: { connectionId: productionGithub, version: 1 },
+    vercelPreview: { connectionId: previewVercel, version: 1 }, vercelProduction: { connectionId: productionVercel, version: 1 } };
+  let targetReads = 0;
   const checkpointClient = { rpc: async (name, args) => {
+    if (name === 'website_byo_publish_targets') { targetReads++; return { data: structuredClone(targetScope), error: null }; }
     if (name === 'website_read_production_source_candidate') return { data: recorded, error: null };
     assert.equal(name, 'website_record_production_source_candidate');
     assert.deepEqual(args.p_snapshot, snapshot);
@@ -109,7 +113,8 @@ try {
       sourceDigest: args.p_source_digest, headSha: args.p_head_sha };
     return { data: recorded, error: null };
   } };
-  const exportOptions = { ...options, client: checkpointClient, operationId, previewOperationId: previewGithub,
+  const privateOptions = { ...options }; delete privateOptions.previewGithubConnectionId; delete privateOptions.productionGithubConnectionId;
+  const exportOptions = { ...privateOptions, client: checkpointClient, operationId, previewOperationId: previewGithub,
     githubClientId: 'Iv1_fixture', githubClientSecret: 'fixture-not-a-real-secret' };
   const exported = await exportProduction(exportOptions);
   assert.equal(exported.candidate.status, 'source-prepared');
@@ -119,6 +124,23 @@ try {
   assert.ok(!JSON.stringify(exported).includes(backend('production').publishableKey));
   await assert.rejects(exportProduction({ ...exportOptions, expectedPreviewSourceDigest: '0'.repeat(64) }), /export is unavailable/);
   assert.equal(exports, 1, 'Invalid Preview evidence cannot reach the existing GitHub export worker');
+  await assert.rejects(exportProduction({ ...exportOptions, productionGithubConnectionId: productionGithub }), /export is unavailable/);
+  assert.equal(exports, 1, 'The high-level source API refuses caller-supplied provider IDs');
+  const originalTargets = structuredClone(targetScope);
+  for (const change of [{ githubProduction: null }, { vercelProduction: null }, { githubProduction: { connectionId: productionGithub, version: 2 } }]) {
+    targetScope = { ...originalTargets, ...change };
+    await assert.rejects(exportProduction(exportOptions), /export is unavailable/);
+    assert.equal(exports, 1, 'Missing or stale private Production targets cannot reach export');
+  }
+  targetScope = structuredClone(originalTargets);
+  const clientWithStaleTargets = { rpc: async (name, args) => {
+    if (name === 'website_byo_publish_targets' && ++targetReads > 2) return { data: { ...targetScope, githubProduction: null }, error: null };
+    return checkpointClient.rpc(name, args);
+  } };
+  targetReads = 0;
+  await assert.rejects(exportProduction({ ...exportOptions, client: clientWithStaleTargets }), /export is unavailable/);
+  assert.equal(exports, 1, 'Projection changes before export invalidate source preparation');
+
   globalThis.__productionExportTransport = async request => {
     await request.compile(); snapshot = { ...snapshot, siteName: 'Changed after export' };
     return { status: 'exported', headSha: 'd'.repeat(40) };
@@ -126,6 +148,13 @@ try {
   const uncertain = await exportProduction(exportOptions);
   assert.equal(uncertain.status, 'recovery-required'); assert.equal(uncertain.headSha, 'd'.repeat(40));
   snapshot = originalSnapshot;
+  globalThis.__productionExportTransport = async request => {
+    await request.compile(); targetScope = { ...targetScope, githubProduction: null };
+    return { status: 'exported', headSha: 'e'.repeat(40) };
+  };
+  const changedTargetsAfterExport = await exportProduction(exportOptions);
+  assert.equal(changedTargetsAfterExport.status, 'recovery-required'); assert.equal(changedTargetsAfterExport.headSha, 'e'.repeat(40));
+  targetScope = structuredClone(originalTargets);
 
   const provider = { accessToken: 'customer-vercel-token', accountId: 'team_customer1234', projectId: 'prj_customer1234',
     deploymentId: 'dpl_candidate1234', sourceCommitSha: 'a'.repeat(40), sourceBranch: `tayar/${projectId}/production`, isCurrent: async () => true };
