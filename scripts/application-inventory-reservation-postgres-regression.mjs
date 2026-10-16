@@ -120,7 +120,7 @@ try {
   const floorExpiryId = 'aaaa0000-3333-4333-8333-333333333333';
   assert.match(await reserve(item,expiredId,3),/reserved$/);
   assert.equal(await query(`select (expires_at > statement_timestamp())::text from private.app_stock_reservations_0
-    where reservation_id='${expiredId}';`),'t','New reservation receives a server-side future expiry');
+    where reservation_id='${expiredId}';`),'true','New reservation receives a server-side future expiry');
   await query(`update private.app_stock_reservations_0
     set expires_at = statement_timestamp() - interval '1 second'
     where reservation_id = '${expiredId}';`);
