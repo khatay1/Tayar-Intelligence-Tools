@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useLocalizer } from '@/lib/ui-localization-cms';
 import { isEditorProjectSecretReferenceFor, isEditorSecretReference } from '../core/editor-integration-security';
+import { validateEditorPropertyValues } from '../core/editor-integration-property-contract';
 import {
   EDITOR_INTEGRATION_PROVIDERS,
   getEditorIntegrationProvider,
@@ -45,7 +46,14 @@ export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onI
   const [inventory, setInventory] = useState<{ scope: string | undefined; config: EditorIntegrationsConfig; result: WebsiteSecretInventory }>();
   const current = useRef({ config, secretScope });
   current.current = { config, secretScope };
-  const issues = useMemo(() => validateEditorIntegrations(config), [config]);
+  const issues = useMemo(() => [
+    ...validateEditorIntegrations(config),
+    ...config.connections.flatMap(connection => {
+      const provider = getEditorIntegrationProvider(connection.providerId);
+      return provider ? validateEditorPropertyValues(provider.fields, connection.config)
+        .map(issue => ({ ...issue, connectionId: connection.id })) : [];
+    }),
+  ], [config]);
   const patch = (id: string, change: Partial<EditorIntegrationConnection>) => onChange({ ...config, connections: config.connections.map(item => item.id === id ? { ...item, ...change, updatedAt: new Date().toISOString() } : item) });
 
   return <section className="builder-v2-card" data-testid="integrations-max-panel">
@@ -74,7 +82,7 @@ export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onI
         <div className="builder-v2-grid">{provider.fields.map(field => field.secret ? <label key={field.key}>{field.label}<input type="password" autoComplete="new-password" disabled={!onSetSecret || !!savingSecret || connection.environments.length !== 1} placeholder={connection.environments.length === 1 && (isEditorProjectSecretReferenceFor(connection.secrets[field.key]?.ref, connection.id, field.key, connection.environments[0]) || (isEditorSecretReference(connection.secrets[field.key]?.ref) && !connection.secrets[field.key].ref.startsWith('secret://website/'))) ? l('Configured — enter to replace') : field.placeholder} onBlur={async event => { const input = event.currentTarget; const value = input.value; input.value = ''; if (!value || !onSetSecret) return; setError(''); setSavingSecret(connection.id); try { await onSetSecret(connection.id, field.key, value); } catch { setError('Secret could not be saved. Enter it again to retry.'); } finally { setSavingSecret(undefined); } }}/></label> : <label key={field.key}>{field.label}<input type={field.type==='url'?'url':'text'} value={String(connection.config[field.key] ?? '')} placeholder={field.placeholder} onChange={event => patch(connection.id,{config:{...connection.config,[field.key]:event.target.value}})}/></label>)}</div>
         <fieldset><legend>{l('Environments')}</legend>{environments.map(environment => <label key={environment}><input type="checkbox" checked={connection.environments.includes(environment)} onChange={event => patch(connection.id,{environments:event.target.checked?[...new Set([...connection.environments,environment])]:connection.environments.filter(item=>item!==environment)})}/>{environment}</label>)}</fieldset>
         {!!provider.supportedEvents?.length && <fieldset><legend>{l('Events')}</legend>{provider.supportedEvents.map(event => <label key={event}><input type="checkbox" checked={connection.events?.includes(event) ?? false} onChange={change => patch(connection.id,{events:toggleEvent(connection.events,event,change.target.checked)})}/>{event}</label>)}</fieldset>}
-        <div className="builder-v2-grid"><button type="button" disabled={!onTestConnection||testing===connection.id} onClick={async()=>{if(!onTestConnection)return;setError('');setTesting(connection.id);try{await onTestConnection(connection.id);}catch{setError('Connection test failed. Check the configuration and try again.');}finally{setTesting(undefined);}}}>{testing===connection.id?l('Testing…'):l('Test connection')}</button><button type="button" onClick={()=>onChange({...config,connections:config.connections.filter(item=>item.id!==connection.id)})}>{l('Remove')}</button></div>
+        <div className="builder-v2-grid"><button type="button" disabled={!onTestConnection||testing===connection.id||issues.some(issue=>issue.connectionId===connection.id)} onClick={async()=>{if(!onTestConnection)return;setError('');setTesting(connection.id);try{await onTestConnection(connection.id);}catch{setError('Connection test failed. Check the configuration and try again.');}finally{setTesting(undefined);}}}>{testing===connection.id?l('Testing…'):l('Test connection')}</button><button type="button" onClick={()=>onChange({...config,connections:config.connections.filter(item=>item.id!==connection.id)})}>{l('Remove')}</button></div>
       </div>;
     })}
   </section>;
