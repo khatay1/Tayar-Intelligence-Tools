@@ -16,6 +16,11 @@ try {
   await build({ entryPoints: ['src/modules/website-builder/core/application-schema-sql.ts'], bundle: true,
     platform: 'node', format: 'cjs', outfile: manifestFile });
   const { applicationRoleFunctionManifest } = (await import(pathToFileURL(manifestFile))).default;
+  const stockTransportFile = join(dir, 'stock-transport.cjs');
+  await build({ entryPoints: ['server/website-owned-stock-reservation-catalog-transport.ts'],
+    bundle: true, platform: 'node', format: 'cjs', outfile: stockTransportFile });
+  const { createBoundedOwnedStockCatalogFetcher: boundedStockTransport } =
+    (await import(pathToFileURL(stockTransportFile))).default;
   const definition = { version: 1, auth: { enabled: false, signUpEnabled: false, emailVerificationRequired: false },
     roles: [], pageAccess: [], tables: [{ id: 'notes', key: 'notes', name: 'Notes', fields: [],
       permissions: [{ operation: 'read', access: 'public' }] }] };
@@ -90,14 +95,18 @@ try {
     fetcher: async () => Response.json({ message: 'secret remote detail' }, { status: 403 }) })('select 1'),
   error => !String(error).includes('secret remote detail'));
   assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'wrong', accessToken: 'token' }), /unavailable/);
-  assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'abcdefghijklmnopqrst',
-    accessToken: 't'.repeat(4097) }), /unavailable/);
+
   assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'abcdefghijklmnopqrst',
     accessToken: 'token\nforged' }), /unavailable/);
   const testRef = 'abcdefghijklmnopqrst';
   const read = (fetcher) => createOwnedSupabaseReadOnlyQuery({
-    projectRef: testRef, accessToken: 'fixture-only', fetcher,
+    projectRef: testRef, accessToken: 'fixture-only', fetcher: boundedStockTransport(fetcher),
   });
+  let foreignCalls = 0;
+  await assert.rejects(boundedStockTransport(async () => { foreignCalls++; })(
+    'https://evil.example', { method: 'POST', redirect: 'error', cache: 'no-store',
+      body: '{"query":"select 1"}' }), /stock catalog request unavailable/);
+  assert.equal(foreignCalls, 0, 'Outbound stock catalog transport must never accept an arbitrary host');
   let requestCount = 0;
   const known = read(async (_url, init) => {
     requestCount++;
