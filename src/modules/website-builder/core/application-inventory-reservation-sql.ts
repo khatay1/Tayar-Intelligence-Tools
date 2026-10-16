@@ -34,6 +34,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
   const ledger = 'private.app_stock_reservations_' + index;
   const reserving = 'app_stock_reserve_' + index;
   const finalizing = 'app_stock_finalize_' + index;
+  const checking = 'app_stock_available_' + index;
   const floor = 'app_stock_floor_' + index;
   const counter = 'private.app_adjust_counter_' + index;
   const signedIn = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
@@ -94,6 +95,61 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     '  end if;',
     "  return case when decision = 'release' then 'released' else 'fulfilled' end;",
     'end $stock_finalize$;',
+  ].join('\n');
+  // Read-only availability is a UI hint. The locked reservation procedure
+  // remains authoritative when stock changes concurrently.
+  const availabilitySql = [
+    'create function private.' + checking + '(item_id uuid) returns numeric language plpgsql security definer set search_path = \'\' as $stock_available + ledger + ' (actor_id uuid not null, reservation_id uuid not null,',
+    '  item_id uuid not null references ' + product + '(id) on delete restrict, location_id uuid not null,',
+    "  quantity numeric not null check (quantity > 0 and quantity <= 1000000000000 and quantity = trunc(quantity)),",
+    "  status text not null check (status in ('reserved','released','fulfilled','expired')),",
+    '  expires_at timestamptz not null,',
+    '  primary key (actor_id,reservation_id));',
+    'alter table ' + ledger + ' enable row level security;',
+    'revoke all on ' + ledger + ' from public, anon, authenticated;',
+    'create index app_stock_active_' + index + ' on ' + ledger + " (actor_id,item_id) where status = 'reserved';",
+    'create function private.' + floor + '() returns trigger language plpgsql security definer set search_path = \'\' as $stock_floor$',
+    'begin',
+    '  if new.' + column + ' < (select coalesce(sum(r.quantity),0) from ' + ledger,
+    "    r where r.actor_id = new.owner_id and r.item_id = new.id and r.status = 'reserved'",
+    '      and r.expires_at > statement_timestamp())',
+    "    then raise exception 'Stock counter cannot cross reservations'; end if;",
+    '  return new;',
+    'end $stock_floor$;',
+    'revoke all on function private.' + floor + '() from public,anon,authenticated;',
+    'create trigger app_stock_reservation_floor_' + index + ' before update on ' + product,
+    '  for each row execute function private.' + floor + '();',
+    reserveSql,
+    finalizeSql,
+    availabilitySql,
+    'revoke all on function private.' + reserving + '(uuid,uuid,uuid,numeric) from public,anon;',
+    'grant execute on function private.' + reserving + '(uuid,uuid,uuid,numeric) to authenticated;',
+    'revoke all on function private.' + finalizing + '(uuid,text) from public,anon;',
+    'grant execute on function private.' + finalizing + '(uuid,text) to authenticated;',
+    'create function public.' + reserving + '(item_id uuid, location_id uuid, reservation_id uuid, amount numeric) returns text language sql security invoker set search_path = \'\' as $stock_public$ select private.' + reserving + '(item_id,location_id,reservation_id,amount) $stock_public$;',
+    'create function public.' + finalizing + '(reservation_id uuid, decision text) returns text language sql security invoker set search_path = \'\' as $stock_public$ select private.' + finalizing + '(reservation_id,decision) $stock_public$;',
+    'revoke all on function public.' + reserving + '(uuid,uuid,uuid,numeric) from public,anon;',
+    'revoke all on function public.' + finalizing + '(uuid,text) from public,anon;',
+    'grant execute on function public.' + reserving + '(uuid,uuid,uuid,numeric) to authenticated;',
+    'grant execute on function public.' + finalizing + '(uuid,text) to authenticated;',
+    'revoke all on function private.' + checking + '(uuid) from public,anon;',
+    'grant execute on function private.' + checking + '(uuid) to authenticated;',
+    'create function public.' + checking + '(item_id uuid) returns numeric language sql security invoker set search_path = \'\' as $stock_public$ select private.' + checking + '(item_id) $stock_public$;',
+    'revoke all on function public.' + checking + '(uuid) from public,anon;',
+    'grant execute on function public.' + checking + '(uuid) to authenticated;',
+  ];
+}
+,
+    'declare actor uuid := (select auth.uid()); available numeric;',
+    'begin',
+    '  if not ' + signedIn + ' or item_id is null then raise exception \'Stock availability unavailable\'; end if;',
+    '  select p.' + column + ' - coalesce((select sum(r.quantity) from ' + ledger + ' r',
+    "    where r.actor_id = actor and r.item_id = p.id and r.status = 'reserved'",
+    '      and r.expires_at > statement_timestamp()),0) into available',
+    '    from ' + product + ' p where p.id = ' + checking + '.item_id and p.owner_id = actor;',
+    '  if not found then raise exception \'Stock availability unavailable\'; end if;',
+    '  return available;',
+    'end $stock_available$;',
   ].join('\n');
   return [
     'create table ' + ledger + ' (actor_id uuid not null, reservation_id uuid not null,',
