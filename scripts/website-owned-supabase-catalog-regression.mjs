@@ -93,7 +93,7 @@ try {
   assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'abcdefghijklmnopqrst',
     accessToken: 't'.repeat(4097) }), /unavailable/);
   assert.throws(() => createOwnedSupabaseReadOnlyQuery({ projectRef: 'abcdefghijklmnopqrst',
-    accessToken: 'token\\nforged' }), /unavailable/);
+    accessToken: 'token\nforged' }), /unavailable/);
   const testRef = 'abcdefghijklmnopqrst';
   const read = (fetcher) => createOwnedSupabaseReadOnlyQuery({
     projectRef: testRef, accessToken: 'fixture-only', fetcher,
