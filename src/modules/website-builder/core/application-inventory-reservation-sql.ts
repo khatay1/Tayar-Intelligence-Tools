@@ -97,6 +97,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     "    then raise exception 'Stock counter cannot cross reservations'; end if;",
     '  return new;',
     'end $stock_floor$;',
+    'revoke all on function private.' + floor + '() from public,anon,authenticated;',
     'create trigger app_stock_reservation_floor_' + index + ' before update on ' + product,
     '  for each row execute function private.' + floor + '();',
     reserveSql,
