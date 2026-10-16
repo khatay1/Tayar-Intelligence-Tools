@@ -77,7 +77,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     '  end if;',
     "  return case when decision = 'release' then 'released' else 'fulfilled' end;",
     'end $stock_finalize$;',
-  ].join('\\n');
+  ].join('\n');
   return [
     'create table ' + ledger + ' (actor_id uuid not null, reservation_id uuid not null,',
     '  item_id uuid not null references ' + product + '(id) on delete restrict, location_id uuid not null,',
