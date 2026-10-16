@@ -35,7 +35,7 @@ export function validateEditorPropertyValues(
   const result: EditorPropertyContractIssue[] = [];
   for (const field of fields) {
     if (field.secret || field.type === 'url') continue;
-    const value = Object.hasOwn(values, field.key) ? values[field.key] : undefined;
+    const value = Object.prototype.hasOwnProperty.call(values, field.key) ? values[field.key] : undefined;
     if (value === undefined || value === '') continue; // Required checks are elsewhere.
     const invalid = field.type === 'boolean'
       ? typeof value !== 'boolean'
