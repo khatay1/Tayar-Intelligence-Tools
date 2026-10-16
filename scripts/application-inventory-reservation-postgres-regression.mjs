@@ -88,7 +88,8 @@ try {
   const reserve = (thing, id, n, who=owner) => query(`${login(who)}
     select public.app_stock_reserve_0('${thing}','${location}','${id}',${n});`);
   const available = (thing, who = owner) => query(`${login(who)}
-    select public.app_stock_available_0('${thing}');`);
+    select public.app_stock_available_0('${thing}');`).then(text =>
+      text.split('\n').at(-1));
   const finalize = (id, action, who=owner) => query(`${login(who)}
     select public.app_stock_finalize_0('${id}','${action}');`);
   await query(`${login(owner)} select public.app_adjust_counter_0('${item}',10,gen_random_uuid());
