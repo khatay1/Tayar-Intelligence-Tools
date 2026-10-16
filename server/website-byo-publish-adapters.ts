@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ProductionCandidateRequiredError } from '../src/modules/website-builder/core/application-production-candidate';
 import { captureWebsiteOwnedApplicationSource, captureWebsiteOwnedProductionSource, type OwnedSourceReader } from './website-owned-source-capture';
 import { readOwnedReleaseIdentity } from './website-owned-release-identity';
+import { recordWebsiteProductionSourceCandidate } from './website-production-source-candidate';
 import { discoverOwnedVercelDeployment, inspectOwnedVercelDeployment,
   type OwnedVercelDeploymentReport } from './website-owned-vercel-deployment';
 import { createWebsiteByoPublishStore, initializeWebsiteByoPublishOperation } from './website-byo-publish-store';
@@ -219,9 +220,10 @@ export async function runWebsiteOwnedByoPublish(input:{
  * and its exact source digest. A lost/stale completion remains recoverable. */
 export async function prepareWebsiteOwnedProductionSource(input:
   Parameters<typeof captureWebsiteOwnedProductionSource>[0] & {
-    client: Client; operationId: string; githubClientId: string; githubClientSecret: string; fetcher?: typeof fetch;
+    client: Client; operationId: string; previewOperationId: string; githubClientId: string; githubClientSecret: string; fetcher?: typeof fetch;
   }) {
-  if (typeof window !== 'undefined' || !uuid.test(input.operationId)) throw new Error('Production source export is unavailable.');
+  if (typeof window !== 'undefined' || !uuid.test(input.operationId) || !uuid.test(input.previewOperationId)
+    || input.operationId === input.previewOperationId) throw new Error('Production source export is unavailable.');
   try {
     const captured = await captureWebsiteOwnedProductionSource(input);
     const identity = await readOwnedReleaseIdentity(captured.files);
@@ -232,9 +234,18 @@ export async function prepareWebsiteOwnedProductionSource(input:
       expectedSourceDigest: captured.sourceDigest, fetcher: input.fetcher,
       compile: async () => { if (!await captured.isCurrent()) throw new Error(); return captured.files; },
     });
-    return { ...result, status: await captured.isCurrent() ? result.status : 'recovery-required' as const,
+    const metadata = { ...result,
       sourceDigest: captured.sourceDigest, snapshotDigest: captured.snapshotDigest, runtimeDigest: identity.runtimeDigest,
       sourceBranch: `tayar/${input.projectId}/production` };
+    if (result.status === 'recovery-required' || !await captured.isCurrent()) return { ...metadata, status: 'recovery-required' as const };
+    try {
+      const candidate = await recordWebsiteProductionSourceCandidate({ client: input.client, reader: input.reader,
+        isCurrent: captured.isCurrent,
+        candidate: { status: 'source-prepared', previewSourceDigest: captured.previewSourceDigest, operationId: input.operationId, projectId: input.projectId, ownerId: input.ownerId,
+          previewOperationId: input.previewOperationId, githubConnectionId: input.productionGithubConnectionId,
+          snapshotDigest: captured.snapshotDigest, runtimeDigest: identity.runtimeDigest, sourceDigest: captured.sourceDigest, headSha: result.headSha } });
+      return { ...metadata, candidate };
+    } catch { return { ...metadata, status: 'recovery-required' as const }; }
   } catch { throw new Error('Production source export is unavailable.'); }
 }
 

@@ -99,8 +99,20 @@ try {
     const files = await request.compile(); assert.deepEqual(files, candidate.files);
     return { status: 'exported', headSha: 'c'.repeat(40) };
   };
-  const exportOptions = { ...options, client: {}, operationId, githubClientId: 'Iv1_fixture', githubClientSecret: 'fixture-not-a-real-secret' };
+  let recorded = null;
+  const checkpointClient = { rpc: async (name, args) => {
+    if (name === 'website_read_production_source_candidate') return { data: recorded, error: null };
+    assert.equal(name, 'website_record_production_source_candidate');
+    assert.deepEqual(args.p_snapshot, snapshot);
+    recorded = { status: 'source-prepared', previewSourceDigest: args.p_preview_source_digest, operationId, projectId, ownerId, previewOperationId: previewGithub,
+      githubConnectionId: productionGithub, snapshotDigest: args.p_snapshot_digest, runtimeDigest: args.p_runtime_digest,
+      sourceDigest: args.p_source_digest, headSha: args.p_head_sha };
+    return { data: recorded, error: null };
+  } };
+  const exportOptions = { ...options, client: checkpointClient, operationId, previewOperationId: previewGithub,
+    githubClientId: 'Iv1_fixture', githubClientSecret: 'fixture-not-a-real-secret' };
   const exported = await exportProduction(exportOptions);
+  assert.equal(exported.candidate.status, 'source-prepared');
   assert.equal(exported.status, 'exported'); assert.equal(exported.sourceBranch, `tayar/${projectId}/production`);
   assert.equal(exported.sourceDigest, candidate.sourceDigest); assert.equal(exported.snapshotDigest, preview.snapshotDigest);
   assert.match(exported.runtimeDigest, /^[a-f0-9]{64}$/);
