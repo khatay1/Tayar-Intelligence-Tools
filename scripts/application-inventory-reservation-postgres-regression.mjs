@@ -23,9 +23,10 @@ try {
   await writeFile(entry, [
     "export { compileApplicationInventoryReservationSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-inventory-reservation-sql')) + ';',
     "export { applicationCounterInfrastructure, compileApplicationCounterSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-counter-sql')) + ';',
+    "export { verifyOwnedStockReservationCatalog } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-catalog')) + ';',
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters } = require(outfile);
+  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters, verifyOwnedStockReservationCatalog: verifyCatalog } = require(outfile);
   const app = {
     version: 1, auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     pageAccess: [], roles: [], tables: [{
@@ -111,7 +112,35 @@ try {
     select public.app_stock_reserve_0('${item}','${location}',gen_random_uuid(),1);`),/permission denied/);
   assert.equal(await query(`select count(*) from private.app_stock_reservations_0
     where actor_id='${owner}' and item_id='${item}';`),'2');
-  console.log('PASS actual PostgreSQL stock reservation: auth, rollback, concurrent holds, immutable receipts, floor trigger and idempotent fulfillment');
+  let proofRows = [];
+  const verify = () => verifyCatalog(app, 'products', async statement => {
+    const rows = JSON.parse(await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`));
+    proofRows.push(rows);
+    return rows;
+  });
+  const verified = await verify();
+  if (!verified) {
+    const manifest = [...sql.matchAll(/create function (private|public)\.(app_stock_[a-z0-9_]+)\(([^)]*)\) returns (text|trigger) language (plpgsql|sql) security (definer|invoker) set search_path = '' as \$(stock_[a-z]+)\$([\s\S]*?)\$\7\$;/g)]
+      .map(x => ({ key: x[1] + '.' + x[2], args: x[3], source: x[8], result: x[4], lang: x[5], definer: x[6] === 'definer' }));
+    console.error('Stock proof diagnostics:', JSON.stringify({ manifest: manifest.map(x => x.key), queries: proofRows.map((rows,index) => ({
+      index, rows: rows.map(row => index === 0 ? {
+        key: row.schema_name + '.' + row.function_name, args:row.arguments, result:row.result, lang:row.language,
+        definer:row.security_definer, volatile:row.volatility, owner:row.owner_name, config:row.configuration,
+        anon:row.anon_execute, authenticated:row.authenticated_execute,
+        matchSource:manifest.find(x => x.key === row.schema_name + '.' + row.function_name)?.source === row.source,
+        sourceLength:row.source?.length, expectedLength:manifest.find(x => x.key === row.schema_name + '.' + row.function_name)?.source?.length,
+        sourceStart:row.source?.slice(0,90), expectedStart:manifest.find(x => x.key === row.schema_name + '.' + row.function_name)?.source?.slice(0,90),
+      } : row),
+    })) }));
+  }
+  assert.equal(verified, true, 'Exact stock functions, private receipt schema and trigger must be verified');
+  await query('revoke execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) from authenticated;');
+  assert.equal(await verify(), false, 'Permission drift must block publication');
+  await query('grant execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) to authenticated;');
+  assert.equal(await verify(), true, 'Restored exact grants allow proof');
+  await query('alter table public.app_products disable trigger app_stock_reservation_floor_0;');
+  assert.equal(await verify(), false, 'Disabled reservation floor prevents proof');
+    console.log('PASS actual PostgreSQL stock reservation: auth, rollback, concurrent holds, immutable receipts, floor trigger and idempotent fulfillment');
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
