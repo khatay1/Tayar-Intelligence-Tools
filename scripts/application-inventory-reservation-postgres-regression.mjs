@@ -113,6 +113,35 @@ try {
     select public.app_stock_reserve_0('${item}','${location}',gen_random_uuid(),1);`),/permission denied/);
   assert.equal(await query(`select count(*) from private.app_stock_reservations_0
     where actor_id='${owner}' and item_id='${item}';`),'2');
+  // An expired hold must never be fulfilled, must not be renewed by
+  // idempotent replay, and must release availability without any cron worker.
+  const expiredId = 'aaaa0000-1111-4111-8111-111111111111';
+  const newId = 'aaaa0000-2222-4222-8222-222222222222';
+  const floorExpiryId = 'aaaa0000-3333-4333-8333-333333333333';
+  assert.match(await reserve(item,expiredId,3),/reserved$/);
+  assert.equal(await query(`select (expires_at > statement_timestamp())::text from private.app_stock_reservations_0
+    where reservation_id='${expiredId}';`),'true','New reservation receives a server-side future expiry');
+  await query(`update private.app_stock_reservations_0
+    set expires_at = statement_timestamp() - interval '1 second'
+    where reservation_id = '${expiredId}';`);
+  assert.match(await finalize(expiredId,'fulfill'),/already-expired$/,
+    'The server cannot fulfill a reservation after its deadline');
+  assert.match(await reserve(item,expiredId,3),/already-expired$/,
+    'An expired idempotency key is terminal and cannot reset TTL');
+  assert.equal(await query(`select quantity from public.app_products where id='${item}';`),'3',
+    'Expired fulfillment never removes stock');
+  assert.match(await reserve(item,newId,3),/reserved$/,
+    'Expired holds free the same-item quantity atomically');
+  assert.match(await finalize(newId,'release'),/released$/);
+  assert.match(await reserve(item,floorExpiryId,3),/reserved$/);
+  await query(`update private.app_stock_reservations_0
+    set expires_at = statement_timestamp() - interval '1 second'
+    where reservation_id = '${floorExpiryId}';`);
+  await query(`${login(owner)} select public.app_adjust_counter_0('${item}',-2,gen_random_uuid());`);
+  assert.equal(await query(`select quantity from public.app_products where id='${item}';`),'1',
+    'Legacy stock adjustments ignore expired holds even before lazy cleanup');
+  assert.match(await reserve(item,'aaaa0000-4444-4444-8444-444444444444',1),/reserved$/,
+    'Next reservation safely cleans up the expired receipt');
   let proofRows = [];
   const verify = () => verifyCatalog(app, 'products', async statement => {
     const rows = JSON.parse(await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`));

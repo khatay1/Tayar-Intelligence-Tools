@@ -5,6 +5,9 @@ import { readApplicationDefinition } from './application-validation';
  * Opt-in inventory reservations on TOP of Tayar's existing counter source of truth.
  * No parallel stock count: the item counter remains authoritative and every
  * existing counter/transaction write is checked against active reservations.
+ * Reservations expire after a server-owned 15-minute TTL; expiry is applied
+ * lazily while holding the item lock, without requiring pg_cron to free stock.
+ * Receipts remain immutable and do not renew when a request ID is replayed.
  *
  * Uses the native, owner-scoped single-app backend. Does not support shared
  * organization inventory or per-location stock allocations. The supplied
@@ -43,6 +46,11 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     '  select p.' + column + ' into available from ' + product + ' p',
     '    where p.id = ' + reserving + '.item_id and p.owner_id = actor for update;',
     '  if not found then raise exception \'Stock reservation unavailable\'; end if;',
+    // The product lock makes expiry and reallocation atomic with every
+    // competing reserve/finalize operation for this owner/item.
+    '  update ' + ledger + " r set status = 'expired'",
+    '    where r.actor_id = actor and r.item_id = ' + reserving + '.item_id',
+    "      and r.status = 'reserved' and r.expires_at <= statement_timestamp();",
     '  select * into prior from ' + ledger + ' r',
     '    where r.actor_id = actor and r.reservation_id = ' + reserving + '.reservation_id for update;',
     '  if found then',
@@ -51,10 +59,12 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     "    return 'already-' || prior.status;",
     '  end if;',
     "  select coalesce(sum(r.quantity),0) into held from " + ledger + " r",
-    "    where r.actor_id = actor and r.item_id = " + reserving + ".item_id and r.status = 'reserved';",
+    "    where r.actor_id = actor and r.item_id = " + reserving + ".item_id and r.status = 'reserved'",
+    '      and r.expires_at > statement_timestamp();',
     '  if available - held < amount then raise exception \'Stock reservation exceeds availability\'; end if;',
-    '  insert into ' + ledger + '(actor_id,reservation_id,item_id,location_id,quantity,status)',
-    "    values(actor," + reserving + ".reservation_id," + reserving + ".item_id," + reserving + ".location_id,amount,'reserved');",
+    '  insert into ' + ledger + '(actor_id,reservation_id,item_id,location_id,quantity,status,expires_at)',
+    "    values(actor," + reserving + ".reservation_id," + reserving + ".item_id," + reserving + ".location_id,amount,'reserved',",
+    "      statement_timestamp() + interval '15 minutes');",
     "  return 'reserved';",
     'end $stock_reserve$;',
   ].join('\n');
@@ -68,10 +78,14 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     "  if not found then raise exception 'Stock reservation unavailable'; end if;",
     '  perform 1 from ' + product + ' p where p.id = target and p.owner_id = actor for update;',
     "  if not found then raise exception 'Stock reservation unavailable'; end if;",
+    '  update ' + ledger + " r set status = 'expired'",
+    "    where r.actor_id = actor and r.item_id = target and r.status = 'reserved'",
+    '      and r.expires_at <= statement_timestamp();',
     '  select * into prior from ' + ledger + ' r where r.actor_id = actor and r.reservation_id = ' + finalizing + '.reservation_id for update;',
     "  if not found or prior.item_id <> target then raise exception 'Stock reservation unavailable'; end if;",
     "  if (decision = 'release' and prior.status = 'released') or (decision = 'fulfill' and prior.status = 'fulfilled')", 
     "    then return 'already-' || prior.status; end if;",
+    "  if prior.status = 'expired' then return 'already-expired'; end if;",
     "  if prior.status <> 'reserved' then raise exception 'Stock reservation already settled'; end if;",
     '  update ' + ledger + " r set status = case when decision = 'release' then 'released' else 'fulfilled' end",
     '    where r.actor_id = actor and r.reservation_id = ' + finalizing + '.reservation_id;',
@@ -85,7 +99,8 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     'create table ' + ledger + ' (actor_id uuid not null, reservation_id uuid not null,',
     '  item_id uuid not null references ' + product + '(id) on delete restrict, location_id uuid not null,',
     "  quantity numeric not null check (quantity > 0 and quantity <= 1000000000000 and quantity = trunc(quantity)),",
-    "  status text not null check (status in ('reserved','released','fulfilled')),",
+    "  status text not null check (status in ('reserved','released','fulfilled','expired')),",
+    '  expires_at timestamptz not null,',
     '  primary key (actor_id,reservation_id));',
     'alter table ' + ledger + ' enable row level security;',
     'revoke all on ' + ledger + ' from public, anon, authenticated;',
@@ -93,7 +108,8 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     'create function private.' + floor + '() returns trigger language plpgsql security definer set search_path = \'\' as $stock_floor$',
     'begin',
     '  if new.' + column + ' < (select coalesce(sum(r.quantity),0) from ' + ledger,
-    "    r where r.actor_id = new.owner_id and r.item_id = new.id and r.status = 'reserved')",
+    "    r where r.actor_id = new.owner_id and r.item_id = new.id and r.status = 'reserved'",
+    '      and r.expires_at > statement_timestamp())',
     "    then raise exception 'Stock counter cannot cross reservations'; end if;",
     '  return new;',
     'end $stock_floor$;',

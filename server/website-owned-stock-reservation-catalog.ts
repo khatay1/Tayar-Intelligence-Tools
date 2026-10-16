@@ -83,7 +83,7 @@ export async function verifyOwnedStockReservationCatalog(
     const fields = table.fields;
     const expectedFields: Record<string,string> = {
       actor_id:'uuid',reservation_id:'uuid',item_id:'uuid',location_id:'uuid',
-      quantity:'numeric',status:'text',
+      quantity:'numeric',status:'text',expires_at:'timestamp with time zone',
     };
     if (table.kind !== 'r' || table.rls !== true
       || table.anon_all !== false || table.authenticated_all !== false
@@ -110,7 +110,7 @@ export async function verifyOwnedStockReservationCatalog(
     // rewriting arbitrary parenthesized expressions (which can erase the
     // left-hand quantity comparison and hide dangerous predicate changes).
     const expectedQuantity = "CHECK (((quantity > (0)::numeric) AND (quantity <= ('1000000000000'::bigint)::numeric) AND (quantity = trunc(quantity))))";
-    const expectedStatus = "CHECK ((status = ANY (ARRAY['reserved'::text, 'released'::text, 'fulfilled'::text])))";
+    const expectedStatus = "CHECK ((status = ANY (ARRAY['reserved'::text, 'released'::text, 'fulfilled'::text, 'expired'::text])))";
     const foreign = constraintsByType.get('f')![0];
     if (!checks.includes(expectedQuantity) || !checks.includes(expectedStatus)
       || foreign !== `FOREIGN KEY (item_id) REFERENCES app_${input.tables[index].key}(id) ON DELETE RESTRICT`) return false;
