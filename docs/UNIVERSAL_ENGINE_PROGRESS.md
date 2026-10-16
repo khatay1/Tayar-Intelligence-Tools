@@ -687,3 +687,26 @@ lost-response retry, account switch after commit, reconciliation without a
 second decrement, foreign-owner denial and expired fulfillment. Native database
 results must pass on the final PR SHA before merge. Infrastructure activation
 preflight remains intentionally unready because final credentials are deferred.
+
+## Shared runtime lifecycle guard — follow-up to #265 (2026-10-16)
+
+Stock runtime wiring merged in #265 as `dd210fc7192b24345abf54e68cc2a145e3c978a9`
+after exact-head Release Gate `38969436501` passed, including the native
+PostgreSQL scenarios. Inventory source/provisioning/UI work remains incomplete.
+
+A focused SDK reproduction found a pre-existing lifecycle race outside the
+stock adapter: an ordinary record update could send its PATCH after disposal
+while awaiting the actor verification response. The shared token guard now
+checks disposal after both asynchronous session/actor reads. `createOnce` also
+checks its later owner lookup, including its legacy call without an explicitly
+pinned owner. These checks prevent initiating database writes after closure;
+they do not undo a write already sent to the database.
+
+The existing SDK regression was extended with update and durable-create
+requests closed during the first or second actor check. It failed against the
+merged baseline (an update was actually sent) and passes with the fix, asserting
+no REST/database request was sent after closure. No database rules, permissions,
+expected outputs, existing receipt semantics or customer settings were relaxed.
+Only affected generated outputs are refreshed. PR/exact-head gate and main
+results are recorded in #253. Next inventory work remains saved explicit
+requirements, trusted provisioning/catalog readiness and generated stock UI.
