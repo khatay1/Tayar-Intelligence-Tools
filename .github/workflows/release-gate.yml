@@ -56,7 +56,9 @@ jobs:
           node scripts/verify-migration-source-map.mjs
 
       - name: Customer deployed runtime identity regression
-        run: node scripts/website-owned-runtime-verification-regression.mjs
+        run: |
+          node scripts/website-owned-runtime-verification-regression.mjs
+          node scripts/website-owned-preview-origin-regression.mjs
 
       - name: Project health
         run: npm run health:project
