@@ -17,9 +17,12 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
   const app = readApplicationDefinition(input);
   const index = app.tables.findIndex(table => table.id === itemTableId);
   const table = app.tables[index];
+  const ownerOnly = table && (['read', 'update'] as const).every(operation => {
+    const permissions = table.permissions.filter(p => p.operation === operation);
+    return permissions.length > 0 && permissions.every(p => p.access === 'owner');
+  });
   if (index < 0 || !table?.counter || !table.counter.integer || table.counter.minimum !== 0
-    || !app.auth.enabled || !table.permissions.some(p => p.operation === 'read' && p.access === 'owner')
-    || !table.permissions.some(p => p.operation === 'update' && p.access === 'owner')) {
+    || !app.auth.enabled || !ownerOnly) {
     throw new Error('Owner-scoped integer stock counter required.');
   }
   const field = table.fields.find(field => field.id === table.counter!.fieldId)!;
