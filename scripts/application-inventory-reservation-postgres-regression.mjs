@@ -180,7 +180,7 @@ try {
   await noNetwork({ connectionVersion: 3 }, 'Old connection version is unavailable');
   await noNetwork({ environment: 'production' }, 'Preview proof cannot cross into Production');
   await noNetwork({ itemTableId: 'missing' }, 'Unknown item table blocks evidence');
-  await noNetwork({ accessToken: 'token\\nmalformed' }, 'Invalid custody token must not be used');
+  await noNetwork({ accessToken: 'token\nmalformed' }, 'Invalid custody token must not be used');
   allowed = false;
   await noNetwork({}, 'Stale source scope cannot reuse catalog evidence');
   allowed = true;
