@@ -34,6 +34,7 @@ try {
   const userId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   const otherUserId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   let currentUserId = userId;
+  let duringIdentity;
   const token = `a.${Buffer.from(JSON.stringify({ sub: userId, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.signature`;
   const previousFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
@@ -41,7 +42,7 @@ try {
     requests.push({ url, init });
     if (url.includes('/auth/v1/token')) return Response.json({ access_token: token, refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 3600,
       user: { id: userId, is_anonymous: false } });
-    if (url.includes('/auth/v1/user')) return Response.json({ id: currentUserId, is_anonymous: false });
+    if (url.includes('/auth/v1/user')) { duringIdentity?.(); return Response.json({ id: currentUserId, is_anonymous: false }); }
     if (url.includes('/rpc/app_set_user_role')) return new Response(null, { status: 204 });
     if (init?.method === 'POST' && url.includes('/rest/v1/app_vehicles')) {
       if (switchUserAfterInsert) currentUserId = otherUserId;
@@ -133,6 +134,27 @@ try {
     assert.equal(ownedRows.length, 1);
     assert.match(requests.at(-1).url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/app_vehicles/);
     assert.ok(!requests.at(-1).url.includes('pnbllxdlskljcakyaylt'));
+    // A closed component must not start a write when its asynchronous identity
+    // check completes. Cover the common token guard and createOnce's later
+    // owner lookup, including createOnce's legacy unpinned call signature.
+    const guardedApp = structuredClone(createApp);
+    guardedApp.tables[0].permissions.push({ operation: 'update', access: 'owner' });
+    currentUserId = userId;
+    for (const [action, closeAt] of [['update', 1], ['createOnce', 1], ['createOnce', 2], ['legacyCreateOnce', 1]]) {
+      const guarded = createOwnedApplicationDataRuntime(guardedApp, config, config.projectRef);
+      try {
+        await guarded.auth.signIn('guard-owner@example.invalid', 'fixture-password');
+        let checks = 0;
+        duringIdentity = () => { if (++checks === closeAt) guarded.dispose(); };
+        const before = requests.length;
+        await assert.rejects(action === 'update'
+          ? guarded.update('vehicles', userId, { plate: 'NEW' }, userId)
+          : guarded.createOnce('vehicles', { plate: 'NEW' }, requestId, action === 'legacyCreateOnce' ? undefined : userId));
+        assert.ok(!requests.slice(before).some(request => new URL(request.url).pathname.startsWith('/rest/')),
+          `${action} must not send a database request after disposal during identity check ${closeAt}`);
+      } finally { duringIdentity = undefined; guarded.dispose(); }
+    }
+
     // Exercise stock through the REAL Supabase SDK transport and the existing
     // owned runtime, rather than a hand-written RPC bridge. PostgreSQL semantics
     // remain covered by application-inventory-reservation-postgres-regression.

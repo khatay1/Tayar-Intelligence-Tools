@@ -159,9 +159,11 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
     if (expectedUserId === undefined) return undefined;
     rowId(expectedUserId);
     const session = await client.auth.getSession();
+    if (disposed) throw new Error('Application runtime is closed.');
     const token = session.data.session?.access_token;
     if (session.error || !token) throw new Error('Application write identity is unavailable.');
     const identity = await client.auth.getUser(token);
+    if (disposed) throw new Error('Application runtime is closed.');
     if (identity.error || !identity.data.user || identity.data.user.is_anonymous || identity.data.user.id !== expectedUserId) throw new Error('Application write identity changed.');
     return token;
   };
@@ -349,9 +351,10 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
       validateApplicationBookingValues(target, values);
       const token = await captureWriteToken(expectedUserId);
       const currentOwner = async () => {
+        if (disposed) throw new Error('Application runtime is closed.');
         const identity = await client.auth.getUser();
         const user = identity.data.user;
-        if (identity.error || !user || user.is_anonymous) throw new Error();
+        if (disposed || identity.error || !user || user.is_anonymous) throw new Error();
         return rowId(user.id);
       };
       let owner: string;
