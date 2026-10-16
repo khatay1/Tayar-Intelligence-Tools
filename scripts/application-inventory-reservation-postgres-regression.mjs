@@ -42,6 +42,8 @@ try {
   assert.match(sql, /app_stock_reservation_floor_0/);
   assert.match(sql, /security definer set search_path = ''/);
   assert.match(sql, /app_adjust_counter_0/);
+  assert.match(sql, /app_stock_available_0/);
+  assert.match(sql, /returns numeric language plpgsql security definer/);
   assert.throws(() => reservations({ ...app, auth: { ...app.auth, enabled: false } }, 'products'));
   assert.throws(() => reservations(app, 'missing'));
   assert.throws(() => reservations({ ...app, tables: app.tables.map(table => ({ ...table, counter: undefined })) }, 'products'));
@@ -85,11 +87,19 @@ try {
       set_config('request.jwt.claims','{"is_anonymous":false}',false);`;
   const reserve = (thing, id, n, who=owner) => query(`${login(who)}
     select public.app_stock_reserve_0('${thing}','${location}','${id}',${n});`);
+  const available = (thing, who = owner) => query(`${login(who)}
+    select public.app_stock_available_0('${thing}');`).then(text =>
+      text.split('\n').at(-1));
   const finalize = (id, action, who=owner) => query(`${login(who)}
     select public.app_stock_finalize_0('${id}','${action}');`);
   await query(`${login(owner)} select public.app_adjust_counter_0('${item}',10,gen_random_uuid());
     select public.app_adjust_counter_0('${otherItem}',10,gen_random_uuid());`);
+  assert.equal(await available(item), '10', 'Owner can read initial available stock');
+  await assert.rejects(available(item,foreign), /availability unavailable/,
+    'Foreign owners cannot read merchant inventory');
+  await assert.rejects(available(otherItem,foreign), /availability unavailable/);
   assert.match(await reserve(item,reservation,7),/reserved$/);
+  assert.equal(await available(item), '3', 'Available stock subtracts active reservations');
   assert.match(await reserve(item,reservation,7),/already-reserved$/);
   await assert.rejects(reserve(item,reservation,8),/identity mismatch/);
   await assert.rejects(reserve(item,repeat,4),/exceeds availability/);
@@ -124,6 +134,8 @@ try {
   await query(`update private.app_stock_reservations_0
     set expires_at = statement_timestamp() - interval '1 second'
     where reservation_id = '${expiredId}';`);
+  assert.equal(await available(item), '3',
+    'Read-only availability excludes expired stock receipts before lazy state cleanup');
   assert.match(await finalize(expiredId,'fulfill'),/already-expired$/,
     'The server cannot fulfill a reservation after its deadline');
   assert.match(await reserve(item,expiredId,3),/already-expired$/,
@@ -142,6 +154,9 @@ try {
     'Legacy stock adjustments ignore expired holds even before lazy cleanup');
   assert.match(await reserve(item,'aaaa0000-4444-4444-8444-444444444444',1),/reserved$/,
     'Next reservation safely cleans up the expired receipt');
+  await assert.rejects(query(`set role anon;
+    select public.app_stock_available_0('${item}');`), /permission denied/,
+    'Anonymous callers cannot inspect merchant stock');
   let proofRows = [];
   const verify = () => verifyCatalog(app, 'products', async statement => {
     const rows = JSON.parse(await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`));
@@ -235,6 +250,10 @@ try {
   assert.equal(await verifyInstallation(attestation), false, 'Read-only installation check refuses grant drift');
   await query('grant execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) to authenticated;');
   assert.equal(await verify(), true, 'Restored exact grants allow proof');
+  await query('revoke execute on function public.app_stock_available_0(uuid) from authenticated;');
+  assert.equal(await verify(), false, 'Stock availability permission drift blocks catalog attestation');
+  await query('grant execute on function public.app_stock_available_0(uuid) to authenticated;');
+  assert.equal(await verify(), true, 'Availability grants restored to exact verified catalog');
   await query('alter table public.app_products disable trigger app_stock_reservation_floor_0;');
   assert.equal(await verify(), false, 'Disabled reservation floor prevents proof');
   assert.equal(await verifyInstallation(attestation), false, 'Read-only installation check refuses disabled floor trigger');

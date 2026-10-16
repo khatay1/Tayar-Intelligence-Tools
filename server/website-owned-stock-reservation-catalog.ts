@@ -16,14 +16,15 @@ export async function verifyOwnedStockReservationCatalog(
     if (index < 0) return false;
     const compiled = compileApplicationInventoryReservationSchema(input, itemTableId).join('\n');
     const manifest = new Map<string, { args: string; result: string; lang: string; definer: boolean; source: string }>();
-    const expression = /create function (private|public)\.(app_stock_[a-z0-9_]+)\(([^)]*)\) returns (text|trigger) language (plpgsql|sql) security (definer|invoker) set search_path = '' as \$(stock_[a-z]+)\$([\s\S]*?)\$\7\$;/g;
+    const expression = /create function (private|public)\.(app_stock_[a-z0-9_]+)\(([^)]*)\) returns (text|numeric|trigger) language (plpgsql|sql) security (definer|invoker) set search_path = '' as \$(stock_[a-z]+)\$([\s\S]*?)\$\7\$;/g;
     for (const match of compiled.matchAll(expression)) {
       const key = match[1] + '.' + match[2];
       if (manifest.has(key)) return false;
       manifest.set(key, { args: match[3], result: match[4], lang: match[5], definer: match[6] === 'definer', source: match[8] });
     }
-    if (manifest.size !== 5) return false;
-    const names = ['app_stock_reserve_' + index, 'app_stock_finalize_' + index, 'app_stock_floor_' + index];
+    if (manifest.size !== 7) return false;
+    const names = ['app_stock_reserve_' + index, 'app_stock_finalize_' + index,
+      'app_stock_available_' + index, 'app_stock_floor_' + index];
     const conditions = "p.proname in (" + names.map(literal).join(',') + ")";
     const functionsSql = `select n.nspname as schema_name,p.proname as function_name,
       pg_get_function_identity_arguments(p.oid) as arguments,pg_get_function_result(p.oid) as result,

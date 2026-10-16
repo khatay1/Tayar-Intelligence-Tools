@@ -34,6 +34,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
   const ledger = 'private.app_stock_reservations_' + index;
   const reserving = 'app_stock_reserve_' + index;
   const finalizing = 'app_stock_finalize_' + index;
+  const checking = 'app_stock_available_' + index;
   const floor = 'app_stock_floor_' + index;
   const counter = 'private.app_adjust_counter_' + index;
   const signedIn = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
@@ -95,6 +96,20 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     "  return case when decision = 'release' then 'released' else 'fulfilled' end;",
     'end $stock_finalize$;',
   ].join('\n');
+  // Owner-only availability is a hint; locked reservation is authoritative.
+  const availabilitySql = [
+    'create function private.' + checking + '(item_id uuid) returns numeric language plpgsql security definer set search_path = \'\' as $stock_available$',
+    'declare actor uuid := (select auth.uid()); available numeric;',
+    'begin',
+    '  if not ' + signedIn + ' or item_id is null then raise exception \'Stock availability unavailable\'; end if;',
+    '  select p.' + column + ' - coalesce((select sum(r.quantity) from ' + ledger + ' r',
+    "    where r.actor_id = actor and r.item_id = p.id and r.status = 'reserved'",
+    '      and r.expires_at > statement_timestamp()),0) into available',
+    '    from ' + product + ' p where p.id = ' + checking + '.item_id and p.owner_id = actor;',
+    '  if not found then raise exception \'Stock availability unavailable\'; end if;',
+    '  return available;',
+    'end $stock_available$;',
+  ].join('\n');
   return [
     'create table ' + ledger + ' (actor_id uuid not null, reservation_id uuid not null,',
     '  item_id uuid not null references ' + product + '(id) on delete restrict, location_id uuid not null,',
@@ -118,6 +133,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     '  for each row execute function private.' + floor + '();',
     reserveSql,
     finalizeSql,
+    availabilitySql,
     'revoke all on function private.' + reserving + '(uuid,uuid,uuid,numeric) from public,anon;',
     'grant execute on function private.' + reserving + '(uuid,uuid,uuid,numeric) to authenticated;',
     'revoke all on function private.' + finalizing + '(uuid,text) from public,anon;',
@@ -128,5 +144,10 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     'revoke all on function public.' + finalizing + '(uuid,text) from public,anon;',
     'grant execute on function public.' + reserving + '(uuid,uuid,uuid,numeric) to authenticated;',
     'grant execute on function public.' + finalizing + '(uuid,text) to authenticated;',
+    'revoke all on function private.' + checking + '(uuid) from public,anon;',
+    'grant execute on function private.' + checking + '(uuid) to authenticated;',
+    'create function public.' + checking + '(item_id uuid) returns numeric language sql security invoker set search_path = \'\' as $stock_public$ select private.' + checking + '(item_id) $stock_public$;',
+    'revoke all on function public.' + checking + '(uuid) from public,anon;',
+    'grant execute on function public.' + checking + '(uuid) to authenticated;'
   ];
 }
