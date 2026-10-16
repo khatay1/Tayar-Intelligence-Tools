@@ -21,6 +21,7 @@ export async function runByoPublishWorker(input:{
   beginDeployment(headSha:string,requiredEnvironment:string[]):Promise<number>;
   discoverDeployment(headSha:string):Promise<string|null>;
   inspectDeployment(deploymentId:string,headSha:string,requiredEnvironment:string[]):Promise<OwnedVercelDeploymentReport>;
+  verifyDeployedRuntime(checkpoint:ByoPublishCheckpoint):Promise<void>;
   commitObservation(attemptVersion:number,report:OwnedVercelDeploymentReport):Promise<number>;
 }):Promise<{status:'pending'|'blocked'|'ready';checkpoint:ByoPublishCheckpoint}>{
   if(typeof window!=='undefined'||![input.operationId,input.projectId,input.ownerId].every(v=>uuid.test(v))
@@ -38,7 +39,8 @@ export async function runByoPublishWorker(input:{
       promotionVersion:next.promotionVersion,productionAliases:[...next.productionAliases]};
     const saved=await input.store.transition(state!,payload);if(saved.version!==state!.version+1||!await input.isCurrent())throw new Error();state=saved;};
   try{
-    if(state.stage==='ready')return{status:'ready',checkpoint:state};
+    if(state.stage==='ready'){await input.verifyDeployedRuntime(structuredClone(state));
+      if(!await input.isCurrent())throw new Error();return{status:'ready',checkpoint:state};}
     if(state.stage==='blocked')return{status:'blocked',checkpoint:state};
     if(state.stage==='created'){
       const proof=await input.validate(),required=[...proof.requiredEnvironment].sort();
@@ -63,6 +65,11 @@ export async function runByoPublishWorker(input:{
       if(!deploymentId){deploymentId=await input.discoverDeployment(state.headSha);if(!deploymentId)return{status:'pending',checkpoint:state};
         await move({...state,deploymentId});}
       const report=await input.inspectDeployment(deploymentId,state.headSha,state.requiredEnvironment);
+      if(report.status==='ready'){
+        if(report.deploymentId!==deploymentId||report.observedState!=='READY'||!report.liveUrl)throw new Error();
+        await input.verifyDeployedRuntime(structuredClone({...state,liveUrl:report.liveUrl}));
+        if(!await input.isCurrent())throw new Error();
+      }
       const nextAttempt=await input.commitObservation(state.attemptVersion,report);
       if(!Number.isSafeInteger(nextAttempt)||nextAttempt!==state.attemptVersion+1)throw new Error();
       if(report.status==='connecting'){await move({...state,attemptVersion:nextAttempt});return{status:'pending',checkpoint:state};}

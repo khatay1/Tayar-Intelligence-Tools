@@ -70,6 +70,26 @@ try {
   assert((await privatePage.text()).includes('data-tayar-application-runtime'));
   assert.equal(verified, 1);
   assert.equal((await handler(request('unknown'))).status, 404);
+  const proofUrl='https://fixture-preview.vercel.app/api/application?tayarRoute=release-proof&challenge=11111111-1111-4111-8111-111111111111';
+  const proofResponse=await handler(new Request(proofUrl));assert.equal(proofResponse.status,200);
+  const proof=await proofResponse.json();assert.deepEqual(Object.keys(proof).sort(),['challenge','environment','projectId','runtimeDigest','version']);
+  assert.equal(proof.projectId,id);assert.equal(proof.environment,'production');assert.match(proof.runtimeDigest,/^[a-f0-9]{64}$/);
+  assert.match(proofResponse.headers.get('cache-control'),/no-store/);
+  assert.equal(proofResponse.headers.get('vercel-cdn-cache-control'),'no-store');
+  assert.equal((await handler(new Request(proofUrl,{method:'POST'}))).status,405);
+  assert.equal((await handler(new Request(proofUrl+'&challenge=duplicate'))).status,400);
+  assert.equal((await handler(new Request(proofUrl+'&credential=forged'))).status,400);
+  assert.equal((await handler(request('release-proof'))).status,400);
+  assert.equal(verified,1,'public identity handshake never reads Auth or data');
+  const verificationFile=join(dir,'verification.cjs');
+  await build({entryPoints:['server/website-owned-runtime-verification.ts'],bundle:true,platform:'node',format:'cjs',outfile:verificationFile});
+  const {verifyOwnedDeployedRuntime:verify}= (await import(pathToFileURL(verificationFile))).default;
+  await verify({projectId:id,environment:'production',liveUrl:'https://fixture-preview.vercel.app',files,isCurrent:async()=>true,
+    fetcher:async(url,init)=>handler(new Request(url,init))});
+  const changed=structuredClone(snapshot);changed.pages[0].sections[0].title='Changed runtime';changed.pages[0].sections[0].elements[0].text='Changed runtime';
+  const changedFiles=await compile(changed,config);
+  await assert.rejects(verify({projectId:id,environment:'production',liveUrl:'https://fixture-preview.vercel.app',files:changedFiles,
+    isCurrent:async()=>true,fetcher:async(url,init)=>handler(new Request(url,init))}),/verification is unavailable/,'old deployment cannot attest changed source');
   assert.equal((await handler(new Request('https://wrong.example/api/application?tayarRoute=dashboard'))).status, 403);
   assert.equal(verified, 1, 'Denied requests cannot call upstream Auth without credentials');
   const dataSnapshot = structuredClone(snapshot);

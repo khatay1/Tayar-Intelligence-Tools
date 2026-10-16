@@ -9,6 +9,7 @@ import { bindSavedOwnedEmailNotifications, compileOwnedEmailNotificationRules } 
 import { compileOwnedEmailQueueStatements } from './website-owned-email-schema';
 import { createOwnedRuntimeSecretPlan } from './website-owned-runtime-secret-plan';
 import { compileOwnedPaymentPackage } from './website-owned-payment-package';
+import { bindOwnedReleaseIdentity } from './website-owned-release-identity';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const safeRoute = /^(?:[\p{L}\p{N}._-]+\/)*[\p{L}\p{N}._-]+\.html$/u;
@@ -66,12 +67,12 @@ export async function compileWebsiteOwnedApplicationSource(snapshot: Record<stri
   const manifest = { projectId: input.projectId, applicationOrigin: input.applicationOrigin,
     expectedProjectRef: input.expectedProjectRef, backend: input.backend, definition: capabilities.definition,
     pages: routes.map(({ html: _html, ...page }) => page) };
-  const runtime = `const __TAYAR_MANIFEST__ = ${JSON.stringify(manifest)};
+  const runtime = await bindOwnedReleaseIdentity(`const __TAYAR_MANIFEST__ = ${JSON.stringify(manifest)};
 const __TAYAR_PAGES__ = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.html]))});
 const __TAYAR_PATHS__ = new Map(${JSON.stringify(routes.map(route => [route.pageId, route.path]))});
 const __TAYAR_STRIPE_CHECKOUTS__ = ${JSON.stringify(capabilities.stripeCheckouts)};
 const __TAYAR_SECRET_PLAN__ = ${JSON.stringify(secretPlan)};
-${websiteOwnedApplicationRuntimeTemplate}`;
+${websiteOwnedApplicationRuntimeTemplate}`, input.projectId, input.environment);
   if (/(?:secret:\/\/|sb_secret_|\b(?:sk|rk)_(?:test|live)_[a-zA-Z0-9]{8,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)/i.test(runtime)
     || runtime.includes(input.platformOrigin) || runtime.includes(input.platformUrl)) {
     throw new Error('Customer application runtime contains platform or secret material.');
