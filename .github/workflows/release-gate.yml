@@ -147,6 +147,14 @@ jobs:
           psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_custom_execution_quota_test;'
           TAYAR_CUSTOM_EXECUTION_QUOTA_TEST_DATABASE_URL=postgres://postgres:booking-test-only@localhost:5432/tayar_custom_execution_quota_test node scripts/website-custom-execution-quota-postgres-regression.mjs
 
+      - name: Isolated stock reservation PostgreSQL regression
+        env:
+          TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
+          TAYAR_INVENTORY_RESERVATION_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_inventory_reservation_test
+        run: |
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_inventory_reservation_test;'
+          timeout 45s node scripts/application-inventory-reservation-postgres-regression.mjs --postgres
+
       - name: Isolated Production source and runtime receipt database regression
         env:
           TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
