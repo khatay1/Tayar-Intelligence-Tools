@@ -9,12 +9,13 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-stock-optin-'));
 try {
   const entry = join(dir, 'entry.ts'), outfile = join(dir, 'test.cjs');
   await writeFile(entry, [
-    'export { validateApplicationDefinition, readApplicationDefinition } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-validation')) + ';',
-    'export { compileInitialApplicationSchema, compileAdditiveApplicationMigration } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql')) + ';',
+    'export { validateApplicationDefinition } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-validation')) + ';',
+    'export { compileInitialApplicationSchema } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql')) + ';',
+    'export { compileInitialApplicationStockReservationPackage } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-stock-reservation-package')) + ';',
   ].join('\n'));
   await build({ entryPoints: [entry], platform: 'node', format: 'cjs', outfile, bundle: true });
   const require = createRequire(import.meta.url);
-  const { validateApplicationDefinition: issues, compileInitialApplicationSchema: compile, compileAdditiveApplicationMigration: migrate } = require(outfile);
+  const { validateApplicationDefinition: issues, compileInitialApplicationSchema: compile, compileInitialApplicationStockReservationPackage: packageFor } = require(outfile);
   const base = {
     version: 1, roles: [], pageAccess: [],
     auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
@@ -25,40 +26,37 @@ try {
       counter: { fieldId: 'quantity', minimum: 0, integer: true },
     }],
   };
-  const enabled = structuredClone(base);
-  enabled.tables[0].stockReservations = { mode: 'owner' };
   assert.deepEqual(issues(base), []);
-  assert.deepEqual(issues(enabled), []);
-  assert.throws(() => compile(enabled), /verified owner-only customer backend/);
-  const ordinary = compile(base).join('\n');
-  assert.doesNotMatch(ordinary, /app_stock_reserve_0/);
-  const sql = compile(enabled, { stockReservationsProvisioned: true }).join('\n');
-  assert.match(sql, /create function private\.app_stock_reserve_0/);
-  assert.match(sql, /create function private\.app_stock_finalize_0/);
-  assert.match(sql, /create trigger app_stock_reservation_floor_0/);
-  assert.match(sql, /alter table private\.app_stock_reservations_0 enable row level security/);
-  assert.match(sql, /revoke all on private\.app_stock_reservations_0 from public, anon, authenticated/);
-  assert.ok(sql.indexOf('create function private.app_adjust_counter_0') < sql.indexOf('create function private.app_stock_reserve_0'),
-    'The counter engine must exist before stock reservation installation');
-  assert.throws(() => migrate(base, enabled), /separately verified backend migration/);
-  assert.throws(() => migrate(enabled, base), /separately verified backend migration/);
-
-  const bad = [
-    { stockReservations: { mode: 'everyone' } },
-    { stockReservations: true },
-    { stockReservations: { mode: 'owner', credentials: 'bad' } },
+  const baseline = compile(base);
+  const packaged = packageFor(base, 'items');
+  assert.deepEqual(packaged.slice(0, baseline.length), baseline, 'existing generated-app SQL must remain unchanged');
+  assert.equal(packaged.length > baseline.length, true);
+  const added = packaged.slice(baseline.length).join('\n');
+  assert.match(added, /create function private\.app_stock_reserve_0/);
+  assert.match(added, /create function private\.app_stock_finalize_0/);
+  assert.match(added, /create trigger app_stock_reservation_floor_0/);
+  assert.match(added, /alter table private\.app_stock_reservations_0 enable row level security/);
+  assert.match(added, /revoke all on private\.app_stock_reservations_0 from public, anon, authenticated/);
+  assert.doesNotMatch(baseline.join('\n'), /app_stock_reserve_0/);
+  assert.ok(packaged.join('\n').indexOf('create function private.app_adjust_counter_0')
+    < packaged.join('\n').indexOf('create function private.app_stock_reserve_0'));
+  assert.throws(() => packageFor(base, 'missing'));
+  const invalid = [
     { counter: { fieldId: 'quantity', minimum: 0, integer: false } },
     { counter: { fieldId: 'quantity', minimum: 1, integer: true } },
     { counter: undefined },
     { permissions: [{ operation: 'read', access: 'authenticated' }, { operation: 'update', access: 'owner' }] },
     { permissions: [{ operation: 'read', access: 'owner' }, { operation: 'update', access: 'authenticated' }] },
-    { permissions: [{ operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }, { operation: 'read', access: 'public' }] },
+    { permissions: [{ operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }, { operation: 'read', access: 'authenticated' }] },
+    { permissions: [{ operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }, { operation: 'update', access: 'public' }] },
   ];
-  for (const override of bad) {
-    const variant = structuredClone(enabled);
+  for (const override of invalid) {
+    const variant = structuredClone(base);
     Object.assign(variant.tables[0], override);
-    assert.ok(issues(variant).length > 0, 'Unsupported reservation configurations must fail closed');
-    assert.throws(() => compile(variant, { stockReservationsProvisioned: true }));
+    assert.throws(() => packageFor(variant, 'items'), 'unsafe stock package must fail closed');
   }
-  console.log('PASS optional owner-scoped stock reservation contract, explicit provisioning gate, generated SQL, and migration refusal');
+  const noAuth = structuredClone(base);
+  noAuth.auth.enabled = false;
+  assert.throws(() => packageFor(noAuth, 'items'));
+  console.log('PASS opt-in stock SQL package: unchanged base, append-only install, owner-only controls and negative cases');
 } finally { await rm(dir, { recursive: true, force: true }); }
