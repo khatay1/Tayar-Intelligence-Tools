@@ -23,9 +23,10 @@ try {
   await writeFile(entry, [
     "export { compileApplicationInventoryReservationSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-inventory-reservation-sql')) + ';',
     "export { applicationCounterInfrastructure, compileApplicationCounterSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-counter-sql')) + ';',
+    "export { verifyOwnedStockReservationCatalog } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-catalog')) + ';',
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters } = require(outfile);
+  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters, verifyOwnedStockReservationCatalog: verifyCatalog } = require(outfile);
   const app = {
     version: 1, auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     pageAccess: [], roles: [], tables: [{
@@ -111,7 +112,18 @@ try {
     select public.app_stock_reserve_0('${item}','${location}',gen_random_uuid(),1);`),/permission denied/);
   assert.equal(await query(`select count(*) from private.app_stock_reservations_0
     where actor_id='${owner}' and item_id='${item}';`),'2');
-  console.log('PASS actual PostgreSQL stock reservation: auth, rollback, concurrent holds, immutable receipts, floor trigger and idempotent fulfillment');
+  const verify = () => verifyCatalog(app, 'products', async statement => {
+    const rows = await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`);
+    return JSON.parse(rows);
+  });
+  assert.equal(await verify(), true, 'Exact stock functions, private receipt schema and trigger must be verified');
+  await query('revoke execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) from authenticated;');
+  assert.equal(await verify(), false, 'Permission drift must block publication');
+  await query('grant execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) to authenticated;');
+  assert.equal(await verify(), true, 'Restored exact grants allow proof');
+  await query('alter table public.app_products disable trigger app_stock_reservation_floor_0;');
+  assert.equal(await verify(), false, 'Disabled reservation floor prevents proof');
+    console.log('PASS actual PostgreSQL stock reservation: auth, rollback, concurrent holds, immutable receipts, floor trigger and idempotent fulfillment');
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
