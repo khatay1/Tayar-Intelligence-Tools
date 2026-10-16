@@ -13,6 +13,7 @@ try {
     'export { compileInitialApplicationSchema } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql')) + ';',
     'export { compileAdditiveApplicationMigration } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql')) + ';',
     'export { compileApplicationDataView } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-data-view')) + ';',
+    'export { createApplicationDataViewController } from ' + JSON.stringify(resolve('src/modules/website-builder/core/application-data-view-controller')) + ';',
     'export { prepareGeneratedApplication, requestedApplicationCapabilities } from ' + JSON.stringify(resolve('src/modules/website-builder/core/editor-generated-application')) + ';',
     'export { createSection } from ' + JSON.stringify(resolve('src/modules/website-builder/core/defaults')) + ';',
     'export { applicationRepairSafetyIssues } from ' + JSON.stringify(resolve('src/modules/website-builder/core/editor-application-repair-safety')) + ';',
@@ -20,7 +21,7 @@ try {
   ].join('\n'));
   await build({ entryPoints: [entry], platform: 'node', format: 'cjs', outfile, bundle: true });
   const require = createRequire(import.meta.url);
-  const { validateApplicationDefinition: issues, compileInitialApplicationSchema: compile, compileInitialApplicationStockReservationPackage: packageFor, compileAdditiveApplicationMigration: migrate, compileApplicationDataView: view, prepareGeneratedApplication: generatedApplication, requestedApplicationCapabilities: requested, createSection, applicationRepairSafetyIssues: repairIssues } = require(outfile);
+  const { validateApplicationDefinition: issues, compileInitialApplicationSchema: compile, compileInitialApplicationStockReservationPackage: packageFor, compileAdditiveApplicationMigration: migrate, compileApplicationDataView: view, createApplicationDataViewController: controller, prepareGeneratedApplication: generatedApplication, requestedApplicationCapabilities: requested, createSection, applicationRepairSafetyIssues: repairIssues } = require(outfile);
   const base = {
     version: 1, roles: [], pageAccess: [],
     auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
@@ -45,6 +46,65 @@ try {
   assert.doesNotMatch(baseline.join('\n'), /app_stock_reserve_0/);
   const saved = structuredClone(base); saved.tables[0].stockReservations = true;
   assert.deepEqual(issues(saved), [], 'A saved explicit owner-stock declaration is valid');
+  const action = { tableId: 'items', columns: ['quantity'], actions: ['stock-reservation'], pageSize: 10 };
+  assert.equal(view(saved, action).binding.actions[0], 'stock-reservation');
+  assert.throws(() => view(base, action), 'Unsaved tables cannot expose mutation controls');
+  const actor = '11111111-1111-4111-8111-111111111111', item = '22222222-2222-4222-8222-222222222222';
+  const location = '33333333-3333-4333-8333-333333333333', receiptId = '44444444-4444-4444-8444-444444444444';
+  const nextReceipt = '55555555-5555-4555-8555-555555555555';
+  const memory = new Map(), storage = { getItem: key => memory.get(key) ?? null,
+    setItem: (key, value) => memory.set(key, value), removeItem: key => memory.delete(key) };
+  let currentActor = actor, lostReserve = true, lostSettle = true, calls = [];
+  const runtime = { auth: { currentUser: async () => ({ id: currentActor, is_anonymous: false }), currentRoles: async () => [] },
+    stockReservations: (_table, owner) => ({
+      reserve: async (...args) => { assert.equal(owner, actor); calls.push(['reserve', ...args]);
+        if (lostReserve) { lostReserve = false; throw Error('response lost'); } return 'already-reserved'; },
+      settle: async (...args) => { assert.equal(owner, actor); calls.push(['settle', ...args]);
+        if (lostSettle) { lostSettle = false; throw Error('response lost'); }
+        return args[1] === 'release' ? 'already-released' : 'already-fulfilled'; },
+    }) };
+  const scope = { keyPrefix: 'customer:project:page', storage, crypto: {} };
+  let generatedReceipts = 0;
+  const makeController = () => controller(saved, action, runtime, () => generatedReceipts++ ? nextReceipt : receiptId, scope);
+  let controls = makeController();
+  await assert.rejects(controls.stockReserve(item, location, 2), /response lost/);
+  assert.equal((await controls.stockState(item)).phase, 'reserve');
+  await assert.rejects(controls.stockReserve(item, location, 3), /existing stock receipt/);
+  controls.dispose(); controls = makeController();
+  assert.equal(await controls.stockReserve(item, location, 2), 'already-reserved');
+  assert.deepEqual(calls.slice(0, 2), [
+    ['reserve', item, location, receiptId, 2], ['reserve', item, location, receiptId, 2],
+  ], 'A reload and lost response cannot create a second hold');
+  await assert.rejects(controls.stockSettle(item, 'fulfill'), /response lost/);
+  assert.equal((await controls.stockState(item)).phase, 'fulfill');
+  await assert.rejects(controls.stockSettle(item, 'release'), /existing stock receipt|confirmed/);
+  controls.dispose(); controls = makeController();
+  assert.equal(await controls.stockSettle(item, 'fulfill'), 'already-fulfilled');
+  assert.equal(await controls.stockState(item), null);
+  assert.deepEqual(calls.slice(2), [['settle', receiptId, 'fulfill'], ['settle', receiptId, 'fulfill']],
+    'A lost settlement result cannot switch its decision');
+  assert.equal(await controls.stockReserve(item, location, 1), 'already-reserved');
+  assert.equal(await controls.stockSettle(item, 'release'), 'already-released');
+  assert.deepEqual(calls.slice(4), [['reserve', item, location, nextReceipt, 1], ['settle', nextReceipt, 'release']],
+    'A new hold uses a new receipt and can be released independently');
+  assert.equal(await controls.stockState(item), null);
+  const key = `${scope.keyPrefix}:stock:${actor}:items:${item}`;
+  memory.set(key, '{"version":1,"reservationId":"someone-else"}');
+  await assert.rejects(controls.stockReserve(item, location, 1), /Stock receipt is unavailable/);
+  assert.equal(calls.length, 6, 'Invalid persisted receipt cannot authorize or replace an in-flight hold');
+  memory.delete(key);
+  const storageBlocked = controller(saved, action, runtime, () => receiptId, {
+    ...scope, storage: { ...storage, setItem() { throw Error('storage unavailable'); } },
+  });
+  await assert.rejects(storageBlocked.stockReserve(item, location, 1), /storage unavailable/);
+  assert.equal(calls.length, 6, 'Without durable receipt storage the controller sends no stock RPC');
+  storageBlocked.dispose();
+  currentActor = location;
+  await assert.rejects(controls.stockState(item), /identity changed/,
+    'A switched account cannot inspect the previous owner receipt');
+  await assert.rejects(controls.stockReserve(item, location, 2), /closed|identity changed/);
+  assert.equal(calls.length, 6, 'Account switches never submit another stock operation');
+  controls.dispose();
   const savedSql = compile(saved).join('\n');
   assert.equal((savedSql.match(/create function private.app_stock_reserve_0\(/g) ?? []).length, 1);
   assert.match(savedSql, /"stockReservations":true/);
@@ -66,8 +126,13 @@ try {
     assert.throws(()=>generatedApplication(generated,missing,prompt));
   }
   for (const prompt of ['Build stock reservations','Reserve inventory','حجز المخزون','Lagerreservationer']) {
-    assert.throws(()=>generatedApplication(generated,pages,prompt),/customer controls are not yet supported/,
+    assert.throws(()=>generatedApplication(generated,pages,prompt),/bound stock-reservation view/,
       'A read-only availability view cannot falsely satisfy reservation controls');
+    const managed=structuredClone(pages);managed[0].sections[0].applicationDataView.actions.push('stock-reservation');
+    const requirement={...generated,requirements:[...generated.requirements,
+      {id:'reserved_stock',summary:'Reserve and settle stock',capability:'records',evidence:['view:items:stock-reservation']}]};
+    assert.equal(generatedApplication(requirement,managed,prompt).tables[0].stockReservations,true,
+      'Reservation generation requires its actual saved and bound mutation control');
   }
   for (const flag of [false, 'true', {}, 1]) {
     const malformed = structuredClone(saved); malformed.tables[0].stockReservations = flag;

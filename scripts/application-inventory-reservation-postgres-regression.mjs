@@ -415,11 +415,22 @@ try {
       const runtime=createOwnedApplicationDataRuntime(${JSON.stringify(savedStockApp)},${JSON.stringify(backend)},${JSON.stringify(projectRef)});
       let stop;try{await runtime.auth.signIn('owner@example.invalid','fixture-password');
         const host=document.getElementById('stock');
-        stop=mountApplicationDataView(host,${JSON.stringify(savedStockApp)},{tableId:'products',columns:['quantity'],actions:['stock-availability'],pageSize:10},runtime,'en',{projectId:${JSON.stringify(projectId)},projectRef:${JSON.stringify(projectRef)},pageId:'stock',sectionId:'availability'});
+        stop=mountApplicationDataView(host,${JSON.stringify(savedStockApp)},{tableId:'products',columns:['quantity'],actions:['stock-availability','stock-reservation'],pageSize:10},runtime,'en',{projectId:${JSON.stringify(projectId)},projectRef:${JSON.stringify(projectRef)},pageId:'stock',sectionId:'availability'});
         const button=()=>[...host.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Available stock'&&!b.disabled);
         await wait(button);button().click();
         await wait(()=>host.shadowRoot.querySelector('[role=status]').textContent.includes('Available: 1.'));
-        await nativeFetch('/result',{method:'POST',body:'PASS browser UI -> saved opt-in -> SDK -> PostgreSQL availability'});
+        await nativeFetch('/drop-once',{method:'POST'});
+        const manage=()=>[...host.shadowRoot.querySelectorAll('button')].find(b=>b.textContent==='Manage stock hold'&&!b.disabled);
+        manage().click();await wait(()=>host.shadowRoot.querySelector('.editor form'));let form=host.shadowRoot.querySelector('.editor form');
+        form.querySelector('input[pattern]').value=${JSON.stringify(location)};
+        form.querySelector('input[type=number]').value='1';form.requestSubmit();
+        await wait(()=>host.shadowRoot.querySelector('[role=status]').textContent.includes('Result uncertain'));
+        form.requestSubmit();await wait(()=>host.shadowRoot.querySelector('.editor').hidden);
+        await wait(manage);manage().click();await wait(()=>host.shadowRoot.querySelector('.editor form'));form=host.shadowRoot.querySelector('.editor form');
+        [...form.querySelectorAll('button')].find(b=>b.textContent==='Fulfill hold').click();
+        await wait(()=>host.shadowRoot.querySelector('.editor').hidden);
+        await wait(button);button().click();await wait(()=>host.shadowRoot.querySelector('[role=status]').textContent.includes('Available: 0.'));
+        await nativeFetch('/result',{method:'POST',body:'PASS browser UI -> saved opt-in -> SDK -> PostgreSQL availability, lost-response reservation retry and fulfillment'});
       }catch(error){await nativeFetch('/result',{method:'POST',body:'FAIL '+error.stack});}finally{stop?.();runtime.dispose();}})();`;
     const built=await build({stdin:{contents:fixtureSource,resolveDir:process.cwd(),sourcefile:'stock-database-browser.ts'},bundle:true,write:false,platform:'browser',format:'iife',target:'es2020',minify:true});
     const providerFetch=globalThis.fetch;
@@ -431,6 +442,7 @@ try {
         if(request.url==='/fixture.js'){response.setHeader('content-type','application/javascript');response.end(built.outputFiles[0].text);return;}
         let body='';for await(const chunk of request)body+=chunk;
         if(request.url==='/result'){report(body);response.end('ok');return;}
+        if(request.url==='/drop-once'){dropAfterCommit=true;response.end('ok');return;}
         if(request.url==='/provider'){
           const call=JSON.parse(body),result=await providerFetch(call.url,{method:call.method,headers:call.headers,body:call.body});
           response.writeHead(result.status,{'content-type':result.headers.get('content-type')??'application/json'});response.end(await result.text());return;
@@ -447,6 +459,8 @@ try {
       browser.once('error',error=>report('FAIL '+String(error)));
       browser.once('exit',code=>report('FAIL browser exited before stock result '+code));
       const result=await outcome;assert.match(result,/^PASS browser UI/);console.log(result);
+      assert.equal(await query(`select count(*) from private.app_stock_reservations_0 where item_id='${sdkItem}' and actor_id='${owner}' and status='fulfilled';`),'2',
+        'The browser lost-response retry used one reservation receipt, fulfilled once alongside the prior SDK fixture');
     }finally{
       clearTimeout(timer);
       if(browser?.pid){

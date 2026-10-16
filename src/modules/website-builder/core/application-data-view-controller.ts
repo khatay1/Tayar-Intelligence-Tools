@@ -13,6 +13,18 @@ const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
 };
+type StockHold = { version: 1; itemId: string; locationId: string; reservationId: string; quantity: number;
+  phase: 'reserve' | 'held' | 'release' | 'fulfill' };
+function validStockHold(value: unknown, itemId: string): value is StockHold {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const hold = value as Record<string, unknown>;
+  return Object.keys(hold).sort().join(',') === 'itemId,locationId,phase,quantity,reservationId,version'
+    && hold.version === 1 && hold.itemId === itemId
+    && typeof hold.locationId === 'string' && rowId(hold.locationId) === hold.locationId
+    && typeof hold.reservationId === 'string' && rowId(hold.reservationId) === hold.reservationId
+    && typeof hold.quantity === 'number' && Number.isSafeInteger(hold.quantity) && hold.quantity > 0 && hold.quantity <= 1_000_000_000_000
+    && ['reserve', 'held', 'release', 'fulfill'].includes(String(hold.phase));
+}
 
 /** No persistent row cache. Re-check live identity/roles on every action and after
  * each response; a stale account cannot display data fetched by a previous one. */
@@ -25,6 +37,21 @@ export function createApplicationDataViewController(definition: ApplicationDefin
   let owner: string | undefined, disposed = false, writing = false;
   let pending: { fingerprint: string; requestId: string } | undefined;
   let submission: ReturnType<typeof createDurableApplicationFormSubmission> | undefined;
+  const stockKey = (id: string) => `${durableScope!.keyPrefix}:stock:${owner}:${compiled.table.id}:${rowId(id)}`;
+  function readStock(id: string): StockHold | null {
+    if (!durableScope || !owner) throw new Error('Stock reservation is unavailable.');
+    const stored = durableScope.storage.getItem(stockKey(id));
+    if (stored === null) return null;
+    let parsed: unknown;
+    try { parsed = JSON.parse(stored); } catch { throw new Error('Stock receipt is unavailable.'); }
+    if (!validStockHold(parsed, id)) throw new Error('Stock receipt is unavailable.');
+    return parsed;
+  }
+  function saveStock(id: string, hold: StockHold | null) {
+    if (!durableScope) throw new Error('Stock reservation is unavailable.');
+    if (hold) durableScope.storage.setItem(stockKey(id), JSON.stringify(hold));
+    else durableScope.storage.removeItem(stockKey(id));
+  }
   async function identity() {
     if (disposed) throw new Error('Data view is closed.');
     const user = await runtime.auth.currentUser();
@@ -36,8 +63,9 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' || action === 'pay' || action === 'refund' || action === 'stock-availability' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles)
-      && (action !== 'stock-availability' || !!runtime.stockReservations)
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' || action === 'pay' || action === 'refund' || action === 'stock-availability' || action === 'stock-reservation' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles)
+      && (action !== 'stock-availability' && action !== 'stock-reservation' || !!runtime.stockReservations)
+      && (action !== 'stock-reservation' || !!durableScope)
       && (!(action === 'pay' || action === 'refund') || runtime.payments?.available)
       && (action !== 'refund' || !!compiled.table.payment && roles.includes(compiled.table.payment.refundRoleId)));
   }
@@ -62,6 +90,43 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       const result = await runtime.stockReservations(compiled.table.id, owner!).available(rowId(id));
       await identity();
       return result;
+    },
+    async stockState(id: string) {
+      if (!(await permissions()).includes('stock-reservation')) throw new Error('Stock reservation is unavailable.');
+      return readStock(rowId(id));
+    },
+    async stockReserve(id: string, location: string, quantity: number) {
+      const item = rowId(id), locationId = rowId(location);
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1_000_000_000_000) throw new Error('Invalid stock quantity.');
+      let receipt: 'reserved' | 'already-reserved' | 'already-expired' | undefined;
+      await write('stock-reservation', async () => {
+        if (!runtime.stockReservations || !durableScope) throw new Error('Stock reservation is unavailable.');
+        let hold = readStock(item);
+        if (hold && (hold.phase !== 'reserve' || hold.locationId !== locationId || hold.quantity !== quantity))
+          throw new Error('Resolve the existing stock receipt before starting a different reservation.');
+        if (!hold) {
+          hold = { version: 1, itemId: item, locationId, reservationId: rowId(randomUUID()), quantity, phase: 'reserve' };
+          saveStock(item, hold); // Persist the idempotency key before the network request.
+        }
+        receipt = await runtime.stockReservations(compiled.table.id, owner!).reserve(item, locationId, hold.reservationId, quantity);
+        if (receipt === 'already-expired') saveStock(item, null);
+        else saveStock(item, { ...hold, phase: 'held' });
+      });
+      return receipt!;
+    },
+    async stockSettle(id: string, decision: 'release' | 'fulfill') {
+      const item = rowId(id);
+      if (decision !== 'release' && decision !== 'fulfill') throw new Error('Invalid stock decision.');
+      let receipt: 'released' | 'fulfilled' | 'already-released' | 'already-fulfilled' | 'already-expired' | undefined;
+      await write('stock-reservation', async () => {
+        if (!runtime.stockReservations) throw new Error('Stock settlement is unavailable.');
+        const hold = readStock(item);
+        if (!hold || (hold.phase !== 'held' && hold.phase !== decision)) throw new Error('Stock receipt must be confirmed before settlement.');
+        saveStock(item, { ...hold, phase: decision }); // A lost response must retry the same decision.
+        receipt = await runtime.stockReservations(compiled.table.id, owner!).settle(hold.reservationId, decision);
+        saveStock(item, null);
+      });
+      return receipt!;
     },
     async bookingAvailable(values: Record<string, unknown>) {
       if (!(await permissions()).includes('create') || !runtime.bookingAvailable) throw new Error('Booking availability is unavailable.');

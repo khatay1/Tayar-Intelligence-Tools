@@ -5,7 +5,7 @@ import { readApplicationDefinition } from './application-validation';
 export interface ApplicationDataViewBinding {
   tableId: string;
   columns: string[];
-  actions: Array<'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition' | 'attachments' | 'pay' | 'refund' | 'stock-availability'>;
+  actions: Array<'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition' | 'attachments' | 'pay' | 'refund' | 'stock-availability' | 'stock-reservation'>;
   pageSize: number;
   searchFieldId?: string;
 }
@@ -20,7 +20,7 @@ export function validateApplicationDataViewShape(value: unknown): value is Appli
     || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80
     || value.columns.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id))
     || new Set(value.columns).size !== value.columns.length
-    || !Array.isArray(value.actions) || value.actions.some(action => !['create', 'update', 'delete', 'adjust', 'transact', 'transition', 'attachments', 'pay', 'refund', 'stock-availability'].includes(String(action)))
+    || !Array.isArray(value.actions) || value.actions.some(action => !['create', 'update', 'delete', 'adjust', 'transact', 'transition', 'attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation'].includes(String(action)))
     || new Set(value.actions).size !== value.actions.length
     || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50
     || (value.searchFieldId !== undefined && (typeof value.searchFieldId !== 'string' || !value.columns.includes(value.searchFieldId)))) return false;
@@ -33,8 +33,8 @@ export function compileApplicationDataView(definition: ApplicationDefinition, in
   const binding = structuredClone(input);
   const table = app.tables.find(table => table.id === binding.tableId);
   if (!table || !table.fields.length || !table.permissions.some(rule => rule.operation === 'read')
-    || binding.actions.some(action => !table.permissions.some(rule => rule.operation === (['attachments', 'pay', 'refund', 'stock-availability'].includes(action) ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action)))) throw new Error('Data view requires declared read and action permissions.');
-  if (binding.actions.includes('stock-availability') && !table.stockReservations) throw new Error('Stock availability requires the saved stock reservation opt-in.');
+    || binding.actions.some(action => !table.permissions.some(rule => rule.operation === (['attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation'].includes(action) ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action)))) throw new Error('Data view requires declared read and action permissions.');
+  if (binding.actions.some(action => action === 'stock-availability' || action === 'stock-reservation') && !table.stockReservations) throw new Error('Stock controls require the saved stock reservation opt-in.');
   if (binding.actions.some(action => action === 'pay' || action === 'refund') && !table.payment) throw new Error('Payment actions require a native payment rule.');
   if (binding.actions.includes('attachments') && !table.attachments) throw new Error('Attachments require a native file rule.');
   if (binding.actions.includes('adjust') && !table.counter) throw new Error('Adjustment requires a native counter rule.');

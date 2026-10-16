@@ -7,7 +7,9 @@ import { compileApplicationCreateForm } from './application-form-runtime';
 import { compileApplicationDataView } from './application-data-view';
 import { websiteProjectLinkIssues } from './website-project-links';
 
-const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt);
+const stockReservationPattern = /\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/giu;
+const stockReservationRequest = (prompt: string) => new RegExp(stockReservationPattern.source, 'iu').test(prompt);
+const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt.replace(stockReservationPattern, ''));
 const stockAvailabilityPattern = /\b(?:available (?:stock|inventory)|(?:stock|inventory) availability|tillgängligt lager)\b|(?:المخزون المتاح|الكمية المتاحة من المخزون)/giu;
 const stockAvailabilityRequest = (prompt: string) => new RegExp(stockAvailabilityPattern.source, 'iu').test(prompt);
 
@@ -16,7 +18,7 @@ const requestedCapabilityPatterns: Array<[ApplicationRequirementCapability, RegE
   ['records', /\b(?:data dashboard|record management|crud|data editor|customer portal|admin portal)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات|بوابة العملاء|لوحة الإدارة)|(?:datapanel|posthantering|kundportal)/iu],
   ['booking', /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|availability|waitlist|recurring appointments?|working hours)\b|(?:حجز|حجوزات|المواعيد المتكررة|قائمة الانتظار|ساعات العمل|التوافر)|(?:bokning|boka|väntelista|öppettider|tillgänglighet)/iu],
   ['counter', /\b(?:stock (?:adjustments?|management)|inventory management|quota management|points system)\b|(?:إدارة المخزون|تعديل المخزون|إدارة الحصص|نظام النقاط)|(?:lagerhantering|lagersaldo|poängsystem)/iu],
-  ['transaction', /\b(?:multi[ -]?item orders?|order management|inventory reservations?|stock reservations?|material issuance|usage allocation)\b|(?:إدارة الطلبات|طلب متعدد العناصر|حجز المخزون|صرف المواد)|(?:orderhantering|materialuttag)/iu],
+  ['transaction', /\b(?:multi[ -]?item orders?|order management|material issuance|usage allocation)\b|(?:إدارة الطلبات|طلب متعدد العناصر|صرف المواد)|(?:orderhantering|materialuttag)/iu],
   ['workflow', /\b(?:approval workflow|status workflow|state transition|approve orders?|review queue)\b|(?:سير الموافقة|حالات الطلب|اعتماد الطلبات|طابور المراجعة)|(?:godkännandeflöde|statusflöde)/iu],
   ['formula', /\b(?:calculated fields?|computed totals?|line totals?|automatic calculation)\b|(?:حقول محسوبة|إجماليات محسوبة|حساب تلقائي)|(?:beräknade fält|automatisk beräkning)/iu],
   ['files', /\b(?:private attachments?|record files?|document uploads?|file uploads?)\b|(?:مرفقات خاصة|ملفات السجلات|رفع الملفات|رفع المستندات)|(?:privata bilagor|filuppladdning)/iu],
@@ -26,9 +28,10 @@ const requestedCapabilityPatterns: Array<[ApplicationRequirementCapability, RegE
 ];
 
 export function requestedApplicationCapabilities(prompt: string): Set<ApplicationRequirementCapability> {
-  const remaining = prompt.replace(stockAvailabilityPattern, '');
+  const remaining = prompt.replace(stockAvailabilityPattern, '').replace(stockReservationPattern, '');
   const capabilities = new Set(requestedCapabilityPatterns.filter(([, pattern]) => pattern.test(remaining)).map(([capability]) => capability));
   if (stockAvailabilityRequest(prompt)) capabilities.add('records');
+  if (stockReservationRequest(prompt)) capabilities.add('records');
   return capabilities;
 }
 
@@ -40,9 +43,7 @@ export function prepareGeneratedApplication(
   availableEmailConnectionIds: ReadonlySet<string> = new Set(),
   requireSpecification = false,
 ): ApplicationDefinition | undefined {
-  if (/\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/iu.test(prompt)) {
-    throw new Error('Stock reservation customer controls are not yet supported. Availability alone or a transaction cannot fulfill this request. No incomplete application was applied.');
-  }
+  const stockReservationRequested = stockReservationRequest(prompt);
   if (generated.projectKind !== undefined && !['website', 'application'].includes(generated.projectKind)) throw new Error('AI returned an invalid project kind.');
   if (generated.unsupportedFeatures !== undefined && (!Array.isArray(generated.unsupportedFeatures)
     || generated.unsupportedFeatures.length > 20 || generated.unsupportedFeatures.some(item => typeof item !== 'string' || !item.trim() || item.length > 300))) {
@@ -75,6 +76,7 @@ export function prepareGeneratedApplication(
   let counterViews = 0;
   let transactionViews = 0;
   let stockAvailabilityViews = 0;
+  let stockReservationViews = 0;
   const evidence = new Set<string>();
   if (definition.auth.enabled) evidence.add('auth');
   for (const page of pages) evidence.add(`page:${page.slug}`);
@@ -83,6 +85,7 @@ export function prepareGeneratedApplication(
       if (section.type === 'contact' || section.type === 'footer') throw new Error('Data views require a content section.');
       const view = compileApplicationDataView(definition, section.applicationDataView);
       if (view.table.stockReservations && view.binding.actions.includes('stock-availability')) stockAvailabilityViews++;
+      if (view.table.stockReservations && view.binding.actions.includes('stock-reservation')) stockReservationViews++;
       if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
       if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       if (view.table.transaction && view.binding.actions.includes('transact')) transactionViews++;
@@ -123,6 +126,7 @@ export function prepareGeneratedApplication(
   if (/\b(?:data dashboard|record management|crud|data editor)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt) && !dataViews) throw new Error('Record management requires a bound data view; descriptive pages cannot replace it.');
   if (counterRequested && !counterViews) throw new Error('Quantity management requires a bound adjustment view and a native counter rule.');
   if (stockAvailabilityRequest(prompt) && !stockAvailabilityViews) throw new Error('Available stock requires a saved stock declaration and a bound stock-availability view. No incomplete application was applied.');
+  if (stockReservationRequested && !stockReservationViews) throw new Error('Stock reservations require a saved stock declaration and a bound stock-reservation view. Availability or ordinary transactions cannot replace it. No incomplete application was applied.');
   if (transactionRequested && !transactionViews) throw new Error('Multi-item transactions require a bound transaction view and native parent, line and counter rules.');
   const bookings = definition.tables.filter(table => table.booking).map(table => table.booking!);
   if (/\b(?:recurring appointments?|repeat bookings?)\b|(?:المواعيد المتكررة|تكرار الحجز)|(?:återkommande bokningar)/iu.test(prompt)
