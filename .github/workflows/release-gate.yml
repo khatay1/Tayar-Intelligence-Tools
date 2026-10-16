@@ -69,6 +69,9 @@ jobs:
       - name: Coding Assistance smoke
         run: npm run smoke:code-assistant
 
+      - name: Pure inventory reservation preflight regression
+        run: node --experimental-strip-types scripts/application-inventory-reservations-regression.mjs
+
       - name: Application reference project generation regression
         run: node scripts/application-reference-projects-regression.mjs
       - name: Generated application page browser regression
