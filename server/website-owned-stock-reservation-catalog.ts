@@ -106,10 +106,14 @@ export async function verifyOwnedStockReservationCatalog(
     if ((constraintsByType.get('p')?.length ?? 0) !== 1 || (constraintsByType.get('f')?.length ?? 0) !== 1
       || (constraintsByType.get('c')?.length ?? 0) !== 2) return false;
     const checks = constraintsByType.get('c')!;
-    const quantity = checks.find(s => s.includes('trunc(quantity)'));
-    const status = checks.find(s => s.includes("'reserved'"));
-    if (!quantity || !status || !/quantity\s*>\s*0/.test(quantity.replace(/\([^)]*\)::numeric/g,'0'))
-      || !quantity.includes('1000000000000') || !status.includes("'released'") || !status.includes("'fulfilled'")) return false;
+    // Match PostgreSQL's actual canonical constraint deparser, rather than
+    // rewriting arbitrary parenthesized expressions (which can erase the
+    // left-hand quantity comparison and hide dangerous predicate changes).
+    const expectedQuantity = "CHECK (((quantity > (0)::numeric) AND (quantity <= ('1000000000000'::bigint)::numeric) AND (quantity = trunc(quantity))))";
+    const expectedStatus = "CHECK ((status = ANY (ARRAY['reserved'::text, 'released'::text, 'fulfilled'::text])))";
+    const foreign = constraintsByType.get('f')![0];
+    if (!checks.includes(expectedQuantity) || !checks.includes(expectedStatus)
+      || foreign !== `FOREIGN KEY (item_id) REFERENCES app_${input.tables[index].key}(id) ON DELETE RESTRICT`) return false;
     return true;
   } catch { return false; }
 }
