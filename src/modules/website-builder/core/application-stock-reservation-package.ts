@@ -18,5 +18,7 @@ export function compileInitialApplicationStockReservationPackage(
 ): string[] {
   const application = readApplicationDefinition(input);
   const installation = compileApplicationInventoryReservationSchema(application, itemTableId);
-  return [...compileInitialApplicationSchema(application), ...installation];
+  const initial = compileInitialApplicationSchema(application);
+  return application.tables.find(table => table.id === itemTableId)?.stockReservations
+    ? initial : [...initial, ...installation];
 }

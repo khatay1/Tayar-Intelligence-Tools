@@ -152,6 +152,23 @@ async function run(){
   check(quantity===10&&adjustments===0&&counterRoot.querySelector('[role=status]').textContent===boundsCopy,'rejected underflow has localized message');
   counterForm.elements.adjustment.value='-3';counterForm.requestSubmit();await counterIdle();check(quantity===7&&adjustments===1,'corrected generic stock adjustment persists');
   stopCounter();counterHost.remove();
+  const stockApp=structuredClone(counterApp);stockApp.tables[0].stockReservations=true;
+  let stockActor=owner,stockFailure=false,stockSwitch=false,stockQueries=0;
+  const stockRuntime={...counterRuntime,auth:{currentUser:async()=>({id:stockActor,is_anonymous:false}),currentRoles:async()=>[]},
+    stockReservations:(tableId,actor)=>{check(tableId==='stock_items'&&actor===owner,'stock UI binds its declared table and permanent actor');return{available:async id=>{check(id===ids[0],'stock query targets the selected row');stockQueries++;if(stockFailure)throw Error('private provider detail');if(stockSwitch)stockActor=ids[1];return quantity-2}}}};
+  const stockHost=document.createElement('div');document.body.append(stockHost);
+  const stockBinding={tableId:'stock_items',columns:['item_name','item_stock'],actions:['stock-availability'],pageSize:10};
+  const stopStock=mountApplicationDataView(stockHost,stockApp,stockBinding,stockRuntime,language,{projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'stock',sectionId:'availability'});
+  const stockRoot=stockHost.shadowRoot,stockIdle=()=>wait(()=>stockRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const stockLabel={en:'Available stock',ar:'المخزون المتاح',sv:'Tillgängligt lager'}[language];
+  const stockButton=()=>[...stockRoot.querySelectorAll('button')].find(button=>button.textContent===stockLabel);
+  await stockIdle();stockButton().click();await stockIdle();
+  check(stockRoot.querySelector('[role=status]').textContent.includes(': 5.')&&stockQueries===1,'availability comes from the stock RPC, not the stocked quantity field');
+  stockFailure=true;stockButton().click();await stockIdle();
+  check(!stockRoot.querySelector('[role=status]').textContent.includes(': 5.')&&!stockRoot.textContent.includes('private provider detail'),'failed stock query clears stale quantity and hides provider details');
+  stockFailure=false;stockSwitch=true;stockButton().click();await stockIdle();
+  check(stockRoot.querySelectorAll('tbody tr').length===0,'stock actor switch clears private rows instead of showing a late quantity');
+  stopStock();stockHost.remove();
   const transactionProducts={id:'transaction_products',key:'transaction_products',name:'Products',fields:[{id:'transaction_name',key:'name',name:'Name',type:'text',required:true},{id:'transaction_stock',key:'quantity',name:'Stock',type:'number',required:true,defaultValue:0}],permissions:[{operation:'read',access:'authenticated'},{operation:'update',access:'authenticated'}],counter:{fieldId:'transaction_stock',minimum:0,maximum:100,integer:true}};
   const transactionOrders={id:'transaction_orders',key:'transaction_orders',name:'Orders',fields:[{id:'transaction_note',key:'note',name:'Note',type:'text',required:true}],permissions:[{operation:'read',access:'owner'},{operation:'create',access:'owner'}],transaction:{itemTableId:'transaction_products',lineTableId:'transaction_lines',lineTransactionFieldId:'transaction_line_order',lineItemFieldId:'transaction_line_item',lineQuantityFieldId:'transaction_line_quantity',counterDirection:'decrement'}};
   const transactionLines={id:'transaction_lines',key:'transaction_lines',name:'Lines',fields:[{id:'transaction_line_order',key:'order_id',name:'Order',type:'reference',required:true,referenceTableId:'transaction_orders'},{id:'transaction_line_item',key:'product_id',name:'Product',type:'reference',required:true,referenceTableId:'transaction_products'},{id:'transaction_line_quantity',key:'quantity',name:'Quantity',type:'number',required:true}],permissions:[{operation:'read',access:'owner'}]};

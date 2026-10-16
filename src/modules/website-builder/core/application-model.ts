@@ -108,6 +108,9 @@ export interface ApplicationTable {
   permissions: ApplicationPermission[];
   booking?: ApplicationBookingRule;
   counter?: ApplicationCounterRule;
+  /** Initial-install opt-in for owner-only stock holds. Locations are labels,
+   * not warehouse balances. Availability remains an informational hint. */
+  stockReservations?: true;
   transaction?: ApplicationTransactionRule;
   payment?: ApplicationPaymentRule;
   workflow?: ApplicationWorkflowRule;

@@ -126,7 +126,12 @@ export function createApplicationDataRuntime(definition: ApplicationDefinition, 
           applicationOrigin: browserSession.applicationOrigin,
           operationIds: (definition.requirements?.specification?.operations ?? [])
             .filter(operation => operation.execution === 'custom').map(operation => operation.id),
-        }) : undefined);
+        }) : undefined, selectedStockTables(definition));
+}
+
+function selectedStockTables(definition: ApplicationDefinition): string[] | undefined {
+  const selected = definition.tables.filter(table => table.stockReservations).map(table => table.id);
+  return selected.length ? selected : undefined;
 }
 
 /** Customer-owned browser execution uses the same validated Auth/CRUD model.
@@ -137,7 +142,7 @@ export function createOwnedApplicationDataRuntime(definition: ApplicationDefinit
   const client = createOwnedApplicationClient(config, expectedProjectRef);
   return buildApplicationDataRuntime(definition, config, client,
     browserSession ? createOwnedApplicationBrowserSessionBridge(client, browserSession) : null, browserSession?.applicationOrigin,
-    undefined, stockReservationTableIds);
+    undefined, stockReservationTableIds ?? selectedStockTables(definition));
 }
 
 function buildApplicationDataRuntime(definition: ApplicationDefinition, config: ApplicationPublicBackend, client: SupabaseClient,
@@ -167,7 +172,7 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
     if (identity.error || !identity.data.user || identity.data.user.is_anonymous || identity.data.user.id !== expectedUserId) throw new Error('Application write identity changed.');
     return token;
   };
-  // Explicit opt-in only for the owned runtime. This list is wiring, not proof
+  // Explicit opt-in from the saved definition or owned caller. Selection is not proof
   // of SQL installation or delivery readiness; publication must verify those
   // independently. Copy it so a later caller mutation cannot enable a table.
   let stockTables: ReadonlySet<string> | undefined;

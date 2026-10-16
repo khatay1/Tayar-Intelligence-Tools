@@ -110,6 +110,21 @@ try {
   const browserConfig = JSON.parse(/data-application="([^"]+)"/.exec(dataHtml)[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
   assert.equal(browserConfig.applicationDataViews[0].pageId, 'dashboard');
   assert.deepEqual(browserConfig.applicationDataViews[0].binding, dataSnapshot.pages[1].sections[0].applicationDataView);
+  const stockSnapshot = structuredClone(dataSnapshot), stockTable = stockSnapshot.application.tables[0];
+  stockTable.fields.push({id:'stock_quantity',key:'quantity',name:'Quantity',type:'number',required:true,defaultValue:0});
+  stockTable.counter={fieldId:'stock_quantity',minimum:0,integer:true};stockTable.stockReservations=true;
+  stockSnapshot.pages[1].sections[0].applicationDataView={tableId:'records',columns:['record_name','stock_quantity'],actions:['stock-availability'],pageSize:10};
+  const stockFiles=await compile(stockSnapshot,config);
+  assert.match(stockFiles.find(file=>file.path==='database/schema.sql').content,/create function public.app_stock_available_0/);
+  assert.equal(JSON.parse(stockFiles.find(file=>file.path==='application-definition.json').content).tables[0].stockReservations,true);
+  const stockRuntimeFile=join(dir,'stock-runtime.cjs');await writeFile(stockRuntimeFile,stockFiles.find(file=>file.path==='api/application.js').content);
+  const stockHandler=(await import(pathToFileURL(stockRuntimeFile))).default;
+  const stockPage=await stockHandler(request('dashboard',{authorization:`Bearer ${token}`,accept:'text/html'}));
+  assert.equal(stockPage.status,200);
+  const stockHtml=await stockPage.text();
+  const stockConfig=JSON.parse(/data-application="([^"]+)"/.exec(stockHtml)[1].replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&'));
+  assert.equal(stockConfig.definition.tables[0].stockReservations,true);
+  assert.deepEqual(stockConfig.applicationDataViews[0].binding.actions,['stock-availability']);
 
   const emailSnapshot=structuredClone(snapshot),emailFrom='noreply@example.com';
   emailSnapshot.application.tables=[{id:'appointments',key:'appointments',name:'Appointments',fields:[

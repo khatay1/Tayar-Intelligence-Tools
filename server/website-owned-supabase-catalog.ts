@@ -3,6 +3,7 @@ import { verifyOwnedFilesCatalog } from './website-owned-files-catalog';
 import { verifyOwnedBookingScheduleCatalog } from './website-owned-booking-schedule-catalog';
 import { verifyOwnedReportsCatalog } from './website-owned-reports-catalog';
 import { verifyOwnedCounterCatalog } from './website-owned-counter-catalog';
+import { verifyOwnedStockReservationCatalog } from './website-owned-stock-reservation-catalog';
 import { verifyOwnedTransactionCatalog } from './website-owned-transaction-catalog';
 import { verifyOwnedWorkflowCatalog } from './website-owned-workflow-catalog';
 import { verifyOwnedFormulaCatalog } from './website-owned-formula-catalog';
@@ -220,6 +221,8 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
       }
       seenPolicies.add(policy.name);
     }
+    for (const table of app.tables) if (table.stockReservations
+      && !await verifyOwnedStockReservationCatalog(app, table.id, query)) return false;
     return seenTables.size === tables.size && seenPolicies.size === expectedPolicies.length
       && (!app.roles.length || await verifyRoleInfrastructure(query))
       && await verifyOwnedSupabaseBookingConstraints(app, query)
