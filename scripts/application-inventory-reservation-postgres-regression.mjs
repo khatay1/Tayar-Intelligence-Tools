@@ -27,7 +27,7 @@ try {
     "export { verifyOwnedStockReservationInstallation } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-installation')) + ';',
     "export { createApplicationStockReservationRpc, ApplicationStockRpcRejected } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-stock-reservation-rpc')) + ';',
     "export { createOwnedApplicationDataRuntime } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-data-runtime')) + ';',
-    "export { compileInitialApplicationSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql')) + ';',
+    "export { applicationSecurityPolicies, compileInitialApplicationSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-schema-sql')) + ';',
     "export { verifyOwnedStockReservationInstallationFromCustody } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-installation')) + ';',
     "export { createWebsiteByoPublishRuntimePolicy } from " + JSON.stringify(resolve('server/website-byo-publish-runtime-policy')) + ';',
     "export { verifyOwnedSupabaseCatalogSecurity } from " + JSON.stringify(resolve('server/website-owned-supabase-catalog')) + ';',
@@ -35,7 +35,7 @@ try {
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile });
   const { compileApplicationInventoryReservationSchema: reservations, verifyOwnedStockReservationCatalog: verifyCatalog, verifyOwnedStockReservationInstallation: verifyInstallation, createApplicationStockReservationRpc: stockRpc,
     ApplicationStockRpcRejected: StockRpcRejected, createOwnedApplicationDataRuntime: ownedRuntime,
-    compileInitialApplicationSchema: initialSchema, verifyOwnedStockReservationInstallationFromCustody: verifyCustody,
+    applicationSecurityPolicies: securityPolicies, compileInitialApplicationSchema: initialSchema, verifyOwnedStockReservationInstallationFromCustody: verifyCustody,
     createWebsiteByoPublishRuntimePolicy: publishPolicy, verifyOwnedSupabaseCatalogSecurity: verifyFullCatalog } = require(outfile);
   const app = {
     version: 1, auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
@@ -250,8 +250,14 @@ try {
   currentConnection = structuredClone(connection);
   assert.equal(await verifyInstallation(attestation), true, 'Current connection restores attestation');
 
-  const catalogQuery = async statement => JSON.parse(await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`));
-  assert.equal(await verifyFullCatalog(savedStockApp,catalogQuery),true,'The standard runtime setup catalog gate verifies the opted-in stock installation');
+  const setupEvidence=[];
+  const catalogQuery = async statement => {
+    const rows=JSON.parse(await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`));
+    setupEvidence.push({statement,rows});return rows;
+  };
+  const fullCatalogVerified=await verifyFullCatalog(savedStockApp,catalogQuery);
+  if(!fullCatalogVerified) console.error('Generated stock setup catalog diagnostics:',JSON.stringify({policies:securityPolicies(savedStockApp),queries:setupEvidence}));
+  assert.equal(fullCatalogVerified,true,'The standard runtime setup catalog gate verifies the opted-in stock installation');
   const custody = {version:1,accountId:'account-owner',organizationId:'customer-org',organizationSlug:'customer-org',projectRef,environment:'preview',
     accessExpiresAt:new Date(Date.now()+3600_000).toISOString(),custodyExpiresAt:new Date(Date.now()+3600_000).toISOString(),
     grant:{accessToken:attestation.accessToken,refreshToken:'fixture-refresh-token-not-a-customer-secret'}};
