@@ -213,10 +213,11 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     }
     if (table.stockReservations !== undefined) {
       const rulePath = `${path}.stockReservations`, rule = table.stockReservations;
+      const permissions: unknown[] = Array.isArray(table.permissions) ? table.permissions : [];
       const ownerOnly = Array.isArray(table.permissions)
         && (['read', 'update'] as const).every(operation =>
-          table.permissions.some(candidate => object(candidate) && candidate.operation === operation && candidate.access === 'owner'))
-        && !table.permissions.some(candidate => object(candidate)
+          permissions.some(candidate => object(candidate) && candidate.operation === operation && candidate.access === 'owner'))
+        && !permissions.some(candidate => object(candidate)
           && ['read', 'update'].includes(String(candidate.operation)) && candidate.access !== 'owner');
       if (!shape(rule, ['mode'], rulePath) || rule.mode !== 'owner' || !authEnabled
         || !object(table.counter) || table.counter.integer !== true || table.counter.minimum !== 0
