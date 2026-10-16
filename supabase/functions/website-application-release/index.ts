@@ -842,7 +842,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
           return;
         }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments|pay|refund|stock-availability))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments|pay|refund|stock-availability|stock-reservation))?$/.exec(entry);
         if (!match) {
           issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
           return;
@@ -10896,7 +10896,7 @@ function compileApplicationCreateForm(definition, source, input) {
 // src/modules/website-builder/core/application-data-view.ts
 var object6 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateApplicationDataViewShape(value) {
-  if (!object6(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition", "attachments", "pay", "refund", "stock-availability"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
+  if (!object6(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition", "attachments", "pay", "refund", "stock-availability", "stock-reservation"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
   return true;
 }
 function compileApplicationDataView(definition, input) {
@@ -10904,8 +10904,8 @@ function compileApplicationDataView(definition, input) {
   if (!app.auth.enabled || !validateApplicationDataViewShape(input)) throw new Error("Invalid application data view.");
   const binding = structuredClone(input);
   const table = app.tables.find((table2) => table2.id === binding.tableId);
-  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (["attachments", "pay", "refund", "stock-availability"].includes(action) ? "read" : action === "adjust" || action === "transition" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
-  if (binding.actions.includes("stock-availability") && !table.stockReservations) throw new Error("Stock availability requires the saved stock reservation opt-in.");
+  if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (["attachments", "pay", "refund", "stock-availability", "stock-reservation"].includes(action) ? "read" : action === "adjust" || action === "transition" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
+  if (binding.actions.some((action) => action === "stock-availability" || action === "stock-reservation") && !table.stockReservations) throw new Error("Stock controls require the saved stock reservation opt-in.");
   if (binding.actions.some((action) => action === "pay" || action === "refund") && !table.payment) throw new Error("Payment actions require a native payment rule.");
   if (binding.actions.includes("attachments") && !table.attachments) throw new Error("Attachments require a native file rule.");
   if (binding.actions.includes("adjust") && !table.counter) throw new Error("Adjustment requires a native counter rule.");

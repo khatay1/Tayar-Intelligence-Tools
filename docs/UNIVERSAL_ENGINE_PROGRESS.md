@@ -750,3 +750,24 @@ issue #253. No new OSS code/dependencies, live migrations, final keys, customer
 Production activation or Social Hub work. Owner-only availability is the slice;
 reservation mutation controls, reviewed existing-DB migration, physical warehouse
 balances and live customer activation remain incomplete.
+
+## Owner stock hold controls, continuation from #267
+
+`main@e03b61d0` passed post-merge Release Gate `38974998424`. The next
+change adds a separate `stock-reservation` action to saved owner-stock data
+views. The controller stores one receipt per owner/table/item in scoped browser
+session storage before the network request. A lost reserve response can only
+retry the same item, location label, quantity and receipt. A lost release or
+fulfillment response can only retry the same decision. Validated receipts
+survive a same-tab reload and are removed on confirmed settlement/expiry.
+Cross-device receipt management is not provided; the server's 15-minute expiry
+releases abandoned holds. The location UUID is a label, not a physical
+per-warehouse stock balance. The authenticated SQL RPC remains the authority
+for owner checks, concurrency, availability and terminal idempotency.
+
+Generation now distinguishes stock holds from appointment bookings and
+multi-item transactions and requires a bound stock-reservation action when
+requested. Its requirement evidence is the bound action, while release-ready
+evidence still requires native PostgreSQL/browser regression on the final PR
+head. No current customer database is auto-migrated, and live service
+activation remains separate.

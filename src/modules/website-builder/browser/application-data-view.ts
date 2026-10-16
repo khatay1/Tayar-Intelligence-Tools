@@ -25,6 +25,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const stockCopy = ({ en: { action: 'Available stock', result: 'Available', hint: 'Informational only. A reservation must still succeed before stock is committed.' },
     ar: { action: 'المخزون المتاح', result: 'المتاح', hint: 'للاطلاع فقط. يجب نجاح الحجز قبل اعتماد الكمية.' },
     sv: { action: 'Tillgängligt lager', result: 'Tillgängligt', hint: 'Endast information. En reservation måste lyckas innan lagret tas i anspråk.' } })[language];
+  const holdCopy = ({ en: { manage: 'Manage stock hold', reserve: 'Reserve stock', release: 'Release hold', fulfill: 'Fulfill hold', location: 'Location reference UUID (label only)', quantity: 'Quantity', pending: 'Retry the same reservation to confirm its result.', held: 'Hold active for up to 15 minutes. Choose release or fulfillment.', uncertain: 'Result uncertain. Retry the same operation; do not change the receipt.', expired: 'The hold expired. Available stock may be reserved again.', completed: 'Stock operation confirmed.' },
+    ar: { manage: 'إدارة حجز المخزون', reserve: 'حجز المخزون', release: 'تحرير الحجز', fulfill: 'تسليم الحجز', location: 'معرّف الموقع UUID (وصف فقط)', quantity: 'الكمية', pending: 'أعد محاولة الحجز نفسه لتأكيد النتيجة.', held: 'الحجز فعّال حتى 15 دقيقة. اختر التحرير أو التسليم.', uncertain: 'النتيجة غير مؤكدة. أعد العملية نفسها دون تغيير معرّف الحجز.', expired: 'انتهت صلاحية الحجز. يمكن حجز الكمية المتاحة مجدداً.', completed: 'تم تأكيد عملية المخزون.' },
+    sv: { manage: 'Hantera lagerreservation', reserve: 'Reservera lager', release: 'Frisläpp reservation', fulfill: 'Slutför reservation', location: 'Platsreferens UUID (endast etikett)', quantity: 'Antal', pending: 'Försök igen med samma reservation för att bekräfta resultatet.', held: 'Reservationen gäller i högst 15 minuter. Frisläpp eller slutför.', uncertain: 'Resultatet är osäkert. Försök igen med samma kvitto.', expired: 'Reservationen har löpt ut. Tillgängligt lager kan reserveras igen.', completed: 'Lageråtgärden bekräftades.' } })[language];
   const reportCopy = ({ en: { title: 'Aggregate reports', scope: 'All records you can read. Search and page selection do not change totals.', error: 'Could not load totals. Refresh and try again.' },
     ar: { title: 'التقارير المجمّعة', scope: 'جميع السجلات المسموح لك بقراءتها. البحث واختيار الصفحة لا يغيّران الإجماليات.', error: 'تعذّر تحميل الإجماليات. حدّث وحاول مجددًا.' },
     sv: { title: 'Sammanställda rapporter', scope: 'Alla poster du får läsa. Sökning och sidval ändrar inte totalsummorna.', error: 'Kunde inte läsa totalsummorna. Uppdatera och försök igen.' } })[language];
@@ -111,7 +114,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       const actions = await controller.permissions();
       const result = await controller.load(page, query);
       if (disposed || current !== sequence) return;
-      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund', 'stock-availability'].includes(action));
+      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation'].includes(action));
       if (controller.table.reports?.length) {
         let reportResult: Awaited<ReturnType<typeof controller.reports>> | undefined;
         try { reportResult = await controller.reports(); } catch { if (controller.closed()) throw new Error('Report identity changed.'); }
@@ -166,6 +169,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
             status.textContent = `${stockCopy.result}: ${amount}. ${stockCopy.hint}`; setBusy(false);
           }).catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.error; } });
         }));
+        if (actions.includes('stock-reservation')) td.append(button(holdCopy.manage, () => openStock(String(row.id))));
         if (actions.includes('pay') || actions.includes('refund')) td.append(button(paymentStatusCopy.title, () => {
           if (busy) return; setBusy(true); status.textContent = copy.loading;
           void controller.paymentStatus(String(row.id)).then(payment => {
@@ -209,6 +213,43 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     if (value === null || value === undefined) return '—';
     if (field.type === 'boolean') return value ? copy.yes : copy.no;
     return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  }
+  async function openStock(recordId: string) {
+    if (disposed || busy) return;
+    stopEditor(); const opening = editorSequence; editor.replaceChildren(); editor.hidden = false;
+    let hold: Awaited<ReturnType<typeof controller.stockState>>;
+    try { hold = await controller.stockState(recordId); if (disposed || controller.closed() || editorSequence !== opening) return; }
+    catch { clear(); status.textContent = copy.error; return; }
+    const form = document.createElement('form');
+    const locationLabel = document.createElement('label'); locationLabel.textContent = holdCopy.location;
+    const location = document.createElement('input'); location.required = true; location.pattern = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+    location.value = hold?.locationId ?? ''; location.disabled = !!hold; locationLabel.append(location);
+    const amountLabel = document.createElement('label'); amountLabel.textContent = holdCopy.quantity;
+    const amount = document.createElement('input'); amount.type = 'number'; amount.min = '1'; amount.max = '1000000000000'; amount.step = '1'; amount.required = true;
+    amount.value = String(hold?.quantity ?? 1); amount.disabled = !!hold; amountLabel.append(amount);
+    const notice = document.createElement('p'); notice.textContent = hold?.phase === 'reserve' ? holdCopy.pending
+      : hold?.phase === 'held' ? holdCopy.held : hold?.phase ? holdCopy.uncertain : stockCopy.hint;
+    const run = (operation: 'reserve' | 'release' | 'fulfill') => {
+      if (busy || !form.reportValidity()) return;
+      setBusy(true); status.textContent = copy.loading;
+      const task = operation === 'reserve' ? controller.stockReserve(recordId, location.value, Number(amount.value)) : controller.stockSettle(recordId, operation);
+      void task.then(receipt => {
+        if (disposed) return;
+        stopEditor(); editor.hidden = true; editor.replaceChildren(); setBusy(false);
+        void load().then(() => { if (!disposed) status.textContent = receipt === 'already-expired' ? holdCopy.expired : holdCopy.completed; });
+      }).catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = holdCopy.uncertain; } });
+    };
+    if (!hold || hold.phase === 'reserve') {
+      const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = holdCopy.reserve;
+      form.append(locationLabel, amountLabel, notice, submit);
+      form.addEventListener('submit', event => { event.preventDefault(); run('reserve'); });
+    } else {
+      form.append(notice);
+      if (hold.phase === 'held' || hold.phase === 'release') form.append(button(holdCopy.release, () => run('release')));
+      if (hold.phase === 'held' || hold.phase === 'fulfill') form.append(button(holdCopy.fulfill, () => run('fulfill')));
+    }
+    form.append(button(copy.cancel, () => { stopEditor(); editor.hidden = true; editor.replaceChildren(); }));
+    editor.append(form); if (!hold) location.focus();
   }
   function openRefund(recordId: string) {
     if (disposed || busy) return;
