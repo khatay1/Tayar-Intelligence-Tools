@@ -4,16 +4,19 @@ import { serveOwnedEmailWorker } from './website-owned-email-worker';
 import { createOwnedEmailRpcClient } from './website-owned-email-rpc';
 import { readOwnedRuntimeEnvironment, type OwnedRuntimeSecretPlan } from './website-owned-runtime-secret-plan';
 import { serveOwnedPaymentRoute } from './website-owned-payment-route';
+import { serveOwnedReleaseIdentity, type OwnedReleaseIdentity } from './website-owned-release-identity';
 
 declare const __TAYAR_MANIFEST__: OwnedApplicationRouteManifest;
 declare const __TAYAR_PAGES__: Map<string, string>;
 declare const __TAYAR_PATHS__: Map<string, string>;
 declare const __TAYAR_STRIPE_CHECKOUTS__: ReadonlyArray<OwnedStripeCheckoutTarget>;
 declare const __TAYAR_SECRET_PLAN__: OwnedRuntimeSecretPlan;
+declare const __TAYAR_RELEASE_IDENTITY__: OwnedReleaseIdentity;
 
 export default async function handler(request: Request) {
   const url = new URL(request.url);
   const route = url.searchParams.get('tayarRoute');
+  if (route === 'release-proof') return serveOwnedReleaseIdentity(request, __TAYAR_RELEASE_IDENTITY__);
   if(route==='stripe-webhook'||route?.startsWith('stripe-order-')){
     try{return await serveOwnedPaymentRoute(request,{manifest:__TAYAR_MANIFEST__,route,
       environment:readOwnedRuntimeEnvironment(__TAYAR_SECRET_PLAN__)});}

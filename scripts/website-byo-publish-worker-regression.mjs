@@ -6,16 +6,28 @@ const store={async read(){return structuredClone(state);},async transition(curre
 const base={...ids,environment:'preview',store,isCurrent:async()=>true,validate:async()=>{order.push('validate');return{sourceDigest:'a'.repeat(64),requiredEnvironment:['STRIPE_SECRET_KEY']};},
 prepareRuntime:async()=>{order.push('runtime');},
 exportGitHub:async op=>{assert.equal(op,ids.operationId);order.push('github');return{status:'exported',headSha:'b'.repeat(40)};},beginDeployment:async()=>{order.push('begin');return 1;},
-discoverDeployment:async()=>{order.push('discover');return'dpl_fixture123';},inspectDeployment:async()=>{order.push('inspect');return{status:'ready',deploymentId:'dpl_fixture123',missingEnvironment:[],liveUrl:'https://app.vercel.app',observedState:'READY'};},commitObservation:async()=>{order.push('commit');return 2;}};
+discoverDeployment:async()=>{order.push('discover');return'dpl_fixture123';},inspectDeployment:async()=>{order.push('inspect');return{status:'ready',deploymentId:'dpl_fixture123',missingEnvironment:[],liveUrl:'https://app.vercel.app',observedState:'READY'};},verifyDeployedRuntime:async checkpoint=>{assert.equal(checkpoint.sourceDigest,'a'.repeat(64));assert.equal(checkpoint.headSha,'b'.repeat(40));assert.equal(checkpoint.deploymentId,'dpl_fixture123');assert.equal(checkpoint.liveUrl,'https://app.vercel.app');order.push('runtime-proof');},commitObservation:async()=>{order.push('commit');return 2;}};
 const result=await run(base);assert.equal(result.status,'ready');assert.equal(result.checkpoint.liveUrl,'https://app.vercel.app');
-assert.deepEqual(order,['validate','save:validated','runtime','save:exporting','github','save:exported','begin','save:observing','discover','save:observing','inspect','commit','save:ready']);
+assert.deepEqual(order,['validate','save:validated','runtime','save:exporting','github','save:exported','begin','save:observing','discover','save:observing','inspect','runtime-proof','commit','save:ready']);
 state={...ids,environment:'preview',stage:'validated',version:10,sourceDigest:'a'.repeat(64),requiredEnvironment:['STRIPE_SECRET_KEY'],headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null,previewOperationId:null,promotionVersion:null,productionAliases:[]};
 let runtimeAttempts=0,githubAfterRuntime=0;base.prepareRuntime=async()=>{runtimeAttempts++;if(runtimeAttempts===1)throw Error('runtime uncertain');};
 base.exportGitHub=async()=>{githubAfterRuntime++;return{status:'exported',headSha:'b'.repeat(40)};};
 await assert.rejects(run(base),/unavailable/);assert.equal(state.stage,'validated');assert.equal(githubAfterRuntime,0,'runtime failure never reaches GitHub');
 assert.equal((await run(base)).status,'ready');assert.equal(runtimeAttempts,2);assert.equal(githubAfterRuntime,1);
-assert.equal((await run(base)).status,'ready','ready retry performs no side effects');
+const readyVersion=state.version;assert.equal((await run(base)).status,'ready','ready retry rechecks runtime identity without a write');assert.equal(state.version,readyVersion);
 state={...state,stage:'exporting',version:20,headSha:null,attemptVersion:null,deploymentId:null,liveUrl:null};base.exportGitHub=async()=>({status:'recovery-required',headSha:'c'.repeat(40)});assert.equal((await run(base)).status,'pending');assert.equal(state.stage,'exporting');
 state={...state,stage:'observing',version:30,headSha:'b'.repeat(40),attemptVersion:4,deploymentId:'dpl_fixture123'};base.inspectDeployment=async()=>({status:'setup-incomplete',deploymentId:'dpl_fixture123',missingEnvironment:['STRIPE_SECRET_KEY'],liveUrl:null,observedState:'READY'});base.commitObservation=async()=>5;
-assert.equal((await run(base)).status,'blocked');assert.equal(state.stage,'blocked');console.log('PASS BYO publish worker: persisted pre-side-effect stages, same-operation GitHub recovery, deployment observation and final readiness');
+assert.equal((await run(base)).status,'blocked');assert.equal(state.stage,'blocked');
+state={...state,stage:'observing',version:40,attemptVersion:4,liveUrl:null};
+base.inspectDeployment=async()=>({status:'ready',deploymentId:'dpl_fixture123',missingEnvironment:[],liveUrl:'https://app.vercel.app',observedState:'READY'});
+const before=structuredClone(state);let committed=false;base.commitObservation=async()=>{committed=true;return 5;};
+base.verifyDeployedRuntime=async checkpoint=>{checkpoint.liveUrl='https://tampered.example';throw Error('upstream secret must not escape');};
+await assert.rejects(run(base),error=>error.message==='BYO publish unavailable.');assert.deepEqual(state,before);assert.equal(committed,false,'failed proof cannot persist provider or final ready observation');
+base.verifyDeployedRuntime=async checkpoint=>{checkpoint.sourceDigest='0'.repeat(64);};
+assert.equal((await run(base)).status,'ready');assert.equal(state.sourceDigest,'a'.repeat(64),'callback cannot mutate checkpoint');
+base.verifyDeployedRuntime=async()=>{throw Error('cached ready must be rechecked');};
+await assert.rejects(run(base),/unavailable/);assert.equal(state.stage,'ready','historical checkpoint is retained without a fresh readiness claim');
+state={...before,version:50};let current=true;base.isCurrent=async()=>current;base.verifyDeployedRuntime=async()=>{current=false;};committed=false;
+await assert.rejects(run(base),/unavailable/);assert.equal(committed,false);assert.equal(state.stage,'observing');
+console.log('PASS BYO publish worker: persisted pre-side-effect stages, same-operation GitHub recovery, deployment observation and final readiness');
 }finally{await rm(dir,{recursive:true,force:true});}

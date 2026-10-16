@@ -4,6 +4,7 @@ import { discoverOwnedVercelDeployment, inspectOwnedVercelDeployment,
   type OwnedVercelDeploymentReport } from './website-owned-vercel-deployment';
 import { createWebsiteByoPublishStore, initializeWebsiteByoPublishOperation } from './website-byo-publish-store';
 import { runByoPublishWorker } from './website-byo-publish-worker';
+import { verifyOwnedDeployedRuntime } from './website-owned-runtime-verification';
 import { runByoProductionPublishWorker } from './website-byo-production-publish-worker';
 import { runWebsiteOwnedVercelPromotion } from './website-owned-vercel-promotion-worker';
 import { prepareOwnedVercelProductionRuntimeEnvironment,
@@ -196,6 +197,13 @@ export async function runWebsiteOwnedByoPublish(input:{
       repositoryName:vercel.repositoryName,productionBranch:vercel.productionBranch,sourceBranch:`tayar/${input.projectId}/${input.environment}`,
       sourceCommitSha:headSha,target:input.environment,
       requiredEnvironment:names,requiredEnvironmentIds:runtimeReceipt.environmentIds,isCurrent:owner,fetcher:input.fetcher});},
+    verifyDeployedRuntime:async checkpoint=>{
+      const capturedSource=await source();
+      if(checkpoint.sourceDigest!==capturedSource.sourceDigest||!checkpoint.liveUrl)throw new Error();
+      await verifyOwnedDeployedRuntime({projectId:input.projectId,environment:input.environment,
+        liveUrl:checkpoint.liveUrl,files:capturedSource.files,
+        isCurrent:async()=>await capturedSource.isCurrent()&&await owner(),fetcher:input.fetcher});
+    },
     commitObservation:async(attemptVersion,report)=>{if(!await owner())throw new Error();const committed=await commitWebsiteVercelDeploymentObservation({
       client:input.client,connectionId:input.vercelConnectionId,projectId:input.projectId,ownerId:input.ownerId,
       expectedAttemptVersion:attemptVersion,operationId:input.operationId,commitId:await deterministicCommitId(input.operationId,attemptVersion,report),
