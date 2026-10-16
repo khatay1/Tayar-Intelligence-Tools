@@ -1,3 +1,5 @@
+import { ProductionCandidateRequiredError } from '../src/modules/website-builder/core/application-production-candidate';
+
 export interface OwnedVercelPromotionReport {
   status: 'ready'; deploymentId: string; sourceCommitSha: string;
   aliases: string[]; liveUrl: string;
@@ -21,6 +23,34 @@ async function json(fetcher:typeof fetch,url:string,token:string){
   if(response.status!==200||Number(response.headers.get('content-length')??0)>262_144)throw new Error();
   const raw=await response.text();if(raw.length>262_144)throw new Error();const parsed:unknown=JSON.parse(raw);
   if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw new Error();return parsed as Record<string,unknown>;
+}
+
+/** Read-only preflight for an independently built Production candidate. A
+ * Preview build's READY state cannot authorize environment/domain writes. */
+export async function inspectOwnedVercelProductionCandidate(input:{
+  accessToken:string;accountId:string;projectId:string;deploymentId:string;sourceCommitSha:string;
+  sourceBranch:string;isCurrent():Promise<boolean>;fetcher?:typeof fetch;
+}):Promise<{deploymentId:string;sourceCommitSha:string;liveUrl:string}>{
+  try{
+    if(typeof window!=='undefined'||!input.accessToken||input.accessToken.length>4096||/[\r\n]/.test(input.accessToken)
+      ||!id.test(input.accountId)||!project.test(input.projectId)||!deployment.test(input.deploymentId)
+      ||!sha.test(input.sourceCommitSha)||!/^tayar\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/production$/i.test(input.sourceBranch))throw new Error();
+    const query=team.test(input.accountId)?`?teamId=${encodeURIComponent(input.accountId)}`:'';
+    const read=async()=>{
+      if(!await input.isCurrent())throw new Error();
+      const value=await json(input.fetcher??fetch,`https://api.vercel.com/v13/deployments/${input.deploymentId}${query}`,input.accessToken);
+      const meta=value.meta;
+      if(value.id!==input.deploymentId||value.projectId!==input.projectId||value.ownerId!==input.accountId
+        ||value.target!=='production'||value.readyState!=='READY'||!meta||typeof meta!=='object'||Array.isArray(meta)
+        ||(meta as Record<string,unknown>).githubCommitSha!==input.sourceCommitSha
+        ||(meta as Record<string,unknown>).githubCommitRef!==input.sourceBranch
+        ||typeof value.url!=='string'||!/^[a-z0-9-]+\.vercel\.app$/.test(value.url))throw new Error();
+      return{deploymentId:input.deploymentId,sourceCommitSha:input.sourceCommitSha,liveUrl:`https://${value.url}`};
+    };
+    const first=await read();if(!await input.isCurrent())throw new Error();const second=await read();
+    if(JSON.stringify(first)!==JSON.stringify(second)||!await input.isCurrent())throw new Error();
+    return second;
+  }catch{throw new ProductionCandidateRequiredError();}
 }
 
 /** Stable pre-effect binding for the production domains Vercel will map. */
@@ -63,7 +93,7 @@ export async function promoteAndVerifyOwnedVercelDeployment(input:{
   const observe=async()=>{
     const deployed=await json(fetcher,`https://api.vercel.com/v13/deployments/${input.deploymentId}${query}`,input.accessToken),meta=deployed.meta;
     if(deployed.id!==input.deploymentId||deployed.projectId!==input.projectId||deployed.ownerId!==input.accountId
-      ||deployed.readyState!=='READY'||!meta||typeof meta!=='object'||Array.isArray(meta)
+      ||deployed.readyState!=='READY'||deployed.target!=='production'||!meta||typeof meta!=='object'||Array.isArray(meta)
       ||(meta as Record<string,unknown>).githubCommitSha!==input.sourceCommitSha
       ||(meta as Record<string,unknown>).githubCommitRef!==input.sourceBranch)throw new Error();
     const assigned=await json(fetcher,`https://api.vercel.com/v2/deployments/${input.deploymentId}/aliases${query}`,input.accessToken);
@@ -81,6 +111,7 @@ export async function promoteAndVerifyOwnedVercelDeployment(input:{
   };
   try{
     if(!await input.isCurrent())throw new Error();
+    await inspectOwnedVercelProductionCandidate(input);
     if(input.issuePromotion){try{const response=await fetcher(`https://api.vercel.com/v10/projects/${input.projectId}/promote/${input.deploymentId}${query}`,
       {method:'POST',redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000),headers:{Authorization:`Bearer ${input.accessToken}`,Accept:'application/json'}});
       if(![201,202].includes(response.status))throw new Error();}catch{/* uncertain response: reconcile, never repeat */}}

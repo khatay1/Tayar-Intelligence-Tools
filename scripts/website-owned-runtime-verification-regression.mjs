@@ -102,7 +102,7 @@ try {
   await build({ entryPoints: ['server/website-byo-publish-adapters.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: adapterFile,
     plugins: [{ name: 'trusted-source-fixtures', setup(builder) {
       builder.onResolve({ filter: /website-owned-source-capture$/ }, () => ({ path: 'capture', namespace: 'fixture' }));
-      builder.onLoad({ filter: /^capture$/, namespace: 'fixture' }, () => ({ contents: 'export async function captureWebsiteOwnedApplicationSource(){return globalThis.__runtimeCaptured;}' }));
+      builder.onLoad({ filter: /^capture$/, namespace: 'fixture' }, () => ({ contents: 'export async function captureWebsiteOwnedApplicationSource(){return globalThis.__runtimeCaptured;} export async function captureWebsiteOwnedProductionSource(){throw Error("Production source must not be used by a Preview proof");}' }));
       builder.onResolve({ filter: /website-byo-publish-store$/ }, () => ({ path: 'store', namespace: 'fixture' }));
       builder.onLoad({ filter: /^store$/, namespace: 'fixture' }, () => ({ contents: 'export function createWebsiteByoPublishStore(){return {read:async()=>({sourceDigest:globalThis.__runtimeCaptured.sourceDigest})};} export async function initializeWebsiteByoPublishOperation(){}' }));
       builder.onResolve({ filter: /\/website-byo-publish-worker$/ }, () => ({ path: 'worker', namespace: 'fixture' }));

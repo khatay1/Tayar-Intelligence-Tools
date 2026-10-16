@@ -59,6 +59,7 @@ jobs:
         run: |
           node scripts/website-owned-runtime-verification-regression.mjs
           node scripts/website-owned-preview-origin-regression.mjs
+          node scripts/website-production-candidate-regression.mjs
 
       - name: Project health
         run: npm run health:project

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { captureWebsiteOwnedApplicationSource, type OwnedSourceReader } from './website-owned-source-capture';
+import { ProductionCandidateRequiredError } from '../src/modules/website-builder/core/application-production-candidate';
+import { captureWebsiteOwnedApplicationSource, captureWebsiteOwnedProductionSource, type OwnedSourceReader } from './website-owned-source-capture';
+import { readOwnedReleaseIdentity } from './website-owned-release-identity';
 import { discoverOwnedVercelDeployment, inspectOwnedVercelDeployment,
   type OwnedVercelDeploymentReport } from './website-owned-vercel-deployment';
 import { createWebsiteByoPublishStore, initializeWebsiteByoPublishOperation } from './website-byo-publish-store';
@@ -7,6 +9,7 @@ import { runByoPublishWorker } from './website-byo-publish-worker';
 import { verifyOwnedDeployedRuntime } from './website-owned-runtime-verification';
 import { runByoProductionPublishWorker } from './website-byo-production-publish-worker';
 import { runWebsiteOwnedVercelPromotion } from './website-owned-vercel-promotion-worker';
+import { inspectOwnedVercelProductionCandidate } from './website-owned-vercel-promotion';
 import { prepareOwnedVercelProductionRuntimeEnvironment,
   prepareOwnedVercelRuntimeEnvironment } from './website-owned-vercel-runtime-environment';
 import { handoffOwnedStripeRuntime,inspectOwnedStripeRuntimeForPublish,
@@ -211,7 +214,32 @@ export async function runWebsiteOwnedByoPublish(input:{
   });}catch{throw new Error('BYO publish adapters unavailable.');}
 }
 
-/** Production consumes an already verified Preview checkpoint. It has no
+/** Prepare source only, without provisioning, deployment or domain activation.
+ * Existing export custody/cursor CAS persists the dedicated Production branch
+ * and its exact source digest. A lost/stale completion remains recoverable. */
+export async function prepareWebsiteOwnedProductionSource(input:
+  Parameters<typeof captureWebsiteOwnedProductionSource>[0] & {
+    client: Client; operationId: string; githubClientId: string; githubClientSecret: string; fetcher?: typeof fetch;
+  }) {
+  if (typeof window !== 'undefined' || !uuid.test(input.operationId)) throw new Error('Production source export is unavailable.');
+  try {
+    const captured = await captureWebsiteOwnedProductionSource(input);
+    const identity = await readOwnedReleaseIdentity(captured.files);
+    if (identity.environment !== 'production' || identity.projectId !== input.projectId || !await captured.isCurrent()) throw new Error();
+    const result = await exportWebsiteProjectToOwnedGitHub({ projectId: input.projectId, ownerId: input.ownerId,
+      connectionId: input.productionGithubConnectionId, environment: 'production', operationId: input.operationId,
+      reader: input.reader, client: input.client, githubClientId: input.githubClientId, githubClientSecret: input.githubClientSecret,
+      expectedSourceDigest: captured.sourceDigest, fetcher: input.fetcher,
+      compile: async () => { if (!await captured.isCurrent()) throw new Error(); return captured.files; },
+    });
+    return { ...result, status: await captured.isCurrent() ? result.status : 'recovery-required' as const,
+      sourceDigest: captured.sourceDigest, snapshotDigest: captured.snapshotDigest, runtimeDigest: identity.runtimeDigest,
+      sourceBranch: `tayar/${input.projectId}/production` };
+  } catch { throw new Error('Production source export is unavailable.'); }
+}
+
+/** The legacy Preview promotion entry remains guarded until a separately
+ * staged Production candidate has its own durable deployment evidence. It has no
  * GitHub export or deployment-trigger callback and can only promote that SHA. */
 export async function runWebsiteOwnedByoProductionPublish(input:{
   client:Client;operationId:string;previewOperationId:string;projectId:string;ownerId:string;
@@ -231,10 +259,15 @@ export async function runWebsiteOwnedByoProductionPublish(input:{
     environment:'production' as const,isCurrent:()=>current};
   try{
     const previewStore=createWebsiteByoPublishStore(previewScope),store=createWebsiteByoPublishStore(productionScope);
-    if(!await store.read(input.operationId))await initializeWebsiteByoPublishOperation(productionScope);
     const custodyResult=await input.client.rpc('website_read_vercel_integration_custody',{p_connection_id:input.productionVercelConnectionId,
       p_project_id:input.projectId,p_owner_id:input.ownerId,p_expected_connection_version:input.productionConnectionVersion});
     if(custodyResult.error||!await owner())throw new Error();const custody=parseCustody(custodyResult.data,'production');
+    const candidate=await previewStore.read(input.previewOperationId);
+    if(!candidate?.deploymentId||!candidate.headSha)throw new Error();
+    await inspectOwnedVercelProductionCandidate({accessToken:custody.accessToken,accountId:custody.accountId,
+      projectId:custody.vercelProjectId,deploymentId:candidate.deploymentId,sourceCommitSha:candidate.headSha,
+      sourceBranch:`tayar/${input.projectId}/production`,isCurrent:owner,fetcher:input.fetcher});
+    if(!await store.read(input.operationId))await initializeWebsiteByoPublishOperation(productionScope);
     return await runByoProductionPublishWorker({operationId:input.operationId,previewOperationId:input.previewOperationId,
       projectId:input.projectId,ownerId:input.ownerId,store,isCurrent:owner,readPreview:op=>previewStore.read(op),
       promote:async preview=>{
@@ -259,5 +292,5 @@ export async function runWebsiteOwnedByoProductionPublish(input:{
           sourceBranch:`tayar/${input.projectId}/preview`,accessToken:custody.accessToken,accountId:custody.accountId,
           productionBranch:custody.productionBranch,isCurrent:owner,fetcher:input.fetcher});},
     });
-  }catch{throw new Error('BYO production publish adapters unavailable.');}
+  }catch(error){if(error instanceof ProductionCandidateRequiredError)throw error;throw new Error('BYO production publish adapters unavailable.');}
 }

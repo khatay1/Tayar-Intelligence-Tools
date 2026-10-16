@@ -32,7 +32,7 @@ export async function captureWebsiteGitHubExportSource(input: {
   connectionId: string;
   reader: SourceReader;
   compile(snapshot: Record<string, unknown>): Promise<GitHubSourceFile[]>;
-}): Promise<{ files: GitHubSourceFile[]; sourceDigest: string; connection: InfrastructureConnection;
+}): Promise<{ files: GitHubSourceFile[]; sourceDigest: string; snapshotDigest: string; connection: InfrastructureConnection;
   isCurrent(): Promise<boolean> }> {
   if (typeof window !== 'undefined') throw new Error('GitHub export requires a trusted server.');
   const { projectId, ownerId, connectionId, reader } = input;
@@ -73,5 +73,5 @@ export async function captureWebsiteGitHubExportSource(input: {
     } catch { return false; }
   }
   if (!await isCurrent()) throw new Error('GitHub export source changed.');
-  return { files: captured, sourceDigest, connection: capturedConnection, isCurrent };
+  return { files: captured, sourceDigest, snapshotDigest, connection: capturedConnection, isCurrent };
 }
