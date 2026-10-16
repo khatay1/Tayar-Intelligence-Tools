@@ -100,9 +100,9 @@ export async function prepareOwnedVercelRuntimeEnvironment(input:{client:Client;
  }catch{throw new Error('Vercel runtime environment unavailable.');}
 }
 
-/** Installs the same public owned-backend pair in Production on the separately
- * verified Production connection. Production variables deliberately have no
- * Preview branch override. */
+/** Installs only the separately verified Production backend pair. The
+ * private receipt also proves that the Preview database is different. This
+ * helper does not authorize invocation or activate a deployment/domain. */
 export async function prepareOwnedVercelProductionRuntimeEnvironment(input:{client:Client;projectId:string;ownerId:string;
  operationId:string;binding:OwnedRuntimeBinding;supabase:InfrastructureConnection;previewVercel:InfrastructureConnection;
  productionVercel:InfrastructureConnection;accessToken:string;userId:string;accountId:string;vercelProjectId:string;
@@ -115,13 +115,13 @@ export async function prepareOwnedVercelProductionRuntimeEnvironment(input:{clie
   assertInfrastructureConnection(input.supabase);assertInfrastructureConnection(input.previewVercel);
   assertInfrastructureConnection(input.productionVercel);
   const b=input.binding,s=input.supabase,p=input.previewVercel,v=input.productionVercel;
-  if(b.projectId!==input.projectId||b.ownerId!==input.ownerId||b.environment!=='preview'
+  if(b.projectId!==input.projectId||b.ownerId!==input.ownerId||b.environment!=='production'
    ||b.supabaseConnectionId!==s.id||b.supabaseConnectionVersion!==s.version||s.provider!=='supabase'||s.targetId!==b.backend.projectRef
-   ||b.vercelConnectionId!==p.id||b.vercelConnectionVersion!==p.version||p.provider!=='vercel'||p.targetId!==input.vercelProjectId
-   ||s.projectId!==input.projectId||s.ownerId!==input.ownerId||s.environment!=='preview'
+   ||b.vercelConnectionId!==v.id||b.vercelConnectionVersion!==v.version||p.provider!=='vercel'||p.targetId!==input.vercelProjectId
+   ||s.projectId!==input.projectId||s.ownerId!==input.ownerId||s.environment!=='production'
    ||p.projectId!==input.projectId||p.ownerId!==input.ownerId||p.environment!=='preview'
    ||v.projectId!==input.projectId||v.ownerId!==input.ownerId||v.environment!=='production'||v.provider!=='vercel'
-   ||v.id===p.id||v.targetId!==input.vercelProjectId||!Number.isSafeInteger(b.bindingVersion)||b.bindingVersion<1
+   ||v.id===p.id||v.targetId!==input.vercelProjectId||v.accountId!==input.accountId||p.accountId!==v.accountId||!Number.isSafeInteger(b.bindingVersion)||b.bindingVersion<1
    ||!await input.isCurrent())throw new Error();
   validateOwnedApplicationPublicBackend(b.backend,s.targetId!);
   const values:Record<Name,string>={SUPABASE_ANON_KEY:b.backend.publishableKey,SUPABASE_URL:b.backend.url};
