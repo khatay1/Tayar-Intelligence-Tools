@@ -52,7 +52,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'], path)) return;
+    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'stockReservations', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
@@ -210,6 +210,18 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (!Array.isArray(table.permissions) || !table.permissions.some(rule => object(rule) && rule.operation === 'read')
           || !table.permissions.some(rule => object(rule) && rule.operation === 'update')) issue(counterPath, 'counter-permissions', 'Counter adjustment requires explicit read and update permissions.');
       }
+    }
+    if (table.stockReservations !== undefined) {
+      const rulePath = `${path}.stockReservations`, rule = table.stockReservations;
+      const ownerOnly = Array.isArray(table.permissions)
+        && (['read', 'update'] as const).every(operation =>
+          table.permissions.some(candidate => object(candidate) && candidate.operation === operation && candidate.access === 'owner'))
+        && !table.permissions.some(candidate => object(candidate)
+          && ['read', 'update'].includes(String(candidate.operation)) && candidate.access !== 'owner');
+      if (!shape(rule, ['mode'], rulePath) || rule.mode !== 'owner' || !authEnabled
+        || !object(table.counter) || table.counter.integer !== true || table.counter.minimum !== 0
+        || !ownerOnly) issue(rulePath, 'invalid-stock-reservations',
+          'Stock reservation SQL requires an authenticated owner-only nonnegative integer counter.');
     }
     if (table.transaction !== undefined) {
       const transactionPath = `${path}.transaction`;
