@@ -62,13 +62,6 @@ jobs:
           node scripts/website-production-candidate-regression.mjs
           node scripts/website-production-source-candidate-regression.mjs
 
-      - name: Isolated Production source checkpoint database regression
-        env:
-          TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
-          TAYAR_PRODUCTION_CANDIDATE_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_production_candidate_test
-        run: |
-          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_production_candidate_test;'
-          timeout 45s node scripts/website-production-source-candidate-postgres-regression.mjs
 
       - name: Project health
         run: npm run health:project
@@ -150,6 +143,14 @@ jobs:
           timeout 45s node scripts/application-reference-projects-regression.mjs --postgres
           psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_custom_execution_quota_test;'
           TAYAR_CUSTOM_EXECUTION_QUOTA_TEST_DATABASE_URL=postgres://postgres:booking-test-only@localhost:5432/tayar_custom_execution_quota_test node scripts/website-custom-execution-quota-postgres-regression.mjs
+
+      - name: Isolated Production source checkpoint database regression
+        env:
+          TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
+          TAYAR_PRODUCTION_CANDIDATE_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_production_candidate_test
+        run: |
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_production_candidate_test;'
+          timeout 45s node scripts/website-production-source-candidate-postgres-regression.mjs
 
       - name: Application report database regression
         env:
