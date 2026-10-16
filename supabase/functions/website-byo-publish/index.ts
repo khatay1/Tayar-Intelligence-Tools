@@ -16669,6 +16669,7 @@ from pg_catalog.pg_class c
 join pg_catalog.pg_namespace n on n.oid = c.relnamespace
 left join pg_catalog.pg_policy p on p.polrelid = c.oid
 where n.nspname = 'public' and pg_catalog.left(c.relname, 4) = 'app_'
+  and c.relkind in ('r', 'p', 'v', 'm', 'f')
 order by c.relname, p.polname`;
 var ROLE_TABLE_SQL = `select c.relname as table_name, c.relkind as relation_kind, c.relrowsecurity as rls,
   pg_catalog.has_table_privilege('anon', c.oid, 'SELECT,INSERT,UPDATE,DELETE') as anon_all,
@@ -16742,6 +16743,11 @@ async function verifyOwnedSupabaseBookingConstraints(definition, query) {
   }
 }
 var compact2 = (expression) => expression.trim();
+var ownerSource = "(((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true) and (select auth.uid()) = owner_id)";
+var ownerCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id))";
+function matchesPolicyExpression(actual, expected) {
+  return compact2(actual) === compact2(expected) || expected === ownerSource && compact2(actual) === ownerCatalog;
+}
 async function verifyRoleInfrastructure(query) {
   const [schemaRows, tableRows, functionRows] = await Promise.all([
     query(ROLE_SCHEMA_SQL),
@@ -16797,7 +16803,7 @@ async function verifyOwnedSupabaseCatalogSecurity(definition, query) {
       for (const [actual, expected] of expressions) {
         if (expected === null) {
           if (actual !== null) return false;
-        } else if (typeof actual !== "string" || compact2(actual) !== compact2(expected)) return false;
+        } else if (typeof actual !== "string" || !matchesPolicyExpression(actual, expected)) return false;
       }
       seenPolicies.add(policy.name);
     }
