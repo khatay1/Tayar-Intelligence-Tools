@@ -60,6 +60,15 @@ jobs:
           node scripts/website-owned-runtime-verification-regression.mjs
           node scripts/website-owned-preview-origin-regression.mjs
           node scripts/website-production-candidate-regression.mjs
+          node scripts/website-production-source-candidate-regression.mjs
+
+      - name: Isolated Production source checkpoint database regression
+        env:
+          TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
+          TAYAR_PRODUCTION_CANDIDATE_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_production_candidate_test
+        run: |
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_production_candidate_test;'
+          timeout 45s node scripts/website-production-source-candidate-postgres-regression.mjs
 
       - name: Project health
         run: npm run health:project

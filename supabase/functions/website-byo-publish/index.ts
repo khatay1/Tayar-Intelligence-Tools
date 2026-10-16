@@ -58,8 +58,8 @@ async function handleWebsiteByoPublish(request2, context) {
     input = JSON.parse(raw);
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error();
     action = String(input.action);
-    const keys = action === "production" ? ["action", "projectId", "operationId", "previewOperationId"] : action === "status" ? ["action", "projectId", "operationId", "environment"] : ["action", "projectId", "operationId"];
-    if (!["preview", "production", "status"].includes(action) || Object.keys(input).some((key2) => !keys.includes(key2)) || typeof input.projectId !== "string" || !uuid.test(input.projectId) || typeof input.operationId !== "string" || !uuid.test(input.operationId) || action === "production" && (typeof input.previewOperationId !== "string" || !uuid.test(input.previewOperationId) || input.previewOperationId === input.operationId) || action === "status" && !["preview", "production"].includes(String(input.environment))) throw new Error();
+    const keys2 = action === "production" ? ["action", "projectId", "operationId", "previewOperationId"] : action === "status" ? ["action", "projectId", "operationId", "environment"] : ["action", "projectId", "operationId"];
+    if (!["preview", "production", "status"].includes(action) || Object.keys(input).some((key2) => !keys2.includes(key2)) || typeof input.projectId !== "string" || !uuid.test(input.projectId) || typeof input.operationId !== "string" || !uuid.test(input.operationId) || action === "production" && (typeof input.previewOperationId !== "string" || !uuid.test(input.previewOperationId) || input.previewOperationId === input.operationId) || action === "status" && !["preview", "production"].includes(String(input.environment))) throw new Error();
     projectId = input.projectId;
     operationId = input.operationId;
   } catch {
@@ -509,12 +509,12 @@ function projectSpecificationIssues(value, application) {
   const fail = (path, message) => {
     issues.push(`${path}: ${message}`);
   };
-  function shape(input, keys, path) {
+  function shape(input, keys2, path) {
     if (!object3(input)) {
       fail(path, "Expected a specification object.");
       return false;
     }
-    if (Object.keys(input).some((key2) => !keys.includes(key2))) fail(path, "Unknown specification property.");
+    if (Object.keys(input).some((key2) => !keys2.includes(key2))) fail(path, "Unknown specification property.");
     return true;
   }
   function list(input, path, limit = 100) {
@@ -524,11 +524,11 @@ function projectSpecificationIssues(value, application) {
     }
     return input;
   }
-  function catalog(input, path, keys, key2 = "id") {
+  function catalog(input, path, keys2, key2 = "id") {
     const used = /* @__PURE__ */ new Set();
     return list(input, path).filter((item, index) => {
       const at = `${path}[${index}]`;
-      if (!shape(item, keys, at)) return false;
+      if (!shape(item, keys2, at)) return false;
       if (!identifier(item[key2]) || used.has(String(item[key2]))) fail(at, "IDs must be valid and unique.");
       else used.add(item[key2]);
       return true;
@@ -802,12 +802,12 @@ var name = (value) => typeof value === "string" && value.trim().length > 0 && va
 function validateApplicationDefinition(value, pageIds) {
   const issues = [];
   const issue = (path, code, message) => issues.push({ path, code, message });
-  function shape(item, keys, path) {
+  function shape(item, keys2, path) {
     if (!object5(item)) {
       issue(path, "invalid-object", "Expected an application configuration object.");
       return false;
     }
-    if (Object.keys(item).some((key2) => !keys.includes(key2))) issue(path, "unknown-property", "Unsupported configuration property; credentials and runtime data cannot be stored here.");
+    if (Object.keys(item).some((key2) => !keys2.includes(key2))) issue(path, "unknown-property", "Unsupported configuration property; credentials and runtime data cannot be stored here.");
     return true;
   }
   function list(input, limit, path) {
@@ -863,13 +863,13 @@ function validateApplicationDefinition(value, pageIds) {
   tables.forEach((table, tableIndex) => {
     if (!object5(table)) return;
     const path = `application.tables[${tableIndex}]`;
-    const keys = new Set(APPLICATION_SYSTEM_FIELDS);
+    const keys2 = new Set(APPLICATION_SYSTEM_FIELDS);
     list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field2, fieldIndex2) => {
       const fieldPath = `${path}.fields[${fieldIndex2}]`;
       if (!shape(field2, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId", "formula"], fieldPath)) return;
       identity5(field2.id, `${fieldPath}.id`);
-      if (!identifier3(field2.key) || keys.has(field2.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
-      else keys.add(field2.key);
+      if (!identifier3(field2.key) || keys2.has(field2.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
+      else keys2.add(field2.key);
       if (!name(field2.name)) issue(`${fieldPath}.name`, "invalid-name", "A field requires a display name.");
       if (!["text", "number", "boolean", "date", "datetime", "uuid", "json", "enum", "reference"].includes(String(field2.type))) issue(`${fieldPath}.type`, "invalid-type", "Unsupported field type.");
       if (typeof field2.required !== "boolean" || ["unique", "indexed"].some((key2) => field2[key2] !== void 0 && typeof field2[key2] !== "boolean")) issue(fieldPath, "invalid-boolean", "Field constraint flags must be booleans.");
@@ -11762,12 +11762,12 @@ function normalizeWebsiteCms(input) {
     while (collectionIds.has(id4)) id4 = `${id4}-${collectionIndex + 1}`;
     collectionIds.add(id4);
     const rawFields = Array.isArray(item.fields) ? item.fields : [];
-    const keys = /* @__PURE__ */ new Set();
+    const keys2 = /* @__PURE__ */ new Set();
     const fields = rawFields.slice(0, WEBSITE_CMS_LIMITS.fields).map((candidateField, fieldIndex2) => {
       const sourceField = record(candidateField);
       let key2 = fieldKey(sourceField.key, `field_${fieldIndex2 + 1}`);
-      while (keys.has(key2)) key2 = `${key2}_${fieldIndex2 + 1}`;
-      keys.add(key2);
+      while (keys2.has(key2)) key2 = `${key2}_${fieldIndex2 + 1}`;
+      keys2.add(key2);
       const type2 = FIELD_TYPES.has(sourceField.type) ? sourceField.type : "text";
       return {
         id: safeId(sourceField.id, `${id4}-field-${fieldIndex2 + 1}`),
@@ -12119,8 +12119,8 @@ function assertValidPublishedWebsiteFileNames(names2) {
 var invalid = () => new Error("The form does not match the application fields.");
 var uuid4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var record2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-function exact(value, keys) {
-  if (!record2(value) || Object.keys(value).some((key2) => !keys.includes(key2))) throw invalid();
+function exact(value, keys2) {
+  if (!record2(value) || Object.keys(value).some((key2) => !keys2.includes(key2))) throw invalid();
 }
 function date(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) throw invalid();
@@ -13221,6 +13221,21 @@ async function captureWebsiteOwnedApplicationSource(input) {
     isCurrent
   };
 }
+
+// server/website-production-source-candidate.ts
+var keys = [
+  "status",
+  "operationId",
+  "projectId",
+  "ownerId",
+  "previewOperationId",
+  "githubConnectionId",
+  "previewSourceDigest",
+  "snapshotDigest",
+  "runtimeDigest",
+  "sourceDigest",
+  "headSha"
+].sort().join(",");
 
 // server/website-owned-vercel-deployment.ts
 var id2 = /^[A-Za-z0-9_-]{3,128}$/;
@@ -14478,7 +14493,7 @@ async function inspectOwnedStripeRuntimeForPublish(input) {
     });
     if (error || !data || typeof data !== "object" || Array.isArray(data)) throw new Error();
     const row2 = data;
-    const keys = [
+    const keys2 = [
       "environmentId",
       "handoffId",
       "handoffOperationId",
@@ -14489,7 +14504,7 @@ async function inspectOwnedStripeRuntimeForPublish(input) {
       "stripeConnectionId",
       "stripeConnectionVersion"
     ];
-    if (Object.keys(row2).sort().join(",") !== keys.sort().join(",")) throw new Error();
+    if (Object.keys(row2).sort().join(",") !== keys2.sort().join(",")) throw new Error();
     const stripeId = row2.stripeConnectionId, handoffId = row2.handoffId, handoffStatus = row2.handoffStatus, handoffOperationId = row2.handoffOperationId, environmentId = row2.environmentId;
     if (!Number.isSafeInteger(row2.stripeConnectionVersion) || row2.stripeConnectionVersion < 0 || !Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || stripeId === null !== (row2.stripeConnectionVersion === 0) || stripeId !== null && (typeof stripeId !== "string" || !runtimeUuid.test(stripeId)) || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (handoffStatus !== null || handoffOperationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !runtimeUuid.test(handoffId) || !["preparing", "verified", "removed"].includes(String(handoffStatus)) || typeof handoffOperationId !== "string" || !runtimeUuid.test(handoffOperationId)) || environmentId !== null && (typeof environmentId !== "string" || !vercelIdentity.test(environmentId)) || handoffStatus === "verified" && environmentId === null || row2.ready === true && (stripeId === null || handoffStatus !== "verified" || environmentId === null || row2.sourceAvailable !== false))
       throw new Error();
@@ -14693,8 +14708,8 @@ async function inspectOwnedEmailRuntimeForPublish(input) {
     });
     if (error) throw new Error();
     const row2 = object9(data);
-    const keys = ["environmentId", "handoffId", "handoffOperationId", "handoffStatus", "handoffVersion", "ready", "sourceAvailable"];
-    if (Object.keys(row2).sort().join(",") !== keys.sort().join(",")) throw new Error();
+    const keys2 = ["environmentId", "handoffId", "handoffOperationId", "handoffStatus", "handoffVersion", "ready", "sourceAvailable"];
+    if (Object.keys(row2).sort().join(",") !== keys2.sort().join(",")) throw new Error();
     const handoffId = row2.handoffId, status2 = row2.handoffStatus, operationId = row2.handoffOperationId, environmentId = row2.environmentId;
     if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid15.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid15.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity2.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
     return structuredClone(row2);
@@ -16532,7 +16547,7 @@ var ref = /^[a-z]{20}$/;
 var providerTokenMaxBytes2 = 65536;
 var token3 = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes2 && !/[\r\n]/.test(value);
 var object14 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-var exact2 = (row2, keys) => Object.keys(row2).every((key2) => keys.includes(key2));
+var exact2 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 var currentDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseOwnedSupabaseCustody(value, environment, target2) {
   const row2 = object14(value), grant = object14(row2?.grant);
@@ -16570,13 +16585,13 @@ async function readOwnedSupabasePublicBackend(input) {
   if (text3.length > 131072) throw new Error();
   const value = JSON.parse(text3);
   if (!Array.isArray(value) || value.length > 32) throw new Error();
-  const keys = value.map((item) => {
+  const keys2 = value.map((item) => {
     const row2 = object14(item);
     if (!row2 || typeof row2.type !== "string" || typeof row2.api_key !== "string" || row2.name != null && typeof row2.name !== "string") throw new Error();
     return row2;
   });
-  const publishable2 = keys.filter((key2) => key2.type === "publishable" && /^sb_publishable_[A-Za-z0-9_-]+$/.test(String(key2.api_key)));
-  const legacy = keys.filter((key2) => key2.type === "legacy" && key2.name === "anon");
+  const publishable2 = keys2.filter((key2) => key2.type === "publishable" && /^sb_publishable_[A-Za-z0-9_-]+$/.test(String(key2.api_key)));
+  const legacy = keys2.filter((key2) => key2.type === "legacy" && key2.name === "anon");
   const selected = publishable2.length === 1 ? publishable2[0] : publishable2.length === 0 && legacy.length === 1 ? legacy[0] : null;
   if (!selected) throw new Error();
   const backend = {
@@ -16886,7 +16901,7 @@ var provider7 = /^[A-Za-z0-9_-]{1,200}$/;
 var slug2 = /^[a-z0-9][a-z0-9-]{0,199}$/;
 var digest8 = /^[0-9a-f]{64}$/;
 var object16 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-var exact3 = (row2, keys) => Object.keys(row2).every((key2) => keys.includes(key2));
+var exact3 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 function parseAttempt(value) {
   if (value === null) return null;
   const row2 = object16(value);
@@ -17201,7 +17216,7 @@ var project10 = /^prj_[A-Za-z0-9]{8,128}$/;
 var gitName3 = /^[A-Za-z0-9_.-]{1,100}$/;
 var branch9 = /^[A-Za-z0-9_./-]{1,200}$/;
 var object18 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-var exact4 = (row2, keys) => Object.keys(row2).every((key2) => keys.includes(key2));
+var exact4 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 var currentDate2 = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseVercelCustody(value, environment, target2) {
   const row2 = object18(value);
