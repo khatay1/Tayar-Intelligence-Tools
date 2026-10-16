@@ -13,7 +13,8 @@ type RunnerInput=Parameters<typeof createWebsiteByoPublishRunners>[0];
 export function createWebsiteByoPublishHost(input:{platform:Platform;allowedOrigin:string;
   runner:Omit<RunnerInput,'client'|'reader'|'verifyRuntime'|'requiredEnvironment'>}){
  const reader=createWebsiteOwnedSourceReader(input.platform);
- const policy=createWebsiteByoPublishRuntimePolicy(reader);
+ const policy=createWebsiteByoPublishRuntimePolicy(reader,{client:input.platform,
+  platformOrganizationId:input.runner.platformSupabaseOrganizationId,fetcher:input.runner.fetcher});
  const runners=createWebsiteByoPublishRunners({client:input.platform,reader,...input.runner,...policy});
  return createWebsiteByoPublishEdgeHandler({platform:input.platform,allowedOrigin:input.allowedOrigin,runners});
 }

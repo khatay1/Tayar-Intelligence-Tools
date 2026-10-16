@@ -1,6 +1,7 @@
 import{assertInfrastructureConnection,type InfrastructureConnection}from'../src/modules/website-builder/core/application-infrastructure-connections';
 import type{ByoSourceCapabilities}from'../src/modules/website-builder/core/application-byo-source-capabilities';
 import type{OwnedRuntimeBinding,OwnedSourceReader}from'./website-owned-source-capture';
+import { verifyOwnedStockReservationInstallationFromCustody } from './website-owned-stock-reservation-installation';
 
 const environmentManifest=['SUPABASE_ANON_KEY','SUPABASE_URL']as const;
 function bindingIdentity(value:OwnedRuntimeBinding){return JSON.stringify({projectId:value.projectId,ownerId:value.ownerId,
@@ -21,7 +22,8 @@ function supported(capabilities:ByoSourceCapabilities){const providers=capabilit
 /** Concrete server-only policy for the currently compiled owned runtime.
  * Stripe checkout is prepared through its own verified sensitive-secret receipt;
  * this public runtime manifest deliberately remains the two Supabase values. */
-export function createWebsiteByoPublishRuntimePolicy(reader:OwnedSourceReader){
+export function createWebsiteByoPublishRuntimePolicy(reader:OwnedSourceReader,
+ stock?: Pick<Parameters<typeof verifyOwnedStockReservationInstallationFromCustody>[0], 'client' | 'platformOrganizationId' | 'fetcher'>){
  return{
   async verifyRuntime(binding:OwnedRuntimeBinding,supabase:InfrastructureConnection,vercel:InfrastructureConnection,
    capabilities:ByoSourceCapabilities){
@@ -31,6 +33,7 @@ export function createWebsiteByoPublishRuntimePolicy(reader:OwnedSourceReader){
      ||binding.backend.projectRef!==supabase.targetId||binding.supabaseConnectionId!==supabase.id
      ||binding.vercelConnectionId!==vercel.id||binding.supabaseConnectionVersion!==supabase.version
      ||binding.vercelConnectionVersion!==vercel.version)return false;
+    const current = async () => {
     const latestBinding=await reader.readOwnedRuntimeBinding(binding.projectId,binding.ownerId,binding.environment);
     if(!latestBinding||bindingIdentity(latestBinding)!==bindingIdentity(binding))return false;
     const[latestSupabase,latestVercel]=await Promise.all([
@@ -39,6 +42,15 @@ export function createWebsiteByoPublishRuntimePolicy(reader:OwnedSourceReader){
     ]);
     return!!latestSupabase&&!!latestVercel&&connectionIdentity(latestSupabase)===connectionIdentity(supabase)
      &&connectionIdentity(latestVercel)===connectionIdentity(vercel);
+    };
+    const stockTables = capabilities.definition.tables.filter(table => table.stockReservations);
+    if (!stockTables.length) return await current();
+    if (!stock || !await current()) return false;
+    if (!await verifyOwnedStockReservationInstallationFromCustody({ ...stock, reader,
+        ownerId: binding.ownerId, projectId: binding.projectId, environment: binding.environment,
+        connectionId: supabase.id, connectionVersion: supabase.version,
+        definition: capabilities.definition, isCurrent: current })) return false;
+    return await current();
    }catch{return false;}
   },
   async requiredEnvironment(capabilities:ByoSourceCapabilities){

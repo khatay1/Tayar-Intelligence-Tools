@@ -4,9 +4,60 @@ import { compileApplicationInventoryReservationSchema } from '../src/modules/web
 import { createOwnedSupabaseReadOnlyQuery } from './website-owned-supabase-catalog';
 import { verifyOwnedStockReservationCatalog } from './website-owned-stock-reservation-catalog';
 import { createBoundedOwnedStockCatalogFetcher } from './website-owned-stock-reservation-catalog-transport';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SourceReader } from '../src/modules/website-builder/services/websiteGithubExportSourceService';
+import { parseOwnedSupabaseCustody } from './website-owned-supabase-custody';
+import { verifyOwnedSupabaseProject } from './website-owned-supabase-project';
+import { readApplicationDefinition } from '../src/modules/website-builder/core/application-validation';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const projectRef = /^[a-z]{20}$/;
+
+/** Publish-time proof using exact leased server custody. A saved stock flag or
+ * an old runtime binding is not proof of a current stock SQL installation. */
+export async function verifyOwnedStockReservationInstallationFromCustody(input: {
+  client: Pick<SupabaseClient, 'rpc'>;
+  reader: Pick<SourceReader, 'readConnection'>;
+  ownerId: string; projectId: string; environment: 'preview' | 'production';
+  connectionId: string; connectionVersion: number;
+  definition: ApplicationDefinition;
+  platformOrganizationId: string;
+  isCurrent(): Promise<boolean>;
+  fetcher?: typeof fetch;
+}): Promise<boolean> {
+  try {
+    if (typeof window !== 'undefined' || ![input.ownerId, input.projectId, input.connectionId].every(id => uuid.test(id))
+      || !['preview', 'production'].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion)
+      || input.connectionVersion < 1 || !input.platformOrganizationId || !await input.isCurrent()) return false;
+    const definition = readApplicationDefinition(input.definition);
+    const stockTables = definition.tables.filter(table => table.stockReservations);
+    if (!stockTables.length) return false;
+    const readConnection = () => input.reader.readConnection(input.connectionId, input.projectId, input.ownerId);
+    const connection = await readConnection();
+    if (!connection) return false;
+    assertInfrastructureConnection(connection);
+    if (connection.id !== input.connectionId || connection.version !== input.connectionVersion
+      || connection.ownerId !== input.ownerId || connection.projectId !== input.projectId
+      || connection.environment !== input.environment || connection.provider !== 'supabase'
+      || connection.status !== 'ready' || connection.operationId !== null
+      || !connection.targetId || !projectRef.test(connection.targetId)
+      || !connection.permissions.includes('database:read')) return false;
+    const result = await input.client.rpc('website_read_supabase_oauth_custody', {
+      p_connection_id: input.connectionId, p_project_id: input.projectId, p_owner_id: input.ownerId,
+      p_expected_connection_version: input.connectionVersion,
+    });
+    if (result.error || !await input.isCurrent()) return false;
+    const custody = parseOwnedSupabaseCustody(result.data, input.environment, { projectRef: connection.targetId });
+    const ownership = { ...custody, accountUserId: custody.accountId,
+      platformOrganizationId: input.platformOrganizationId, fetcher: input.fetcher };
+    if (!await verifyOwnedSupabaseProject(ownership) || !await input.isCurrent()) return false;
+    // Read custody/project ownership once for the connection, not once per
+    // stock table. Each table still needs its exact SQL and privilege proof.
+    for (const table of stockTables) if (!await verifyOwnedStockReservationInstallation({ ...input,
+      definition, itemTableId: table.id, accessToken: custody.accessToken, readConnection })) return false;
+    return await verifyOwnedSupabaseProject(ownership) && await input.isCurrent();
+  } catch { return false; }
+}
 
 /**
  * Read-only attestation of an OPTIONAL stock SQL installation already present

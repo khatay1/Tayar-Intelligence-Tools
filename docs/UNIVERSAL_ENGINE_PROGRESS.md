@@ -710,3 +710,43 @@ expected outputs, existing receipt semantics or customer settings were relaxed.
 Only affected generated outputs are refreshed. PR/exact-head gate and main
 results are recorded in #253. Next inventory work remains saved explicit
 requirements, trusted provisioning/catalog readiness and generated stock UI.
+
+## Saved stock opt-in and available-stock UI — 2026-10-16
+
+Continuation from `main@900515d2` (#266). Its post-merge Release Gate
+`38970430857` passed; #265 and #266 are complete and are not repeated.
+
+- An explicit table `stockReservations: true` is persisted in the validated
+  application definition. It requires Auth, an integer counter starting at zero,
+  and owner-only read/update permissions. Ordinary counter apps stay unchanged.
+- Initial schema/source generation installs the existing stock SQL exactly once
+  and retains the declaration in the customer source and schema revision.
+  Existing stock application changes cannot use automatic additive migrations.
+  A canonically identical already-installed definition remains a read-only
+  preparation no-op, including PostgreSQL jsonb object-key reordering.
+- Both dedicated runtime entrypoints bind declared stock tables to their own
+  authenticated client. The generated records component adds a localized
+  `stock-availability` action with an informational quantity, stale/error
+  clearing and actor-switch refusal. It queries available stock, not the stored
+  counter field. Availability never authorizes a reservation or fulfillment.
+- Normal backend setup now verifies exact stock SQL/RLS/grants when opted in.
+  The actual BYO publish host also obtains exact leased customer OAuth custody,
+  verifies customer project ownership and rechecks installation and connection
+  identity at publication; an old binding or saved flag cannot substitute for
+  current SQL evidence. The verifier remains read-only and secrets never escape.
+- AI repair preserves existing stock declarations. Generation recognizes
+  owner-stock availability in English/Arabic/Swedish and requires its actual
+  bound view. Requests for stock reservations fail explicitly until generated
+  reserve/release/fulfill controls exist; ordinary transactions cannot pass as
+  reservation support. Generation guidance is updated accordingly.
+
+Evidence is covered by the existing scoped source, schema, stock opt-in,
+SDK, repair, policy and browser suites. The native stock PostgreSQL regression
+now installs the FULL generated initial schema, verifies setup/publication
+through real catalogs, and drives the actual browser component and Supabase
+SDK into that database through a local HTTP/Auth fixture. This fixture is not
+proof of a real GoTrue/PostgREST deployment. Final CI results are recorded in
+issue #253. No new OSS code/dependencies, live migrations, final keys, customer
+Production activation or Social Hub work. Owner-only availability is the slice;
+reservation mutation controls, reviewed existing-DB migration, physical warehouse
+balances and live customer activation remain incomplete.

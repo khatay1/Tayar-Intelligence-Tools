@@ -40,6 +40,7 @@ try {
       assert.equal(init.redirect, 'error'); assert.equal(init.cache, 'no-store');
       const sql = JSON.parse(init.body).query;
       assert.match(sql, /pg_catalog\.(pg_policy|pg_attribute)/);
+      if (sql.includes('pg_catalog.pg_policy')) assert.match(sql, /c\.relkind in \('r', 'p', 'v', 'm', 'f'\)/);
       return Response.json(sql.includes('a.attgenerated') ? [] : [row], { status: 201 });
     } });
   assert.equal(await verify(definition, query), true); assert.equal(calls, 2);
@@ -63,6 +64,11 @@ try {
   assert.equal(await verify(ownerDefinition, async sql => sql.includes('a.attgenerated') ? [] : [ownerRow]), true);
   assert.equal(await verify(ownerDefinition, async () => [{ ...ownerRow,
     using_expression: ownerExpression.replace('owner_id', 'id') }]), false);
+  const ownerCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id))";
+  assert.equal(await verify(ownerDefinition, async sql => sql.includes('a.attgenerated') ? [] : [{...ownerRow,using_expression:ownerCatalog}]),true);
+  for(const changed of [ownerCatalog.replace('owner_id','id'),ownerCatalog.replace('IS NOT TRUE','IS TRUE'),ownerCatalog.replace("'is_anonymous'","'IS_ANONYMOUS'"),ownerCatalog+' OR true']) {
+    assert.equal(await verify(ownerDefinition,async()=>[{...ownerRow,using_expression:changed}]),false,'Deparsed policy drift must remain denied');
+  }
   const roleDefinition = { ...definition, auth: { enabled: true, signUpEnabled: true,
     emailVerificationRequired: false }, roles: [{ id: 'admin', name: 'Admin' }] };
   const roleTables = ['app_role_administrators', 'app_user_roles'].map(table_name => ({

@@ -8,6 +8,8 @@ import { compileApplicationDataView } from './application-data-view';
 import { websiteProjectLinkIssues } from './website-project-links';
 
 const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt);
+const stockAvailabilityPattern = /\b(?:available (?:stock|inventory)|(?:stock|inventory) availability|tillgängligt lager)\b|(?:المخزون المتاح|الكمية المتاحة من المخزون)/giu;
+const stockAvailabilityRequest = (prompt: string) => new RegExp(stockAvailabilityPattern.source, 'iu').test(prompt);
 
 const requestedCapabilityPatterns: Array<[ApplicationRequirementCapability, RegExp]> = [
   ['auth', /\b(?:sign[ -]?in|log[ -]?in|authentication|accounts?|patient portal|staff portal|member portal)\b|(?:تسجيل الدخول|حسابات|بوابة المرضى|بوابة الموظفين)|(?:inloggning|konto|kundportal)/iu],
@@ -24,7 +26,10 @@ const requestedCapabilityPatterns: Array<[ApplicationRequirementCapability, RegE
 ];
 
 export function requestedApplicationCapabilities(prompt: string): Set<ApplicationRequirementCapability> {
-  return new Set(requestedCapabilityPatterns.filter(([, pattern]) => pattern.test(prompt)).map(([capability]) => capability));
+  const remaining = prompt.replace(stockAvailabilityPattern, '');
+  const capabilities = new Set(requestedCapabilityPatterns.filter(([, pattern]) => pattern.test(remaining)).map(([capability]) => capability));
+  if (stockAvailabilityRequest(prompt)) capabilities.add('records');
+  return capabilities;
 }
 
 /** Never silently downgrade requested application behavior to a brochure. */
@@ -35,6 +40,9 @@ export function prepareGeneratedApplication(
   availableEmailConnectionIds: ReadonlySet<string> = new Set(),
   requireSpecification = false,
 ): ApplicationDefinition | undefined {
+  if (/\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/iu.test(prompt)) {
+    throw new Error('Stock reservation customer controls are not yet supported. Availability alone or a transaction cannot fulfill this request. No incomplete application was applied.');
+  }
   if (generated.projectKind !== undefined && !['website', 'application'].includes(generated.projectKind)) throw new Error('AI returned an invalid project kind.');
   if (generated.unsupportedFeatures !== undefined && (!Array.isArray(generated.unsupportedFeatures)
     || generated.unsupportedFeatures.length > 20 || generated.unsupportedFeatures.some(item => typeof item !== 'string' || !item.trim() || item.length > 300))) {
@@ -66,6 +74,7 @@ export function prepareGeneratedApplication(
   let bookingCreates = 0;
   let counterViews = 0;
   let transactionViews = 0;
+  let stockAvailabilityViews = 0;
   const evidence = new Set<string>();
   if (definition.auth.enabled) evidence.add('auth');
   for (const page of pages) evidence.add(`page:${page.slug}`);
@@ -73,6 +82,7 @@ export function prepareGeneratedApplication(
     if (section.applicationDataView !== undefined) {
       if (section.type === 'contact' || section.type === 'footer') throw new Error('Data views require a content section.');
       const view = compileApplicationDataView(definition, section.applicationDataView);
+      if (view.table.stockReservations && view.binding.actions.includes('stock-availability')) stockAvailabilityViews++;
       if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
       if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       if (view.table.transaction && view.binding.actions.includes('transact')) transactionViews++;
@@ -112,6 +122,7 @@ export function prepareGeneratedApplication(
   if (bookingRequest(prompt) && !bookingCreates) throw new Error('Appointment booking requires a bound create form or data view with a database booking rule; ordinary records cannot replace conflict-safe booking.');
   if (/\b(?:data dashboard|record management|crud|data editor)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt) && !dataViews) throw new Error('Record management requires a bound data view; descriptive pages cannot replace it.');
   if (counterRequested && !counterViews) throw new Error('Quantity management requires a bound adjustment view and a native counter rule.');
+  if (stockAvailabilityRequest(prompt) && !stockAvailabilityViews) throw new Error('Available stock requires a saved stock declaration and a bound stock-availability view. No incomplete application was applied.');
   if (transactionRequested && !transactionViews) throw new Error('Multi-item transactions require a bound transaction view and native parent, line and counter rules.');
   const bookings = definition.tables.filter(table => table.booking).map(table => table.booking!);
   if (/\b(?:recurring appointments?|repeat bookings?)\b|(?:المواعيد المتكررة|تكرار الحجز)|(?:återkommande bokningar)/iu.test(prompt)

@@ -1,4 +1,5 @@
 import { compileApplicationBookingAvailability } from './application-booking-availability-sql';
+import { compileApplicationInventoryReservationSchema } from './application-inventory-reservation-sql';
 import { compileApplicationFilesSchema } from './application-files-sql';
 import { compileApplicationBookingSchedule } from './application-booking-schedule-sql';
 import { compileApplicationReports } from './application-reports-sql';
@@ -365,6 +366,9 @@ end $$;`);
     statements.push(...compileApplicationFilesSchema(app, tableIndex));
     statements.push(...compileApplicationReports(app, tableIndex));
   }
+  for (const table of app.tables) if (table.stockReservations) {
+    statements.push(...compileApplicationInventoryReservationSchema(app, table.id));
+  }
   return statements;
 }
 
@@ -372,6 +376,15 @@ end $$;`);
 export function compileAdditiveApplicationMigration(previous: ApplicationDefinition, next: ApplicationDefinition): string[] {
   const before = readApplicationDefinition(previous);
   const after = readApplicationDefinition(next);
+  if (before.tables.some(table => table.stockReservations) || after.tables.some(table => table.stockReservations)) {
+    const canonical = (value: unknown) => JSON.stringify(value, (_key, entry: unknown) =>
+      entry && typeof entry === 'object' && !Array.isArray(entry)
+        ? Object.fromEntries(Object.entries(entry).sort(([a], [b]) => a.localeCompare(b))) : entry);
+    // A verified already-installed definition must still pass the read-only
+    // "current" preparation path. PostgreSQL jsonb can reorder object keys.
+    if (canonical(before) === canonical(after)) return [];
+    throw new Error('Stock reservation applications require a separately reviewed database migration.');
+  }
   if (before.tables.some(table => table.notifications?.length) || after.tables.some(table => table.notifications?.length)) throw new Error('Email notification changes require a separately verified runtime migration.');
   if(before.tables.some(table=>table.payment)||after.tables.some(table=>table.payment))
     throw new Error('Payment rule changes require a separately verified payment migration.');

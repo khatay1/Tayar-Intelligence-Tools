@@ -62,7 +62,7 @@ function contractRepairIssues(before: ApplicationDefinition, after: ApplicationD
     if (table.payment && current.payment && table.payment.refundRoleId !== current.payment.refundRoleId) {
       issues.push(`AI repair cannot change refund authorization for ${table.id}; use reviewed manual configuration.`);
     }
-    for (const key of ['booking', 'counter', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'] as const) {
+    for (const key of ['booking', 'counter', 'stockReservations', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'] as const) {
       if (table[key] !== undefined && !sameContract(table[key], current[key])) {
         issues.push(`AI repair must preserve the existing ${key} contract for ${table.id}; use reviewed manual configuration.`);
       }

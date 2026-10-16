@@ -3,6 +3,7 @@ import { verifyOwnedFilesCatalog } from './website-owned-files-catalog';
 import { verifyOwnedBookingScheduleCatalog } from './website-owned-booking-schedule-catalog';
 import { verifyOwnedReportsCatalog } from './website-owned-reports-catalog';
 import { verifyOwnedCounterCatalog } from './website-owned-counter-catalog';
+import { verifyOwnedStockReservationCatalog } from './website-owned-stock-reservation-catalog';
 import { verifyOwnedTransactionCatalog } from './website-owned-transaction-catalog';
 import { verifyOwnedWorkflowCatalog } from './website-owned-workflow-catalog';
 import { verifyOwnedFormulaCatalog } from './website-owned-formula-catalog';
@@ -58,6 +59,7 @@ from pg_catalog.pg_class c
 join pg_catalog.pg_namespace n on n.oid = c.relnamespace
 left join pg_catalog.pg_policy p on p.polrelid = c.oid
 where n.nspname = 'public' and pg_catalog.left(c.relname, 4) = 'app_'
+  and c.relkind in ('r', 'p', 'v', 'm', 'f')
 order by c.relname, p.polname`;
 
 const ROLE_TABLE_SQL = `select c.relname as table_name, c.relkind as relation_kind, c.relrowsecurity as rls,
@@ -144,6 +146,15 @@ export async function verifyOwnedSupabaseBookingConstraints(definition: Applicat
 // Keep quoted literal bytes and case intact; even whitespace inside a SQL
 // literal can change access semantics. Only trim transport padding.
 const compact = (expression: string) => expression.trim();
+// PostgreSQL 17 deparses this generated single-owner predicate with SELECT
+// aliases, explicit text casts and flattened ANDs. Accept only this exact
+// known equivalent; never strip literals, operators, casts or parentheses.
+const ownerSource = "(((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true) and (select auth.uid()) = owner_id)";
+const ownerCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id))";
+function matchesPolicyExpression(actual: string, expected: string): boolean {
+  return compact(actual) === compact(expected)
+    || (expected === ownerSource && compact(actual) === ownerCatalog);
+}
 
 async function verifyRoleInfrastructure(query: Query): Promise<boolean> {
   const [schemaRows, tableRows, functionRows] = await Promise.all([
@@ -216,10 +227,12 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
       for (const [actual, expected] of expressions) {
         if (expected === null) {
           if (actual !== null) return false;
-        } else if (typeof actual !== 'string' || compact(actual) !== compact(expected)) return false;
+        } else if (typeof actual !== 'string' || !matchesPolicyExpression(actual, expected)) return false;
       }
       seenPolicies.add(policy.name);
     }
+    for (const table of app.tables) if (table.stockReservations
+      && !await verifyOwnedStockReservationCatalog(app, table.id, query)) return false;
     return seenTables.size === tables.size && seenPolicies.size === expectedPolicies.length
       && (!app.roles.length || await verifyRoleInfrastructure(query))
       && await verifyOwnedSupabaseBookingConstraints(app, query)

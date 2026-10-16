@@ -22,6 +22,9 @@ const translations = {
 export function mountApplicationDataView(host: HTMLElement, definition: ApplicationDefinition, binding: ApplicationDataViewBinding,
   runtime: ReturnType<typeof createApplicationDataRuntime>, language: Language, scope: { projectRef: string; projectId: string; pageId: string; sectionId: string }) {
   const copy = translations[language] ?? translations.en;
+  const stockCopy = ({ en: { action: 'Available stock', result: 'Available', hint: 'Informational only. A reservation must still succeed before stock is committed.' },
+    ar: { action: 'المخزون المتاح', result: 'المتاح', hint: 'للاطلاع فقط. يجب نجاح الحجز قبل اعتماد الكمية.' },
+    sv: { action: 'Tillgängligt lager', result: 'Tillgängligt', hint: 'Endast information. En reservation måste lyckas innan lagret tas i anspråk.' } })[language];
   const reportCopy = ({ en: { title: 'Aggregate reports', scope: 'All records you can read. Search and page selection do not change totals.', error: 'Could not load totals. Refresh and try again.' },
     ar: { title: 'التقارير المجمّعة', scope: 'جميع السجلات المسموح لك بقراءتها. البحث واختيار الصفحة لا يغيّران الإجماليات.', error: 'تعذّر تحميل الإجماليات. حدّث وحاول مجددًا.' },
     sv: { title: 'Sammanställda rapporter', scope: 'Alla poster du får läsa. Sökning och sidval ändrar inte totalsummorna.', error: 'Kunde inte läsa totalsummorna. Uppdatera och försök igen.' } })[language];
@@ -108,7 +111,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       const actions = await controller.permissions();
       const result = await controller.load(page, query);
       if (disposed || current !== sequence) return;
-      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund'].includes(action));
+      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund', 'stock-availability'].includes(action));
       if (controller.table.reports?.length) {
         let reportResult: Awaited<ReturnType<typeof controller.reports>> | undefined;
         try { reportResult = await controller.reports(); } catch { if (controller.closed()) throw new Error('Report identity changed.'); }
@@ -156,6 +159,13 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
         const tr = document.createElement('tr');
         for (const field of controller.columns) { const td = document.createElement('td'); td.textContent = display(row[field.key], field); tr.append(td); }
         const td = document.createElement('td'); td.hidden = actionsHeader.hidden;
+        if (actions.includes('stock-availability')) td.append(button(stockCopy.action, () => {
+          if (busy) return; setBusy(true); status.textContent = copy.loading;
+          void controller.stockAvailable(String(row.id)).then(amount => {
+            if (disposed) return;
+            status.textContent = `${stockCopy.result}: ${amount}. ${stockCopy.hint}`; setBusy(false);
+          }).catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.error; } });
+        }));
         if (actions.includes('pay') || actions.includes('refund')) td.append(button(paymentStatusCopy.title, () => {
           if (busy) return; setBusy(true); status.textContent = copy.loading;
           void controller.paymentStatus(String(row.id)).then(payment => {

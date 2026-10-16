@@ -8,7 +8,7 @@ import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
 import { expandApplicationBookingRecurrence } from './application-booking-recurrence';
 
-type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { bookingAvailable?: ReturnType<typeof createApplicationDataRuntime>['bookingAvailable']; reports?: ReturnType<typeof createApplicationDataRuntime>['reports']; createBookingSeries?: ReturnType<typeof createApplicationDataRuntime>['createBookingSeries']; files?: ReturnType<typeof createApplicationDataRuntime>['files']; payments?: ReturnType<typeof createApplicationDataRuntime>['payments'] };
+type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { stockReservations?: ReturnType<typeof createApplicationDataRuntime>['stockReservations']; bookingAvailable?: ReturnType<typeof createApplicationDataRuntime>['bookingAvailable']; reports?: ReturnType<typeof createApplicationDataRuntime>['reports']; createBookingSeries?: ReturnType<typeof createApplicationDataRuntime>['createBookingSeries']; files?: ReturnType<typeof createApplicationDataRuntime>['files']; payments?: ReturnType<typeof createApplicationDataRuntime>['payments'] };
 const rowId = (id: string) => {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error('Invalid record identity.');
   return id;
@@ -36,7 +36,8 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' || action === 'pay' || action === 'refund' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles)
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' || action === 'pay' || action === 'refund' || action === 'stock-availability' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles)
+      && (action !== 'stock-availability' || !!runtime.stockReservations)
       && (!(action === 'pay' || action === 'refund') || runtime.payments?.available)
       && (action !== 'refund' || !!compiled.table.payment && roles.includes(compiled.table.payment.refundRoleId)));
   }
@@ -56,6 +57,12 @@ export function createApplicationDataViewController(definition: ApplicationDefin
   return {
     ...compiled,
     permissions,
+    async stockAvailable(id: string) {
+      if (!(await permissions()).includes('stock-availability') || !runtime.stockReservations) throw new Error('Stock availability is unavailable.');
+      const result = await runtime.stockReservations(compiled.table.id, owner!).available(rowId(id));
+      await identity();
+      return result;
+    },
     async bookingAvailable(values: Record<string, unknown>) {
       if (!(await permissions()).includes('create') || !runtime.bookingAvailable) throw new Error('Booking availability is unavailable.');
       try {
