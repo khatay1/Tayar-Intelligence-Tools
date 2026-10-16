@@ -6,8 +6,9 @@ import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 
 const dir = await mkdtemp(join(tmpdir(), 'tayar-owned-source-'));
-const oldFetch = globalThis.fetch, oldVercelEnv=process.env.VERCEL_ENV, oldStripeKey=process.env.STRIPE_SECRET_KEY;
+const oldFetch = globalThis.fetch, oldVercelEnv=process.env.VERCEL_ENV, oldVercelUrl=process.env.VERCEL_URL, oldStripeKey=process.env.STRIPE_SECRET_KEY;
 try {
+  process.env.VERCEL_ENV='production';
   const outfile = join(dir, 'compiler.cjs');
   const compilerBuild = await build({ entryPoints: ['server/website-owned-source-compiler.ts'], bundle: true,
     metafile: true, platform: 'node', format: 'cjs', outfile });
@@ -245,14 +246,26 @@ try {
   let checkoutResponse=await stripeHandler(checkoutRequest());assert.equal(checkoutResponse.status,200);
   assert.deepEqual(await checkoutResponse.json(),{url:'https://checkout.stripe.com/c/pay/fixture-live'});
   process.env.VERCEL_ENV='preview';process.env.STRIPE_SECRET_KEY=testSecret;
+  assert.equal((await stripeHandler(checkoutRequest())).status,503,'Production source cannot run in Preview');
+  const previewOrigin='https://stripe-preview.vercel.app';process.env.VERCEL_URL='stripe-preview.vercel.app';
+  const previewStripeSnapshot=structuredClone(stripeSnapshot),previewStripeConnection=previewStripeSnapshot.integrationsMax.connections[0];
+  previewStripeConnection.id='stripe-preview';previewStripeConnection.environments=['preview'];
+  previewStripeConnection.config.publishableKey='pk_test_fixture123456789';
+  previewStripeConnection.secrets.secretKey.ref=`secret://website/${id}/stripe-preview/secretKey/preview`;
+  const previewStripeFiles=await compile(previewStripeSnapshot,{...config,environment:'preview'});
+  const previewStripeFile=join(dir,'preview-stripe-runtime.cjs');await writeFile(previewStripeFile,previewStripeFiles[2].content);
+  const previewStripeHandler=(await import(pathToFileURL(previewStripeFile))).default;
+  const previewCheckoutRequest=()=>new Request(`${previewOrigin}/api/application?tayarRoute=stripe-checkout`,{method:'POST',
+    headers:{origin:previewOrigin,referer:`${previewOrigin}/`,'sec-fetch-site':'same-origin','content-type':'application/json'},
+    body:JSON.stringify({checkoutId:checkout.id})});
   globalThis.fetch=async(_resource,init)=>{
-    const body=new URLSearchParams(init.body);assert.equal(body.get('line_items[0][price]'),'price_preview12345678');
+    const body=new URLSearchParams(init.body);assert.equal(body.get('line_items[0][price]'),'price_preview12345678');assert.equal(body.get('success_url'),`${previewOrigin}/?checkout=success`);assert.equal(body.get('cancel_url'),`${previewOrigin}/?checkout=cancel`);
     return Response.json({id:'cs_test_fixturecheckout123456',object:'checkout.session',livemode:false,
       url:'https://checkout.stripe.com/c/pay/fixture-test'});
   };
-  checkoutResponse=await stripeHandler(checkoutRequest());assert.equal(checkoutResponse.status,200);
+  checkoutResponse=await previewStripeHandler(previewCheckoutRequest());assert.equal(checkoutResponse.status,200);
   assert.equal((await checkoutResponse.json()).url,'https://checkout.stripe.com/c/pay/fixture-test');
-  assert.equal((await stripeHandler(new Request(`${origin}/api/application?tayarRoute=stripe-checkout`,{method:'POST',
+  assert.equal((await previewStripeHandler(new Request(`${previewOrigin}/api/application?tayarRoute=stripe-checkout`,{method:'POST',
     headers:{origin:'https://evil.example',referer:`${origin}/`,'content-type':'application/json'},body:JSON.stringify({checkoutId:checkout.id})}))).status,403);
 
   const badPrice=structuredClone(stripeSnapshot);badPrice.pages[0].sections[0].elements.find(element=>element.id===checkout.id).stripeProductionPriceId='amount-from-browser';
@@ -277,6 +290,7 @@ try {
 } finally {
   globalThis.fetch = oldFetch;
   if(oldVercelEnv===undefined)delete process.env.VERCEL_ENV;else process.env.VERCEL_ENV=oldVercelEnv;
+  if(oldVercelUrl===undefined)delete process.env.VERCEL_URL;else process.env.VERCEL_URL=oldVercelUrl;
   if(oldStripeKey===undefined)delete process.env.STRIPE_SECRET_KEY;else process.env.STRIPE_SECRET_KEY=oldStripeKey;
   await rm(dir, { recursive: true, force: true });
 }

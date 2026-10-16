@@ -5,6 +5,7 @@ import { createOwnedEmailRpcClient } from './website-owned-email-rpc';
 import { readOwnedRuntimeEnvironment, type OwnedRuntimeSecretPlan } from './website-owned-runtime-secret-plan';
 import { serveOwnedPaymentRoute } from './website-owned-payment-route';
 import { serveOwnedReleaseIdentity, type OwnedReleaseIdentity } from './website-owned-release-identity';
+import { resolveOwnedRuntimeRequestManifest } from './website-owned-request-scope';
 
 declare const __TAYAR_MANIFEST__: OwnedApplicationRouteManifest;
 declare const __TAYAR_PAGES__: Map<string, string>;
@@ -14,11 +15,15 @@ declare const __TAYAR_SECRET_PLAN__: OwnedRuntimeSecretPlan;
 declare const __TAYAR_RELEASE_IDENTITY__: OwnedReleaseIdentity;
 
 export default async function handler(request: Request) {
+  let manifest: OwnedApplicationRouteManifest;
+  try { manifest = resolveOwnedRuntimeRequestManifest(__TAYAR_MANIFEST__, __TAYAR_RELEASE_IDENTITY__); }
+  catch { return new Response('Application runtime environment is unavailable.', { status: 503,
+    headers: { 'cache-control': 'private, no-store', 'cdn-cache-control': 'no-store', 'vercel-cdn-cache-control': 'no-store' } }); }
   const url = new URL(request.url);
   const route = url.searchParams.get('tayarRoute');
   if (route === 'release-proof') return serveOwnedReleaseIdentity(request, __TAYAR_RELEASE_IDENTITY__);
   if(route==='stripe-webhook'||route?.startsWith('stripe-order-')){
-    try{return await serveOwnedPaymentRoute(request,{manifest:__TAYAR_MANIFEST__,route,
+    try{return await serveOwnedPaymentRoute(request,{manifest,route,
       environment:readOwnedRuntimeEnvironment(__TAYAR_SECRET_PLAN__)});}
     catch{return Response.json({error:'Payment runtime unavailable.'},{status:503,headers:{'cache-control':'private, no-store'}});}
   }
@@ -27,14 +32,14 @@ export default async function handler(request: Request) {
     try {
       const environment = readOwnedRuntimeEnvironment(__TAYAR_SECRET_PLAN__);
       return serveOwnedEmailWorker(new Request(url, request), {
-        projectId: __TAYAR_MANIFEST__.projectId,
+        projectId: manifest.projectId,
         environment: __TAYAR_SECRET_PLAN__.environment,
-        applicationOrigin: __TAYAR_MANIFEST__.applicationOrigin,
+        applicationOrigin: manifest.applicationOrigin,
         cronSecret: environment.CRON_SECRET,
         connections: __TAYAR_SECRET_PLAN__.emailConnections.map(connection => ({ id: connection.id, from: connection.from,
           apiKey: environment[connection.environmentKey] })),
-        client: () => createOwnedEmailRpcClient({ backend: __TAYAR_MANIFEST__.backend,
-          expectedProjectRef: __TAYAR_MANIFEST__.expectedProjectRef, secretKey: environment.SUPABASE_SECRET_KEY }),
+        client: () => createOwnedEmailRpcClient({ backend: manifest.backend,
+          expectedProjectRef: manifest.expectedProjectRef, secretKey: environment.SUPABASE_SECRET_KEY }),
       });
     } catch { return Response.json({ error: 'Email worker unavailable.' }, { status: 503,
       headers: { 'cache-control': 'private, no-store' } }); }
@@ -42,9 +47,9 @@ export default async function handler(request: Request) {
   if (route === 'stripe-checkout') {
     url.pathname = '/api/stripe-checkout'; url.searchParams.delete('tayarRoute');
     return serveOwnedStripeCheckout(new Request(url, request), {
-      projectId: __TAYAR_MANIFEST__.projectId,
-      applicationOrigin: __TAYAR_MANIFEST__.applicationOrigin,
-      pagePaths: __TAYAR_MANIFEST__.pages.map(page => page.path),
+      projectId: manifest.projectId,
+      applicationOrigin: manifest.applicationOrigin,
+      pagePaths: manifest.pages.map(page => page.path),
       checkouts: __TAYAR_STRIPE_CHECKOUTS__,
     });
   }
@@ -55,7 +60,7 @@ export default async function handler(request: Request) {
     headers: { 'cache-control': 'private, no-store' },
   });
   url.searchParams.delete('tayarRoute');
-  return serveOwnedApplicationRoute(new Request(url, request), __TAYAR_MANIFEST__, async pageId =>
+  return serveOwnedApplicationRoute(new Request(url, request), manifest, async pageId =>
     new Response(__TAYAR_PAGES__.get(pageId), {
       headers: { 'content-type': 'text/html; charset=utf-8' },
     }));
