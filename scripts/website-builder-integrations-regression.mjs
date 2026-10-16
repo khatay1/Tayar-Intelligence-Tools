@@ -18,6 +18,7 @@ try {
   const projectHost = await load('editor-integrations-project-host');
   const legacyHost = await load('editor-integrations-host');
   const security = await load('editor-integration-security');
+  const properties = await load('editor-integration-property-contract');
   assert.ok(integrations.EDITOR_INTEGRATION_PROVIDERS.some(provider => provider.id === 'stripe'));
   assert.ok(integrations.EDITOR_INTEGRATION_PROVIDERS.some(provider => provider.id === 'webhook'));
   const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
@@ -47,6 +48,50 @@ try {
   assert.ok(issues.some(issue => issue.code === 'invalid-url'));
   assert.ok(issues.some(issue => issue.code === 'missing-secret'));
   assert.ok(issues.some(issue => issue.code === 'unsupported-event'));
+  // Evaluate Activepieces-style typed property contracts without embedding
+  // or executing external pieces. Values must fail closed before dispatch.
+  const fixtureProvider = {
+    id: 'integration-contract-fixture', name: 'Contract fixture', category: 'api',
+    description: 'Regression only', capabilities: [],
+    fields: [
+      { key: 'enabledFlag', label: 'Enabled flag', type: 'boolean', required: true },
+      { key: 'target', label: 'Target', type: 'select', required: true,
+        options: [{ label: 'One', value: 'one' }, { label: 'Two', value: 'two' }] },
+      { key: 'label', label: 'Label', type: 'text', required: true },
+    ],
+  };
+  integrations.EDITOR_INTEGRATION_PROVIDERS.push(fixtureProvider);
+  try {
+    const typed = integrations.normalizeEditorIntegrationsConfig({ connections: [{
+      id: 'contract', providerId: fixtureProvider.id, name: 'Contract',
+      enabled: true, environments: ['preview'], status: 'configured',
+      config: { enabledFlag: false, target: 'one', label: 'Allowed' },
+      secrets: {}, events: ['custom'],
+    }] });
+    assert.deepEqual(properties.validateEditorPropertyValues(fixtureProvider.fields, typed.connections[0].config), [],
+      'A false boolean and selected enum option are legitimate typed inputs');
+    for (const [field, value] of [
+      ['enabledFlag', 'false'],
+      ['enabledFlag', 1],
+      ['target', 'unlisted'],
+      ['target', true],
+      ['label', true],
+      ['label', ' '.repeat(2)],
+      ['label', 'x'.repeat(5001)],
+    ]) {
+      const invalidField = structuredClone(typed);
+      invalidField.connections[0].config[field] = value;
+      assert.ok(properties.validateEditorPropertyValues(fixtureProvider.fields, invalidField.connections[0].config)
+        .some(issue => issue.code === 'invalid-config' && issue.field === field),
+        `Editor property contract must reject invalid ${field} values`);
+
+    }
+  } finally { integrations.EDITOR_INTEGRATION_PROVIDERS.pop(); }
+  // The adapter/runtime still requires its separate, server-owned validation.
+  // This preflight must not be advertised as a dispatch authorization gate.
+  const gaFields = integrations.getEditorIntegrationProvider('google-analytics').fields;
+  assert.ok(properties.validateEditorPropertyValues(gaFields, { measurementId: false })
+    .some(issue => issue.field === 'measurementId'));
   const invalidId = structuredClone(config); invalidId.connections[0].id = 'hook\r\nAuthorization: bad';
   assert.ok(integrations.validateEditorIntegrations(invalidId).some(issue => issue.code === 'invalid-config'), 'Invalid connection IDs block publishing');
   const stripeRef = `secret://website/${projectId}/stripe-prod/secretKey/production`;

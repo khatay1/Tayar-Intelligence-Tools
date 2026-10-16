@@ -6,6 +6,7 @@ import { localizeUi as localizeBaseUi } from './ui-localization';
 type PhraseMap = Record<string, string>;
 
 export const arCmsSupplement: PhraseMap = {
+  'Choose an option': 'اختر خيارًا',
   'Planning scope': 'نطاق التخطيط',
   'All application data': 'كل بيانات التطبيق',
   'AI can change only the selected table. Related tables are included for context and remain read-only.': 'يمكن للذكاء الاصطناعي تعديل الجدول المحدد فقط. تُضمّن الجداول المرتبطة لفهم السياق وتبقى للقراءة فقط.',
@@ -190,6 +191,7 @@ export const arCmsSupplement: PhraseMap = {
 };
 
 export const svCmsSupplement: PhraseMap = {
+  'Choose an option': 'Välj ett alternativ',
   'Planning scope': 'Planeringens omfattning',
   'All application data': 'Alla applikationsdata',
   'AI can change only the selected table. Related tables are included for context and remain read-only.': 'AI kan bara ändra den valda tabellen. Relaterade tabeller ingår som sammanhang och är skrivskyddade.',
