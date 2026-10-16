@@ -25,9 +25,11 @@ try {
     "export { applicationCounterInfrastructure, compileApplicationCounterSchema } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-counter-sql')) + ';',
     "export { verifyOwnedStockReservationCatalog } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-catalog')) + ';',
     "export { verifyOwnedStockReservationInstallation } from " + JSON.stringify(resolve('server/website-owned-stock-reservation-installation')) + ';',
+    "export { createApplicationStockReservationRpc, ApplicationStockRpcRejected } from " + JSON.stringify(resolve('src/modules/website-builder/core/application-stock-reservation-rpc')) + ';',
   ].join('\n'));
   await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'cjs', outfile });
-  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters, verifyOwnedStockReservationCatalog: verifyCatalog, verifyOwnedStockReservationInstallation: verifyInstallation } = require(outfile);
+  const { compileApplicationInventoryReservationSchema: reservations, applicationCounterInfrastructure: infrastructure, compileApplicationCounterSchema: counters, verifyOwnedStockReservationCatalog: verifyCatalog, verifyOwnedStockReservationInstallation: verifyInstallation, createApplicationStockReservationRpc: stockRpc,
+    ApplicationStockRpcRejected: StockRpcRejected } = require(outfile);
   const app = {
     version: 1, auth: { enabled: true, signUpEnabled: false, emailVerificationRequired: true },
     pageAccess: [], roles: [], tables: [{
@@ -244,6 +246,49 @@ try {
   } }), false, 'Connection rotation during catalog read invalidates attestation');
   currentConnection = structuredClone(connection);
   assert.equal(await verifyInstallation(attestation), true, 'Current connection restores attestation');
+
+  // Exercise the owner-facing client contract against the ACTUAL isolated
+  // PostgreSQL RPCs. Only this fixture translates psql rows to Supabase-style
+  // typed RPC results; no generated runtime, token or live service is touched.
+  const client = stockRpc(app, 'products', { async rpc(name, args) {
+    const values = {
+      app_stock_available_0: () => [args.item_id],
+      app_stock_reserve_0: () => [args.item_id, args.location_id, args.reservation_id, args.amount],
+      app_stock_finalize_0: () => [args.reservation_id, args.decision],
+    };
+    if (!Object.hasOwn(values, name)) return { data: null, error: { message: 'unsupported fixture RPC' } };
+    const params = values[name]().map(value => typeof value === 'number' ? String(value) : "'" + value + "'").join(',');
+    try {
+      const output = await query(\`\${login(owner)} select public.\${name}(\${params});\`);
+      const actual = output.split('\n').at(-1);
+      return { data: name === 'app_stock_available_0' ? Number(actual) : actual, error: null };
+    } catch { return { data: null, error: { message: 'database-internal-detail-must-not-escape' } }; }
+  }});
+  assert.equal(await client.available(item), 0, 'Exposed availability reflects a real held unit');
+  const lastHold = 'aaaa0000-4444-4444-8444-444444444444';
+  assert.equal(await client.settle(lastHold, 'release'), 'released');
+  assert.equal(await client.settle(lastHold, 'release'), 'already-released');
+  assert.equal(await client.available(item), 1);
+  const receiptFromClient = 'aaaa0000-5555-4555-8555-555555555555';
+  assert.equal(await client.reserve(item,location,receiptFromClient,1), 'reserved');
+  assert.equal(await client.reserve(item,location,receiptFromClient,1), 'already-reserved');
+  assert.equal(await client.available(item), 0);
+  assert.equal(await client.settle(receiptFromClient,'fulfill'), 'fulfilled');
+  assert.equal(await client.settle(receiptFromClient,'fulfill'), 'already-fulfilled');
+  assert.equal(await client.available(item), 0);
+  await assert.rejects(client.settle(receiptFromClient,'release'), StockRpcRejected);
+  await assert.rejects(client.available(foreign + 'not-a-uuid'), StockRpcRejected);
+  await assert.rejects(client.reserve(item,location,'bad-receipt',1), StockRpcRejected);
+  await assert.rejects(client.reserve(item,location,receiptFromClient,'1'), StockRpcRejected);
+  await assert.rejects(client.reserve(item,location,receiptFromClient,0), StockRpcRejected);
+  await assert.rejects(client.reserve(item,location,receiptFromClient,1.5), StockRpcRejected);
+  await assert.rejects(client.reserve(item,location,receiptFromClient,Infinity), StockRpcRejected);
+  await assert.rejects(client.settle(receiptFromClient,'erase'), StockRpcRejected);
+  assert.throws(() => stockRpc(app,'missing',{ rpc:async () => ({data:0,error:null}) }), StockRpcRejected);
+  const broken = stockRpc(app,'products',{ rpc:async () =>
+    ({ data:null,error: { message:'provider-secret-not-visible' } }) });
+  await assert.rejects(broken.available(item), error =>
+    error instanceof StockRpcRejected && !String(error).includes('provider-secret-not-visible'));
 
   await query('revoke execute on function public.app_stock_reserve_0(uuid,uuid,uuid,numeric) from authenticated;');
   assert.equal(await verify(), false, 'Permission drift must block publication');
