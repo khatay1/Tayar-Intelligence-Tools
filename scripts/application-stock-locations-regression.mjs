@@ -224,6 +224,25 @@ try {
   assert.equal(await nativeRpc.transfer(from,to,id(71),1),'transferred','The real RPC adapter executes against the generated native function and ignores expired holds');
   assert.equal(await nativeRpc.transfer(from,to,id(71),1),'already-transferred');
   assert.equal(await balances(),'2\n13');
+  // Exercise actual generated numeric values and invoker reports, including
+  // precision beyond JavaScript numbers and distinct warehouse cost snapshots.
+  const valueReport=who=>query(`${login(who)}select public.app_reports_2();`).then(text=>JSON.parse(text.split('\n').at(-1)));
+  await query(`${login(owner)}update public.app_levels set unit_cost=case when id='${from}' then 2.25 else 7.50 end where id in ('${from}','${to}');`);
+  assert.equal(await query(`select stock_value from public.app_levels where id in ('${from}','${to}') order by id;`),'4.50\n97.50');
+  assert.deepEqual(await valueReport(owner),[{id:'inventory_value',value:'102.00'}]);
+  await assert.rejects(query(`${login(owner)}update public.app_levels set stock_value=1 where id='${from}';`),/generated column/,'Ordinary writes cannot forge computed stock value');
+  await query(`${login(foreign)}update public.app_levels set unit_cost=9007199254740993.01 where id='${foreignLevel}';select public.app_adjust_counter_2('${foreignLevel}',3,gen_random_uuid());`);
+  assert.deepEqual(await valueReport(foreign),[{id:'inventory_value',value:'27021597764222979.03'}],'Foreign owner retains exact decimal value');
+  assert.deepEqual(await valueReport(owner),[{id:'inventory_value',value:'102.00'}],'Other owner values cannot enter this total');
+  await query(`${login(owner)}update public.app_levels set unit_cost=case when id='${from}' then 0.10 else 0.20 end where id in ('${from}','${to}');`);
+  assert.deepEqual(await valueReport(owner),[{id:'inventory_value',value:'2.80'}],'Changing declared cost recomputes the current snapshot');
+  assert.match(await transfer(from,to,id(73),1),/transferred$/);
+  assert.equal(await query(`select quantity||'|'||unit_cost||'|'||stock_value from public.app_levels where id in ('${from}','${to}') order by id;`),'1|0.10|0.10\n14|0.20|2.80','Transfer changes quantity while each warehouse retains its declared unit cost');
+  assert.deepEqual(await valueReport(owner),[{id:'inventory_value',value:'2.90'}]);
+  assert.match(await transfer(from,to,id(73),1),/already-transferred$/);
+  assert.deepEqual(await valueReport(owner),[{id:'inventory_value',value:'2.90'}],'Idempotent transfer replay cannot change computed values');
+  await assert.rejects(query(`set role anon;select public.app_reports_2();`),/permission denied/);
+  console.log('PASS native PostgreSQL stock valuation: generated quantity × cost, exact decimal totals, owner isolation, cost changes and transfer replay');
   await assert.rejects(query(`${login(owner)}select * from private.app_stock_transfers_2;`),/permission denied/);
   await assert.rejects(query(`set role anon;select public.app_stock_transfer_2('${from}','${to}','${id(72)}',1);`),/permission denied/);
   await assert.rejects(query(`${login(owner)}select set_config('request.jwt.claims','{"is_anonymous":true}',false);select public.app_stock_transfer_2('${from}','${to}','${id(72)}',1);`),/unavailable/);

@@ -914,6 +914,10 @@ customer/provider activation and Social Hub remain deferred.
 
 ## Current physical stock value snapshot — 2026-10-17
 
+PR #274 merged as `a93ead2b9d3632c382a243c434fca3cc7925270f`
+after Release Gate `39043987662` and Vercel passed on
+`5d35ee33fbb8b430afb629a5ce9e6e8c41c5d0e6`.
+
 Continue from merged checkpoint PR #273 `62803c9913927421d92333e05447e7880cc0cac6`.
 Physical stock definitions may now opt into
 `stockValuation={unitCostFieldId,valueFieldId,currency}`. The unit cost is a
@@ -935,3 +939,10 @@ by Vercel as `--prod --skip-domain`). The server-side deployment interface in us
 does not expose a verified equivalent, so no speculative provider call or domain
 mutation was added. Production promotion and activation remain blocked rather
 than risking an unintended live assignment.
+
+The existing physical-stock PostgreSQL fixture now checks nonzero valuation
+arithmetic and invoker report results: exact decimals beyond JavaScript numeric
+precision, owner-isolated sums, refusal of direct computed-value writes, cost
+updates, and transfer/retry recomputation while each warehouse retains its own
+declared cost. Different warehouse costs can change the aggregate snapshot when
+quantity moves; there is no implied cost-basis conservation or movement ledger.
