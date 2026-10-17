@@ -901,3 +901,13 @@ No new OSS code/dependency, live database/history migration, key, provider
 activation, customer Production promotion or Social Hub work. Reviewed existing
 DB upgrades, broader engine capabilities and final live release evidence remain
 open. Do not infer stock valuation or multi-item transfer batches from this slice.
+
+PR #272 merged as `cc8f7891d2f492020544ae1ba5bfb168ec428931`
+after exact-head Release Gate `39042671511` passed on
+`16d11955f956191bca44d8db5db3b1191f97fd49`; Vercel also passed. The gate
+included the native PostgreSQL concurrency, idempotency, held-stock floor,
+second-leg rollback and catalog-drift cases plus the en/ar/sv browser recovery
+flow. This closes the planned physical multi-location stock balance/hold/transfer
+slice. Existing-database upgrades, valuation and multi-item batches are separate
+capabilities, not implied by this checkpoint. Continue with general engine gaps;
+customer/provider activation and Social Hub remain deferred.
