@@ -35,6 +35,10 @@ export function compileApplicationDataView(definition: ApplicationDefinition, in
   if (!table || !table.fields.length || !table.permissions.some(rule => rule.operation === 'read')
     || binding.actions.some(action => !table.permissions.some(rule => rule.operation === (['attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation'].includes(action) ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action)))) throw new Error('Data view requires declared read and action permissions.');
   if (binding.actions.some(action => action === 'stock-availability' || action === 'stock-reservation') && !table.stockReservations) throw new Error('Stock controls require the saved stock reservation opt-in.');
+  if (table.stockLocations && binding.actions.some(action => action === 'stock-availability' || action === 'stock-reservation')
+    && ![table.stockLocations.itemFieldId, table.stockLocations.locationFieldId, table.counter!.fieldId].every(id => binding.columns.includes(id))) {
+    throw new Error('Physical stock controls require visible item, location and quantity columns.');
+  }
   if (binding.actions.some(action => action === 'pay' || action === 'refund') && !table.payment) throw new Error('Payment actions require a native payment rule.');
   if (binding.actions.includes('attachments') && !table.attachments) throw new Error('Attachments require a native file rule.');
   if (binding.actions.includes('adjust') && !table.counter) throw new Error('Adjustment requires a native counter rule.');

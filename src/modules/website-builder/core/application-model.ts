@@ -108,9 +108,12 @@ export interface ApplicationTable {
   permissions: ApplicationPermission[];
   booking?: ApplicationBookingRule;
   counter?: ApplicationCounterRule;
-  /** Initial-install opt-in for owner-only stock holds. Locations are labels,
-   * not warehouse balances. Availability remains an informational hint. */
+  /** Initial-install opt-in for owner-only stock holds. Locations are labels unless stockLocations declares
+   * physical level dimensions. Availability remains an informational hint. */
   stockReservations?: true;
+  /** One immutable, owner-scoped stock row per catalog item and warehouse.
+   * Both fields are required references to distinct owner-scoped tables. */
+  stockLocations?: { itemFieldId: string; locationFieldId: string };
   transaction?: ApplicationTransactionRule;
   payment?: ApplicationPaymentRule;
   workflow?: ApplicationWorkflowRule;

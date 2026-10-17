@@ -1,4 +1,5 @@
 import type { ApplicationDefinition } from './application-model';
+import { compileApplicationStockLocationsSchema } from './application-stock-locations-sql';
 import { applicationInventoryReservationTarget } from './application-inventory-reservation-target';
 
 /**
@@ -9,15 +10,13 @@ import { applicationInventoryReservationTarget } from './application-inventory-r
  * lazily while holding the item lock, without requiring pg_cron to free stock.
  * Receipts remain immutable and do not renew when a request ID is replayed.
  *
- * Uses the native, owner-scoped single-app backend. Does not support shared
- * organization inventory or per-location stock allocations. The supplied
- * location UUID is an immutable reservation tag, not a per-location balance.
- *
- * This is only a schema compiler/proof until wired through the verified
- * generated application publication and customer runtime path.
+ * Uses the native owner-scoped single-app backend. Without stockLocations the
+ * supplied location UUID is an immutable tag. With stockLocations, the existing
+ * counter belongs to one immutable item/warehouse level and reserve requires
+ * that exact warehouse. Shared organization inventory and transfers are absent.
  */
 export function compileApplicationInventoryReservationSchema(input: ApplicationDefinition, itemTableId: string): string[] {
-  const { index, table } = applicationInventoryReservationTarget(input, itemTableId);
+  const { app, index, table } = applicationInventoryReservationTarget(input, itemTableId);
   const field = table.fields.find(field => field.id === table.counter!.fieldId)!;
   const product = 'public."app_' + table.key + '"';
   const column = '"' + field.key + '"';
@@ -27,6 +26,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
   const checking = 'app_stock_available_' + index;
   const floor = 'app_stock_floor_' + index;
   const counter = 'private.app_adjust_counter_' + index;
+  const locationColumn = table.stockLocations ? table.fields.find(field => field.id === table.stockLocations!.locationFieldId)!.key : null;
   const signedIn = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
   const reserveSql = [
     'create function private.' + reserving + '(item_id uuid, location_id uuid, reservation_id uuid, amount numeric) returns text language plpgsql security definer set search_path = \'\' as $stock_reserve$',
@@ -35,7 +35,8 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     '  if not ' + signedIn + ' or item_id is null or location_id is null or reservation_id is null or amount is null',
     '    or amount <> trunc(amount) or amount <= 0 or amount > 1000000000000 then raise exception \'Stock reservation unavailable\'; end if;',
     '  select p.' + column + ' into available from ' + product + ' p',
-    '    where p.id = ' + reserving + '.item_id and p.owner_id = actor for update;',
+    '    where p.id = ' + reserving + '.item_id and p.owner_id = actor'
+      + (locationColumn ? ' and p."' + locationColumn + '" = ' + reserving + '.location_id' : '') + ' for update;',
     '  if not found then raise exception \'Stock reservation unavailable\'; end if;',
     // The product lock makes expiry and reallocation atomic with every
     // competing reserve/finalize operation for this owner/item.
@@ -106,6 +107,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     'end $stock_available$;',
   ].join('\n');
   return [
+    ...compileApplicationStockLocationsSchema(app, itemTableId),
     'create table ' + ledger + ' (actor_id uuid not null, reservation_id uuid not null,',
     '  item_id uuid not null references ' + product + '(id) on delete restrict, location_id uuid not null,',
     "  quantity numeric not null check (quantity > 0 and quantity <= 1000000000000 and quantity = trunc(quantity)),",

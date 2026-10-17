@@ -483,7 +483,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object5(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "stockReservations", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "stockReservations", "stockLocations", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier3(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -619,6 +619,24 @@ function validateApplicationDefinition(value, pageIds) {
       });
       if (table.stockReservations !== true || !authEnabled || !object5(table.counter) || table.counter.integer !== true || table.counter.minimum !== 0 || !ownerOnly) {
         issue(`${path}.stockReservations`, "invalid-stock-reservations", "Stock reservations require an explicit true opt-in and an owner-only integer counter starting at zero.");
+      }
+    }
+    if (table.stockLocations !== void 0) {
+      const locationPath = `${path}.stockLocations`;
+      if (shape(table.stockLocations, ["itemFieldId", "locationFieldId"], locationPath)) {
+        const rule = table.stockLocations;
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object5) : [];
+        const item = fields.find((field) => field.id === rule.itemFieldId);
+        const location2 = fields.find((field) => field.id === rule.locationFieldId);
+        const targetIsOwnerScoped = (field) => {
+          const target = tables.find((candidate) => object5(candidate) && candidate.id === field?.referenceTableId);
+          if (!object5(target) || target.id === table.id || !Array.isArray(target.permissions)) return false;
+          const reads = target.permissions.filter((permission) => object5(permission) && permission.operation === "read");
+          return reads.length > 0 && target.permissions.every((permission) => object5(permission) && permission.access === "owner");
+        };
+        if (table.stockReservations !== true || !id(rule.itemFieldId) || !id(rule.locationFieldId) || rule.itemFieldId === rule.locationFieldId || item?.type !== "reference" || location2?.type !== "reference" || item.required !== true || location2.required !== true || item.referenceTableId === location2.referenceTableId || !targetIsOwnerScoped(item) || !targetIsOwnerScoped(location2)) {
+          issue(locationPath, "invalid-stock-locations", "Physical stock requires the stock opt-in and distinct required item/location references to owner-scoped tables.");
+        }
       }
     }
     if (table.transaction !== void 0) {
@@ -10906,6 +10924,9 @@ function compileApplicationDataView(definition, input) {
   const table = app.tables.find((table2) => table2.id === binding.tableId);
   if (!table || !table.fields.length || !table.permissions.some((rule) => rule.operation === "read") || binding.actions.some((action) => !table.permissions.some((rule) => rule.operation === (["attachments", "pay", "refund", "stock-availability", "stock-reservation"].includes(action) ? "read" : action === "adjust" || action === "transition" ? "update" : action === "transact" ? "create" : action)))) throw new Error("Data view requires declared read and action permissions.");
   if (binding.actions.some((action) => action === "stock-availability" || action === "stock-reservation") && !table.stockReservations) throw new Error("Stock controls require the saved stock reservation opt-in.");
+  if (table.stockLocations && binding.actions.some((action) => action === "stock-availability" || action === "stock-reservation") && ![table.stockLocations.itemFieldId, table.stockLocations.locationFieldId, table.counter.fieldId].every((id2) => binding.columns.includes(id2))) {
+    throw new Error("Physical stock controls require visible item, location and quantity columns.");
+  }
   if (binding.actions.some((action) => action === "pay" || action === "refund") && !table.payment) throw new Error("Payment actions require a native payment rule.");
   if (binding.actions.includes("attachments") && !table.attachments) throw new Error("Attachments require a native file rule.");
   if (binding.actions.includes("adjust") && !table.counter) throw new Error("Adjustment requires a native counter rule.");

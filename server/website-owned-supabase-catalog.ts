@@ -151,9 +151,14 @@ const compact = (expression: string) => expression.trim();
 // known equivalent; never strip literals, operators, casts or parentheses.
 const ownerSource = "(((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true) and (select auth.uid()) = owner_id)";
 const ownerCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id))";
+// INSERT additionally pins the new owner. PostgreSQL flattens the generated
+// conjunction; accept only this exact deparse, including both ownership terms.
+const ownerCreateSource = `((${ownerSource}) and owner_id = (select auth.uid()))`;
+const ownerCreateCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id) AND (owner_id = ( SELECT auth.uid() AS uid)))";
 function matchesPolicyExpression(actual: string, expected: string): boolean {
   return compact(actual) === compact(expected)
-    || (expected === ownerSource && compact(actual) === ownerCatalog);
+    || (expected === ownerSource && compact(actual) === ownerCatalog)
+    || (expected === ownerCreateSource && compact(actual) === ownerCreateCatalog);
 }
 
 async function verifyRoleInfrastructure(query: Query): Promise<boolean> {
