@@ -14,6 +14,7 @@ const stockReservationRequest = (prompt: string) => new RegExp(stockReservationP
 const physicalStockLocationRequest = (prompt: string) =>
   /\b(?:stock|inventory)(?:\W+\w+){0,6}\W+(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))\b|\b(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))(?:\W+\w+){0,6}\W+(?:stock|inventory)\b|(?:مخزون|المخزون).{0,45}(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع))|(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع)).{0,45}(?:مخزون|المخزون)|\blager(?:saldo)?\b.{0,45}\b(?:per (?:lager|plats)|på flera (?:platser|lager))\b/iu.test(prompt);
 const stockTransferRequest = (prompt: string) => /\b(?:(?:transfer|move)(?:\W+\w+){0,5}\W+(?:stock|inventory)|(?:stock|inventory|warehouse) transfers?)\b|(?:نقل|تحويل).{0,40}(?:المخزون|مخزون|المستودعات|المستودع)|\b(?:lagerflytt|lageröverföring)\b/iu.test(prompt);
+const stockValuationRequest = (prompt: string) => /\b(?:(?:stock|inventory) valuation|(?:stock|inventory) value|value of (?:stock|inventory))\b|(?:تقييم المخزون|قيمة المخزون)|\b(?:lagervärde|lagervärdering)\b/iu.test(prompt);
 const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt.replace(stockReservationPattern, ''));
 const stockAvailabilityPattern = /\b(?:available (?:stock|inventory)|(?:stock|inventory) availability|tillgängligt lager)\b|(?:المخزون المتاح|الكمية المتاحة من المخزون)/giu;
 const stockAvailabilityRequest = (prompt: string) => new RegExp(stockAvailabilityPattern.source, 'iu').test(prompt);
@@ -38,6 +39,7 @@ export function requestedApplicationCapabilities(prompt: string): Set<Applicatio
   if (stockAvailabilityRequest(prompt)) capabilities.add('records');
   if (physicalStockLocationRequest(prompt) || stockTransferRequest(prompt)) capabilities.add('records');
   if (stockReservationRequest(prompt)) capabilities.add('records');
+  if (stockValuationRequest(prompt)) { capabilities.add('records'); capabilities.add('formula'); capabilities.add('reports'); }
   return capabilities;
 }
 
@@ -88,6 +90,7 @@ export function prepareGeneratedApplication(
   let physicalStockViews = 0;
   let stockAvailabilityViews = 0;
   let stockReservationViews = 0;
+  let stockValuationViews = 0;
   const evidence = new Set<string>();
   if (definition.auth.enabled) evidence.add('auth');
   for (const page of pages) evidence.add(`page:${page.slug}`);
@@ -99,6 +102,8 @@ export function prepareGeneratedApplication(
       if (view.table.stockLocations && view.binding.actions.includes('stock-availability')) physicalStockViews++;
       if (view.table.stockReservations && view.binding.actions.includes('stock-availability')) stockAvailabilityViews++;
       if (view.table.stockReservations && view.binding.actions.includes('stock-reservation')) stockReservationViews++;
+      if (view.table.stockValuation
+        && [view.table.stockValuation.unitCostFieldId, view.table.stockValuation.valueFieldId].every(id => view.binding.columns.includes(id))) stockValuationViews++;
       if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
       if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       if (view.table.transaction && view.binding.actions.includes('transact')) transactionViews++;
@@ -142,6 +147,7 @@ export function prepareGeneratedApplication(
   if (counterRequested && !counterViews) throw new Error('Quantity management requires a bound adjustment view and a native counter rule.');
   if (stockAvailabilityRequest(prompt) && !stockAvailabilityViews) throw new Error('Available stock requires a saved stock declaration and a bound stock-availability view. No incomplete application was applied.');
   if (stockReservationRequested && !stockReservationViews) throw new Error('Stock reservations require a saved stock declaration and a bound stock-reservation view. Availability or ordinary transactions cannot replace it. No incomplete application was applied.');
+  if (stockValuationRequest(prompt) && !stockValuationViews) throw new Error('Current stock valuation requires saved physical stock, visible unit cost and computed value fields, and a summed value report. Ordinary counters cannot fulfill this requirement. No incomplete application was applied.');
   if (transactionRequested && !transactionViews) throw new Error('Multi-item transactions require a bound transaction view and native parent, line and counter rules.');
   const bookings = definition.tables.filter(table => table.booking).map(table => table.booking!);
   if (/\b(?:recurring appointments?|repeat bookings?)\b|(?:المواعيد المتكررة|تكرار الحجز)|(?:återkommande bokningar)/iu.test(prompt)
