@@ -993,3 +993,26 @@ runtime/behavior evidence. The private PostgreSQL claim/record adapter and trust
 coordinator composition still need implementation before mounting this path;
 the existing Production entry remains blocked. Customer activation, credentials,
 historical migration changes and Social Hub remain deferred.
+
+## Durable private Production staging claim — 2026-10-17
+
+PR #277 merged as `15fddfa7873bdfc64ddb02a5a6731e23690dc9d7` after
+Release Gate `39070896596` and Vercel passed on `3f6ec85c`.
+The new forward-only source migration (created with the pinned Supabase CLI)
+adds a private RLS-enabled staging claim table and service-only claim/record RPCs.
+Each call rechecks the exact immutable Production source checkpoint, matching
+customer custody, separate current Production backend receipt and provider
+environment IDs. Dependency rows are locked in shared stable order while the
+claim itself serializes on its operation key. One concurrent claimant can create;
+every retry observes only. A provider ID is immutable once recorded.
+
+The concrete server store refuses malformed claim results and reconciles lost
+record responses by reading the same claimed operation. No credentials or
+runtime source bodies enter the new table. The existing isolated PostgreSQL
+fixture applies the actual new migration and checks concurrent claimants,
+record/retry identity, wrong owner/project/repository, scope changes, expired
+custody, stale source/runtime receipts and denial to browser roles/direct service
+table access. The transport regression now also drives the concrete store.
+Native PostgreSQL CI is required before merge. No live migration is applied.
+Trusted coordinator selection/composition, runtime/behavioral proof and final
+approved activation remain open; no new public publishing action is mounted.

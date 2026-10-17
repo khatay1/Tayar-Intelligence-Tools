@@ -8,8 +8,9 @@ import { build } from 'esbuild';
 const dir = await mkdtemp(join(tmpdir(), 'tayar-vercel-staging-'));
 try {
   const out = join(dir, 'staging.cjs');
-  await build({ entryPoints: ['server/website-owned-vercel-staging.ts'], outfile: out, bundle: true, platform: 'node', format: 'cjs' });
-  const { stageOwnedVercelProductionDeployment: stage } = createRequire(import.meta.url)(out);
+  await build({ stdin: { contents: `export * from './server/website-owned-vercel-staging'; export * from './server/website-production-staging-store';`,
+    resolveDir: process.cwd(), loader: 'ts' }, outfile: out, bundle: true, platform: 'node', format: 'cjs' });
+  const { stageOwnedVercelProductionDeployment: stage, createWebsiteProductionStagingStore: concreteStore } = createRequire(import.meta.url)(out);
   const uid = n => `${n}`.repeat(8) + '-' + `${n}`.repeat(4) + '-4' + `${n}`.repeat(3) + '-8' + `${n}`.repeat(3) + '-' + `${n}`.repeat(12);
   const candidate = { status: 'source-prepared', operationId: uid(1), projectId: uid(2), ownerId: uid(3),
     previewOperationId: uid(4), githubConnectionId: uid(5), previewSourceDigest: 'a'.repeat(64), snapshotDigest: 'b'.repeat(64),
@@ -80,6 +81,23 @@ try {
   assert.deepEqual(await stage(normal.input), { status: 'staged', deploymentId: deployment.id, sourceCommitSha: candidate.headSha,
     liveUrl: 'https://customer-staged.vercel.app' });
   assert.equal((await stage(normal.input)).status, 'staged'); assert.equal(normal.stats().posts, 1, 'A claimed retry observes only');
+  let durable = false, durableId = null, calls = 0;
+  const adapter = concreteStore({ isCurrent: async () => true, client: { rpc: async (name, args) => {
+    assert.equal(args.p_operation_id, candidate.operationId); assert.equal(args.p_project_id, candidate.projectId);
+    assert.equal(args.p_owner_id, candidate.ownerId); assert.deepEqual(args.p_scope.candidate, candidate);
+    if (name === 'website_claim_production_staging') { const issueCreate = !durable; durable = true;
+      return { data: { issueCreate, deploymentId: durableId }, error: null }; }
+    assert.equal(name, 'website_record_production_staging'); calls++; durableId = args.p_deployment_id;
+    throw Error('Lost database response after commit');
+  } } });
+  const adapterFixture = fixture();
+  // The separate mock transport's claim check is satisfied by delegating once;
+  // all durable decisions and record reconciliation use the concrete adapter.
+  const originalClaim = adapterFixture.input.store.claim;
+  adapterFixture.input.store = { claim: async scope => { await originalClaim(scope); return adapter.claim(scope); }, record: adapter.record };
+  assert.equal((await stage(adapterFixture.input)).status, 'staged');
+  assert.equal((await stage(adapterFixture.input)).status, 'staged');
+  assert.equal(adapterFixture.stats().posts, 1); assert.equal(calls, 2, 'Lost record responses reconcile the exact deployment through the durable claim');
   const lost = fixture({ loseCreate: true });
   assert.equal((await stage(lost.input)).status, 'staged'); assert.equal((await stage(lost.input)).status, 'staged');
   assert.equal(lost.stats().posts, 1, 'Lost create response discovers exact operation without another POST');

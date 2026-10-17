@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -182,3 +182,45 @@ assert.equal(JSON.parse(psql(`begin;update private.website_vercel_integration_cu
 assert.equal(psql(asService(`select public.website_byo_publish_targets('${project}','${id(99)}')`)), '');
 for (const role of ['anon', 'authenticated']) refused(`set role ${role};${readTargets}`);
 console.log('PASS Production target PostgreSQL: service-selected exact repository/account, separate environment IDs, revoked/foreign/lease mismatch refusal and preserved Preview selection');
+
+migration('supabase/migrations/20261017212657_website_production_staging_claims.sql');
+const stagingScope = { candidate: result, accountId: 'team_customer1234', projectId: 'prj_customer1234', repositoryId: '88',
+  sourceBranch: `tayar/${project}/production`, runtimeEnvironmentReceiptVersion: 2, runtimeEnvironmentIds: JSON.parse(environmentIds) };
+const stagingClaim = (scope = stagingScope, who = owner) => `select public.website_claim_production_staging('${scope.candidate.operationId}','${project}','${who}','${JSON.stringify(scope)}'::jsonb)`;
+const stagingRecord = (deployment = 'dpl_staged1234', scope = stagingScope) => `select public.website_record_production_staging('${scope.candidate.operationId}','${project}','${owner}','${JSON.stringify(scope)}'::jsonb,'${deployment}')`;
+const stagingRefused = sql => assert.throws(() => psql(sql), error => /Production staging|permission denied/.test(String(error.stderr)));
+stagingRefused(asService(stagingRecord()));
+const concurrent = await Promise.all(Array.from({ length: 4 }, () => new Promise((resolveQuery, reject) => {
+  execFile('psql', [databaseUrl, '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', asService(stagingClaim())],
+    { encoding: 'utf8' }, (error, stdout) => error ? reject(error) : resolveQuery(JSON.parse(stdout.trim())));
+})));
+assert.equal(concurrent.filter(value => value.issueCreate).length, 1, 'Only one concurrent claimant may create the provider deployment');
+assert.ok(concurrent.every(value => value.deploymentId === null));
+assert.deepEqual(JSON.parse(psql(asService(stagingClaim()))), { issueCreate: false, deploymentId: null });
+assert.equal(psql(asService(stagingRecord())), 'dpl_staged1234');
+assert.equal(psql(asService(stagingRecord())), 'dpl_staged1234', 'Record response loss recovers the same immutable provider ID');
+assert.deepEqual(JSON.parse(psql(asService(stagingClaim()))), { issueCreate: false, deploymentId: 'dpl_staged1234' });
+stagingRefused(asService(stagingRecord('dpl_different1234')));
+stagingRefused(asService(stagingClaim(stagingScope, id(99))));
+for (const patch of [{ accountId: 'team_other1234' }, { projectId: 'prj_other1234' }, { repositoryId: '99' },
+  { runtimeEnvironmentReceiptVersion: 1 }, { runtimeEnvironmentIds: {} }, { secret: 'must-not-store' },
+  { candidate: { ...result, headSha: '0'.repeat(40) } }]) stagingRefused(asService(stagingClaim({ ...stagingScope, ...patch })));
+for (const change of [...runtimeChanges,
+  `update public.projects set content=jsonb_set(content,'{siteName}','"Changed"') where id='${project}'`,
+  `update private.website_github_export_cursors set version=version+1 where connection_id='${g}'`,
+  `update private.website_vercel_runtime_environment_receipts set vercel_environment_ids='{}'::jsonb where project_id='${project}' and environment='production'`,
+  `update private.website_vercel_integration_custody set production_branch='tayar/${project}/production' where connection_id='${v}'`,
+]) {
+  stagingRefused(`begin;${change};${asService(stagingClaim())}rollback;`);
+  stagingRefused(`begin;${change};${asService(stagingRecord())}rollback;`);
+}
+for (const role of ['anon', 'authenticated']) {
+  stagingRefused(`set role ${role};${stagingClaim()}`); stagingRefused(`set role ${role};${stagingRecord()}`);
+}
+for (const role of ['anon', 'authenticated', 'service_role']) {
+  stagingRefused(`set role ${role};select * from private.website_production_staging_claims`);
+  stagingRefused(`set role ${role};delete from private.website_production_staging_claims`);
+}
+assert.equal(psql("select relrowsecurity from pg_class where oid='private.website_production_staging_claims'::regclass"), 't');
+assert.equal(psql('select count(*) from private.website_production_staging_claims'), '1');
+console.log('PASS Production staging PostgreSQL: single concurrent durable claim, immutable provider ID, exact source/runtime/custody scope, retry recovery and service-only RPCs');
