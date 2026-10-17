@@ -1052,7 +1052,9 @@ actions; no live migration/provider deployment or customer activation is invoked
 
 ## Durable Production runtime identity attestation — 2026-10-17
 
-Work after PR #279 adds a private RLS-enabled immutable runtime-attestation row
+PR #280 merged as `e0a3fba6a1f95a3484d527522f08b55d47956769` after
+Release Gate `39074974250` and Vercel passed on `71d221ab`.
+It adds a private RLS-enabled immutable runtime-attestation row
 for the exact staging operation. The service-only recorder accepts only the
 already claimed deployment ID, exact staging scope, provider-pinned unaliased
 `.vercel.app` URL, prepared source digest and compiled runtime digest while all
@@ -1068,5 +1070,27 @@ the isolated PostgreSQL fixture covers concurrent exact recording, immutable
 conflicts, owner isolation, stale-scope invisibility and direct-table denial.
 This receipt proves release identity only. It does not prove application behavior,
 external services, custom-domain activation or customer delivery approval. Native
-PostgreSQL CI remains required before merge; no live migration or provider action
-is performed by this change.
+PostgreSQL CI verified the migration and access boundary; no live migration or
+provider action was performed by this change.
+
+## Deployed Production runtime-boundary behavior proof — 2026-10-18
+
+Work after PR #280 adds a second fresh-challenge endpoint inside the generated
+customer runtime. On the provider-pinned, unaliased deployment it executes the
+actual compiled application router against three deterministic, mutation-free
+boundaries: rendering the owned Auth shell, denying an anonymous session write,
+and rejecting an unknown application route. The proof uses the immutable
+Production manifest and release identity, performs no provider/database write,
+accepts no credentials and returns only fixed check names plus project/runtime
+identity under no-store headers.
+
+The trusted server verifier accepts only an exact HTTPS `.vercel.app` origin,
+bounded JSON, the fresh challenge, Production identity, exact runtime digest and
+the complete fixed check set. The staging coordinator now runs this proof after
+the release-identity challenge and before recording the durable runtime receipt;
+therefore a failed or stale boundary proof cannot create success evidence. A
+regression compiles the real clinic runtime, loads its generated handler, and
+exercises both the internal route behavior and external verifier, including
+tamper, replay, method, duplicate-parameter, host and stale-scope refusal.
+This remains baseline runtime-boundary evidence, not end-user workflow, external
+service, custom-domain, availability/SLA or delivery-approval evidence.

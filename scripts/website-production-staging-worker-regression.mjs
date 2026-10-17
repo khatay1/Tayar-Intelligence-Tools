@@ -70,7 +70,7 @@ try {
     meta: { githubCommitSha: candidate.headSha, githubCommitRef: scope.sourceBranch,
       tayarProductionOperationId: operationId, tayarSourceDigest: candidate.sourceDigest } };
   function fixture(options = {}) {
-    let claimed = false, recordedId = null, attestation = null, posts = 0, proofs = 0, claims = 0, attestations = 0;
+    let claimed = false, recordedId = null, attestation = null, posts = 0, identityProofs = 0, behaviorProofs = 0, claims = 0, attestations = 0;
     const client = { rpc: async (name, args) => {
       assert.equal(args.p_project_id, projectId); assert.equal(args.p_owner_id, ownerId);
       if (name === 'website_production_staging_target') return { data: structuredClone(options.target ?? target), error: null };
@@ -103,8 +103,15 @@ try {
     const fetcher = async (resource, init) => {
       const url = new URL(resource);
       if (url.origin === 'https://clinic-staged.vercel.app') {
-        assert.equal(init.method, 'GET'); assert.equal(init.credentials, 'omit'); proofs++;
+        assert.equal(init.method, 'GET'); assert.equal(init.credentials, 'omit');
         assert.equal(new Headers(init.headers).has('authorization'), false);
+        if (url.searchParams.get('tayarRoute') === 'release-behavior-proof') {
+          behaviorProofs++;
+          return Response.json({ ...runtime, behaviorVersion: 1, challenge: url.searchParams.get('challenge'),
+            checks: ['auth-shell', 'anonymous-session-denial', 'unknown-route-denial'] },
+          { headers: { 'cache-control': 'private, no-store' } });
+        }
+        identityProofs++;
         return Response.json({ ...runtime, runtimeDigest: options.wrongRuntime ? '0'.repeat(64) : runtime.runtimeDigest,
           challenge: url.searchParams.get('challenge') }, { headers: { 'cache-control': 'private, no-store' } });
       }
@@ -130,19 +137,19 @@ try {
     };
     return { input: { client, operationId, projectId, ownerId, platformOrigin: common.platformOrigin, platformUrl: common.platformUrl,
       platformVercelAccountId: 'team_platform1234', verifyRuntime: common.verifyRuntime, isCurrent: async () => true, fetcher },
-      stats: () => ({ posts, proofs, claims, attestations }) };
+      stats: () => ({ posts, identityProofs, behaviorProofs, claims, attestations }) };
   }
   for (const options of [{}, { loseCreate: true }, { loseRecord: true }, { loseAttestationRecord: true }]) {
     const good = fixture(options), result = await stage(good.input);
     assert.equal(result.status, 'runtime-verified'); assert.equal(result.sourceDigest, candidate.sourceDigest);
     assert.equal(result.runtimeDigest, candidate.runtimeDigest); assert.equal((await stage(good.input)).status, 'runtime-verified');
-    assert.equal(good.stats().posts, 1); assert.equal(good.stats().proofs, 2);
+    assert.equal(good.stats().posts, 1); assert.equal(good.stats().identityProofs, 2); assert.equal(good.stats().behaviorProofs, 2);
     assert.equal(good.stats().attestations, 2);
     assert.doesNotMatch(JSON.stringify(result), /accessToken|publishable|environmentIds|custody/);
   }
-  const building = fixture({ building: true }); assert.equal((await stage(building.input)).status, 'observing'); assert.equal(building.stats().proofs, 0);
+  const building = fixture({ building: true }); assert.equal((await stage(building.input)).status, 'observing'); assert.equal(building.stats().identityProofs, 0);
   const wrongRuntime = fixture({ wrongRuntime: true }); await assert.rejects(stage(wrongRuntime.input), /staging unavailable/);
-  assert.equal(wrongRuntime.stats().posts, 1); assert.equal(wrongRuntime.stats().proofs, 1);
+  assert.equal(wrongRuntime.stats().posts, 1); assert.equal(wrongRuntime.stats().identityProofs, 1); assert.equal(wrongRuntime.stats().behaviorProofs, 0);
   for (const changes of [
     { target: { ...target, scope: { ...scope, candidate: { ...candidate, ownerId: uid(99) } } } },
     { target: { ...target, scope: { ...scope, candidate: { ...candidate, runtimeDigest: '0'.repeat(64) } } } },
@@ -158,6 +165,6 @@ try {
   const changedSnapshot = fixture(); await assert.rejects(stage(changedSnapshot.input), /staging unavailable/); assert.equal(changedSnapshot.stats().posts, 0);
   snapshot = structuredClone(initialSnapshot);
   const changed = fixture({ changeAfterPost: true }); await assert.rejects(stage(changed.input), /staging unavailable/);
-  assert.equal(changed.stats().posts, 1); assert.equal(changed.stats().proofs, 0);
+  assert.equal(changed.stats().posts, 1); assert.equal(changed.stats().identityProofs, 0); assert.equal(changed.stats().behaviorProofs, 0);
   console.log('PASS staged Production coordinator: actual source compiler/reader/store/transport/runtime handshake, private target selection, exact source scope, response-loss retry and stale identity refusal (RPC/provider mocked)');
 } finally { await rm(dir, { recursive: true, force: true }); }

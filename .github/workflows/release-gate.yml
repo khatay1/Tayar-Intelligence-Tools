@@ -58,6 +58,7 @@ jobs:
       - name: Customer deployed runtime identity regression
         run: |
           node scripts/website-owned-runtime-verification-regression.mjs
+          node scripts/website-owned-release-behavior-regression.mjs
           node scripts/website-owned-preview-origin-regression.mjs
           node scripts/website-production-candidate-regression.mjs
           node scripts/website-production-source-candidate-regression.mjs
