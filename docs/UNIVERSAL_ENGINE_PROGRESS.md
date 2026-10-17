@@ -854,3 +854,50 @@ its new exact stock catalog proof, then stopped at the existing general owner
 INSERT policy comparison. Extend that comparison only for the exact generated
 PostgreSQL conjunction (including both new-owner checks), with negative drift
 regressions; do not relax RLS or replace semantic proof with policy names.
+
+## Atomic transfers between physical warehouse levels — 2026-10-17
+
+Continue from merged #271 `92c758aac0e45d2470bea68ec0d15d3efc45dc44`,
+whose exact-head Release Gate `39032861389` passed on `b3d30f5d`.
+The matching local baseline tree is `6c753921707902d6dbfe517ca84f2e651f0d0e52`.
+
+New physical stock installations compile an authenticated single-item transfer
+RPC and private immutable request receipts. Both existing level rows must belong
+to the same actor/item and different warehouses. The database locks both level
+UUIDs in sorted order, claims one receipt, then calls the existing guarded counter
+engine for debit and credit with independent server-owned UUIDs. Counter bounds
+and unexpired hold floors remain authoritative. A failed leg aborts both legs,
+the transfer receipt and internal counter receipts. A completed retry returns the
+same result before testing current stock, with source/destination/quantity
+identity checked; a changed request is refused.
+
+The saved `stock-transfer` data-view action requires physical stockLocations and
+visible item/location/quantity columns. It uses the existing owner-pinned SDK
+bridge and bounded same-item destination pagination. The controller persists a
+strict session receipt before transmission and refuses changed destination or
+quantity after uncertainty. The localized UI freezes uncertain transfers and
+restores them across a same-tab reload. Corrupt storage, blocked storage and actor
+changes fail closed; no shared/private stock rows are cached. Generation requires
+the bound transfer action, not two adjustment controls. Multi-item atomic batches,
+shipping and cross-organization transfers remain unsupported.
+
+Publication proof now verifies the exact transfer functions and their grants,
+private ledger ACL/RLS, strict receipt columns, primary-key uniqueness and
+restrictive foreign keys/checks. Existing stock databases still need separately
+reviewed upgrades; no automatic migration is enabled.
+
+Local definition/generation, durable controller/RPC, schema/source, reference
+projects, requirement coverage, TypeScript, scoped ESLint and ES2020 fixture
+bundling checks pass. The dedicated native fixture now tests held-unit floors,
+matching actor/item, credit-failure rollback, same-ID replay after stock changes,
+competing transfers, opposite-direction locking, identical concurrent requests,
+expired holds, the actual RPC adapter and catalog drift. The existing en/ar/sv
+browser fixture tests destination selection, uncertain-result freezing, reload
+retry identity and account-switch clearing. Native PostgreSQL/Chrome and final
+exact-head Release Gate are required before merge; fixture evidence is not a
+live customer GoTrue/PostgREST/provider verification.
+
+No new OSS code/dependency, live database/history migration, key, provider
+activation, customer Production promotion or Social Hub work. Reviewed existing
+DB upgrades, broader engine capabilities and final live release evidence remain
+open. Do not infer stock valuation or multi-item transfer batches from this slice.

@@ -8,8 +8,8 @@ import { applicationInventoryReservationTarget } from './application-inventory-r
  * The caller must supply its pre-existing customer-authenticated Supabase RPC
  * bridge only after separately verifying installation and runtime readiness.
  *
- * Stock belongs to an individual authenticated record owner. Location IDs are
- * reservation labels, NOT separate warehouse allocations. The database's
+ * Stock belongs to an individual authenticated record owner. Location IDs label ordinary holds; stockLocations instead pins each physical
+ * level to its warehouse. Transfers require that saved physical definition. The database's
  * locked reserve/finalize calls, not available(), authorize all changes.
  */
 export interface ApplicationStockRpcBridge {
@@ -43,9 +43,10 @@ export function createApplicationStockReservationRpc(
   definition: ApplicationDefinition, itemTableId: string, bridge: ApplicationStockRpcBridge,
 ) {
   if (!bridge || typeof bridge.rpc !== 'function') throw new ApplicationStockRpcRejected();
-  let index: number;
+  let index: number, physical: boolean;
   try {
-    index = applicationInventoryReservationTarget(definition, itemTableId).index;
+    const target = applicationInventoryReservationTarget(definition, itemTableId);
+    index = target.index; physical = !!target.table.stockLocations;
   } catch { throw new ApplicationStockRpcRejected(); }
   async function invoke(name: string, args: Record<string, string | number>): Promise<unknown> {
     try {
@@ -69,6 +70,15 @@ export function createApplicationStockReservationRpc(
       });
       if (result !== 'reserved' && result !== 'already-reserved' && result !== 'already-expired')
         throw new ApplicationStockRpcRejected();
+      return result;
+    },
+    async transfer(sourceId: string, destinationId: string, requestId: string, quantity: number): Promise<'transferred' | 'already-transferred'> {
+      if (!physical || identifier(sourceId) === identifier(destinationId)) throw new ApplicationStockRpcRejected();
+      const result = await invoke('app_stock_transfer_' + index, {
+        source_id: identifier(sourceId), destination_id: identifier(destinationId),
+        request_id: identifier(requestId), amount: integer(quantity, true),
+      });
+      if (result !== 'transferred' && result !== 'already-transferred') throw new ApplicationStockRpcRejected();
       return result;
     },
     async settle(reservationId: string, decision: 'release' | 'fulfill'): Promise<StockSettlementReceipt> {

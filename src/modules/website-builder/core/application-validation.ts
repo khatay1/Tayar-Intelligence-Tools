@@ -501,7 +501,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const evidencePath = `${path}.evidence[${evidenceIndex}]`;
         if (typeof entry !== 'string' || entry.length > 260) { issue(evidencePath, 'invalid-evidence', 'Invalid requirement evidence.'); return; }
         if (entry === 'auth') { if (!authEnabled) issue(evidencePath, 'missing-auth', 'Auth evidence requires enabled authentication.'); return; }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments|pay|refund|stock-availability|stock-reservation))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments|pay|refund|stock-availability|stock-reservation|stock-transfer))?$/.exec(entry);
         if (!match) { issue(evidencePath, 'invalid-evidence', 'Evidence must reference a supported page, table or action.'); return; }
         if (match[1] === 'page') { if (match[3] || (pageIds && !pageIds.has(match[2]))) issue(evidencePath, 'missing-page', 'Page evidence requires an existing page.'); return; }
         const table = tables.find(candidate => object(candidate) && candidate.id === match[2]);

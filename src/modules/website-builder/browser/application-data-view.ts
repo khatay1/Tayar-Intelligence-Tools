@@ -28,6 +28,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const holdCopy = ({ en: { manage: 'Manage stock hold', reserve: 'Reserve stock', release: 'Release hold', fulfill: 'Fulfill hold', location: 'Location reference UUID (label only)', quantity: 'Quantity', pending: 'Retry the same reservation to confirm its result.', held: 'Hold active for up to 15 minutes. Choose release or fulfillment.', uncertain: 'Result uncertain. Retry the same operation; do not change the receipt.', expired: 'The hold expired. Available stock may be reserved again.', completed: 'Stock operation confirmed.' },
     ar: { manage: 'إدارة حجز المخزون', reserve: 'حجز المخزون', release: 'تحرير الحجز', fulfill: 'تسليم الحجز', location: 'معرّف الموقع UUID (وصف فقط)', quantity: 'الكمية', pending: 'أعد محاولة الحجز نفسه لتأكيد النتيجة.', held: 'الحجز فعّال حتى 15 دقيقة. اختر التحرير أو التسليم.', uncertain: 'النتيجة غير مؤكدة. أعد العملية نفسها دون تغيير معرّف الحجز.', expired: 'انتهت صلاحية الحجز. يمكن حجز الكمية المتاحة مجدداً.', completed: 'تم تأكيد عملية المخزون.' },
     sv: { manage: 'Hantera lagerreservation', reserve: 'Reservera lager', release: 'Frisläpp reservation', fulfill: 'Slutför reservation', location: 'Platsreferens UUID (endast etikett)', quantity: 'Antal', pending: 'Försök igen med samma reservation för att bekräfta resultatet.', held: 'Reservationen gäller i högst 15 minuter. Frisläpp eller slutför.', uncertain: 'Resultatet är osäkert. Försök igen med samma kvitto.', expired: 'Reservationen har löpt ut. Tillgängligt lager kan reserveras igen.', completed: 'Lageråtgärden bekräftades.' } })[language];
+  const transferCopy = ({ en: {action:'Transfer stock',destination:'Destination stock',pending:'Previously selected destination',quantity:'Quantity',submit:'Confirm transfer',uncertain:'Result uncertain. Retry this same transfer to confirm it.',done:'Stock transfer confirmed.',empty:'Create a stock record for this item at the destination warehouse first.'},
+    ar: {action:'نقل المخزون',destination:'رصيد الوجهة',pending:'الوجهة المحددة سابقًا',quantity:'الكمية',submit:'تأكيد النقل',uncertain:'النتيجة غير مؤكدة. أعد التحويل نفسه لتأكيده.',done:'تم تأكيد نقل المخزون.',empty:'أنشئ سجل رصيد لهذا الصنف في مستودع الوجهة أولًا.'},
+    sv: {action:'Flytta lager',destination:'Destinationslager',pending:'Tidigare vald destination',quantity:'Antal',submit:'Bekräfta flytt',uncertain:'Resultatet är osäkert. Försök igen med samma flytt.',done:'Lagerflytten bekräftades.',empty:'Skapa först en lagerpost för varan på destinationslagret.'} })[language];
   const reportCopy = ({ en: { title: 'Aggregate reports', scope: 'All records you can read. Search and page selection do not change totals.', error: 'Could not load totals. Refresh and try again.' },
     ar: { title: 'التقارير المجمّعة', scope: 'جميع السجلات المسموح لك بقراءتها. البحث واختيار الصفحة لا يغيّران الإجماليات.', error: 'تعذّر تحميل الإجماليات. حدّث وحاول مجددًا.' },
     sv: { title: 'Sammanställda rapporter', scope: 'Alla poster du får läsa. Sökning och sidval ändrar inte totalsummorna.', error: 'Kunde inte läsa totalsummorna. Uppdatera och försök igen.' } })[language];
@@ -114,7 +117,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       const actions = await controller.permissions();
       const result = await controller.load(page, query);
       if (disposed || current !== sequence) return;
-      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation'].includes(action));
+      clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation', 'stock-transfer'].includes(action));
       if (controller.table.reports?.length) {
         let reportResult: Awaited<ReturnType<typeof controller.reports>> | undefined;
         try { reportResult = await controller.reports(); } catch { if (controller.closed()) throw new Error('Report identity changed.'); }
@@ -169,6 +172,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
             status.textContent = `${stockCopy.result}: ${amount}. ${stockCopy.hint}`; setBusy(false);
           }).catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.error; } });
         }));
+        if (actions.includes('stock-transfer')) td.append(button(transferCopy.action, () => openTransfer(row)));
         if (actions.includes('stock-reservation')) td.append(button(holdCopy.manage, () => openStock(row)));
         if (actions.includes('pay') || actions.includes('refund')) td.append(button(paymentStatusCopy.title, () => {
           if (busy) return; setBusy(true); status.textContent = copy.loading;
@@ -213,6 +217,59 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     if (value === null || value === undefined) return '—';
     if (field.type === 'boolean') return value ? copy.yes : copy.no;
     return typeof value === 'object' ? JSON.stringify(value) : String(value);
+  }
+  async function openTransfer(row: Record<string, unknown>) {
+    if (disposed || busy) return;
+    stopEditor(); const opening = editorSequence; editor.replaceChildren(); editor.hidden = false;
+    const active = () => !disposed && !controller.closed() && editorSequence === opening;
+    const rule = controller.table.stockLocations!;
+    const product = controller.table.fields.find(field => field.id === rule.itemFieldId)!;
+    const location = controller.table.fields.find(field => field.id === rule.locationFieldId)!;
+    let pending: Awaited<ReturnType<typeof controller.stockTransferState>>;
+    try { pending = await controller.stockTransferState(String(row.id)); if (!active()) return; }
+    catch { clear(); status.textContent = copy.error; return; }
+    const form = document.createElement('form'), destination = document.createElement('select'), amount = document.createElement('input');
+    const targetLabel = document.createElement('label'), amountLabel = document.createElement('label'), notice = document.createElement('p');
+    targetLabel.textContent = transferCopy.destination; destination.required = true; destination.name = 'destination'; targetLabel.append(destination);
+    amountLabel.textContent = transferCopy.quantity; amount.name = 'quantity'; amount.type = 'number'; amount.min = '1'; amount.max = '1000000000000'; amount.step = '1'; amount.required = true;
+    amount.value = String(pending?.quantity ?? 1); amount.readOnly = !!pending; amountLabel.append(amount);
+    let destinationPage = 0, hasNext = false;
+    const previousTarget = button(copy.previous, () => { if (!busy && !pending && destinationPage > 0) { destinationPage--; void loadTargets(); } });
+    const nextTarget = button(copy.next, () => { if (!busy && !pending && hasNext) { destinationPage++; void loadTargets(); } });
+    const submit = document.createElement('button'); submit.type = 'submit'; submit.textContent = transferCopy.submit;
+    async function loadTargets() {
+      destination.disabled = true; submit.disabled = true; previousTarget.disabled = true; nextTarget.disabled = true;
+      try {
+        const result = await controller.stockTransferOptions(String(row[product.key]),String(row[location.key]),destinationPage);
+        if (!active()) return;
+        destination.replaceChildren(); hasNext = result.hasNext;
+        for (const target of result.options) { const option = document.createElement('option'); option.value = target.id; option.textContent = target.label; destination.append(option); }
+        destination.disabled = false; submit.disabled = !result.options.length; previousTarget.disabled = destinationPage === 0; nextTarget.disabled = !hasNext;
+        notice.textContent = result.options.length ? '' : transferCopy.empty;
+      } catch {
+        if (!disposed && editorSequence === opening) { if (controller.closed()) clear(); status.textContent = copy.error; }
+      }
+    }
+    if (pending) {
+      const option = document.createElement('option'); option.value = pending.destinationId; option.textContent = transferCopy.pending; destination.append(option);
+      destination.disabled = true; previousTarget.disabled = true; nextTarget.disabled = true; notice.textContent = transferCopy.uncertain;
+    }
+    form.append(targetLabel,amountLabel,previousTarget,nextTarget,notice,submit,button(copy.cancel, () => { stopEditor(); editor.replaceChildren(); editor.hidden = true; }));
+    form.addEventListener('submit', event => {
+      event.preventDefault(); if (busy || !active() || !form.reportValidity() || !destination.value) return;
+      const selected = destination.value, quantity = Number(amount.value); setBusy(true); status.textContent = copy.loading;
+      void controller.stockTransfer(String(row.id),selected,quantity).then(async () => {
+        if (!active()) return;
+        stopEditor(); editor.replaceChildren(); editor.hidden = true; setBusy(false);
+        await load(); if (!disposed) status.textContent = transferCopy.done;
+      }).catch(() => {
+        if (disposed) return;
+        if (controller.closed()) { clear(); setBusy(false); return; }
+        setBusy(false); destination.disabled = true; amount.readOnly = true; previousTarget.disabled = true; nextTarget.disabled = true;
+        notice.textContent = transferCopy.uncertain; status.textContent = transferCopy.uncertain;
+      });
+    });
+    editor.append(form); if (!pending) void loadTargets();
   }
   async function openStock(row: Record<string, unknown>) {
     const recordId = String(row.id);
