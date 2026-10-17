@@ -802,3 +802,49 @@ No historical/customer migration, new dependency, live key, customer Production
 activation or Social Hub change. Existing installations require separately
 reviewed SQL upgrade; the exact catalog verifier refuses outdated function bodies.
 Physical multi-location balances and transfers remain an open engine capability.
+
+## Physical stock levels by owner, item and warehouse — 2026-10-17
+
+Continue from merged #270 `07c7b9ea5a871acbc408f3182c36371ae5ca740f`.
+Its exact-head Release Gate `38986228957` passed on `a6ed8aed`; the local
+baseline tree is the identical `27c7d73bbeef04cfde11fe30529e4215b9182672`.
+
+A new initial-install `table.stockLocations={itemFieldId,locationFieldId}`
+declaration uses existing stock-level row counters and reservations. Both
+required fields reference distinct owner-only catalog and warehouse tables.
+One owner/item/warehouse tuple is unique and its dimensions cannot be edited.
+Composite owner foreign keys retain ownership even if an operator disables a
+normal audit trigger; normal owner RLS and restrictive deletes still apply.
+No second product total or parallel stock engine is introduced.
+
+Reservation SQL requires the warehouse actually saved on that level row.
+Availability/holds/fulfillment and expiry remain scoped to that level; a different
+warehouse's units cannot cover its shortage. Stock controls require visible
+item, warehouse and quantity columns. The localized hold form pins its warehouse
+from the displayed row; ordinary edit controls keep both dimensions read-only.
+AI repairs preserve the declaration. Generation requires a real bound physical
+stock view and still rejects a plain location label. Atomic warehouse transfers
+remain unsupported and are explicitly refused rather than represented as two
+unrelated adjustments.
+
+Normal initial schema/source compilation and stock installation/publication
+verification include the new SQL. The read-only proof checks exact function
+bodies and privileges, dimension types/nullability, the unconditional enabled
+identity trigger, immediate unique keys and validated owner foreign keys.
+Existing stock applications still require a separately reviewed database
+migration; identical definitions remain read-only no-ops.
+
+The new dedicated PostgreSQL fixture covers independent warehouse quantities,
+wrong-location/foreign-owner denial, concurrent last-unit holds, fulfillment
+retry, immutable dimensions/owner references and refusal after catalog drift.
+The existing en/ar/sv browser fixture adds warehouse pinning, immutable edit
+controls and actual reserve/release calls through the controller. Local strict
+validation/generation/repair, schema/source, seven reference projects,
+requirement coverage, TypeScript, scoped ESLint and ES2020 fixture bundling pass.
+Native PostgreSQL/Chrome and the exact-head Release Gate remain required before
+merge; local fixture transport is not live GoTrue/PostgREST evidence.
+
+No new OSS dependency/source import, live migration, key or provider activation,
+customer Production promotion or Social Hub work. Transfers, stock valuation,
+shared-organization stock, reviewed existing-DB upgrades and final live evidence
+remain open; do not infer them from this physical-level capability.

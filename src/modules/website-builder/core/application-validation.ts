@@ -52,7 +52,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'stockReservations', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'], path)) return;
+    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'stockReservations', 'stockLocations', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
@@ -220,6 +220,27 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
       if (table.stockReservations !== true || !authEnabled || !object(table.counter)
         || table.counter.integer !== true || table.counter.minimum !== 0 || !ownerOnly) {
         issue(`${path}.stockReservations`, 'invalid-stock-reservations', 'Stock reservations require an explicit true opt-in and an owner-only integer counter starting at zero.');
+      }
+    }
+    if (table.stockLocations !== undefined) {
+      const locationPath = `${path}.stockLocations`;
+      if (shape(table.stockLocations, ['itemFieldId', 'locationFieldId'], locationPath)) {
+        const rule = table.stockLocations;
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
+        const item = fields.find(field => field.id === rule.itemFieldId);
+        const location = fields.find(field => field.id === rule.locationFieldId);
+        const targetIsOwnerScoped = (field: RecordValue | undefined) => {
+          const target = tables.find(candidate => object(candidate) && candidate.id === field?.referenceTableId);
+          if (!object(target) || target.id === table.id || !Array.isArray(target.permissions)) return false;
+          const reads = target.permissions.filter(permission => object(permission) && permission.operation === 'read');
+          return reads.length > 0 && target.permissions.every(permission => object(permission) && permission.access === 'owner');
+        };
+        if (table.stockReservations !== true || !id(rule.itemFieldId) || !id(rule.locationFieldId)
+          || rule.itemFieldId === rule.locationFieldId || item?.type !== 'reference' || location?.type !== 'reference'
+          || item.required !== true || location.required !== true || item.referenceTableId === location.referenceTableId
+          || !targetIsOwnerScoped(item) || !targetIsOwnerScoped(location)) {
+          issue(locationPath, 'invalid-stock-locations', 'Physical stock requires the stock opt-in and distinct required item/location references to owner-scoped tables.');
+        }
       }
     }
     if (table.transaction !== undefined) {

@@ -9,10 +9,11 @@ import { websiteProjectLinkIssues } from './website-project-links';
 
 const stockReservationPattern = /\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/giu;
 const stockReservationRequest = (prompt: string) => new RegExp(stockReservationPattern.source, 'iu').test(prompt);
-// A reservation location is only a receipt label. No generated schema maintains
-// independent physical quantities or atomic transfers between warehouses.
+// A location label alone cannot fulfill physical stock requirements. A saved
+// level-row declaration and a bound view are required; transfers stay separate.
 const physicalStockLocationRequest = (prompt: string) =>
   /\b(?:stock|inventory)(?:\W+\w+){0,6}\W+(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))\b|\b(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))(?:\W+\w+){0,6}\W+(?:stock|inventory)\b|(?:مخزون|المخزون).{0,45}(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع))|(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع)).{0,45}(?:مخزون|المخزون)|\blager(?:saldo)?\b.{0,45}\b(?:per (?:lager|plats)|på flera (?:platser|lager))\b/iu.test(prompt);
+const stockTransferRequest = (prompt: string) => /\b(?:(?:transfer|move)(?:\W+\w+){0,5}\W+(?:stock|inventory)|(?:stock|inventory|warehouse) transfers?)\b|(?:نقل|تحويل).{0,40}(?:المخزون|مخزون|المستودعات|المستودع)|\b(?:lagerflytt|lageröverföring)\b/iu.test(prompt);
 const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt.replace(stockReservationPattern, ''));
 const stockAvailabilityPattern = /\b(?:available (?:stock|inventory)|(?:stock|inventory) availability|tillgängligt lager)\b|(?:المخزون المتاح|الكمية المتاحة من المخزون)/giu;
 const stockAvailabilityRequest = (prompt: string) => new RegExp(stockAvailabilityPattern.source, 'iu').test(prompt);
@@ -35,6 +36,7 @@ export function requestedApplicationCapabilities(prompt: string): Set<Applicatio
   const remaining = prompt.replace(stockAvailabilityPattern, '').replace(stockReservationPattern, '');
   const capabilities = new Set(requestedCapabilityPatterns.filter(([, pattern]) => pattern.test(remaining)).map(([capability]) => capability));
   if (stockAvailabilityRequest(prompt)) capabilities.add('records');
+  if (physicalStockLocationRequest(prompt)) capabilities.add('records');
   if (stockReservationRequest(prompt)) capabilities.add('records');
   return capabilities;
 }
@@ -47,7 +49,7 @@ export function prepareGeneratedApplication(
   availableEmailConnectionIds: ReadonlySet<string> = new Set(),
   requireSpecification = false,
 ): ApplicationDefinition | undefined {
-  if (physicalStockLocationRequest(prompt)) throw new Error('Physical stock balances by location and atomic warehouse transfers are unsupported. A reservation location label cannot fulfill this requirement. No incomplete application was applied.');
+  if (stockTransferRequest(prompt)) throw new Error('Atomic warehouse transfers are unsupported. Independent warehouse balances and ordinary counter adjustments cannot fulfill a transfer requirement. No incomplete application was applied.');
   const stockReservationRequested = stockReservationRequest(prompt);
   if (generated.projectKind !== undefined && !['website', 'application'].includes(generated.projectKind)) throw new Error('AI returned an invalid project kind.');
   if (generated.unsupportedFeatures !== undefined && (!Array.isArray(generated.unsupportedFeatures)
@@ -80,6 +82,7 @@ export function prepareGeneratedApplication(
   let bookingCreates = 0;
   let counterViews = 0;
   let transactionViews = 0;
+  let physicalStockViews = 0;
   let stockAvailabilityViews = 0;
   let stockReservationViews = 0;
   const evidence = new Set<string>();
@@ -89,6 +92,7 @@ export function prepareGeneratedApplication(
     if (section.applicationDataView !== undefined) {
       if (section.type === 'contact' || section.type === 'footer') throw new Error('Data views require a content section.');
       const view = compileApplicationDataView(definition, section.applicationDataView);
+      if (view.table.stockLocations && view.binding.actions.includes('stock-availability')) physicalStockViews++;
       if (view.table.stockReservations && view.binding.actions.includes('stock-availability')) stockAvailabilityViews++;
       if (view.table.stockReservations && view.binding.actions.includes('stock-reservation')) stockReservationViews++;
       if (view.table.booking && view.binding.actions.includes('create')) bookingCreates++;
@@ -127,6 +131,7 @@ export function prepareGeneratedApplication(
     }
     evidence.add(`email:${table.id}`);
   }
+  if (physicalStockLocationRequest(prompt) && !physicalStockViews) throw new Error('Physical stock balances by location require saved stockLocations and a bound stock-availability view with item, location and quantity. A label alone cannot fulfill this requirement. No incomplete application was applied.');
   if (bookingRequest(prompt) && !bookingCreates) throw new Error('Appointment booking requires a bound create form or data view with a database booking rule; ordinary records cannot replace conflict-safe booking.');
   if (/\b(?:data dashboard|record management|crud|data editor)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt) && !dataViews) throw new Error('Record management requires a bound data view; descriptive pages cannot replace it.');
   if (counterRequested && !counterViews) throw new Error('Quantity management requires a bound adjustment view and a native counter rule.');

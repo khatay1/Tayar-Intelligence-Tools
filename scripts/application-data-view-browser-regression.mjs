@@ -210,6 +210,35 @@ async function run(){
   await wait(()=>holdRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
   check(settleCalls.length===2&&settleCalls[0][0]===settleCalls[1][0]&&settleCalls.every(call=>call[1]==='fulfill'),'settlement retries do not change decision');
   stopHold();settleHost.remove();
+  const physicalApp=structuredClone(stockApp);
+  physicalApp.tables[0].stockLocations={itemFieldId:'level_product',locationFieldId:'level_warehouse'};
+  physicalApp.tables[0].fields.push({id:'level_product',key:'product_id',name:'Product',type:'reference',required:true,referenceTableId:'catalog'},
+    {id:'level_warehouse',key:'warehouse_id',name:'Warehouse',type:'reference',required:true,referenceTableId:'warehouses'});
+  physicalApp.tables.push({id:'catalog',key:'catalog',name:'Catalog',fields:[{id:'catalog_title',key:'title',name:'Title',type:'text',required:true}],permissions:[{operation:'read',access:'owner'}]},
+    {id:'warehouses',key:'warehouses',name:'Warehouses',fields:[{id:'warehouse_title',key:'title',name:'Title',type:'text',required:true}],permissions:[{operation:'read',access:'owner'}]});
+  const physicalRow={id:ids[0],owner_id:owner,name:'Product at warehouse B',quantity,product_id:ids[2],warehouse_id:ids[1]};
+  const physicalCalls=[];
+  const physicalRuntime={...counterRuntime,list:async()=>[physicalRow],stockReservations:(_table,actor)=>{
+    check(actor===owner,'physical stock binds owner');return{available:async()=>5,reserve:async(...args)=>{physicalCalls.push(args);return 'reserved'},settle:async()=> 'released'}}};
+  const physicalHost=document.createElement('div');document.body.append(physicalHost);
+  const stopPhysical=mountApplicationDataView(physicalHost,physicalApp,{tableId:'stock_items',columns:['level_product','level_warehouse','item_stock'],actions:['update','stock-reservation'],pageSize:10},physicalRuntime,language,
+    {projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'stock',sectionId:'physical-'+language});
+  const physicalRoot=physicalHost.shadowRoot;
+  const physicalIdle=()=>wait(()=>physicalRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  const physicalButton=text=>[...physicalRoot.querySelectorAll('button')].find(button=>button.textContent===text);
+  await physicalIdle();physicalButton(copy.edit).click();
+  const editPhysical=physicalRoot.querySelector('.editor form');
+  check(editPhysical.elements.product_id.readOnly&&editPhysical.elements.warehouse_id.readOnly,'saved stock dimensions cannot be edited through ordinary record controls');
+  check(editPhysical.elements.product_id.value===ids[2]&&editPhysical.elements.warehouse_id.value===ids[1],'immutable fields preserve the actual displayed row identity');
+  physicalButton(holdLabels[0]).click();await wait(()=>physicalRoot.querySelector('.editor form input'));
+  const physicalForm=physicalRoot.querySelector('.editor form'),physicalInputs=physicalForm.querySelectorAll('input');
+  check(physicalInputs[0].readOnly&&physicalInputs[0].value===ids[1],'reservation warehouse is pinned from the actual stock-level row');
+  check(physicalForm.textContent.includes({en:'Warehouse reference UUID',ar:'معرّف المستودع UUID',sv:'Lagerreferens UUID'}[language]),'physical location uses a localized warehouse label');
+  physicalInputs[1].value='2';physicalForm.requestSubmit();await wait(()=>physicalRoot.querySelector('.editor').hidden);await physicalIdle();
+  check(physicalCalls.length===1&&physicalCalls[0][0]===ids[0]&&physicalCalls[0][1]===ids[1]&&physicalCalls[0][3]===2,'physical reservation targets the selected level and its warehouse');
+  physicalButton(holdLabels[0]).click();await wait(()=>physicalButton({en:'Release hold',ar:'تحرير الحجز',sv:'Frisläpp reservation'}[language]));
+  physicalButton({en:'Release hold',ar:'تحرير الحجز',sv:'Frisläpp reservation'}[language]).click();await wait(()=>physicalRoot.querySelector('.editor').hidden);
+  stopPhysical();physicalHost.remove();
   const transactionProducts={id:'transaction_products',key:'transaction_products',name:'Products',fields:[{id:'transaction_name',key:'name',name:'Name',type:'text',required:true},{id:'transaction_stock',key:'quantity',name:'Stock',type:'number',required:true,defaultValue:0}],permissions:[{operation:'read',access:'authenticated'},{operation:'update',access:'authenticated'}],counter:{fieldId:'transaction_stock',minimum:0,maximum:100,integer:true}};
   const transactionOrders={id:'transaction_orders',key:'transaction_orders',name:'Orders',fields:[{id:'transaction_note',key:'note',name:'Note',type:'text',required:true}],permissions:[{operation:'read',access:'owner'},{operation:'create',access:'owner'}],transaction:{itemTableId:'transaction_products',lineTableId:'transaction_lines',lineTransactionFieldId:'transaction_line_order',lineItemFieldId:'transaction_line_item',lineQuantityFieldId:'transaction_line_quantity',counterDirection:'decrement'}};
   const transactionLines={id:'transaction_lines',key:'transaction_lines',name:'Lines',fields:[{id:'transaction_line_order',key:'order_id',name:'Order',type:'reference',required:true,referenceTableId:'transaction_orders'},{id:'transaction_line_item',key:'product_id',name:'Product',type:'reference',required:true,referenceTableId:'transaction_products'},{id:'transaction_line_quantity',key:'quantity',name:'Quantity',type:'number',required:true}],permissions:[{operation:'read',access:'owner'}]};

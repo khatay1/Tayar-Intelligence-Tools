@@ -169,7 +169,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
             status.textContent = `${stockCopy.result}: ${amount}. ${stockCopy.hint}`; setBusy(false);
           }).catch(() => { if (!disposed) { if (controller.closed()) clear(); setBusy(false); status.textContent = copy.error; } });
         }));
-        if (actions.includes('stock-reservation')) td.append(button(holdCopy.manage, () => openStock(String(row.id))));
+        if (actions.includes('stock-reservation')) td.append(button(holdCopy.manage, () => openStock(row)));
         if (actions.includes('pay') || actions.includes('refund')) td.append(button(paymentStatusCopy.title, () => {
           if (busy) return; setBusy(true); status.textContent = copy.loading;
           void controller.paymentStatus(String(row.id)).then(payment => {
@@ -214,16 +214,18 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     if (field.type === 'boolean') return value ? copy.yes : copy.no;
     return typeof value === 'object' ? JSON.stringify(value) : String(value);
   }
-  async function openStock(recordId: string) {
+  async function openStock(row: Record<string, unknown>) {
+    const recordId = String(row.id);
+    const locationField = controller.table.fields.find(field => field.id === controller.table.stockLocations?.locationFieldId);
     if (disposed || busy) return;
     stopEditor(); const opening = editorSequence; editor.replaceChildren(); editor.hidden = false;
     let hold: Awaited<ReturnType<typeof controller.stockState>>;
     try { hold = await controller.stockState(recordId); if (disposed || controller.closed() || editorSequence !== opening) return; }
     catch { clear(); status.textContent = copy.error; return; }
     const form = document.createElement('form');
-    const locationLabel = document.createElement('label'); locationLabel.textContent = holdCopy.location;
+    const locationLabel = document.createElement('label'); locationLabel.textContent = locationField ? ({ en: 'Warehouse reference UUID', ar: 'معرّف المستودع UUID', sv: 'Lagerreferens UUID' })[language] : holdCopy.location;
     const location = document.createElement('input'); location.required = true; location.pattern = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
-    location.value = hold?.locationId ?? ''; location.disabled = !!hold; locationLabel.append(location);
+    location.value = hold?.locationId ?? (locationField ? String(row[locationField.key] ?? '') : ''); location.readOnly = !!locationField; location.disabled = !!hold; locationLabel.append(location);
     const amountLabel = document.createElement('label'); amountLabel.textContent = holdCopy.quantity;
     const amount = document.createElement('input'); amount.type = 'number'; amount.min = '1'; amount.max = '1000000000000'; amount.step = '1'; amount.required = true;
     amount.value = String(hold?.quantity ?? 1); amount.disabled = !!hold; amountLabel.append(amount);
@@ -378,7 +380,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
       let reference: ReturnType<typeof createApplicationReferenceInput> | undefined;
-      if (field.type === 'reference') {
+      if (row && controller.table.stockLocations && [controller.table.stockLocations.itemFieldId, controller.table.stockLocations.locationFieldId].includes(field.id)) {
+        const fixed = document.createElement('input'); fixed.readOnly = true; input = fixed;
+      } else if (field.type === 'reference') {
         reference = createApplicationReferenceInput(field, typeof row?.[field.key] === 'string' ? row[field.key] as string : '', controller, copy, () => { clear(); status.textContent = copy.error; });
         references.push(reference); input = reference.input;
       } else if (field.type === 'enum' || field.type === 'boolean') {
