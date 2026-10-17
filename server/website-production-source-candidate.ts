@@ -12,7 +12,7 @@ export interface ProductionSourceCandidate {
 }
 const keys = ['status', 'operationId', 'projectId', 'ownerId', 'previewOperationId', 'githubConnectionId',
   'previewSourceDigest', 'snapshotDigest', 'runtimeDigest', 'sourceDigest', 'headSha'].sort().join(',');
-function parse(value: unknown): ProductionSourceCandidate {
+export function readProductionSourceCandidate(value: unknown): ProductionSourceCandidate {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
   const row = value as Record<string, unknown>;
   if (Object.keys(row).sort().join(',') !== keys || row.status !== 'source-prepared'
@@ -30,10 +30,10 @@ export async function recordWebsiteProductionSourceCandidate(input: {
 }): Promise<ProductionSourceCandidate> {
   try {
     if (typeof window !== 'undefined' || !await input.isCurrent()) throw new Error();
-    const expected = structuredClone(parse(input.candidate));
+    const expected = structuredClone(readProductionSourceCandidate(input.candidate));
     if (expected.sourceDigest === expected.previewSourceDigest) throw new Error();
     const matches = (value: unknown) => {
-      const candidate = parse(value);
+      const candidate = readProductionSourceCandidate(value);
       if (Object.keys(expected).some(key => candidate[key as keyof ProductionSourceCandidate] !== expected[key as keyof ProductionSourceCandidate])) throw new Error();
       return candidate;
     };
