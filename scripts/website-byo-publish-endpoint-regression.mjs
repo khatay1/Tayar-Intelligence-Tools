@@ -11,6 +11,9 @@ response=await handle(request({action:'production',projectId,operationId,preview
 response=await handle(request({action:'status',projectId,operationId,environment:'preview'}),context);assert.equal(response.status,409);assert.equal((await response.json()).status,'blocked');
 assert.deepEqual(calls[1][1],{ownerId,projectId,operationId,previewOperationId});
 assert.equal((await handle(request({action:'preview',projectId,operationId,vercelProjectId:'prj_attacker1234'}),context)).status,400);
+let stagedViaHttp=false;const internalContext={...context,stageProduction:async()=>{stagedViaHttp=true;throw Error('internal only');}};
+assert.equal((await handle(request({action:'stageProduction',projectId,operationId}),internalContext)).status,400);
+assert.equal(stagedViaHttp,false,'The internal coordinator is not a browser publishing/activation action');
 const savedProduction=context.runProduction;context.runProduction=async()=>{throw new ProductionCandidateRequiredError();};
 response=await handle(request({action:'production',projectId,operationId,previewOperationId}),context);assert.equal(response.status,409);
 assert.deepEqual(await response.json(),{code:'production-candidate-required',error:new ProductionCandidateRequiredError().message});

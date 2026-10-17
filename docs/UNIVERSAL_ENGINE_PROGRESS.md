@@ -1016,3 +1016,36 @@ table access. The transport regression now also drives the concrete store.
 Native PostgreSQL CI is required before merge. No live migration is applied.
 Trusted coordinator selection/composition, runtime/behavioral proof and final
 approved activation remain open; no new public publishing action is mounted.
+
+## Service-selected Production staging coordinator — 2026-10-17
+
+PR #278 merged as `5935105d4d081377929f7ebd0084d747b89aa6c3` after
+Release Gate `39071165284` and Vercel passed on `af3c7552`.
+The new read-only service projection selects the prepared source, exact private
+Production connection/version and verified runtime receipt. It reuses the
+existing current-scope proof and returns no provider token or source body.
+
+The internal `stageProduction` runner now composes the concrete source reader,
+Production source compiler, private custody lease, durable claim/record store,
+non-activating Vercel transport and release-identity challenge. It accepts only
+application/owner/operation scope. It recomputes source/snapshot/runtime digests
+before provider creation and continuously rereads current registry/receipt scope.
+Provider/environment identities cannot be injected through the runner's scope.
+Missing or changed compiled source fails before a create request; changes after
+creation preserve the durable claim and refuse successful completion.
+
+A READY unaliased deployment must answer the existing credential-free release
+challenge for the exact Production runtime digest to return `runtime-verified`.
+This result is not a behavioral/service/delivery attestation. Currently this
+coordinator accepts the public Supabase pair only; Stripe/email/CMS or other
+integration-dependent applications remain blocked until their independent
+Production receipt/behavior orchestration exists. No automatic key preparation,
+export, promotion or alias callback is installed.
+
+The composition test reuses the clinic fixture and actual source compiler,
+reader, store, transport and runtime verifier with mocked RPC/provider transport.
+It covers source changes, identity/environment mismatch, lost create/record
+responses, observation-only retries, pending builds and incorrect runtime proof.
+The existing native PostgreSQL fixture applies the projection and checks stale,
+foreign and browser-role denial. The HTTP endpoint continues to reject staging
+actions; no live migration/provider deployment or customer activation is invoked.

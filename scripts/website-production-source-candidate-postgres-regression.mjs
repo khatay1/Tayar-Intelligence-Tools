@@ -224,3 +224,17 @@ for (const role of ['anon', 'authenticated', 'service_role']) {
 assert.equal(psql("select relrowsecurity from pg_class where oid='private.website_production_staging_claims'::regclass"), 't');
 assert.equal(psql('select count(*) from private.website_production_staging_claims'), '1');
 console.log('PASS Production staging PostgreSQL: single concurrent durable claim, immutable provider ID, exact source/runtime/custody scope, retry recovery and service-only RPCs');
+
+migration('supabase/migrations/20261017213501_website_production_staging_target.sql');
+const stagingTarget = `select public.website_production_staging_target('${operation}','${project}','${owner}')`;
+assert.deepEqual(JSON.parse(psql(asService(stagingTarget))), { scope: stagingScope, vercelConnectionId: v, vercelConnectionVersion: 1 });
+assert.doesNotMatch(psql(asService(stagingTarget)), /accessToken|publishableKey|value_digests|snapshot"/);
+assert.equal(psql(asService(`select public.website_production_staging_target('${operation}','${project}','${id(99)}')`)), '');
+assert.equal(psql(asService(`select public.website_production_staging_target('${id(99)}','${project}','${owner}')`)), '');
+for (const change of [...runtimeChanges,
+  `update private.website_github_export_cursors set last_head_sha='${'0'.repeat(40)}' where connection_id='${g}'`,
+  `update private.website_vercel_runtime_environment_receipts set status='preparing' where project_id='${project}' and environment='production'`,
+  `update private.website_vercel_integration_custody set production_branch='tayar/${project}/production' where connection_id='${v}'`,
+]) assert.equal(psql(`begin;${change};${asService(stagingTarget)}rollback;`), '', change);
+for (const role of ['anon', 'authenticated']) stagingRefused(`set role ${role};${stagingTarget}`);
+console.log('PASS Production staging target PostgreSQL: read-only private source/runtime/custody selection, stale and foreign refusal, no provider grant exposure');
