@@ -10442,7 +10442,7 @@ function createEditorIntegrationsConfig() {
   return { version: 1, connections: [] };
 }
 function getEditorIntegrationProvider(providerId3) {
-  return EDITOR_INTEGRATION_PROVIDERS.find((provider12) => provider12.id === providerId3);
+  return EDITOR_INTEGRATION_PROVIDERS.find((provider13) => provider13.id === providerId3);
 }
 function cleanString(value, max = 2e3) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -10460,17 +10460,17 @@ function normalizeEditorIntegrationsConfig(value) {
     const providerId3 = cleanString(source.providerId, 120);
     if (!id4 || seen.has(id4) || !getEditorIntegrationProvider(providerId3)) continue;
     seen.add(id4);
-    const provider12 = getEditorIntegrationProvider(providerId3);
-    const publicFields = new Set(provider12.fields.filter((field2) => !field2.secret).map((field2) => field2.key));
-    const secretFields = new Set(provider12.fields.filter((field2) => field2.secret).map((field2) => field2.key));
+    const provider13 = getEditorIntegrationProvider(providerId3);
+    const publicFields = new Set(provider13.fields.filter((field2) => !field2.secret).map((field2) => field2.key));
+    const secretFields = new Set(provider13.fields.filter((field2) => field2.secret).map((field2) => field2.key));
     const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([key2, item]) => publicFields.has(key2) && (typeof item === "string" || typeof item === "boolean")).map(([key2, item]) => [key2, typeof item === "string" ? item.slice(0, 5e3) : item]));
-    for (const field2 of provider12.fields) {
+    for (const field2 of provider13.fields) {
       if (field2.type === "url" && typeof config[field2.key] === "string" && hasEmbeddedIntegrationCredentials(String(config[field2.key]))) delete config[field2.key];
     }
     if (providerId3 === "stripe" && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
     const secrets2 = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key2, item]) => secretFields.has(key2) && !!item && typeof item === "object" && isEditorSecretReference(item.ref)).map(([key2, item]) => [key2, { ref: item.ref, updatedAt: cleanString(item.updatedAt, 80) || void 0 }]));
     const environments = Array.from(new Set((Array.isArray(source.environments) ? source.environments : ["production"]).filter((item) => item === "preview" || item === "staging" || item === "production")));
-    normalized.push({ id: id4, providerId: providerId3, name: cleanString(source.name, 160) || provider12.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
+    normalized.push({ id: id4, providerId: providerId3, name: cleanString(source.name, 160) || provider13.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
   }
   return { version: 1, connections: normalized };
 }
@@ -10482,16 +10482,16 @@ function validateEditorIntegrations(config) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection3.id)) issues.push({ connectionId: connection3.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
     if (ids2.has(connection3.id)) issues.push({ connectionId: connection3.id, code: "duplicate-id", message: `Duplicate integration id: ${connection3.id}` });
     ids2.add(connection3.id);
-    const provider12 = getEditorIntegrationProvider(connection3.providerId);
-    if (!provider12) {
+    const provider13 = getEditorIntegrationProvider(connection3.providerId);
+    if (!provider13) {
       issues.push({ connectionId: connection3.id, code: "unknown-provider", message: `Unknown integration provider: ${connection3.providerId}` });
       continue;
     }
     for (const key2 of Object.keys(connection3.config)) {
-      if (!provider12.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
+      if (!provider13.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
     }
     for (const [key2, secret] of Object.entries(connection3.secrets)) {
-      if (!provider12.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
+      if (!provider13.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
       else if (secret.ref.startsWith("secret://website/") && (connection3.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection3.id, key2, connection3.environments[0]))) {
         issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
       }
@@ -10510,18 +10510,18 @@ function validateEditorIntegrations(config) {
         }
       }
     }
-    for (const field2 of provider12.fields) {
+    for (const field2 of provider13.fields) {
       if (!field2.required) continue;
       if (field2.secret) {
         if (!connection3.secrets[field2.key]?.ref) issues.push({ connectionId: connection3.id, field: field2.key, code: "missing-secret", message: `${field2.label} is required.` });
       } else if (connection3.config[field2.key] === void 0 || connection3.config[field2.key] === "") issues.push({ connectionId: connection3.id, field: field2.key, code: "missing-field", message: `${field2.label} is required.` });
     }
-    for (const field2 of provider12.fields.filter((item) => item.type === "url")) {
+    for (const field2 of provider13.fields.filter((item) => item.type === "url")) {
       const value = connection3.config[field2.key];
       if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection3.id, field: field2.key, code: "invalid-url", message: `${field2.label} must use a public HTTPS URL without embedded credentials.` });
     }
-    if (provider12.supportedEvents) {
-      for (const event of connection3.events ?? []) if (!provider12.supportedEvents.includes(event)) issues.push({ connectionId: connection3.id, code: "unsupported-event", message: `${provider12.name} does not support ${event}.` });
+    if (provider13.supportedEvents) {
+      for (const event of connection3.events ?? []) if (!provider13.supportedEvents.includes(event)) issues.push({ connectionId: connection3.id, code: "unsupported-event", message: `${provider13.name} does not support ${event}.` });
     }
   }
   return issues;
@@ -13832,7 +13832,7 @@ async function initializeWebsiteByoPublishOperation(scope) {
 }
 function createWebsiteByoPublishStore(scope) {
   assertScope(scope);
-  const exact5 = { operationId: scope.operationId, projectId: scope.projectId, ownerId: scope.ownerId, environment: scope.environment };
+  const exact6 = { operationId: scope.operationId, projectId: scope.projectId, ownerId: scope.ownerId, environment: scope.environment };
   return {
     async read(operationId) {
       assertScope(scope);
@@ -13846,7 +13846,7 @@ function createWebsiteByoPublishStore(scope) {
       if (error || !scope.isCurrent()) throw new Error("BYO publish checkpoint unavailable.");
       if (data === null) return null;
       try {
-        return checkpoint(data, exact5);
+        return checkpoint(data, exact6);
       } catch {
         throw new Error("BYO publish checkpoint unavailable.");
       }
@@ -13855,13 +13855,13 @@ function createWebsiteByoPublishStore(scope) {
       assertScope(scope);
       let request2;
       try {
-        const currentChecked = checkpoint(current, exact5);
+        const currentChecked = checkpoint(current, exact6);
         request2 = argumentsFor(scope, currentChecked, next);
       } catch {
         throw new Error("BYO publish checkpoint changed.");
       }
       const accept = (value) => {
-        const saved = checkpoint(value, exact5);
+        const saved = checkpoint(value, exact6);
         if (saved.version !== current.version + 1 || saved.stage !== next.stage || saved.sourceDigest !== next.sourceDigest || saved.headSha !== next.headSha || saved.attemptVersion !== next.attemptVersion || saved.deploymentId !== next.deploymentId || saved.liveUrl !== next.liveUrl || saved.previewOperationId !== next.previewOperationId || saved.promotionVersion !== next.promotionVersion || saved.productionAliases.length !== next.productionAliases.length || saved.productionAliases.some((v, i) => v !== next.productionAliases[i]) || saved.requiredEnvironment.length !== next.requiredEnvironment.length || saved.requiredEnvironment.some((v, i) => v !== next.requiredEnvironment[i])) throw new Error();
         return saved;
       };
@@ -17204,7 +17204,7 @@ async function assertAuthSettings(definition, backend) {
     throw new Error("Dedicated application authentication settings are invalid.");
   }
   const external = providers2;
-  if (external.email !== app.auth.enabled || external.anonymous_users !== false || settings.disable_signup !== !app.auth.signUpEnabled || app.auth.enabled && settings.mailer_autoconfirm !== !app.auth.emailVerificationRequired || Object.entries(external).some(([provider12, enabled]) => typeof enabled !== "boolean" || provider12 !== "email" && enabled) || ["saml_enabled", "passkeys_enabled"].some((key2) => settings[key2] !== void 0 && settings[key2] !== false)) {
+  if (external.email !== app.auth.enabled || external.anonymous_users !== false || settings.disable_signup !== !app.auth.signUpEnabled || app.auth.enabled && settings.mailer_autoconfirm !== !app.auth.emailVerificationRequired || Object.entries(external).some(([provider13, enabled]) => typeof enabled !== "boolean" || provider13 !== "email" && enabled) || ["saml_enabled", "passkeys_enabled"].some((key2) => settings[key2] !== void 0 && settings[key2] !== false)) {
     throw new Error("Dedicated application authentication settings do not match the project.");
   }
 }
@@ -18275,19 +18275,73 @@ async function verifyOwnedDeployedBehavior(input) {
   }
 }
 
-// server/website-production-staging-worker.ts
+// server/website-owned-production-backend-verification.ts
 var uuid32 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var provider10 = /^[A-Za-z0-9_-]{3,128}$/;
-var object24 = (value) => {
+var provider10 = /^[A-Za-z0-9_-]{1,200}$/;
+var object24 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var exact5 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
+async function verifyWebsiteOwnedProductionBackend(input) {
+  try {
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.connectionId].every((value) => uuid32.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !provider10.test(input.platformSupabaseOrganizationId) || !await input.isCurrent()) throw new Error();
+    const result = await input.client.rpc("website_read_supabase_oauth_custody", {
+      p_connection_id: input.connectionId,
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_expected_connection_version: input.connectionVersion
+    });
+    if (result.error || !await input.isCurrent()) throw new Error();
+    const custody = parseOwnedSupabaseCustody(result.data, "production", { projectRef: input.backend.projectRef });
+    const fetcher = input.fetcher ?? fetch;
+    const ownership = {
+      ...custody,
+      accountUserId: custody.accountId,
+      platformOrganizationId: input.platformSupabaseOrganizationId,
+      fetcher
+    };
+    if (!await verifyOwnedSupabaseProject(ownership) || !await input.isCurrent()) throw new Error();
+    const backend = await readOwnedSupabasePublicBackend({ custody, fetcher });
+    if (backend.url !== input.backend.url || backend.projectRef !== input.backend.projectRef || backend.publishableKey !== input.backend.publishableKey || !await input.isCurrent()) throw new Error();
+    const query = createOwnedSupabaseReadOnlyQuery({ ...custody, fetcher });
+    const scalar = async (sql4, key2) => {
+      if (!await input.isCurrent()) throw new Error();
+      const value = await query(sql4);
+      if (!Array.isArray(value) || value.length !== 1) throw new Error();
+      const row2 = object24(value[0]);
+      if (!row2 || !exact5(row2, [key2]) || !await input.isCurrent()) throw new Error();
+      return row2[key2];
+    };
+    const reader = {
+      url: backend.url,
+      readDeployedDefinition: () => scalar("select definition from private.app_schema_revisions where id=true", "definition"),
+      readFormRequestRevision: () => scalar("select form_request_version from private.app_runtime_capabilities where id=true", "form_request_version"),
+      verifyLiveSecurity: createOwnedSupabaseLiveSecurityVerifier({ ...ownership, isCurrent: input.isCurrent })
+    };
+    await verifyOwnedSupabaseApplicationRuntime({
+      definition: input.definition,
+      backend,
+      expectedProjectRef: custody.projectRef,
+      reader,
+      formsRequired: input.definition.tables.length > 0
+    });
+    if (!await input.isCurrent()) throw new Error();
+  } catch {
+    throw new Error("Customer Production backend verification is unavailable.");
+  }
+}
+
+// server/website-production-staging-worker.ts
+var uuid33 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var provider11 = /^[A-Za-z0-9_-]{3,128}$/;
+var object25 = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   return value;
 };
 var canonical3 = (value) => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 function readTarget(value, input) {
-  const target2 = object24(value), raw = object24(target2.scope), candidate = readProductionSourceCandidate(raw.candidate);
-  if (Object.keys(target2).sort().join(",") !== "scope,vercelConnectionId,vercelConnectionVersion" || Object.keys(raw).sort().join(",") !== "accountId,candidate,projectId,repositoryId,runtimeEnvironmentIds,runtimeEnvironmentReceiptVersion,sourceBranch" || candidate.operationId !== input.operationId || candidate.projectId !== input.projectId || candidate.ownerId !== input.ownerId || candidate.sourceDigest === candidate.previewSourceDigest || typeof target2.vercelConnectionId !== "string" || !uuid32.test(target2.vercelConnectionId) || !Number.isSafeInteger(target2.vercelConnectionVersion) || Number(target2.vercelConnectionVersion) < 1 || typeof raw.accountId !== "string" || !provider10.test(raw.accountId) || typeof raw.projectId !== "string" || !/^prj_[A-Za-z0-9]{8,128}$/.test(raw.projectId) || typeof raw.repositoryId !== "string" || !/^\d+$/.test(raw.repositoryId) || raw.sourceBranch !== `tayar/${input.projectId}/production` || !Number.isSafeInteger(raw.runtimeEnvironmentReceiptVersion) || Number(raw.runtimeEnvironmentReceiptVersion) < 1) throw new Error();
-  const ids2 = object24(raw.runtimeEnvironmentIds);
-  if (Object.keys(ids2).sort().join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(ids2).some((value2) => typeof value2 !== "string" || !provider10.test(value2)) || new Set(Object.values(ids2)).size !== 2) throw new Error();
+  const target2 = object25(value), raw = object25(target2.scope), candidate = readProductionSourceCandidate(raw.candidate);
+  if (Object.keys(target2).sort().join(",") !== "scope,vercelConnectionId,vercelConnectionVersion" || Object.keys(raw).sort().join(",") !== "accountId,candidate,projectId,repositoryId,runtimeEnvironmentIds,runtimeEnvironmentReceiptVersion,sourceBranch" || candidate.operationId !== input.operationId || candidate.projectId !== input.projectId || candidate.ownerId !== input.ownerId || candidate.sourceDigest === candidate.previewSourceDigest || typeof target2.vercelConnectionId !== "string" || !uuid33.test(target2.vercelConnectionId) || !Number.isSafeInteger(target2.vercelConnectionVersion) || Number(target2.vercelConnectionVersion) < 1 || typeof raw.accountId !== "string" || !provider11.test(raw.accountId) || typeof raw.projectId !== "string" || !/^prj_[A-Za-z0-9]{8,128}$/.test(raw.projectId) || typeof raw.repositoryId !== "string" || !/^\d+$/.test(raw.repositoryId) || raw.sourceBranch !== `tayar/${input.projectId}/production` || !Number.isSafeInteger(raw.runtimeEnvironmentReceiptVersion) || Number(raw.runtimeEnvironmentReceiptVersion) < 1) throw new Error();
+  const ids2 = object25(raw.runtimeEnvironmentIds);
+  if (Object.keys(ids2).sort().join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(ids2).some((value2) => typeof value2 !== "string" || !provider11.test(value2)) || new Set(Object.values(ids2)).size !== 2) throw new Error();
   return {
     scope: structuredClone(raw),
     vercelConnectionId: target2.vercelConnectionId,
@@ -18296,7 +18350,7 @@ function readTarget(value, input) {
 }
 async function stageWebsiteProductionCandidate(input) {
   try {
-    if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((value) => uuid32.test(value)) || !provider10.test(input.platformVercelAccountId) || !await input.isCurrent()) throw new Error();
+    if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((value) => uuid33.test(value)) || !provider11.test(input.platformVercelAccountId) || !await input.isCurrent()) throw new Error();
     const read2 = async () => {
       if (!await input.isCurrent()) throw new Error();
       const result2 = await input.client.rpc("website_production_staging_target", {
@@ -18340,6 +18394,20 @@ async function stageWebsiteProductionCandidate(input) {
       return active;
     };
     if (!await current()) throw new Error();
+    const verifyBackend = () => verifyWebsiteOwnedProductionBackend({
+      client: input.client,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      connectionId: source.supabase.id,
+      connectionVersion: source.supabase.version,
+      platformSupabaseOrganizationId: input.platformSupabaseOrganizationId,
+      definition: source.capabilities.definition,
+      backend: source.binding.backend,
+      isCurrent: current,
+      fetcher: input.fetcher
+    });
+    await verifyBackend();
+    if (!await current()) throw new Error();
     const result = await input.client.rpc("website_read_vercel_integration_custody", {
       p_connection_id: target2.vercelConnectionId,
       p_project_id: input.projectId,
@@ -18347,8 +18415,8 @@ async function stageWebsiteProductionCandidate(input) {
       p_expected_connection_version: target2.vercelConnectionVersion
     });
     if (result.error || !await current()) throw new Error();
-    const custody = object24(result.data);
-    if (typeof custody.accessToken !== "string" || !custody.accessToken || custody.accessToken.length > 4096 || /[\r\n]/.test(custody.accessToken) || typeof custody.userId !== "string" || !provider10.test(custody.userId) || custody.environment !== "production" || custody.accountId !== target2.scope.accountId || custody.vercelProjectId !== target2.scope.projectId || custody.repositoryId !== target2.scope.repositoryId || typeof custody.repositoryOwner !== "string" || typeof custody.repositoryName !== "string" || typeof custody.productionBranch !== "string") throw new Error();
+    const custody = object25(result.data);
+    if (typeof custody.accessToken !== "string" || !custody.accessToken || custody.accessToken.length > 4096 || /[\r\n]/.test(custody.accessToken) || typeof custody.userId !== "string" || !provider11.test(custody.userId) || custody.environment !== "production" || custody.accountId !== target2.scope.accountId || custody.vercelProjectId !== target2.scope.projectId || custody.repositoryId !== target2.scope.repositoryId || typeof custody.repositoryOwner !== "string" || typeof custody.repositoryName !== "string" || typeof custody.productionBranch !== "string") throw new Error();
     const staged = await stageOwnedVercelProductionDeployment({
       candidate: target2.scope.candidate,
       runtimeEnvironmentReceiptVersion: target2.scope.runtimeEnvironmentReceiptVersion,
@@ -18385,6 +18453,8 @@ async function stageWebsiteProductionCandidate(input) {
       fetcher: input.fetcher
     });
     if (!await current()) throw new Error();
+    await verifyBackend();
+    if (!await current()) throw new Error();
     return recordWebsiteProductionRuntimeAttestation({
       client: input.client,
       isCurrent: current,
@@ -18417,6 +18487,7 @@ function createWebsiteByoPublishRunners(input) {
         platformOrigin: input.platformOrigin,
         platformUrl: input.platformUrl,
         platformVercelAccountId: input.platformVercelAccountId,
+        platformSupabaseOrganizationId: input.platformSupabaseOrganizationId,
         verifyRuntime: input.verifyRuntime,
         isCurrent: async () => true,
         fetcher: input.fetcher
@@ -18528,11 +18599,11 @@ function createBoundedOwnedStockCatalogFetcher(fetcher = fetch) {
 }
 
 // server/website-owned-stock-reservation-installation.ts
-var uuid33 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid34 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var projectRef2 = /^[a-z]{20}$/;
 async function verifyOwnedStockReservationInstallationFromCustody(input) {
   try {
-    if (typeof window !== "undefined" || ![input.ownerId, input.projectId, input.connectionId].every((id4) => uuid33.test(id4)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !input.platformOrganizationId || !await input.isCurrent()) return false;
+    if (typeof window !== "undefined" || ![input.ownerId, input.projectId, input.connectionId].every((id4) => uuid34.test(id4)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !input.platformOrganizationId || !await input.isCurrent()) return false;
     const definition = readApplicationDefinition(input.definition);
     const stockTables = definition.tables.filter((table) => table.stockReservations);
     if (!stockTables.length) return false;
@@ -18570,7 +18641,7 @@ async function verifyOwnedStockReservationInstallationFromCustody(input) {
 }
 async function verifyOwnedStockReservationInstallation(input) {
   try {
-    if (typeof window !== "undefined" || !uuid33.test(input.ownerId) || !uuid33.test(input.projectId) || !uuid33.test(input.connectionId) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || typeof input.accessToken !== "string" || input.accessToken.length < 1 || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || typeof input.itemTableId !== "string" || !input.itemTableId || !await input.isCurrent()) return false;
+    if (typeof window !== "undefined" || !uuid34.test(input.ownerId) || !uuid34.test(input.projectId) || !uuid34.test(input.connectionId) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || typeof input.accessToken !== "string" || input.accessToken.length < 1 || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || typeof input.itemTableId !== "string" || !input.itemTableId || !await input.isCurrent()) return false;
     if (!compileApplicationInventoryReservationSchema(input.definition, input.itemTableId).length) return false;
     const first = await input.readConnection();
     if (!first) return false;
@@ -18689,7 +18760,7 @@ function createWebsiteByoPublishHost(input) {
 }
 
 // server/website-byo-publish-deployment-entry.ts
-var provider11 = /^[A-Za-z0-9_-]{1,200}$/;
+var provider12 = /^[A-Za-z0-9_-]{1,200}$/;
 var githubClient = /^[A-Za-z0-9_]{5,100}$/;
 var publicSecret = /^(?:NEXT_PUBLIC_|VITE_|PUBLIC_).*?(?:SECRET|SERVICE_ROLE|PRIVATE_KEY)/i;
 var keyNames = {
@@ -18745,7 +18816,7 @@ function createWebsiteByoPublishDeploymentEntry(input) {
     const platformVercelAccountId = required(input.environment, keyNames.vercelAccount, 200);
     const githubClientId = required(input.environment, keyNames.githubClient, 100);
     const githubClientSecret = providerSecret(required(input.environment, keyNames.githubSecret, 4096));
-    if (!provider11.test(platformSupabaseOrganizationId) || !provider11.test(platformVercelAccountId) || !githubClient.test(githubClientId)) throw new Error();
+    if (!provider12.test(platformSupabaseOrganizationId) || !provider12.test(platformVercelAccountId) || !githubClient.test(githubClientId)) throw new Error();
     const serviceKey = secretKey(required(input.environment, keyNames.secret, 4096));
     const platform = createClient3(platformUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

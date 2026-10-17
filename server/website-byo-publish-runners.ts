@@ -31,6 +31,7 @@ export function createWebsiteByoPublishRunners(input:{client:Client;reader:Owned
       return stageWebsiteProductionCandidate({client:input.client,operationId:scope.operationId,
         projectId:scope.projectId,ownerId:scope.ownerId,platformOrigin:input.platformOrigin,
         platformUrl:input.platformUrl,platformVercelAccountId:input.platformVercelAccountId,
+        platformSupabaseOrganizationId:input.platformSupabaseOrganizationId,
         verifyRuntime:input.verifyRuntime,isCurrent:async()=>true,fetcher:input.fetcher});
     },
     async runPreview(scope:Scope){

@@ -64,6 +64,7 @@ jobs:
           node scripts/website-production-source-candidate-regression.mjs
           node scripts/website-owned-vercel-staging-regression.mjs
           node scripts/website-production-staging-worker-regression.mjs
+          node scripts/website-owned-production-backend-verification-regression.mjs
 
 
       - name: Bounded customer deployment heartbeat evidence regression

@@ -9,6 +9,7 @@ import { readOwnedReleaseIdentity } from './website-owned-release-identity';
 import { verifyOwnedDeployedRuntime } from './website-owned-runtime-verification';
 import { recordWebsiteProductionRuntimeAttestation } from './website-production-runtime-attestation';
 import { verifyOwnedDeployedBehavior } from './website-owned-behavior-verification';
+import { verifyWebsiteOwnedProductionBackend } from './website-owned-production-backend-verification';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const provider = /^[A-Za-z0-9_-]{3,128}$/;
@@ -49,6 +50,7 @@ function readTarget(value: unknown, input: { operationId: string; projectId: str
 export async function stageWebsiteProductionCandidate(input: {
   client: Pick<SupabaseClient, 'rpc'>; operationId: string; projectId: string; ownerId: string;
   platformOrigin: string; platformUrl: string; platformVercelAccountId: string;
+  platformSupabaseOrganizationId: string;
   verifyRuntime: Parameters<typeof captureWebsiteOwnedProductionSource>[0]['verifyRuntime'];
   isCurrent(): Promise<boolean>; fetcher?: typeof fetch;
 }) {
@@ -90,6 +92,12 @@ export async function stageWebsiteProductionCandidate(input: {
       return active;
     };
     if (!await current()) throw new Error();
+    const verifyBackend = () => verifyWebsiteOwnedProductionBackend({ client: input.client,
+      projectId: input.projectId, ownerId: input.ownerId, connectionId: source.supabase.id,
+      connectionVersion: source.supabase.version, platformSupabaseOrganizationId: input.platformSupabaseOrganizationId,
+      definition: source.capabilities.definition, backend: source.binding.backend, isCurrent: current, fetcher: input.fetcher });
+    await verifyBackend();
+    if (!await current()) throw new Error();
     const result = await input.client.rpc('website_read_vercel_integration_custody', {
       p_connection_id: target.vercelConnectionId, p_project_id: input.projectId, p_owner_id: input.ownerId,
       p_expected_connection_version: target.vercelConnectionVersion,
@@ -115,6 +123,8 @@ export async function stageWebsiteProductionCandidate(input: {
     if (!await current()) throw new Error();
     await verifyOwnedDeployedBehavior({ projectId: input.projectId, liveUrl: staged.liveUrl,
       files: source.files, isCurrent: current, fetcher: input.fetcher });
+    if (!await current()) throw new Error();
+    await verifyBackend();
     if (!await current()) throw new Error();
     return recordWebsiteProductionRuntimeAttestation({ client: input.client, isCurrent: current, scope: target.scope,
       deploymentId: staged.deploymentId, liveUrl: staged.liveUrl, sourceDigest: source.sourceDigest,

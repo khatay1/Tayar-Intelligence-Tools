@@ -8,13 +8,18 @@ import { createApplicationReferenceProjects } from './fixtures/application-refer
 
 const dir = await mkdtemp(join(tmpdir(), 'tayar-staging-worker-'));
 try {
+  globalThis.__tayarBackendProofs = [];
   const out = join(dir, 'worker.cjs');
   await build({ stdin: { contents: `export * from './server/website-production-staging-worker';
     export {captureWebsiteOwnedApplicationSource,captureWebsiteOwnedProductionSource} from './server/website-owned-source-capture';
     export {createWebsiteOwnedSourceReader} from './server/website-owned-source-reader';
     export {readOwnedReleaseIdentity} from './server/website-owned-release-identity';
     export {createSection} from './src/modules/website-builder/core/defaults';`, resolveDir: process.cwd(), loader: 'ts' },
-    outfile: out, bundle: true, platform: 'node', format: 'cjs' });
+    outfile: out, bundle: true, platform: 'node', format: 'cjs', plugins: [{ name: 'backend-proof-fixture', setup(build) {
+      build.onResolve({ filter: /website-owned-production-backend-verification$/ }, () => ({ path: 'backend-proof', namespace: 'fixture' }));
+      build.onLoad({ filter: /^backend-proof$/, namespace: 'fixture' }, () => ({ contents:
+        `export async function verifyWebsiteOwnedProductionBackend(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale backend proof')}` }));
+    } }] });
   const { stageWebsiteProductionCandidate: stage, captureWebsiteOwnedApplicationSource: capture,
     captureWebsiteOwnedProductionSource: prepare, createWebsiteOwnedSourceReader: readerFor,
     readOwnedReleaseIdentity: identity, createSection } = createRequire(import.meta.url)(out);
@@ -136,15 +141,20 @@ try {
       return Response.json(options.building ? { ...deployment, readyState: 'BUILDING', url: undefined } : deployment);
     };
     return { input: { client, operationId, projectId, ownerId, platformOrigin: common.platformOrigin, platformUrl: common.platformUrl,
+      platformSupabaseOrganizationId: 'tayar_supabase',
       platformVercelAccountId: 'team_platform1234', verifyRuntime: common.verifyRuntime, isCurrent: async () => true, fetcher },
       stats: () => ({ posts, identityProofs, behaviorProofs, claims, attestations }) };
   }
   for (const options of [{}, { loseCreate: true }, { loseRecord: true }, { loseAttestationRecord: true }]) {
+    const proofStart = globalThis.__tayarBackendProofs.length;
     const good = fixture(options), result = await stage(good.input);
     assert.equal(result.status, 'runtime-verified'); assert.equal(result.sourceDigest, candidate.sourceDigest);
     assert.equal(result.runtimeDigest, candidate.runtimeDigest); assert.equal((await stage(good.input)).status, 'runtime-verified');
     assert.equal(good.stats().posts, 1); assert.equal(good.stats().identityProofs, 2); assert.equal(good.stats().behaviorProofs, 2);
     assert.equal(good.stats().attestations, 2);
+    const proofs = globalThis.__tayarBackendProofs.slice(proofStart); assert.equal(proofs.length, 4);
+    assert.ok(proofs.every(value => value.connectionId === s && value.connectionVersion === 1
+      && value.platformSupabaseOrganizationId === 'tayar_supabase' && value.backend.projectRef === bindings.production.backend.projectRef));
     assert.doesNotMatch(JSON.stringify(result), /accessToken|publishable|environmentIds|custody/);
   }
   const building = fixture({ building: true }); assert.equal((await stage(building.input)).status, 'observing'); assert.equal(building.stats().identityProofs, 0);
@@ -167,4 +177,4 @@ try {
   const changed = fixture({ changeAfterPost: true }); await assert.rejects(stage(changed.input), /staging unavailable/);
   assert.equal(changed.stats().posts, 1); assert.equal(changed.stats().identityProofs, 0); assert.equal(changed.stats().behaviorProofs, 0);
   console.log('PASS staged Production coordinator: actual source compiler/reader/store/transport/runtime handshake, private target selection, exact source scope, response-loss retry and stale identity refusal (RPC/provider mocked)');
-} finally { await rm(dir, { recursive: true, force: true }); }
+} finally { delete globalThis.__tayarBackendProofs; await rm(dir, { recursive: true, force: true }); }

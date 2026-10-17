@@ -17,6 +17,7 @@ const stagingStart=calls.length;const staged=await runners.stageProduction({owne
 assert.equal(staged.status,'runtime-verified');assert.deepEqual(calls.slice(stagingStart).map(v=>v[0]),['staging']);
 assert.equal(typeof calls.at(-1)[1].client.rpc,'function');assert.ok(!('candidate'in calls.at(-1)[1]));assert.ok(!('connectionId'in calls.at(-1)[1]));
 assert.deepEqual([calls.at(-1)[1].ownerId,calls.at(-1)[1].projectId,calls.at(-1)[1].operationId],[ownerId,projectId,operationId]);
+assert.equal(calls.at(-1)[1].platformSupabaseOrganizationId,'platform_supabase');
 globalThis.__tayarPreparationMode='fail';const failedStart=calls.length;await assert.rejects(runners.runPreview({ownerId,projectId,operationId}),/failed/);assert.deepEqual(calls.slice(failedStart).map(v=>v[0]),['prepare'],'failed preparation cannot select targets or initialize/export/deploy');
 globalThis.__tayarPreparationMode='stale';const staleStart=calls.length;await assert.rejects(runners.runPreview({ownerId,projectId,operationId}),/stale/);assert.deepEqual(calls.slice(staleStart).map(v=>v[0]),['prepare','targets'],'stale post-preparation scope cannot enter Publish');
 const count=calls.length,result=await runners.readStatus({ownerId,projectId,operationId,environment:'preview'});assert.equal(result.status,'ready');assert.equal(result.checkpoint.version,2);assert.equal(calls.length,count+1);assert.equal(calls.at(-1)[0],'store');

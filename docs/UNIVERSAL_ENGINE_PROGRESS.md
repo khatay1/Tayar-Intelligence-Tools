@@ -1075,7 +1075,9 @@ provider action was performed by this change.
 
 ## Deployed Production runtime-boundary behavior proof — 2026-10-18
 
-Work after PR #280 adds a second fresh-challenge endpoint inside the generated
+PR #281 merged as `3dcd86dff9e35460cce250f94a1fa22e13b7d752` after
+Release Gate `39075529420` and Vercel passed on `30c82a01`.
+It adds a second fresh-challenge endpoint inside the generated
 customer runtime. On the provider-pinned, unaliased deployment it executes the
 actual compiled application router against three deterministic, mutation-free
 boundaries: rendering the owned Auth shell, denying an anonymous session write,
@@ -1094,3 +1096,26 @@ exercises both the internal route behavior and external verifier, including
 tamper, replay, method, duplicate-parameter, host and stale-scope refusal.
 This remains baseline runtime-boundary evidence, not end-user workflow, external
 service, custom-domain, availability/SLA or delivery-approval evidence.
+
+## Revalidated Production Supabase/Auth boundary — 2026-10-18
+
+The trusted staging coordinator now re-proves the exact customer-owned
+Production Supabase backend both before creating or observing the Vercel
+deployment and again immediately before recording the durable runtime receipt.
+Each proof rereads the exact Production OAuth custody lease and connection
+version, verifies customer project ownership and healthy status, and requires
+the current browser-safe public key to match the captured Production binding.
+
+The proof then uses only Supabase Management API read-only queries to compare the
+deployed application definition and form-request revision and reruns the existing
+Auth, grants, RLS, policy, role/function and feature-catalog verifier. Current
+project/owner/operation and connection state is checked around every asynchronous
+boundary. Tokens, query results and provider errors are not returned; any
+transfer, rotation, catalog drift, stale scope or provider failure stops staging
+and prevents a success receipt. The generated application still receives only
+the public URL and publishable key, never the OAuth grant or a service-role key.
+
+This is read-only Production backend/security evidence tied to the existing
+runtime receipt. It does not apply a customer migration, exercise an end-user
+workflow or database mutation, configure Stripe/email/CMS, assign a custom
+domain, promote an alias or constitute customer delivery approval.
