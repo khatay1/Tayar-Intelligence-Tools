@@ -9,6 +9,10 @@ import { websiteProjectLinkIssues } from './website-project-links';
 
 const stockReservationPattern = /\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/giu;
 const stockReservationRequest = (prompt: string) => new RegExp(stockReservationPattern.source, 'iu').test(prompt);
+// A reservation location is only a receipt label. No generated schema maintains
+// independent physical quantities or atomic transfers between warehouses.
+const physicalStockLocationRequest = (prompt: string) =>
+  /\b(?:stock|inventory)(?:\W+\w+){0,6}\W+(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))\b|\b(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))(?:\W+\w+){0,6}\W+(?:stock|inventory)\b|(?:مخزون|المخزون).{0,45}(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع))|(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع)).{0,45}(?:مخزون|المخزون)|\blager(?:saldo)?\b.{0,45}\b(?:per (?:lager|plats)|på flera (?:platser|lager))\b/iu.test(prompt);
 const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt.replace(stockReservationPattern, ''));
 const stockAvailabilityPattern = /\b(?:available (?:stock|inventory)|(?:stock|inventory) availability|tillgängligt lager)\b|(?:المخزون المتاح|الكمية المتاحة من المخزون)/giu;
 const stockAvailabilityRequest = (prompt: string) => new RegExp(stockAvailabilityPattern.source, 'iu').test(prompt);
@@ -43,6 +47,7 @@ export function prepareGeneratedApplication(
   availableEmailConnectionIds: ReadonlySet<string> = new Set(),
   requireSpecification = false,
 ): ApplicationDefinition | undefined {
+  if (physicalStockLocationRequest(prompt)) throw new Error('Physical stock balances by location and atomic warehouse transfers are unsupported. A reservation location label cannot fulfill this requirement. No incomplete application was applied.');
   const stockReservationRequested = stockReservationRequest(prompt);
   if (generated.projectKind !== undefined && !['website', 'application'].includes(generated.projectKind)) throw new Error('AI returned an invalid project kind.');
   if (generated.unsupportedFeatures !== undefined && (!Array.isArray(generated.unsupportedFeatures)

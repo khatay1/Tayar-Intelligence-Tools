@@ -771,3 +771,8 @@ requested. Its requirement evidence is the bound action, while release-ready
 evidence still requires native PostgreSQL/browser regression on the final PR
 head. No current customer database is auto-migrated, and live service
 activation remains separate.
+
+The generation completion gate explicitly rejects physical stock balances by
+location (including multi-warehouse requests) even when a stock table and
+reservation UI are otherwise valid. The receipt's location UUID remains only
+a label; there is no independent location quantity or atomic transfer rule.
