@@ -255,7 +255,8 @@ const concurrentAttestations = await Promise.all(Array.from({ length: 4 }, () =>
   execFile('psql', [databaseUrl, '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', asService(recordAttestation())],
     { encoding: 'utf8' }, (error, stdout) => error ? reject(error) : resolveQuery(JSON.parse(stdout.trim())));
 })));
-assert.ok(concurrentAttestations.every(value => JSON.stringify(value) === JSON.stringify(attestation)));
+for (const value of concurrentAttestations) assert.deepEqual(value, attestation,
+  'Concurrent exact recorders must all observe the same immutable attestation');
 assert.deepEqual(JSON.parse(psql(asService(recordAttestation()))), attestation, 'Exact response-loss retry is immutable and idempotent');
 assert.deepEqual(JSON.parse(psql(asService(readAttestation()))), attestation);
 assert.equal(psql(asService(readAttestation(id(99)))), '');
