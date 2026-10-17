@@ -7,6 +7,7 @@ import { createWebsiteProductionStagingStore } from './website-production-stagin
 import { stageOwnedVercelProductionDeployment, type OwnedVercelStagingScope } from './website-owned-vercel-staging';
 import { readOwnedReleaseIdentity } from './website-owned-release-identity';
 import { verifyOwnedDeployedRuntime } from './website-owned-runtime-verification';
+import { recordWebsiteProductionRuntimeAttestation } from './website-production-runtime-attestation';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const provider = /^[A-Za-z0-9_-]{3,128}$/;
@@ -111,7 +112,8 @@ export async function stageWebsiteProductionCandidate(input: {
     await verifyOwnedDeployedRuntime({ projectId: input.projectId, environment: 'production', liveUrl: staged.liveUrl,
       files: source.files, isCurrent: current, fetcher: input.fetcher });
     if (!await current()) throw new Error();
-    return { ...staged, status: 'runtime-verified' as const, operationId: input.operationId,
-      sourceDigest: source.sourceDigest, runtimeDigest: identity.runtimeDigest };
+    return recordWebsiteProductionRuntimeAttestation({ client: input.client, isCurrent: current, scope: target.scope,
+      deploymentId: staged.deploymentId, liveUrl: staged.liveUrl, sourceDigest: source.sourceDigest,
+      runtimeDigest: identity.runtimeDigest });
   } catch { throw new Error('Production candidate staging unavailable.'); }
 }
