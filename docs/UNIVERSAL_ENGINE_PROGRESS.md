@@ -959,3 +959,37 @@ or application state. Current-value generation remains available; unrelated FIFO
 queues and weighted-average statistics remain outside this inventory check.
 English/Arabic/Swedish regression cases reuse the physical-stock fixture.
 This closes a false-completion path; a movement-cost ledger remains unimplemented.
+
+## Non-activating Vercel Production staging transport — 2026-10-17
+
+Continue from PR #276, merged as `9e234df70c7edbaeedb3153c8e7e401ea91b5b52`
+after Release Gate `39070127954` and Vercel passed on `93763e50`.
+The earlier staging API uncertainty is resolved by inspection of Vercel's
+official CLI source: `packages/cli/src/commands/deploy/index.ts` maps
+`--skip-domain` to `autoAssignCustomDomains:false`; the official client
+`packages/client/src/types.ts` declares that request field (observed blob
+`a655a4da7af759915bedb97d724145d60f405849`). No Vercel source code or new
+dependency is imported.
+
+A server-only staging transport now reuses the existing twice-stable customer
+project/owner/repository proof. It requires a separately prepared Production
+source checkpoint, exact Production runtime-environment IDs, a dedicated source
+branch distinct from the project's automatic Production branch, and a durable
+claim store. It sends one Git deployment request for the exact SHA with
+`target:production` and `autoAssignCustomDomains:false`. It never sends keys,
+changes environment variables, promotes, or assigns domains.
+
+Claim persistence must precede the provider effect. Claimed retries only observe
+the exact operation/source metadata; missing results, 429/5xx and lost responses
+never authorize recreation. Multiple matching deployments or paginated discovery
+fail closed. Two matching observations must prove no assigned aliases and the
+exact project/account/branch/SHA before returning `staged`. Revoked scopes,
+replaced environment IDs, changed source and assigned domains refuse success.
+
+The regression runs the actual transport with synthetic provider/store responses
+and asserts request content, claim ordering, ownership, environment identity,
+uncertainty/retry, alias denial and failure states. It is not live provider or
+runtime/behavior evidence. The private PostgreSQL claim/record adapter and trusted
+coordinator composition still need implementation before mounting this path;
+the existing Production entry remains blocked. Customer activation, credentials,
+historical migration changes and Social Hub remain deferred.
