@@ -84,6 +84,16 @@ try {
     {id:'stock_value_formula',summary:'Calculate current stock value',capability:'formula',evidence:['formula:levels']},
     {id:'stock_value_report',summary:'Sum current stock value',capability:'reports',evidence:['reports:levels']}]};
   const withoutValuation=structuredClone(app);delete withoutValuation.tables[2].stockValuation;
+  for(const prompt of ['FIFO inventory valuation','Inventory valuation using LIFO','Weighted-average inventory valuation',
+    'Stock valuation with cost of goods sold','تقييم المخزون بطريقة الوارد أولا صادر أولا','تقييم المخزون بالمتوسط المرجح',
+    'قيمة المخزون مع تكلفة البضاعة المباعة','Lagervärdering med FIFO','Lagervärdering med vägt genomsnitt',
+    'Lagervärde och kostnad för sålda varor','COGS report','تكلفة البضاعة المباعة','Kostnad för sålda varor']) {
+    assert.throws(()=>generate(valuationGenerated,pages,prompt),/Inventory costing methods require a movement-cost ledger/,
+      'A correct current-value formula cannot fulfill a requested inventory costing method');
+  }
+  for(const prompt of ['FIFO job queue','Weighted average school grades','Queue med FIFO']) {
+    assert.ok(generate(valuationGenerated,pages,prompt),'Unrelated queue/statistics terminology is outside this inventory guard');
+  }
   for(const prompt of ['Inventory valuation','Current stock value','قيمة المخزون','Lagervärde']) {
     assert.ok(generate(valuationGenerated,pages,prompt).tables[2].stockValuation);
     assert.throws(()=>generate({...valuationGenerated,application:withoutValuation},pages,prompt),/Current stock valuation requires/);

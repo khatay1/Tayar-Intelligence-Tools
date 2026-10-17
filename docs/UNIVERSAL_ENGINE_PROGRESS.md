@@ -946,3 +946,16 @@ precision, owner-isolated sums, refusal of direct computed-value writes, cost
 updates, and transfer/retry recomputation while each warehouse retains its own
 declared cost. Different warehouse costs can change the aggregate snapshot when
 quantity moves; there is no implied cost-basis conservation or movement ledger.
+
+## Prevent incomplete inventory costing generation — 2026-10-17
+
+Continue from PR #275, merged as `f315e6cd0e289c49ed4d3d23d7d97256c8f494f1`
+after Release Gate `39067934306` and Vercel passed on `787df382`.
+A reproduced generation bypass accepted a FIFO valuation request when the model
+returned the valid current-value snapshot contract and omitted unsupportedFeatures.
+The generator now independently refuses requested FIFO/LIFO, weighted/moving
+average inventory costing and cost-of-goods-sold behavior before applying pages
+or application state. Current-value generation remains available; unrelated FIFO
+queues and weighted-average statistics remain outside this inventory check.
+English/Arabic/Swedish regression cases reuse the physical-stock fixture.
+This closes a false-completion path; a movement-cost ledger remains unimplemented.
