@@ -81,7 +81,12 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     '  update ' + ledger + " r set status = case when decision = 'release' then 'released' else 'fulfilled' end",
     '    where r.actor_id = actor and r.reservation_id = ' + finalizing + '.reservation_id;',
     "  if decision = 'fulfill' then",
-    '    perform ' + counter + '(target, -prior.quantity, ' + finalizing + '.reservation_id);',
+    // The stock receipt is client-chosen and may already name an ordinary
+    // counter request. Only the locked terminal stock status provides replay
+    // protection here; every first fulfillment needs a fresh internal debit.
+    '    if ' + counter + "(target, -prior.quantity, pg_catalog.gen_random_uuid()) is distinct from 'adjusted' then",
+    "      raise exception 'Stock fulfillment debit unavailable';",
+    '    end if;',
     '  end if;',
     "  return case when decision = 'release' then 'released' else 'fulfilled' end;",
     'end $stock_finalize$;',
