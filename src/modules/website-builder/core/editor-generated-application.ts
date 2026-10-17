@@ -15,6 +15,13 @@ const physicalStockLocationRequest = (prompt: string) =>
   /\b(?:stock|inventory)(?:\W+\w+){0,6}\W+(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))\b|\b(?:multi[ -]?(?:location|warehouse|site)|multiple (?:locations|warehouses|sites)|(?:per|by) (?:location|warehouse|site)|across (?:multiple )?(?:locations|warehouses|sites))(?:\W+\w+){0,6}\W+(?:stock|inventory)\b|(?:مخزون|المخزون).{0,45}(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع))|(?:متعدد (?:المواقع|المستودعات)|لكل (?:موقع|مستودع)|حسب (?:الموقع|المستودع)).{0,45}(?:مخزون|المخزون)|\blager(?:saldo)?\b.{0,45}\b(?:per (?:lager|plats)|på flera (?:platser|lager))\b/iu.test(prompt);
 const stockTransferRequest = (prompt: string) => /\b(?:(?:transfer|move)(?:\W+\w+){0,5}\W+(?:stock|inventory)|(?:stock|inventory|warehouse) transfers?)\b|(?:نقل|تحويل).{0,40}(?:المخزون|مخزون|المستودعات|المستودع)|\b(?:lagerflytt|lageröverföring)\b/iu.test(prompt);
 const stockValuationRequest = (prompt: string) => /\b(?:(?:stock|inventory) valuation|(?:stock|inventory) value|value of (?:stock|inventory))\b|(?:تقييم المخزون|قيمة المخزون)|\b(?:lagervärde|lagervärdering)\b/iu.test(prompt);
+// Current quantity × declared unit cost cannot prove movement/lot costing.
+// Keep this separate from formula/report evidence even when the model omits
+// unsupportedFeatures and produces a structurally valid stock application.
+const inventoryCostingRequest = (prompt: string) =>
+  /\b(?:COGS|cost of goods sold)\b|(?:تكلفة (?:البضاعة|البضائع) المباعة)|(?:kostnad för sålda varor)/iu.test(prompt)
+  || /\b(?:stock|inventory)\b|(?:المخزون|مخزون)|\b(?:lager|lagervärde|lagervärdering)\b/iu.test(prompt)
+  && /\b(?:FIFO|LIFO|COGS|(?:weighted|moving)[ -]average|cost of goods sold)\b|(?:الوارد أولا صادر أولا|الوارد أولاً صادر أولاً|الوارد اخيرا صادر اولا|الوارد أخيرا صادر أولا|الوارد أخيراً صادر أولاً|المتوسط المرجح|المتوسط المتحرك|تكلفة (?:البضاعة|البضائع|المبيعات) المباعة)|(?:vägt genomsnitt|vägda genomsnitt|rörligt medelvärde|kostnad för sålda varor)/iu.test(prompt);
 const bookingRequest = (prompt: string) => /\b(?:book(?:ing)? appointments?|appointments? booking|room booking|resource booking|reservations?|bokning|boka)\b|(?:حجز|حجوزات)/iu.test(prompt.replace(stockReservationPattern, ''));
 const stockAvailabilityPattern = /\b(?:available (?:stock|inventory)|(?:stock|inventory) availability|tillgängligt lager)\b|(?:المخزون المتاح|الكمية المتاحة من المخزون)/giu;
 const stockAvailabilityRequest = (prompt: string) => new RegExp(stockAvailabilityPattern.source, 'iu').test(prompt);
@@ -51,6 +58,9 @@ export function prepareGeneratedApplication(
   availableEmailConnectionIds: ReadonlySet<string> = new Set(),
   requireSpecification = false,
 ): ApplicationDefinition | undefined {
+  if (inventoryCostingRequest(prompt)) {
+    throw new Error('Inventory costing methods require a movement-cost ledger. Current stock value snapshots cannot fulfill FIFO, LIFO, weighted-average costing or cost of goods sold. No incomplete application was applied.');
+  }
   if (stockTransferRequest(prompt) && /\b(?:multi[ -]?item|batch|bulk|multiple items|all items)\b|(?:متعدد الأصناف|عدة أصناف|جميع الأصناف|دفعة واحدة)|(?:flera varor|massflytt)/iu.test(prompt)) {
     throw new Error('Atomic multi-item warehouse transfer batches are unsupported. Single-item transfers cannot fulfill this requirement. No incomplete application was applied.');
   }
