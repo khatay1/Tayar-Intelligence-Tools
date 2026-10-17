@@ -35,14 +35,20 @@ try {
       {id:'stock_product',key:'product_id',name:'Item',type:'reference',required:true,referenceTableId:'catalog'},
       {id:'stock_warehouse',key:'warehouse_id',name:'Warehouse',type:'reference',required:true,referenceTableId:'warehouses'},
       {id:'level_quantity',key:'quantity',name:'Quantity',type:'number',required:true,defaultValue:0},
+      {id:'level_unit_cost',key:'unit_cost',name:'Unit cost',type:'number',required:true,defaultValue:0},
+      {id:'level_value',key:'stock_value',name:'Stock value',type:'number',required:true,formula:{operation:'multiply',fieldIds:['level_quantity','level_unit_cost']}},
     ],counter:{fieldId:'level_quantity',minimum:0,maximum:100,integer:true},stockReservations:true,
-    stockLocations:{itemFieldId:'stock_product',locationFieldId:'stock_warehouse'}},
+    stockLocations:{itemFieldId:'stock_product',locationFieldId:'stock_warehouse'},
+    stockValuation:{unitCostFieldId:'level_unit_cost',valueFieldId:'level_value',currency:'SEK'},
+    reports:[{id:'inventory_value',name:'Inventory value (SEK)',operation:'sum',fieldId:'level_value'}]},
   ]};
   assert.deepEqual(issues(app),[]);
   const statements = compile(app), sql=statements.join('\n');
   assert.match(sql,/unique \(owner_id,"product_id","warehouse_id"\)/);
+  assert.match(sql,/"stock_value" numeric generated always as \(\("quantity" \* "unit_cost"\)\) stored/);
+  assert.match(sql,/sum\("stock_value"\)/);
   assert.deepEqual(migrate(app,app),[]);
-  const noLocations=structuredClone(app);delete noLocations.tables[2].stockLocations;
+  const noLocations=structuredClone(app);delete noLocations.tables[2].stockLocations;delete noLocations.tables[2].stockValuation;
   assert.throws(()=>migrate(noLocations,app),/separately reviewed/);
   for(const change of [
     a=>{a.tables[2].stockLocations.itemFieldId='missing'},
@@ -55,10 +61,14 @@ try {
     a=>{a.tables[1].permissions[2].access='authenticated'},
     a=>{a.tables[2].stockLocations.secret='forbidden'},
     a=>{a.tables[2].stockLocations=null},
+    a=>{a.tables[2].stockValuation.currency='sek'},
+    a=>{a.tables[2].stockValuation.unitCostFieldId='level_quantity'},
+    a=>{a.tables[2].fields.find(field=>field.id==='level_value').formula.operation='sum'},
+    a=>{a.tables[2].reports=[]},
   ]) {const invalid=structuredClone(app);change(invalid);assert.ok(issues(invalid).length);assert.throws(()=>compile(invalid));}
-  const binding={tableId:'levels',columns:['stock_product','stock_warehouse','level_quantity'],actions:['stock-availability','stock-reservation','adjust'],pageSize:10};
+  const binding={tableId:'levels',columns:['stock_product','stock_warehouse','level_quantity','level_unit_cost','level_value'],actions:['stock-availability','stock-reservation','adjust'],pageSize:10};
   assert.equal(view(app,binding).table.stockLocations.locationFieldId,'stock_warehouse');
-  for(const removed of binding.columns)assert.throws(()=>view(app,{...binding,columns:binding.columns.filter(id=>id!==removed)}),/visible item, location and quantity/);
+  for(const removed of ['stock_product','stock_warehouse','level_quantity'])assert.throws(()=>view(app,{...binding,columns:binding.columns.filter(id=>id!==removed)}),/visible item, location and quantity/);
   const section=createSection('hero');section.applicationDataView=binding;section.buttonUrl='#'+section.id;
   section.elements=section.elements.map(element=>element.type==='button'?{...element,href:'#'+section.id}:element);
   const pages=[{id:'home',slug:'home',name:'Home',sections:[section]}];
@@ -69,6 +79,16 @@ try {
   for(const prompt of ['Stock per warehouse','Inventory across multiple locations','مخزون متعدد المستودعات','أرصدة المخزون لكل موقع','Lagersaldo per lager']) {
     assert.ok(generate(generated,pages,prompt).tables[2].stockLocations);
     assert.throws(()=>generate({...generated,application:noLocations},pages,prompt),/Physical stock balances by location/);
+  }
+  const valuationGenerated={...generated,requirements:[...generated.requirements,
+    {id:'stock_value_formula',summary:'Calculate current stock value',capability:'formula',evidence:['formula:levels']},
+    {id:'stock_value_report',summary:'Sum current stock value',capability:'reports',evidence:['reports:levels']}]};
+  const withoutValuation=structuredClone(app);delete withoutValuation.tables[2].stockValuation;
+  for(const prompt of ['Inventory valuation','Current stock value','قيمة المخزون','Lagervärde']) {
+    assert.ok(generate(valuationGenerated,pages,prompt).tables[2].stockValuation);
+    assert.throws(()=>generate({...valuationGenerated,application:withoutValuation},pages,prompt),/Current stock valuation requires/);
+    const hidden=structuredClone(pages);hidden[0].sections[0].applicationDataView.columns=hidden[0].sections[0].applicationDataView.columns.filter(id=>id!=='level_unit_cost');
+    assert.throws(()=>generate(valuationGenerated,hidden,prompt),/Current stock valuation requires/);
   }
   const transferBinding={...binding,actions:[...binding.actions,'stock-transfer']};
   const transferPages=structuredClone(pages);transferPages[0].sections[0].applicationDataView=transferBinding;

@@ -41,6 +41,9 @@ export interface ApplicationBookingSchedule {
   exceptions?: Array<{ date: string; windows: Array<{ startMinute: number; endMinute: number }> }>;
 }
 export interface ApplicationCounterRule { fieldId: string; minimum: number; maximum?: number; integer: boolean }
+/** Current on-hand value for one physical stock-level row. This is a snapshot
+ * using a declared unit cost, not an accounting, COGS or lot-cost ledger. */
+export interface ApplicationStockValuationRule { unitCostFieldId: string; valueFieldId: string; currency: string }
 /** Creates one parent record and one or more line records while changing every
  * referenced counter in the same database transaction. */
 export interface ApplicationTransactionRule {
@@ -114,6 +117,9 @@ export interface ApplicationTable {
   /** One immutable, owner-scoped stock row per catalog item and warehouse.
    * Both fields are required references to distinct owner-scoped tables. */
   stockLocations?: { itemFieldId: string; locationFieldId: string };
+  /** Quantity multiplied by the level's declared unit cost, exposed through a
+   * real aggregate report. Transfers do not infer or rewrite costing policy. */
+  stockValuation?: ApplicationStockValuationRule;
   transaction?: ApplicationTransactionRule;
   payment?: ApplicationPaymentRule;
   workflow?: ApplicationWorkflowRule;

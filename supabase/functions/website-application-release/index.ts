@@ -483,7 +483,7 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object5(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "stockReservations", "stockLocations", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "stockReservations", "stockLocations", "stockValuation", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier3(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
@@ -636,6 +636,22 @@ function validateApplicationDefinition(value, pageIds) {
         };
         if (table.stockReservations !== true || !id(rule.itemFieldId) || !id(rule.locationFieldId) || rule.itemFieldId === rule.locationFieldId || item?.type !== "reference" || location2?.type !== "reference" || item.required !== true || location2.required !== true || item.referenceTableId === location2.referenceTableId || !targetIsOwnerScoped(item) || !targetIsOwnerScoped(location2)) {
           issue(locationPath, "invalid-stock-locations", "Physical stock requires the stock opt-in and distinct required item/location references to owner-scoped tables.");
+        }
+      }
+    }
+    if (table.stockValuation !== void 0) {
+      const valuationPath = `${path}.stockValuation`;
+      if (shape(table.stockValuation, ["unitCostFieldId", "valueFieldId", "currency"], valuationPath)) {
+        const rule = table.stockValuation;
+        const fields = Array.isArray(table.fields) ? table.fields.filter(object5) : [];
+        const cost = fields.find((field) => field.id === rule.unitCostFieldId);
+        const value2 = fields.find((field) => field.id === rule.valueFieldId);
+        const quantityId = object5(table.counter) ? table.counter.fieldId : void 0;
+        const formula = object5(value2?.formula) ? value2.formula : void 0;
+        const sources = formula && Array.isArray(formula.fieldIds) ? formula.fieldIds : [];
+        const hasTotal = Array.isArray(table.reports) && table.reports.some((report) => object5(report) && report.operation === "sum" && report.fieldId === rule.valueFieldId);
+        if (!object5(table.stockLocations) || !id(rule.unitCostFieldId) || !id(rule.valueFieldId) || rule.unitCostFieldId === rule.valueFieldId || rule.unitCostFieldId === quantityId || cost?.type !== "number" || cost.required !== true || cost.formula !== void 0 || value2?.type !== "number" || value2.required !== true || value2.defaultValue !== void 0 || formula?.operation !== "multiply" || sources.length !== 2 || !sources.includes(rule.unitCostFieldId) || !quantityId || !sources.includes(quantityId) || typeof rule.currency !== "string" || !/^[A-Z]{3}$/.test(rule.currency) || !hasTotal) {
+          issue(valuationPath, "invalid-stock-valuation", "Stock valuation requires physical stock, a required unit cost, quantity \xD7 cost formula, ISO currency and a summed value report.");
         }
       }
     }
