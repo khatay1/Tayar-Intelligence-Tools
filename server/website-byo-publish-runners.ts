@@ -5,6 +5,7 @@ import {runWebsiteOwnedByoProductionPublish,runWebsiteOwnedByoPublish} from './w
 import {createWebsiteByoPublishStore} from './website-byo-publish-store';
 import {captureWebsiteByoPublishTargets} from './website-byo-publish-targets';
 import {prepareWebsiteOwnedBackend} from './website-owned-backend-preparation-worker';
+import {stageWebsiteProductionCandidate} from './website-production-staging-worker';
 
 type Client=Pick<SupabaseClient,'rpc'>;
 type Scope={ownerId:string;projectId:string;operationId:string};
@@ -24,6 +25,14 @@ export function createWebsiteByoPublishRunners(input:{client:Client;reader:Owned
   const capture=(scope:Pick<Scope,'ownerId'|'projectId'>&{requireProduction?:boolean})=>
     captureWebsiteByoPublishTargets({client:input.client,...scope});
   return{
+    // Internal staging only. The HTTP endpoint deliberately has no matching
+    // action until behavioral/provider evidence and activation approval exist.
+    async stageProduction(scope:Scope){
+      return stageWebsiteProductionCandidate({client:input.client,operationId:scope.operationId,
+        projectId:scope.projectId,ownerId:scope.ownerId,platformOrigin:input.platformOrigin,
+        platformUrl:input.platformUrl,platformVercelAccountId:input.platformVercelAccountId,
+        verifyRuntime:input.verifyRuntime,isCurrent:async()=>true,fetcher:input.fetcher});
+    },
     async runPreview(scope:Scope){
       await prepareWebsiteOwnedBackend({client:input.client,reader:input.reader,...scope,environment:'preview',
         platformOrigin:input.platformOrigin,platformSupabaseOrganizationId:input.platformSupabaseOrganizationId,

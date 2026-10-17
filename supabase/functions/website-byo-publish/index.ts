@@ -136,8 +136,8 @@ async function websiteProjectReleaseDigest(snapshot) {
   const serialized = JSON.stringify(snapshot);
   if (new TextEncoder().encode(serialized).byteLength > 2e6) throw new Error("Project snapshot exceeds the release limit.");
   const bytes = new TextEncoder().encode(canonical(JSON.parse(serialized)));
-  const digest9 = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest9), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const digest10 = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest10), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 // src/modules/website-builder/core/application-github-target.ts
@@ -347,8 +347,8 @@ async function writeWebsiteGitHubExport(input) {
 // src/modules/website-builder/services/websiteGithubExportSourceService.ts
 async function hash(value) {
   const bytes = new TextEncoder().encode(value);
-  const digest9 = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest9), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const digest10 = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest10), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 async function captureWebsiteGitHubExportSource(input) {
   if (typeof window !== "undefined") throw new Error("GitHub export requires a trusted server.");
@@ -10441,8 +10441,8 @@ var EDITOR_INTEGRATION_PROVIDERS = [
 function createEditorIntegrationsConfig() {
   return { version: 1, connections: [] };
 }
-function getEditorIntegrationProvider(providerId2) {
-  return EDITOR_INTEGRATION_PROVIDERS.find((provider11) => provider11.id === providerId2);
+function getEditorIntegrationProvider(providerId3) {
+  return EDITOR_INTEGRATION_PROVIDERS.find((provider12) => provider12.id === providerId3);
 }
 function cleanString(value, max = 2e3) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -10457,20 +10457,20 @@ function normalizeEditorIntegrationsConfig(value) {
     if (!candidate || typeof candidate !== "object") continue;
     const source = candidate;
     const id4 = cleanString(source.id, 120);
-    const providerId2 = cleanString(source.providerId, 120);
-    if (!id4 || seen.has(id4) || !getEditorIntegrationProvider(providerId2)) continue;
+    const providerId3 = cleanString(source.providerId, 120);
+    if (!id4 || seen.has(id4) || !getEditorIntegrationProvider(providerId3)) continue;
     seen.add(id4);
-    const provider11 = getEditorIntegrationProvider(providerId2);
-    const publicFields = new Set(provider11.fields.filter((field2) => !field2.secret).map((field2) => field2.key));
-    const secretFields = new Set(provider11.fields.filter((field2) => field2.secret).map((field2) => field2.key));
+    const provider12 = getEditorIntegrationProvider(providerId3);
+    const publicFields = new Set(provider12.fields.filter((field2) => !field2.secret).map((field2) => field2.key));
+    const secretFields = new Set(provider12.fields.filter((field2) => field2.secret).map((field2) => field2.key));
     const config = Object.fromEntries(Object.entries(source.config ?? {}).filter(([key2, item]) => publicFields.has(key2) && (typeof item === "string" || typeof item === "boolean")).map(([key2, item]) => [key2, typeof item === "string" ? item.slice(0, 5e3) : item]));
-    for (const field2 of provider11.fields) {
+    for (const field2 of provider12.fields) {
       if (field2.type === "url" && typeof config[field2.key] === "string" && hasEmbeddedIntegrationCredentials(String(config[field2.key]))) delete config[field2.key];
     }
-    if (providerId2 === "stripe" && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
+    if (providerId3 === "stripe" && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
     const secrets2 = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key2, item]) => secretFields.has(key2) && !!item && typeof item === "object" && isEditorSecretReference(item.ref)).map(([key2, item]) => [key2, { ref: item.ref, updatedAt: cleanString(item.updatedAt, 80) || void 0 }]));
     const environments = Array.from(new Set((Array.isArray(source.environments) ? source.environments : ["production"]).filter((item) => item === "preview" || item === "staging" || item === "production")));
-    normalized.push({ id: id4, providerId: providerId2, name: cleanString(source.name, 160) || provider11.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
+    normalized.push({ id: id4, providerId: providerId3, name: cleanString(source.name, 160) || provider12.name, enabled: source.enabled !== false, status: source.status === "active" || source.status === "error" || source.status === "disabled" || source.status === "configured" ? source.status : "disconnected", environments, config, secrets: secrets2, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event) => typeof event === "string"))), createdAt: cleanString(source.createdAt, 80) || (/* @__PURE__ */ new Date()).toISOString(), updatedAt: cleanString(source.updatedAt, 80) || (/* @__PURE__ */ new Date()).toISOString() });
   }
   return { version: 1, connections: normalized };
 }
@@ -10482,16 +10482,16 @@ function validateEditorIntegrations(config) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection3.id)) issues.push({ connectionId: connection3.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
     if (ids2.has(connection3.id)) issues.push({ connectionId: connection3.id, code: "duplicate-id", message: `Duplicate integration id: ${connection3.id}` });
     ids2.add(connection3.id);
-    const provider11 = getEditorIntegrationProvider(connection3.providerId);
-    if (!provider11) {
+    const provider12 = getEditorIntegrationProvider(connection3.providerId);
+    if (!provider12) {
       issues.push({ connectionId: connection3.id, code: "unknown-provider", message: `Unknown integration provider: ${connection3.providerId}` });
       continue;
     }
     for (const key2 of Object.keys(connection3.config)) {
-      if (!provider11.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
+      if (!provider12.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
     }
     for (const [key2, secret] of Object.entries(connection3.secrets)) {
-      if (!provider11.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
+      if (!provider12.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
       else if (secret.ref.startsWith("secret://website/") && (connection3.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection3.id, key2, connection3.environments[0]))) {
         issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
       }
@@ -10510,18 +10510,18 @@ function validateEditorIntegrations(config) {
         }
       }
     }
-    for (const field2 of provider11.fields) {
+    for (const field2 of provider12.fields) {
       if (!field2.required) continue;
       if (field2.secret) {
         if (!connection3.secrets[field2.key]?.ref) issues.push({ connectionId: connection3.id, field: field2.key, code: "missing-secret", message: `${field2.label} is required.` });
       } else if (connection3.config[field2.key] === void 0 || connection3.config[field2.key] === "") issues.push({ connectionId: connection3.id, field: field2.key, code: "missing-field", message: `${field2.label} is required.` });
     }
-    for (const field2 of provider11.fields.filter((item) => item.type === "url")) {
+    for (const field2 of provider12.fields.filter((item) => item.type === "url")) {
       const value = connection3.config[field2.key];
       if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection3.id, field: field2.key, code: "invalid-url", message: `${field2.label} must use a public HTTPS URL without embedded credentials.` });
     }
-    if (provider11.supportedEvents) {
-      for (const event of connection3.events ?? []) if (!provider11.supportedEvents.includes(event)) issues.push({ connectionId: connection3.id, code: "unsupported-event", message: `${provider11.name} does not support ${event}.` });
+    if (provider12.supportedEvents) {
+      for (const event of connection3.events ?? []) if (!provider12.supportedEvents.includes(event)) issues.push({ connectionId: connection3.id, code: "unsupported-event", message: `${provider12.name} does not support ${event}.` });
     }
   }
   return issues;
@@ -11887,8 +11887,8 @@ function compileAdditiveApplicationMigration(previous, next) {
   const before = readApplicationDefinition(previous);
   const after = readApplicationDefinition(next);
   if (before.tables.some((table) => table.stockReservations) || after.tables.some((table) => table.stockReservations)) {
-    const canonical3 = (value) => JSON.stringify(value, (_key, entry) => entry && typeof entry === "object" && !Array.isArray(entry) ? Object.fromEntries(Object.entries(entry).sort(([a], [b]) => a.localeCompare(b))) : entry);
-    if (canonical3(before) === canonical3(after)) return [];
+    const canonical4 = (value) => JSON.stringify(value, (_key, entry) => entry && typeof entry === "object" && !Array.isArray(entry) ? Object.fromEntries(Object.entries(entry).sort(([a], [b]) => a.localeCompare(b))) : entry);
+    if (canonical4(before) === canonical4(after)) return [];
     throw new Error("Stock reservation applications require a separately reviewed database migration.");
   }
   if (before.tables.some((table) => table.notifications?.length) || after.tables.some((table) => table.notifications?.length)) throw new Error("Email notification changes require a separately verified runtime migration.");
@@ -13523,8 +13523,25 @@ async function captureWebsiteOwnedApplicationSource(input) {
     isCurrent
   };
 }
+async function captureWebsiteOwnedProductionSource(input) {
+  if (typeof window !== "undefined" || !/^[a-f0-9]{64}$/.test(input.expectedPreviewSourceDigest) || input.previewGithubConnectionId === input.productionGithubConnectionId) throw new Error("Production source preparation is unavailable.");
+  try {
+    const preview2 = await captureWebsiteOwnedApplicationSource({ ...input, environment: "preview", githubConnectionId: input.previewGithubConnectionId });
+    if (preview2.sourceDigest !== input.expectedPreviewSourceDigest) throw new Error();
+    const production = await captureWebsiteOwnedApplicationSource({ ...input, environment: "production", githubConnectionId: input.productionGithubConnectionId });
+    if (production.snapshotDigest !== preview2.snapshotDigest || production.sourceDigest === preview2.sourceDigest || production.supabase.id === preview2.supabase.id || production.binding.backend.projectRef === preview2.binding.backend.projectRef || production.vercel.id === preview2.vercel.id || production.vercel.targetId !== preview2.vercel.targetId || production.vercel.accountId !== preview2.vercel.accountId || production.connection.targetId !== preview2.connection.targetId || production.connection.accountId !== preview2.connection.accountId || production.binding.applicationOrigin !== preview2.binding.applicationOrigin) throw new Error();
+    const isCurrent = async () => await preview2.isCurrent() && await production.isCurrent();
+    if (!await isCurrent()) throw new Error();
+    return { ...production, previewSourceDigest: preview2.sourceDigest, isCurrent };
+  } catch {
+    throw new Error("Production source preparation is unavailable.");
+  }
+}
 
 // server/website-production-source-candidate.ts
+var uuid7 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var digest3 = /^[a-f0-9]{64}$/;
+var sha3 = /^[a-f0-9]{40}$/;
 var keys = [
   "status",
   "operationId",
@@ -13538,13 +13555,19 @@ var keys = [
   "sourceDigest",
   "headSha"
 ].sort().join(",");
+function readProductionSourceCandidate(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  const row2 = value;
+  if (Object.keys(row2).sort().join(",") !== keys || row2.status !== "source-prepared" || !["operationId", "projectId", "ownerId", "previewOperationId", "githubConnectionId"].every((key2) => typeof row2[key2] === "string" && uuid7.test(row2[key2])) || !["previewSourceDigest", "snapshotDigest", "runtimeDigest", "sourceDigest"].every((key2) => typeof row2[key2] === "string" && digest3.test(row2[key2])) || typeof row2.headSha !== "string" || !sha3.test(row2.headSha) || row2.operationId === row2.previewOperationId) throw new Error();
+  return row2;
+}
 
 // server/website-byo-publish-targets.ts
-var uuid7 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid8 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function parseTarget(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   const row2 = value;
-  if (Object.keys(row2).some((key2) => !["connectionId", "version"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid7.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1) throw new Error();
+  if (Object.keys(row2).some((key2) => !["connectionId", "version"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid8.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1) throw new Error();
   return { connectionId: row2.connectionId, version: row2.version };
 }
 function parse(value) {
@@ -13565,7 +13588,7 @@ function parse(value) {
 }
 var identity2 = (value) => JSON.stringify(value);
 async function captureWebsiteByoPublishTargets(input) {
-  if (typeof window !== "undefined" || !uuid7.test(input.projectId) || !uuid7.test(input.ownerId))
+  if (typeof window !== "undefined" || !uuid8.test(input.projectId) || !uuid8.test(input.ownerId))
     throw new Error("BYO publish targets unavailable.");
   const read = async () => {
     const { data, error } = await input.client.rpc("website_byo_publish_targets", {
@@ -13601,10 +13624,10 @@ var project2 = /^prj_[A-Za-z0-9]{8,128}$/;
 var deployment = /^dpl_[A-Za-z0-9]{8,128}$/;
 var gitName = /^[A-Za-z0-9_.-]{1,100}$/;
 var branch = /^[A-Za-z0-9_./-]{1,200}$/;
-var sha3 = /^[0-9a-f]{40}$/i;
+var sha4 = /^[0-9a-f]{40}$/i;
 var envName = /^[A-Z][A-Z0-9_]{1,99}$/;
 async function discoverOwnedVercelDeployment(input) {
-  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id2.test(input.accountId) || !project2.test(input.projectId) || !sha3.test(input.sourceCommitSha) || !branch.test(input.sourceBranch) || input.sourceBranch.includes("..") || !["preview", "production"].includes(input.target)) throw new Error("Vercel deployment discovery is unavailable.");
+  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id2.test(input.accountId) || !project2.test(input.projectId) || !sha4.test(input.sourceCommitSha) || !branch.test(input.sourceBranch) || input.sourceBranch.includes("..") || !["preview", "production"].includes(input.target)) throw new Error("Vercel deployment discovery is unavailable.");
   const teamScope = team.test(input.accountId), query = new URLSearchParams({
     projectId: input.projectId,
     limit: "20",
@@ -13640,7 +13663,7 @@ async function discoverOwnedVercelDeployment(input) {
   }
 }
 async function inspectOwnedVercelDeployment(input) {
-  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id2.test(input.userId) || !id2.test(input.accountId) || !id2.test(input.platformAccountId) || input.accountId === input.platformAccountId || !project2.test(input.projectId) || !deployment.test(input.deploymentId) || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.sourceBranch !== void 0 && (!branch.test(input.sourceBranch) || input.sourceBranch.includes("..")) || !sha3.test(input.sourceCommitSha) || !["preview", "production"].includes(input.target) || !Array.isArray(input.requiredEnvironment) || input.requiredEnvironment.length > 64 || input.requiredEnvironment.some((key2) => !envName.test(key2)) || new Set(input.requiredEnvironment).size !== input.requiredEnvironment.length || input.requiredEnvironmentIds !== void 0 && (Object.keys(input.requiredEnvironmentIds).sort().join(",") !== [...input.requiredEnvironment].sort().join(",") || Object.values(input.requiredEnvironmentIds).some((value) => !id2.test(value)) || new Set(Object.values(input.requiredEnvironmentIds)).size !== input.requiredEnvironment.length)) {
+  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id2.test(input.userId) || !id2.test(input.accountId) || !id2.test(input.platformAccountId) || input.accountId === input.platformAccountId || !project2.test(input.projectId) || !deployment.test(input.deploymentId) || !/^\d+$/.test(input.repositoryId) || !gitName.test(input.repositoryOwner) || !gitName.test(input.repositoryName) || !branch.test(input.productionBranch) || input.productionBranch.includes("..") || input.sourceBranch !== void 0 && (!branch.test(input.sourceBranch) || input.sourceBranch.includes("..")) || !sha4.test(input.sourceCommitSha) || !["preview", "production"].includes(input.target) || !Array.isArray(input.requiredEnvironment) || input.requiredEnvironment.length > 64 || input.requiredEnvironment.some((key2) => !envName.test(key2)) || new Set(input.requiredEnvironment).size !== input.requiredEnvironment.length || input.requiredEnvironmentIds !== void 0 && (Object.keys(input.requiredEnvironmentIds).sort().join(",") !== [...input.requiredEnvironment].sort().join(",") || Object.values(input.requiredEnvironmentIds).some((value) => !id2.test(value)) || new Set(Object.values(input.requiredEnvironmentIds)).size !== input.requiredEnvironment.length)) {
     throw new Error("Vercel deployment status is unavailable.");
   }
   const fetcher = input.fetcher ?? fetch, teamScope = input.accountId !== input.userId;
@@ -13725,9 +13748,9 @@ async function inspectOwnedVercelDeployment(input) {
 }
 
 // server/website-byo-publish-store.ts
-var uuid8 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var digest3 = /^[0-9a-f]{64}$/;
-var sha4 = /^[0-9a-f]{40}$/;
+var uuid9 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var digest4 = /^[0-9a-f]{64}$/;
+var sha5 = /^[0-9a-f]{40}$/;
 var env = /^[A-Z][A-Z0-9_]{1,99}$/;
 var deployment2 = /^dpl_[A-Za-z0-9]{8,128}$/;
 var live = /^https:\/\/(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/;
@@ -13744,7 +13767,7 @@ var previewEdges = /* @__PURE__ */ new Set([
 ]);
 var productionEdges = /* @__PURE__ */ new Set(["created:validated", "validated:promoting", "promoting:verifying-production", "verifying-production:ready"]);
 function assertScope(scope) {
-  if (typeof window !== "undefined" || ![scope.operationId, scope.projectId, scope.ownerId].every((v) => uuid8.test(v)) || !["preview", "production"].includes(scope.environment) || !scope.isCurrent()) throw new Error("BYO publish checkpoint unavailable.");
+  if (typeof window !== "undefined" || ![scope.operationId, scope.projectId, scope.ownerId].every((v) => uuid9.test(v)) || !["preview", "production"].includes(scope.environment) || !scope.isCurrent()) throw new Error("BYO publish checkpoint unavailable.");
 }
 function assertEvidence(v) {
   const empty = v.requiredEnvironment.length === 0, source = v.sourceDigest !== null, head = v.headSha !== null, attempt = v.attemptVersion !== null;
@@ -13760,7 +13783,7 @@ function checkpoint(value, scope) {
   const required2 = v.requiredEnvironment;
   const aliases2 = v.productionAliases;
   const sorted = [...required2].sort();
-  if (v.operationId !== scope.operationId || v.projectId !== scope.projectId || v.ownerId !== scope.ownerId || v.environment !== scope.environment || !stages2.has(v.stage) || !Number.isSafeInteger(v.version) || v.version < 1 || required2.length > 64 || required2.some((x) => !env.test(x)) || new Set(required2).size !== required2.length || required2.some((x, i) => x !== sorted[i]) || v.sourceDigest !== null && (typeof v.sourceDigest !== "string" || !digest3.test(v.sourceDigest)) || v.headSha !== null && (typeof v.headSha !== "string" || !sha4.test(v.headSha)) || v.attemptVersion !== null && (!Number.isSafeInteger(v.attemptVersion) || v.attemptVersion < 1) || v.deploymentId !== null && (typeof v.deploymentId !== "string" || !deployment2.test(v.deploymentId)) || v.liveUrl !== null && (typeof v.liveUrl !== "string" || !live.test(v.liveUrl)) || v.previewOperationId !== null && (typeof v.previewOperationId !== "string" || !uuid8.test(v.previewOperationId)) || v.promotionVersion !== null && (!Number.isSafeInteger(v.promotionVersion) || v.promotionVersion < 1) || aliases2.length > 100 || aliases2.some((x) => !hostname.test(x)) || new Set(aliases2).size !== aliases2.length || aliases2.some((x, i) => x !== [...aliases2].sort()[i])) throw new Error();
+  if (v.operationId !== scope.operationId || v.projectId !== scope.projectId || v.ownerId !== scope.ownerId || v.environment !== scope.environment || !stages2.has(v.stage) || !Number.isSafeInteger(v.version) || v.version < 1 || required2.length > 64 || required2.some((x) => !env.test(x)) || new Set(required2).size !== required2.length || required2.some((x, i) => x !== sorted[i]) || v.sourceDigest !== null && (typeof v.sourceDigest !== "string" || !digest4.test(v.sourceDigest)) || v.headSha !== null && (typeof v.headSha !== "string" || !sha5.test(v.headSha)) || v.attemptVersion !== null && (!Number.isSafeInteger(v.attemptVersion) || v.attemptVersion < 1) || v.deploymentId !== null && (typeof v.deploymentId !== "string" || !deployment2.test(v.deploymentId)) || v.liveUrl !== null && (typeof v.liveUrl !== "string" || !live.test(v.liveUrl)) || v.previewOperationId !== null && (typeof v.previewOperationId !== "string" || !uuid9.test(v.previewOperationId)) || v.promotionVersion !== null && (!Number.isSafeInteger(v.promotionVersion) || v.promotionVersion < 1) || aliases2.length > 100 || aliases2.some((x) => !hostname.test(x)) || new Set(aliases2).size !== aliases2.length || aliases2.some((x, i) => x !== [...aliases2].sort()[i])) throw new Error();
   const row2 = v;
   assertEvidence(row2);
   return { ...row2, requiredEnvironment: [...required2], productionAliases: [...aliases2] };
@@ -13863,12 +13886,12 @@ function createWebsiteByoPublishStore(scope) {
 }
 
 // server/website-byo-publish-worker.ts
-var uuid9 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var sha5 = /^[0-9a-f]{40}$/;
-var digest4 = /^[0-9a-f]{64}$/;
+var uuid10 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var sha6 = /^[0-9a-f]{40}$/;
+var digest5 = /^[0-9a-f]{64}$/;
 var env2 = /^[A-Z][A-Z0-9_]{1,99}$/;
 async function runByoPublishWorker(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((v) => uuid9.test(v)) || input.environment !== "preview" || !await input.isCurrent()) throw new Error("BYO publish unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((v) => uuid10.test(v)) || input.environment !== "preview" || !await input.isCurrent()) throw new Error("BYO publish unavailable.");
   let state = await input.store.read(input.operationId);
   if (!state || state.operationId !== input.operationId || state.projectId !== input.projectId || state.ownerId !== input.ownerId || state.environment !== input.environment || !Number.isSafeInteger(state.version) || state.version < 1) throw new Error("BYO publish unavailable.");
   const move = async (next) => {
@@ -13902,7 +13925,7 @@ async function runByoPublishWorker(input) {
     if (state.stage === "blocked") return { status: "blocked", checkpoint: state };
     if (state.stage === "created") {
       const proof = await input.validate(), required2 = [...proof.requiredEnvironment].sort();
-      if (!digest4.test(proof.sourceDigest) || required2.length > 64 || required2.some((v) => !env2.test(v)) || new Set(required2).size !== required2.length) throw new Error();
+      if (!digest5.test(proof.sourceDigest) || required2.length > 64 || required2.some((v) => !env2.test(v)) || new Set(required2).size !== required2.length) throw new Error();
       await move({ ...state, stage: "validated", sourceDigest: proof.sourceDigest, requiredEnvironment: required2 });
     }
     if (state.stage === "validated") {
@@ -13913,7 +13936,7 @@ async function runByoPublishWorker(input) {
     if (state.stage === "exporting") {
       const exported = await input.exportGitHub(input.operationId);
       if (exported.status === "recovery-required") return { status: "pending", checkpoint: state };
-      if (!sha5.test(exported.headSha)) throw new Error();
+      if (!sha6.test(exported.headSha)) throw new Error();
       await move({ ...state, stage: "exported", headSha: exported.headSha });
     }
     if (state.stage === "exported") {
@@ -14024,16 +14047,16 @@ async function verifyOwnedDeployedRuntime(input) {
 }
 
 // server/website-byo-production-publish-worker.ts
-var uuid10 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var digest5 = /^[0-9a-f]{64}$/;
-var sha6 = /^[0-9a-f]{40}$/;
+var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var digest6 = /^[0-9a-f]{64}$/;
+var sha7 = /^[0-9a-f]{40}$/;
 var deployment3 = /^dpl_[A-Za-z0-9]{8,128}$/;
 var hostname2 = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/;
 function preview(value, input) {
-  return value.operationId === input.previewOperationId && value.projectId === input.projectId && value.ownerId === input.ownerId && value.environment === "preview" && value.stage === "ready" && digest5.test(value.sourceDigest ?? "") && sha6.test(value.headSha ?? "") && Number.isSafeInteger(value.attemptVersion) && Number(value.attemptVersion) > 0 && deployment3.test(value.deploymentId ?? "") && !!value.liveUrl;
+  return value.operationId === input.previewOperationId && value.projectId === input.projectId && value.ownerId === input.ownerId && value.environment === "preview" && value.stage === "ready" && digest6.test(value.sourceDigest ?? "") && sha7.test(value.headSha ?? "") && Number.isSafeInteger(value.attemptVersion) && Number(value.attemptVersion) > 0 && deployment3.test(value.deploymentId ?? "") && !!value.liveUrl;
 }
 async function runByoProductionPublishWorker(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewOperationId].every((v) => uuid10.test(v)) || input.operationId === input.previewOperationId || !await input.isCurrent()) throw new Error("BYO production publish unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewOperationId].every((v) => uuid11.test(v)) || input.operationId === input.previewOperationId || !await input.isCurrent()) throw new Error("BYO production publish unavailable.");
   let state = await input.store.read(input.operationId);
   if (!state || state.operationId !== input.operationId || state.projectId !== input.projectId || state.ownerId !== input.ownerId || state.environment !== "production" || !Number.isSafeInteger(state.version) || state.version < 1) throw new Error("BYO production publish unavailable.");
   const move = async (next) => {
@@ -14093,7 +14116,7 @@ var id3 = /^[A-Za-z0-9_-]{3,128}$/;
 var team2 = /^team_[A-Za-z0-9]{8,128}$/;
 var project3 = /^prj_[A-Za-z0-9]{8,128}$/;
 var deployment4 = /^dpl_[A-Za-z0-9]{8,128}$/;
-var sha7 = /^[0-9a-f]{40}$/i;
+var sha8 = /^[0-9a-f]{40}$/i;
 var branch2 = /^[A-Za-z0-9_./-]{1,200}$/;
 var hostname3 = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/;
 var complete = /* @__PURE__ */ new Set(["READY", "SUCCESS", "ASSIGNED", "COMPLETED"]);
@@ -14119,7 +14142,7 @@ async function json3(fetcher, url, token4) {
 }
 async function inspectOwnedVercelProductionCandidate(input) {
   try {
-    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id3.test(input.accountId) || !project3.test(input.projectId) || !deployment4.test(input.deploymentId) || !sha7.test(input.sourceCommitSha) || !/^tayar\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/production$/i.test(input.sourceBranch)) throw new Error();
+    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id3.test(input.accountId) || !project3.test(input.projectId) || !deployment4.test(input.deploymentId) || !sha8.test(input.sourceCommitSha) || !/^tayar\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/production$/i.test(input.sourceBranch)) throw new Error();
     const query = team2.test(input.accountId) ? `?teamId=${encodeURIComponent(input.accountId)}` : "";
     const read = async () => {
       if (!await input.isCurrent()) throw new Error();
@@ -14170,7 +14193,7 @@ async function promoteAndVerifyOwnedVercelDeployment(input) {
   } catch {
     throw new Error("Vercel promotion is unavailable.");
   }
-  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id3.test(input.accountId) || !project3.test(input.projectId) || !deployment4.test(input.deploymentId) || !sha7.test(input.sourceCommitSha) || !branch2.test(input.sourceBranch) || input.sourceBranch.includes(".."))
+  if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !id3.test(input.accountId) || !project3.test(input.projectId) || !deployment4.test(input.deploymentId) || !sha8.test(input.sourceCommitSha) || !branch2.test(input.sourceBranch) || input.sourceBranch.includes(".."))
     throw new Error("Vercel promotion is unavailable.");
   const fetcher = input.fetcher ?? fetch, teamScope = team2.test(input.accountId), query = teamScope ? `?teamId=${encodeURIComponent(input.accountId)}` : "";
   const amp = teamScope ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
@@ -14226,11 +14249,11 @@ async function promoteAndVerifyOwnedVercelDeployment(input) {
 }
 
 // src/modules/website-builder/services/websiteVercelPromotionService.ts
-var uuid11 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider = /^[A-Za-z0-9_-]{3,128}$/;
 var project4 = /^prj_[A-Za-z0-9]{8,128}$/;
 var deployment5 = /^dpl_[A-Za-z0-9]{8,128}$/;
-var sha8 = /^[0-9a-f]{40}$/;
+var sha9 = /^[0-9a-f]{40}$/;
 var branch3 = /^[A-Za-z0-9_./-]{1,200}$/;
 var environmentName = /^[A-Z][A-Z0-9_]{1,99}$/;
 var hostname4 = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/;
@@ -14247,7 +14270,7 @@ async function beginWebsiteVercelPromotion(input) {
     throw new Error("Vercel promotion unavailable.");
   }
   const environmentIds = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.previewConnectionId, input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid11.test(value)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 0 || !project4.test(input.vercelProjectId) || !deployment5.test(input.deploymentId) || !sha8.test(input.sourceCommitSha) || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(environmentIds).length !== 2 || Object.keys(environmentIds).some((key2) => !environmentName.test(key2)) || Object.keys(environmentIds).join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(environmentIds).some((value) => !provider.test(value)) || new Set(Object.values(environmentIds)).size !== 2 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
+  if (typeof window !== "undefined" || ![input.previewConnectionId, input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid12.test(value)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 0 || !project4.test(input.vercelProjectId) || !deployment5.test(input.deploymentId) || !sha9.test(input.sourceCommitSha) || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(environmentIds).length !== 2 || Object.keys(environmentIds).some((key2) => !environmentName.test(key2)) || Object.keys(environmentIds).join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(environmentIds).some((value) => !provider.test(value)) || new Set(Object.values(environmentIds)).size !== 2 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_promotion", {
     p_preview_connection_id: input.previewConnectionId,
     p_production_connection_id: input.productionConnectionId,
@@ -14269,7 +14292,7 @@ async function beginWebsiteVercelPromotion(input) {
   return data;
 }
 async function claimWebsiteVercelPromotion(input) {
-  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid11.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
+  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid12.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || !input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   const { data, error } = await input.client.rpc("website_claim_vercel_promotion", {
     p_production_connection_id: input.productionConnectionId,
     p_project_id: input.projectId,
@@ -14288,7 +14311,7 @@ async function commitWebsiteVercelPromotion(input) {
   } catch {
     throw new Error("Vercel promotion unavailable.");
   }
-  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid11.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || input.report.status !== "ready" || !deployment5.test(input.report.deploymentId) || !sha8.test(input.report.sourceCommitSha) || input.report.liveUrl !== `https://${observed[0]}` || !input.isCurrent())
+  if (typeof window !== "undefined" || ![input.productionConnectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid12.test(value)) || !Number.isSafeInteger(input.expectedPromotionVersion) || input.expectedPromotionVersion < 1 || input.report.status !== "ready" || !deployment5.test(input.report.deploymentId) || !sha9.test(input.report.sourceCommitSha) || input.report.liveUrl !== `https://${observed[0]}` || !input.isCurrent())
     throw new Error("Vercel promotion unavailable.");
   const args = {
     p_production_connection_id: input.productionConnectionId,
@@ -14319,11 +14342,11 @@ async function commitWebsiteVercelPromotion(input) {
 }
 
 // server/website-owned-vercel-promotion-worker.ts
-var uuid12 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider2 = /^[A-Za-z0-9_-]{3,128}$/;
 var project5 = /^prj_[A-Za-z0-9]{8,128}$/;
 var deployment6 = /^dpl_[A-Za-z0-9]{8,128}$/;
-var sha9 = /^[0-9a-f]{40}$/;
+var sha10 = /^[0-9a-f]{40}$/;
 var branch4 = /^[A-Za-z0-9_./-]{1,200}$/;
 var hostname5 = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/;
 async function commitId(operationId, version, report) {
@@ -14334,7 +14357,7 @@ async function commitId(operationId, version, report) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 async function runWebsiteOwnedVercelPromotion(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewConnectionId, input.productionConnectionId].every((v) => uuid12.test(v)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !project5.test(input.vercelProjectId) || !deployment6.test(input.deploymentId) || !sha9.test(input.sourceCommitSha) || !provider2.test(input.accountId) || ![input.sourceBranch, input.productionBranch].every((v) => branch4.test(v) && !v.includes("..")) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !await input.isCurrent()) throw new Error("Vercel promotion unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.previewConnectionId, input.productionConnectionId].every((v) => uuid13.test(v)) || input.previewConnectionId === input.productionConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion, input.previewAttemptVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !project5.test(input.vercelProjectId) || !deployment6.test(input.deploymentId) || !sha10.test(input.sourceCommitSha) || !provider2.test(input.accountId) || ![input.sourceBranch, input.productionBranch].every((v) => branch4.test(v) && !v.includes("..")) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !await input.isCurrent()) throw new Error("Vercel promotion unavailable.");
   try {
     await inspectOwnedVercelProductionCandidate({ ...input, projectId: input.vercelProjectId });
     const prior = await input.client.rpc("website_vercel_promotion_for_worker", {
@@ -14427,7 +14450,7 @@ async function runWebsiteOwnedVercelPromotion(input) {
 }
 
 // server/website-owned-vercel-runtime-environment.ts
-var uuid13 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider3 = /^[A-Za-z0-9_-]{3,128}$/;
 var project6 = /^prj_[A-Za-z0-9]{8,128}$/;
 var names = ["SUPABASE_ANON_KEY", "SUPABASE_URL"];
@@ -14449,7 +14472,7 @@ function ids(value) {
 }
 async function prepareOwnedVercelRuntimeEnvironment(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid13.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid14.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
     assertInfrastructureConnection(input.supabase);
     assertInfrastructureConnection(input.vercel);
     const b = input.binding, s = input.supabase, v = input.vercel, branch10 = `tayar/${input.projectId}/preview`;
@@ -14567,7 +14590,7 @@ async function prepareOwnedVercelRuntimeEnvironment(input) {
 }
 async function prepareOwnedVercelProductionRuntimeEnvironment(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid13.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((v2) => uuid14.test(v2)) || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !provider3.test(input.userId) || !provider3.test(input.accountId) || !project6.test(input.vercelProjectId)) throw new Error();
     assertInfrastructureConnection(input.supabase);
     assertInfrastructureConnection(input.previewVercel);
     assertInfrastructureConnection(input.productionVercel);
@@ -14685,7 +14708,7 @@ async function prepareOwnedVercelProductionRuntimeEnvironment(input) {
 }
 
 // server/website-owned-vercel-environment.ts
-var uuid14 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider4 = /^[A-Za-z0-9_-]{3,128}$/;
 var project7 = /^prj_[A-Za-z0-9]{8,128}$/;
 var key = /^[A-Z][A-Z0-9_]{1,99}$/;
@@ -14708,7 +14731,7 @@ function verifiedHandoff(value, expectedVersion) {
   return { handoffVersion: expectedVersion, environmentId: row2.environmentId };
 }
 async function handoffOwnedSecretToVercel(input) {
-  if (typeof window !== "undefined" || ![input.handoffId, input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((v) => uuid14.test(v)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !connection.test(input.sourceConnectionId) || !field.test(input.sourceField) || !key.test(input.environmentKey) || !["preview", "staging", "production"].includes(input.sourceEnvironment) || !["preview", "production"].includes(input.target) || !validBranch(input.gitBranch) || input.target === "production" && input.gitBranch !== "" || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error("Vercel secret handoff unavailable.");
+  if (typeof window !== "undefined" || ![input.handoffId, input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((v) => uuid15.test(v)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !connection.test(input.sourceConnectionId) || !field.test(input.sourceField) || !key.test(input.environmentKey) || !["preview", "staging", "production"].includes(input.sourceEnvironment) || !["preview", "production"].includes(input.target) || !validBranch(input.gitBranch) || input.target === "production" && input.gitBranch !== "" || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error("Vercel secret handoff unavailable.");
   const completedArgs = {
     p_id: input.handoffId,
     p_connection_id: input.connectionId,
@@ -14926,7 +14949,7 @@ async function verifyOwnedStripeAccount(input) {
     throw new Error("Stripe account verification unavailable.");
   }
 }
-var uuid15 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var providerId = /^[A-Za-z0-9_-]{3,128}$/;
 var integrationId = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 function stripeRuntimeReceipt(value, expectedConnectionVersion, expectedHandoffVersion) {
@@ -14953,7 +14976,7 @@ async function handoffOwnedStripeRuntime(input) {
       input.operationId,
       input.handoffCommitId,
       input.stripeCommitId
-    ].every((value) => uuid15.test(value)) || !integrationId.test(input.sourceConnectionId) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !Number.isSafeInteger(input.expectedStripeConnectionVersion) || input.expectedStripeConnectionVersion < 0 || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error();
+    ].every((value) => uuid16.test(value)) || !integrationId.test(input.sourceConnectionId) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0 || !Number.isSafeInteger(input.expectedStripeConnectionVersion) || input.expectedStripeConnectionVersion < 0 || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error();
     const publicMatch = publishable.exec(input.publishableKey);
     const expectedMode = input.environment === "production" ? "live" : "test";
     if (!publicMatch || publicMatch[1] !== expectedMode) throw new Error();
@@ -15040,7 +15063,7 @@ async function handoffOwnedStripeRuntime(input) {
 }
 
 // server/website-owned-email-runtime.ts
-var uuid16 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var identity3 = /^[A-Za-z0-9_-]{3,128}$/;
 var project8 = /^prj_[A-Za-z0-9]{8,128}$/;
 var connection2 = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
@@ -15052,7 +15075,7 @@ function object9(value) {
 }
 async function inspectOwnedEmailRuntimeForPublish(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid16.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !connection2.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !environmentKey.test(input.environmentKey)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid17.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !connection2.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !environmentKey.test(input.environmentKey)) throw new Error();
     const { data, error } = await input.client.rpc("website_email_runtime_state_for_worker", {
       p_project_id: input.projectId,
       p_owner_id: input.ownerId,
@@ -15068,7 +15091,7 @@ async function inspectOwnedEmailRuntimeForPublish(input) {
     const keys2 = ["environmentId", "handoffId", "handoffOperationId", "handoffStatus", "handoffVersion", "ready", "sourceAvailable"];
     if (Object.keys(row2).sort().join(",") !== keys2.sort().join(",")) throw new Error();
     const handoffId = row2.handoffId, status2 = row2.handoffStatus, operationId = row2.handoffOperationId, environmentId = row2.environmentId;
-    if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid16.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid16.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity3.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
+    if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid17.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid17.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity3.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
     return structuredClone(row2);
   } catch {
     throw new Error("Email runtime state unavailable.");
@@ -15076,7 +15099,7 @@ async function inspectOwnedEmailRuntimeForPublish(input) {
 }
 async function verifyOwnedEmailRuntimeDestination(input) {
   try {
-    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !identity3.test(input.userId) || !identity3.test(input.accountId) || !project8.test(input.vercelProjectId) || !identity3.test(input.environmentId) || !environmentKey.test(input.environmentKey) || !uuid16.test(input.projectId) || !uuid16.test(input.handoffOperationId) || !await input.isCurrent()) throw new Error();
+    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !identity3.test(input.userId) || !identity3.test(input.accountId) || !project8.test(input.vercelProjectId) || !identity3.test(input.environmentId) || !environmentKey.test(input.environmentKey) || !uuid17.test(input.projectId) || !uuid17.test(input.handoffOperationId) || !await input.isCurrent()) throw new Error();
     const team3 = input.accountId !== input.userId ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
     const response = await (input.fetcher ?? fetch)(`https://api.vercel.com/v10/projects/${input.vercelProjectId}/env?decrypt=false${team3}`, {
       method: "GET",
@@ -15281,7 +15304,7 @@ async function verifyGitHubInstallationRepository(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubOAuthCustodyService.ts
-var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var numeric3 = /^[1-9][0-9]{0,19}$/;
 var repoName2 = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
 var branch7 = /^[a-zA-Z0-9_./-]{1,200}$/;
@@ -15366,7 +15389,7 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
     });
     if (!await input.isCurrentOwner() || observed.accountId !== connection3.accountId || observed.repositoryId !== connection3.targetId || observed.repositoryFullName !== custody.repositoryFullName || observed.defaultBranch !== custody.defaultBranch) throw new Error();
     const operationId = crypto.randomUUID();
-    if (!uuid17.test(operationId)) throw new Error();
+    if (!uuid18.test(operationId)) throw new Error();
     const base = {
       p_connection_id: connection3.id,
       p_project_id: connection3.projectId,
@@ -15401,12 +15424,12 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportCursorService.ts
-var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var sha10 = /^[0-9a-f]{40}$/i;
-var digest6 = /^[0-9a-f]{64}$/i;
+var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var sha11 = /^[0-9a-f]{40}$/i;
+var digest7 = /^[0-9a-f]{64}$/i;
 var numeric4 = /^[1-9][0-9]{0,19}$/;
 function assertScope2(input) {
-  if (typeof window !== "undefined" || !uuid18.test(input.connectionId) || !uuid18.test(input.projectId) || !uuid18.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid19.test(input.connectionId) || !uuid19.test(input.projectId) || !uuid19.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
 }
 async function readWebsiteGitHubExportCursor(input) {
   assertScope2(input);
@@ -15418,7 +15441,7 @@ async function readWebsiteGitHubExportCursor(input) {
   if (error || !input.isCurrentOwner()) throw new Error("GitHub export cursor is unavailable.");
   if (data === null) return null;
   const item = data;
-  if (item.projectId !== input.projectId || !numeric4.test(String(item.repositoryId)) || !["preview", "production"].includes(String(item.environment)) || item.branch !== `tayar/${input.projectId}/${item.environment}` || !Number.isSafeInteger(item.connectionVersion) || item.connectionVersion < 1 || !Number.isSafeInteger(item.version) || item.version < 1 || item.lastHeadSha !== null && (typeof item.lastHeadSha !== "string" || !sha10.test(item.lastHeadSha)) || item.lastSourceDigest !== null && (typeof item.lastSourceDigest !== "string" || !digest6.test(item.lastSourceDigest)) || item.lastHeadSha === null !== (item.lastSourceDigest === null)) {
+  if (item.projectId !== input.projectId || !numeric4.test(String(item.repositoryId)) || !["preview", "production"].includes(String(item.environment)) || item.branch !== `tayar/${input.projectId}/${item.environment}` || !Number.isSafeInteger(item.connectionVersion) || item.connectionVersion < 1 || !Number.isSafeInteger(item.version) || item.version < 1 || item.lastHeadSha !== null && (typeof item.lastHeadSha !== "string" || !sha11.test(item.lastHeadSha)) || item.lastSourceDigest !== null && (typeof item.lastSourceDigest !== "string" || !digest7.test(item.lastSourceDigest)) || item.lastHeadSha === null !== (item.lastSourceDigest === null)) {
     throw new Error("GitHub export cursor is unavailable.");
   }
   return {
@@ -15457,7 +15480,7 @@ async function initializeWebsiteGitHubExportCursor(input) {
 }
 async function commitWebsiteGitHubExportCursor(input) {
   assertScope2(input);
-  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha10.test(input.cursor.lastHeadSha) || !sha10.test(input.newHeadSha) || !digest6.test(input.sourceDigest) || !uuid18.test(input.operationId)) {
+  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha11.test(input.cursor.lastHeadSha) || !sha11.test(input.newHeadSha) || !digest7.test(input.sourceDigest) || !uuid19.test(input.operationId)) {
     throw new Error("GitHub export cursor changed.");
   }
   const args = {
@@ -15498,9 +15521,9 @@ async function commitWebsiteGitHubExportCursor(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportWorker.ts
-var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function exportWebsiteProjectToOwnedGitHub(input) {
-  if (typeof window !== "undefined" || !uuid19.test(input.projectId) || !uuid19.test(input.ownerId) || !uuid19.test(input.connectionId) || !uuid19.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid20.test(input.projectId) || !uuid20.test(input.ownerId) || !uuid20.test(input.connectionId) || !uuid20.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
   const source = await captureWebsiteGitHubExportSource(input);
   if (input.expectedSourceDigest !== void 0 && source.sourceDigest !== input.expectedSourceDigest) {
     throw new Error("GitHub export source changed.");
@@ -15615,10 +15638,10 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
 }
 
 // src/modules/website-builder/services/websiteVercelDeploymentAttemptService.ts
-var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var providerProject = /^prj_[A-Za-z0-9]{8,128}$/;
 var providerDeployment = /^dpl_[A-Za-z0-9]{8,128}$/;
-var sha11 = /^[0-9a-f]{40}$/;
+var sha12 = /^[0-9a-f]{40}$/;
 var env3 = /^[A-Z][A-Z0-9_]{1,99}$/;
 var observedState = /^[A-Z_]{3,40}$/;
 var liveUrl = /^https:\/\/[a-z0-9-]+[.]vercel[.]app$/;
@@ -15636,7 +15659,7 @@ function validateReport(report) {
 async function beginWebsiteVercelDeploymentAttempt(input) {
   const required2 = [...input.requiredEnvironment].sort();
   const ids2 = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid20.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha11.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key2) => !env3.test(key2)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid21.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha12.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key2) => !env3.test(key2)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_deployment_attempt", {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -15657,7 +15680,7 @@ async function beginWebsiteVercelDeploymentAttempt(input) {
 }
 async function commitWebsiteVercelDeploymentObservation(input) {
   const missingEnvironment = validateReport(input.report);
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid20.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid21.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
   const args = {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -15704,7 +15727,7 @@ async function commitWebsiteVercelDeploymentObservation(input) {
 }
 
 // server/website-byo-publish-adapters.ts
-var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider5 = /^[A-Za-z0-9_-]{3,128}$/;
 var gitName2 = /^[A-Za-z0-9_.-]{1,100}$/;
 var project9 = /^prj_[A-Za-z0-9]{8,128}$/;
@@ -15732,7 +15755,7 @@ function parseCustody(value, environment) {
   return v;
 }
 async function runWebsiteOwnedByoPublish(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid21.test(v)) || input.environment !== "preview" || !provider5.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid22.test(v)) || input.environment !== "preview" || !provider5.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
   const scope = {
     client: input.client,
     operationId: input.operationId,
@@ -16151,7 +16174,7 @@ async function runWebsiteOwnedByoProductionPublish(input) {
     input.ownerId,
     input.previewVercelConnectionId,
     input.productionVercelConnectionId
-  ].every((v) => uuid21.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
+  ].every((v) => uuid22.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
   let current = true;
   const owner = async () => {
     if (!current) return false;
@@ -16296,8 +16319,8 @@ async function assertBackendRevision(definition, backend, reader) {
 }
 async function applicationDefinitionDigest(definition) {
   const bytes = new TextEncoder().encode(canonical2(readApplicationDefinition(definition)));
-  const digest9 = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest9), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const digest10 = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest10), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 // server/website-owned-booking-availability-catalog.ts
@@ -17181,7 +17204,7 @@ async function assertAuthSettings(definition, backend) {
     throw new Error("Dedicated application authentication settings are invalid.");
   }
   const external = providers2;
-  if (external.email !== app.auth.enabled || external.anonymous_users !== false || settings.disable_signup !== !app.auth.signUpEnabled || app.auth.enabled && settings.mailer_autoconfirm !== !app.auth.emailVerificationRequired || Object.entries(external).some(([provider11, enabled]) => typeof enabled !== "boolean" || provider11 !== "email" && enabled) || ["saml_enabled", "passkeys_enabled"].some((key2) => settings[key2] !== void 0 && settings[key2] !== false)) {
+  if (external.email !== app.auth.enabled || external.anonymous_users !== false || settings.disable_signup !== !app.auth.signUpEnabled || app.auth.enabled && settings.mailer_autoconfirm !== !app.auth.emailVerificationRequired || Object.entries(external).some(([provider12, enabled]) => typeof enabled !== "boolean" || provider12 !== "email" && enabled) || ["saml_enabled", "passkeys_enabled"].some((key2) => settings[key2] !== void 0 && settings[key2] !== false)) {
     throw new Error("Dedicated application authentication settings do not match the project.");
   }
 }
@@ -17209,9 +17232,9 @@ async function verifyOwnedSupabaseApplicationRuntime(input) {
 
 // server/website-owned-supabase-migration.ts
 var ref2 = /^[a-z]{20}$/;
-var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var digest7 = /^[0-9a-f]{64}$/;
-var sha12 = async (value) => Array.from(
+var uuid23 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var digest8 = /^[0-9a-f]{64}$/;
+var sha13 = async (value) => Array.from(
   new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))),
   (byte) => byte.toString(16).padStart(2, "0")
 ).join("");
@@ -17234,7 +17257,7 @@ commit;` : "";
       next: structuredClone(after),
       previousDigest,
       nextDigest,
-      queryDigest: await sha12(body),
+      queryDigest: await sha13(body),
       statementCount: statements.length,
       query: body
     };
@@ -17256,7 +17279,7 @@ async function commitId3(operationId, attemptVersion, plan) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 async function migrateOwnedSupabaseApplication(input) {
-  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid22.test(input.operationId) || !await input.isCurrent())
+  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid23.test(input.operationId) || !await input.isCurrent())
     throw new Error("Customer Supabase migration unavailable.");
   const plan = await planOwnedSupabaseAdditiveMigration(input.previous, input.next);
   const verify = async () => await input.isCurrent() && await input.verifyDeployed(structuredClone(plan.next)) && await input.isCurrent();
@@ -17304,11 +17327,11 @@ async function migrateOwnedSupabaseApplication(input) {
   }
 }
 function assertOwnedSupabaseMigrationMetadata(value) {
-  if (!digest7.test(value.previousDigest) || !digest7.test(value.nextDigest) || !digest7.test(value.queryDigest) || value.previousDigest === value.nextDigest) throw new Error("Customer Supabase migration metadata is invalid.");
+  if (!digest8.test(value.previousDigest) || !digest8.test(value.nextDigest) || !digest8.test(value.queryDigest) || value.previousDigest === value.nextDigest) throw new Error("Customer Supabase migration metadata is invalid.");
 }
 
 // server/website-owned-supabase-migration-store.ts
-var uuid23 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid24 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref3 = /^[a-z]{20}$/;
 var object18 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function committed(value) {
@@ -17317,7 +17340,7 @@ function committed(value) {
   return { attemptVersion: row2.attemptVersion, connectionVersion: row2.connectionVersion };
 }
 function createOwnedSupabaseMigrationStore(input) {
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid23.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid24.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
     throw new Error("Customer Supabase migration store unavailable.");
   const scope = { p_connection_id: input.connectionId, p_project_id: input.projectId, p_owner_id: input.ownerId };
   const metadata = (plan) => {
@@ -17366,7 +17389,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async commit(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid23.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid24.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_commit_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -17383,7 +17406,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async reconcile(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid23.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid24.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_reconcile_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -17401,11 +17424,11 @@ function createOwnedSupabaseMigrationStore(input) {
 }
 
 // server/website-owned-supabase-migration-worker.ts
-var uuid24 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid25 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref4 = /^[a-z]{20}$/;
 var provider7 = /^[A-Za-z0-9_-]{1,200}$/;
 var slug2 = /^[a-z0-9][a-z0-9-]{0,199}$/;
-var digest8 = /^[0-9a-f]{64}$/;
+var digest9 = /^[0-9a-f]{64}$/;
 var object19 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact3 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 function parseAttempt(value) {
@@ -17422,7 +17445,7 @@ function parseAttempt(value) {
     "nextDigest",
     "queryDigest",
     "statementCount"
-  ]) || !Number.isSafeInteger(row2.version) || row2.version < 1 || !["prepared", "claimed", "ready"].includes(String(row2.status)) || typeof row2.operationId !== "string" || !uuid24.test(row2.operationId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || ![row2.previousDigest, row2.nextDigest, row2.queryDigest].every((value2) => typeof value2 === "string" && digest8.test(value2)) || row2.previousDigest === row2.nextDigest || !Number.isSafeInteger(row2.statementCount) || row2.statementCount < 1 || row2.statementCount > 512) throw new Error();
+  ]) || !Number.isSafeInteger(row2.version) || row2.version < 1 || !["prepared", "claimed", "ready"].includes(String(row2.status)) || typeof row2.operationId !== "string" || !uuid25.test(row2.operationId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || ![row2.previousDigest, row2.nextDigest, row2.queryDigest].every((value2) => typeof value2 === "string" && digest9.test(value2)) || row2.previousDigest === row2.nextDigest || !Number.isSafeInteger(row2.statementCount) || row2.statementCount < 1 || row2.statementCount > 512) throw new Error();
   return {
     version: row2.version,
     status: row2.status,
@@ -17448,7 +17471,7 @@ function parseTarget2(value) {
     "organizationSlug",
     "definition",
     "attempt"
-  ]) || typeof row2.connectionId !== "string" || !uuid24.test(row2.connectionId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || !Number.isSafeInteger(row2.custodyVersion) || row2.custodyVersion < 1 || typeof row2.projectRef !== "string" || !ref4.test(row2.projectRef) || typeof row2.accountId !== "string" || !provider7.test(row2.accountId) || typeof row2.organizationId !== "string" || !provider7.test(row2.organizationId) || typeof row2.organizationSlug !== "string" || !slug2.test(row2.organizationSlug)) throw new Error();
+  ]) || typeof row2.connectionId !== "string" || !uuid25.test(row2.connectionId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || !Number.isSafeInteger(row2.custodyVersion) || row2.custodyVersion < 1 || typeof row2.projectRef !== "string" || !ref4.test(row2.projectRef) || typeof row2.accountId !== "string" || !provider7.test(row2.accountId) || typeof row2.organizationId !== "string" || !provider7.test(row2.organizationId) || typeof row2.organizationSlug !== "string" || !slug2.test(row2.organizationSlug)) throw new Error();
   return {
     connectionId: row2.connectionId,
     connectionVersion: row2.connectionVersion,
@@ -17462,10 +17485,10 @@ function parseTarget2(value) {
   };
 }
 async function migrateWebsiteOwnedSupabaseFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid24.test(value)) || !["preview", "production"].includes(input.environment) || !provider7.test(input.platformSupabaseOrganizationId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid25.test(value)) || !["preview", "production"].includes(input.environment) || !provider7.test(input.platformSupabaseOrganizationId))
     throw new Error("Customer Supabase migration worker unavailable.");
   const fetcher = input.fetcher ?? fetch;
-  const readTarget = async () => {
+  const readTarget2 = async () => {
     const { data, error } = await input.client.rpc("website_supabase_migration_target", {
       p_project_id: input.projectId,
       p_owner_id: input.ownerId,
@@ -17476,10 +17499,10 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
     return parseTarget2(data);
   };
   try {
-    const target2 = await readTarget(), definitionDigest = await applicationDefinitionDigest(target2.definition);
+    const target2 = await readTarget2(), definitionDigest = await applicationDefinitionDigest(target2.definition);
     const stable = async () => {
       try {
-        const latest = await readTarget();
+        const latest = await readTarget2();
         if (latest.connectionId !== target2.connectionId || latest.projectRef !== target2.projectRef || latest.accountId !== target2.accountId || latest.organizationId !== target2.organizationId || latest.organizationSlug !== target2.organizationSlug || latest.custodyVersion !== target2.custodyVersion || await applicationDefinitionDigest(latest.definition) !== definitionDigest) return false;
         if (latest.connectionVersion === target2.connectionVersion) return true;
         return latest.connectionVersion === target2.connectionVersion + 1 && latest.attempt?.status === "ready" && latest.attempt.operationId === input.operationId && latest.attempt.connectionVersion === latest.connectionVersion && latest.attempt.nextDigest === definitionDigest;
@@ -17592,13 +17615,13 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
 }
 
 // server/website-owned-runtime-binding.ts
-var uuid25 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid26 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref5 = /^[a-z]{20}$/;
 var vercel = /^prj_[A-Za-z0-9]{8,128}$/;
 var object20 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function target(value, kind) {
   const row2 = object20(value), identity5 = kind === "supabase" ? row2?.projectRef : row2?.projectId;
-  if (!row2 || Object.keys(row2).some((key2) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid25.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1 || typeof identity5 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity5)) throw new Error();
+  if (!row2 || Object.keys(row2).some((key2) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid26.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1 || typeof identity5 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity5)) throw new Error();
   return { connectionId: row2.connectionId, version: row2.version, [kind === "supabase" ? "projectRef" : "projectId"]: identity5 };
 }
 function parse2(value) {
@@ -17611,7 +17634,7 @@ function parse2(value) {
 }
 var identity4 = (value) => JSON.stringify(value);
 async function setupWebsiteOwnedRuntimeBinding(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid25.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid26.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
   const readTargets = async () => {
     const { data, error } = await input.client.rpc("website_byo_runtime_setup_targets", {
       p_project_id: input.projectId,
@@ -17716,7 +17739,7 @@ async function verifyOwnedVercelProject(input) {
 }
 
 // server/website-owned-runtime-setup-adapters.ts
-var uuid26 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid27 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider8 = /^[A-Za-z0-9_-]{1,200}$/;
 var project10 = /^prj_[A-Za-z0-9]{8,128}$/;
 var gitName3 = /^[A-Za-z0-9_.-]{1,100}$/;
@@ -17759,7 +17782,7 @@ function runtimeReader(custody, isCurrent, fetcher) {
   };
 }
 async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid26.test(value)) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid27.test(value)) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId))
     throw new Error("BYO runtime setup adapters unavailable.");
   const fetcher = input.fetcher ?? fetch;
   try {
@@ -17819,7 +17842,7 @@ async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
 }
 
 // server/website-owned-backend-preparation-worker.ts
-var uuid27 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid28 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider9 = /^[A-Za-z0-9_-]{1,200}$/;
 var object22 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function parseState(value) {
@@ -17831,7 +17854,7 @@ function parseState(value) {
 }
 function createWebsiteOwnedBackendPreparationWorker(dependencies) {
   return async function prepareWebsiteOwnedBackend2(input) {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid27.test(value)) || !["preview", "production"].includes(input.environment) || !provider9.test(input.platformSupabaseOrganizationId) || !provider9.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid28.test(value)) || !["preview", "production"].includes(input.environment) || !provider9.test(input.platformSupabaseOrganizationId) || !provider9.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
     try {
       const migration = await dependencies.migrate({
         client: input.client,
@@ -17881,6 +17904,385 @@ var prepareWebsiteOwnedBackend = createWebsiteOwnedBackendPreparationWorker({
   setup: setupWebsiteOwnedRuntimeBindingFromCustody
 });
 
+// server/website-owned-source-reader.ts
+var uuid29 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var object23 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+async function rpc(client, name2, args) {
+  const { data, error } = await client.rpc(name2, args);
+  if (error) return null;
+  return data;
+}
+function createWebsiteOwnedSourceReader(client) {
+  return {
+    async readSavedProject(projectId, ownerId) {
+      if (!uuid29.test(projectId) || !uuid29.test(ownerId)) return null;
+      const row2 = object23(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
+      const snapshot = object23(row2?.snapshot);
+      if (!row2 || row2.projectId !== projectId || row2.ownerId !== ownerId || !snapshot) return null;
+      return { projectId, ownerId, snapshot: structuredClone(snapshot) };
+    },
+    async readConnection(connectionId, projectId, ownerId) {
+      if (![connectionId, projectId, ownerId].every((value) => uuid29.test(value))) return null;
+      const row2 = object23(await rpc(client, "website_byo_connection_for_worker", {
+        p_connection_id: connectionId,
+        p_project_id: projectId,
+        p_owner_id: ownerId
+      }));
+      if (!row2) return null;
+      try {
+        const value = structuredClone(row2);
+        assertInfrastructureConnection(value);
+        if (value.id !== connectionId || value.projectId !== projectId || value.ownerId !== ownerId) return null;
+        return value;
+      } catch {
+        return null;
+      }
+    },
+    async readOwnedRuntimeBinding(projectId, ownerId, environment) {
+      if (!uuid29.test(projectId) || !uuid29.test(ownerId) || !["preview", "production"].includes(environment)) return null;
+      const row2 = object23(await rpc(client, "website_byo_runtime_binding_for_worker", {
+        p_project_id: projectId,
+        p_owner_id: ownerId,
+        p_environment: environment
+      })), backend = object23(row2?.backend);
+      if (!row2 || !backend || row2.projectId !== projectId || row2.ownerId !== ownerId || row2.environment !== environment || !Number.isSafeInteger(row2.bindingVersion) || row2.bindingVersion < 1 || typeof row2.supabaseConnectionId !== "string" || !uuid29.test(row2.supabaseConnectionId) || !Number.isSafeInteger(row2.supabaseConnectionVersion) || row2.supabaseConnectionVersion < 1 || typeof row2.vercelConnectionId !== "string" || !uuid29.test(row2.vercelConnectionId) || !Number.isSafeInteger(row2.vercelConnectionVersion) || row2.vercelConnectionVersion < 1 || row2.supabaseConnectionId === row2.vercelConnectionId || typeof row2.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
+      try {
+        const origin = new URL(row2.applicationOrigin);
+        if (origin.protocol !== "https:" || origin.origin !== row2.applicationOrigin || origin.username || origin.password || origin.port || origin.hostname.endsWith(".supabase.co")) return null;
+        const publicBackend = { url: backend.url, publishableKey: backend.publishableKey, projectRef: backend.projectRef };
+        validateOwnedApplicationPublicBackend(publicBackend, publicBackend.projectRef);
+        return structuredClone({
+          projectId,
+          ownerId,
+          environment,
+          bindingVersion: row2.bindingVersion,
+          supabaseConnectionId: row2.supabaseConnectionId,
+          supabaseConnectionVersion: row2.supabaseConnectionVersion,
+          vercelConnectionId: row2.vercelConnectionId,
+          vercelConnectionVersion: row2.vercelConnectionVersion,
+          applicationOrigin: row2.applicationOrigin,
+          backend: publicBackend
+        });
+      } catch {
+        return null;
+      }
+    }
+  };
+}
+
+// server/website-production-staging-store.ts
+function createWebsiteProductionStagingStore(input) {
+  const args = (scope) => ({
+    p_operation_id: scope.candidate.operationId,
+    p_project_id: scope.candidate.projectId,
+    p_owner_id: scope.candidate.ownerId,
+    p_scope: structuredClone(scope)
+  });
+  const read = async (scope) => {
+    if (typeof window !== "undefined" || !await input.isCurrent()) throw new Error();
+    const result = await input.client.rpc("website_claim_production_staging", args(scope));
+    if (result.error || !await input.isCurrent() || !result.data || typeof result.data !== "object" || Array.isArray(result.data) || Object.keys(result.data).sort().join(",") !== "deploymentId,issueCreate" || typeof result.data.issueCreate !== "boolean" || result.data.deploymentId !== null && (typeof result.data.deploymentId !== "string" || !/^dpl_[A-Za-z0-9]{8,128}$/.test(result.data.deploymentId)) || result.data.issueCreate && result.data.deploymentId !== null) throw new Error();
+    return result.data;
+  };
+  return {
+    async claim(scope) {
+      try {
+        return await read(scope);
+      } catch {
+        throw new Error("Production staging claim unavailable.");
+      }
+    },
+    async record(scope, deploymentId) {
+      try {
+        if (typeof window !== "undefined" || !/^dpl_[A-Za-z0-9]{8,128}$/.test(deploymentId) || !await input.isCurrent()) throw new Error();
+        try {
+          const result = await input.client.rpc("website_record_production_staging", { ...args(scope), p_deployment_id: deploymentId });
+          if (result.error || result.data !== deploymentId || !await input.isCurrent()) throw new Error();
+        } catch {
+          const recovered = await read(scope);
+          if (recovered.issueCreate || recovered.deploymentId !== deploymentId) throw new Error();
+        }
+      } catch {
+        throw new Error("Production staging record unavailable.");
+      }
+    }
+  };
+}
+
+// server/website-owned-vercel-staging.ts
+var uuid30 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var deployment7 = /^dpl_[A-Za-z0-9]{8,128}$/;
+var providerId2 = /^[A-Za-z0-9_-]{3,128}$/;
+var environmentName2 = /^[A-Z][A-Z0-9_]{1,99}$/;
+async function stageOwnedVercelProductionDeployment(input) {
+  try {
+    const candidate = structuredClone(readProductionSourceCandidate(input.candidate));
+    const ids2 = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
+    if (typeof window !== "undefined" || !uuid30.test(candidate.operationId) || candidate.sourceDigest === candidate.previewSourceDigest || input.accessToken.length > 4096 || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || !Object.keys(ids2).length || Object.keys(ids2).length > 64 || Object.entries(ids2).some(([key2, value]) => !environmentName2.test(key2) || !providerId2.test(value)) || new Set(Object.values(ids2)).size !== Object.keys(ids2).length) throw new Error();
+    const scope = {
+      candidate,
+      accountId: input.accountId,
+      projectId: input.projectId,
+      repositoryId: input.repositoryId,
+      sourceBranch: `tayar/${candidate.projectId}/production`,
+      runtimeEnvironmentReceiptVersion: input.runtimeEnvironmentReceiptVersion,
+      runtimeEnvironmentIds: ids2
+    };
+    if (input.productionBranch === scope.sourceBranch) throw new Error();
+    if (!await verifyOwnedVercelProject(input)) throw new Error();
+    const fetcher = input.fetcher ?? fetch;
+    const query = input.accountId !== input.userId ? `?teamId=${encodeURIComponent(input.accountId)}` : "";
+    async function json4(response) {
+      if (Number(response.headers.get("content-length") ?? 0) > 262144 || !response.body) throw new Error();
+      const reader = response.body.getReader();
+      let size = 0;
+      const chunks = [];
+      try {
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          size += part.value.byteLength;
+          if (size > 262144) throw new Error();
+          chunks.push(part.value);
+        }
+      } catch (error) {
+        await reader.cancel().catch(() => {
+        });
+        throw error;
+      } finally {
+        reader.releaseLock();
+      }
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      const value = JSON.parse(new TextDecoder().decode(bytes));
+      if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+      return value;
+    }
+    async function read(path) {
+      if (!await input.isCurrent()) throw new Error();
+      const response = await fetcher(`https://api.vercel.com${path}`, {
+        method: "GET",
+        redirect: "error",
+        cache: "no-store",
+        signal: AbortSignal.timeout(8e3),
+        headers: { Authorization: `Bearer ${input.accessToken}`, Accept: "application/json" }
+      });
+      if (response.status !== 200) throw new Error();
+      return json4(response);
+    }
+    const matches = (value) => {
+      const meta = value.meta;
+      return value.projectId === scope.projectId && value.ownerId === scope.accountId && value.target === "production" && meta?.githubCommitSha === candidate.headSha && meta.githubCommitRef === scope.sourceBranch && meta.tayarProductionOperationId === candidate.operationId && meta.tayarSourceDigest === candidate.sourceDigest;
+    };
+    const verifyEnvironment = async () => {
+      const suffix = input.accountId !== input.userId ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
+      const environment = await read(`/v10/projects/${input.projectId}/env?decrypt=false${suffix}`);
+      if (!Array.isArray(environment.envs) || environment.envs.length > 1e3) throw new Error();
+      for (const [key2, id4] of Object.entries(ids2)) {
+        const found = environment.envs.filter((value) => value && typeof value === "object" && !Array.isArray(value) && value.key === key2 && Array.isArray(value.target) && value.target.includes("production"));
+        if (found.length !== 1 || found[0].id !== id4 || found[0].gitBranch != null || found[0].customEnvironmentIds != null && (!Array.isArray(found[0].customEnvironmentIds) || found[0].customEnvironmentIds.length)) throw new Error();
+      }
+    };
+    await verifyEnvironment();
+    const selectedProject = await read(`/v9/projects/${input.projectId}${query}`);
+    if (selectedProject.id !== input.projectId || selectedProject.accountId !== input.accountId || typeof selectedProject.name !== "string" || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(selectedProject.name)) throw new Error();
+    const projectName = selectedProject.name;
+    const claim = await input.store.claim(structuredClone(scope));
+    if (typeof claim.issueCreate !== "boolean" || claim.deploymentId !== null && !deployment7.test(claim.deploymentId) || claim.issueCreate && claim.deploymentId !== null || !await input.isCurrent()) throw new Error();
+    let deploymentId = claim.deploymentId;
+    if (claim.issueCreate) {
+      if (!await verifyOwnedVercelProject(input)) throw new Error();
+      await verifyEnvironment();
+      try {
+        const response = await fetcher(`https://api.vercel.com/v13/deployments${query}`, {
+          method: "POST",
+          redirect: "error",
+          cache: "no-store",
+          signal: AbortSignal.timeout(8e3),
+          headers: { Authorization: `Bearer ${input.accessToken}`, "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({
+            name: projectName,
+            project: input.projectId,
+            target: "production",
+            autoAssignCustomDomains: false,
+            gitSource: { type: "github", repoId: input.repositoryId, ref: scope.sourceBranch, sha: candidate.headSha },
+            meta: { tayarProductionOperationId: candidate.operationId, tayarSourceDigest: candidate.sourceDigest }
+          })
+        });
+        if (![200, 201].includes(response.status)) throw new Error();
+        const created = await json4(response);
+        if (typeof created.id !== "string" || !deployment7.test(created.id) || !matches(created)) throw new Error();
+        deploymentId = created.id;
+      } catch {
+      }
+    }
+    if (!deploymentId) {
+      const filter = new URLSearchParams({
+        projectId: scope.projectId,
+        target: "production",
+        limit: "20",
+        branch: scope.sourceBranch,
+        sha: candidate.headSha
+      });
+      if (input.accountId !== input.userId) filter.set("teamId", input.accountId);
+      const result = await read(`/v6/deployments?${filter}`);
+      if (!Array.isArray(result.deployments) || result.deployments.length > 20) throw new Error();
+      if (result.pagination && typeof result.pagination === "object" && !Array.isArray(result.pagination) && result.pagination.next != null) throw new Error();
+      const found = result.deployments.filter((value) => !!value && typeof value === "object" && !Array.isArray(value) && matches(value));
+      if (found.length > 1) throw new Error();
+      if (!found.length) {
+        if (!await input.isCurrent()) throw new Error();
+        return { status: "observing", deploymentId: null, sourceCommitSha: candidate.headSha, liveUrl: null };
+      }
+      const id4 = found[0].uid ?? found[0].id;
+      if (typeof id4 !== "string" || !deployment7.test(id4)) throw new Error();
+      deploymentId = id4;
+    }
+    if (!await input.isCurrent()) throw new Error();
+    await input.store.record(structuredClone(scope), deploymentId);
+    const observe = async () => {
+      const value = await read(`/v13/deployments/${deploymentId}${query}`);
+      if (value.id !== deploymentId || !matches(value) || !Array.isArray(value.alias) || value.alias.length || value.aliasAssigned !== false && value.aliasAssigned !== null && value.aliasAssigned !== 0 || !["QUEUED", "INITIALIZING", "ANALYZING", "BUILDING", "DEPLOYING", "READY", "ERROR", "CANCELED"].includes(String(value.readyState))) throw new Error();
+      let liveUrl2 = null;
+      if (value.readyState === "READY") {
+        if (typeof value.url !== "string" || !/^[a-z0-9-]+\.vercel\.app$/.test(value.url)) throw new Error();
+        liveUrl2 = `https://${value.url}`;
+      }
+      return { state: value.readyState, liveUrl: liveUrl2 };
+    };
+    const first = await observe(), second = await observe();
+    if (JSON.stringify(first) !== JSON.stringify(second) || !await input.isCurrent()) throw new Error();
+    await verifyEnvironment();
+    if (!await verifyOwnedVercelProject(input)) throw new Error();
+    return {
+      status: second.state === "READY" ? "staged" : second.state === "ERROR" || second.state === "CANCELED" ? "deployment-failed" : "observing",
+      deploymentId,
+      sourceCommitSha: candidate.headSha,
+      liveUrl: second.liveUrl
+    };
+  } catch {
+    throw new Error("Production staging is unavailable.");
+  }
+}
+
+// server/website-production-staging-worker.ts
+var uuid31 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var provider10 = /^[A-Za-z0-9_-]{3,128}$/;
+var object24 = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  return value;
+};
+var canonical3 = (value) => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+function readTarget(value, input) {
+  const target2 = object24(value), raw = object24(target2.scope), candidate = readProductionSourceCandidate(raw.candidate);
+  if (Object.keys(target2).sort().join(",") !== "scope,vercelConnectionId,vercelConnectionVersion" || Object.keys(raw).sort().join(",") !== "accountId,candidate,projectId,repositoryId,runtimeEnvironmentIds,runtimeEnvironmentReceiptVersion,sourceBranch" || candidate.operationId !== input.operationId || candidate.projectId !== input.projectId || candidate.ownerId !== input.ownerId || candidate.sourceDigest === candidate.previewSourceDigest || typeof target2.vercelConnectionId !== "string" || !uuid31.test(target2.vercelConnectionId) || !Number.isSafeInteger(target2.vercelConnectionVersion) || Number(target2.vercelConnectionVersion) < 1 || typeof raw.accountId !== "string" || !provider10.test(raw.accountId) || typeof raw.projectId !== "string" || !/^prj_[A-Za-z0-9]{8,128}$/.test(raw.projectId) || typeof raw.repositoryId !== "string" || !/^\d+$/.test(raw.repositoryId) || raw.sourceBranch !== `tayar/${input.projectId}/production` || !Number.isSafeInteger(raw.runtimeEnvironmentReceiptVersion) || Number(raw.runtimeEnvironmentReceiptVersion) < 1) throw new Error();
+  const ids2 = object24(raw.runtimeEnvironmentIds);
+  if (Object.keys(ids2).sort().join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(ids2).some((value2) => typeof value2 !== "string" || !provider10.test(value2)) || new Set(Object.values(ids2)).size !== 2) throw new Error();
+  return {
+    scope: structuredClone(raw),
+    vercelConnectionId: target2.vercelConnectionId,
+    vercelConnectionVersion: Number(target2.vercelConnectionVersion)
+  };
+}
+async function stageWebsiteProductionCandidate(input) {
+  try {
+    if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((value) => uuid31.test(value)) || !provider10.test(input.platformVercelAccountId) || !await input.isCurrent()) throw new Error();
+    const read = async () => {
+      if (!await input.isCurrent()) throw new Error();
+      const result2 = await input.client.rpc("website_production_staging_target", {
+        p_operation_id: input.operationId,
+        p_project_id: input.projectId,
+        p_owner_id: input.ownerId
+      });
+      if (result2.error || !await input.isCurrent()) throw new Error();
+      return readTarget(result2.data, input);
+    };
+    const target2 = await read(), selected = await captureWebsiteByoPublishTargets({
+      client: input.client,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      requireProductionSource: true
+    });
+    const github = selected.targets.githubProduction, vercel2 = selected.targets.vercelProduction;
+    if (!github || !vercel2 || github.connectionId !== target2.scope.candidate.githubConnectionId || vercel2.connectionId !== target2.vercelConnectionId || vercel2.version !== target2.vercelConnectionVersion) throw new Error();
+    const reader = createWebsiteOwnedSourceReader(input.client);
+    const source = await captureWebsiteOwnedProductionSource({
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      platformOrigin: input.platformOrigin,
+      platformUrl: input.platformUrl,
+      reader,
+      verifyRuntime: input.verifyRuntime,
+      previewGithubConnectionId: selected.targets.githubPreview.connectionId,
+      productionGithubConnectionId: github.connectionId,
+      expectedPreviewSourceDigest: target2.scope.candidate.previewSourceDigest
+    });
+    const identity5 = await readOwnedReleaseIdentity(source.files);
+    if (source.sourceDigest !== target2.scope.candidate.sourceDigest || source.snapshotDigest !== target2.scope.candidate.snapshotDigest || identity5.projectId !== input.projectId || identity5.environment !== "production" || identity5.runtimeDigest !== target2.scope.candidate.runtimeDigest || source.connection.version !== github.version || source.connection.targetId !== target2.scope.repositoryId || source.vercel.id !== vercel2.connectionId || source.vercel.version !== vercel2.version || source.vercel.accountId !== target2.scope.accountId || source.vercel.targetId !== target2.scope.projectId || source.stripeRuntime || source.emailRuntime || source.capabilities.blockers.length || source.capabilities.needs.integrations || source.capabilities.needs.cms) throw new Error();
+    let active = true;
+    const current = async () => {
+      if (!active) return false;
+      try {
+        active = await input.isCurrent() && canonical3(await read()) === canonical3(target2) && await selected.isCurrent() && await source.isCurrent();
+      } catch {
+        active = false;
+      }
+      return active;
+    };
+    if (!await current()) throw new Error();
+    const result = await input.client.rpc("website_read_vercel_integration_custody", {
+      p_connection_id: target2.vercelConnectionId,
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_expected_connection_version: target2.vercelConnectionVersion
+    });
+    if (result.error || !await current()) throw new Error();
+    const custody = object24(result.data);
+    if (typeof custody.accessToken !== "string" || !custody.accessToken || custody.accessToken.length > 4096 || /[\r\n]/.test(custody.accessToken) || typeof custody.userId !== "string" || !provider10.test(custody.userId) || custody.environment !== "production" || custody.accountId !== target2.scope.accountId || custody.vercelProjectId !== target2.scope.projectId || custody.repositoryId !== target2.scope.repositoryId || typeof custody.repositoryOwner !== "string" || typeof custody.repositoryName !== "string" || typeof custody.productionBranch !== "string") throw new Error();
+    const staged = await stageOwnedVercelProductionDeployment({
+      candidate: target2.scope.candidate,
+      runtimeEnvironmentReceiptVersion: target2.scope.runtimeEnvironmentReceiptVersion,
+      runtimeEnvironmentIds: target2.scope.runtimeEnvironmentIds,
+      store: createWebsiteProductionStagingStore({ client: input.client, isCurrent: current }),
+      accessToken: custody.accessToken,
+      userId: custody.userId,
+      accountId: target2.scope.accountId,
+      platformAccountId: input.platformVercelAccountId,
+      projectId: target2.scope.projectId,
+      repositoryId: target2.scope.repositoryId,
+      repositoryOwner: custody.repositoryOwner,
+      repositoryName: custody.repositoryName,
+      productionBranch: custody.productionBranch,
+      isCurrent: current,
+      fetcher: input.fetcher
+    });
+    if (!await current()) throw new Error();
+    if (staged.status !== "staged" || !staged.liveUrl) return { ...staged, operationId: input.operationId };
+    await verifyOwnedDeployedRuntime({
+      projectId: input.projectId,
+      environment: "production",
+      liveUrl: staged.liveUrl,
+      files: source.files,
+      isCurrent: current,
+      fetcher: input.fetcher
+    });
+    if (!await current()) throw new Error();
+    return {
+      ...staged,
+      status: "runtime-verified",
+      operationId: input.operationId,
+      sourceDigest: source.sourceDigest,
+      runtimeDigest: identity5.runtimeDigest
+    };
+  } catch {
+    throw new Error("Production candidate staging unavailable.");
+  }
+}
+
 // server/website-byo-publish-runners.ts
 function status(checkpoint2) {
   return { status: checkpoint2.stage === "ready" ? "ready" : checkpoint2.stage === "blocked" ? "blocked" : "pending", checkpoint: checkpoint2 };
@@ -17888,6 +18290,22 @@ function status(checkpoint2) {
 function createWebsiteByoPublishRunners(input) {
   const capture = (scope) => captureWebsiteByoPublishTargets({ client: input.client, ...scope });
   return {
+    // Internal staging only. The HTTP endpoint deliberately has no matching
+    // action until behavioral/provider evidence and activation approval exist.
+    async stageProduction(scope) {
+      return stageWebsiteProductionCandidate({
+        client: input.client,
+        operationId: scope.operationId,
+        projectId: scope.projectId,
+        ownerId: scope.ownerId,
+        platformOrigin: input.platformOrigin,
+        platformUrl: input.platformUrl,
+        platformVercelAccountId: input.platformVercelAccountId,
+        verifyRuntime: input.verifyRuntime,
+        isCurrent: async () => true,
+        fetcher: input.fetcher
+      });
+    },
     async runPreview(scope) {
       await prepareWebsiteOwnedBackend({
         client: input.client,
@@ -17994,11 +18412,11 @@ function createBoundedOwnedStockCatalogFetcher(fetcher = fetch) {
 }
 
 // server/website-owned-stock-reservation-installation.ts
-var uuid28 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid32 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var projectRef2 = /^[a-z]{20}$/;
 async function verifyOwnedStockReservationInstallationFromCustody(input) {
   try {
-    if (typeof window !== "undefined" || ![input.ownerId, input.projectId, input.connectionId].every((id4) => uuid28.test(id4)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !input.platformOrganizationId || !await input.isCurrent()) return false;
+    if (typeof window !== "undefined" || ![input.ownerId, input.projectId, input.connectionId].every((id4) => uuid32.test(id4)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !input.platformOrganizationId || !await input.isCurrent()) return false;
     const definition = readApplicationDefinition(input.definition);
     const stockTables = definition.tables.filter((table) => table.stockReservations);
     if (!stockTables.length) return false;
@@ -18036,7 +18454,7 @@ async function verifyOwnedStockReservationInstallationFromCustody(input) {
 }
 async function verifyOwnedStockReservationInstallation(input) {
   try {
-    if (typeof window !== "undefined" || !uuid28.test(input.ownerId) || !uuid28.test(input.projectId) || !uuid28.test(input.connectionId) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || typeof input.accessToken !== "string" || input.accessToken.length < 1 || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || typeof input.itemTableId !== "string" || !input.itemTableId || !await input.isCurrent()) return false;
+    if (typeof window !== "undefined" || !uuid32.test(input.ownerId) || !uuid32.test(input.projectId) || !uuid32.test(input.connectionId) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || typeof input.accessToken !== "string" || input.accessToken.length < 1 || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || typeof input.itemTableId !== "string" || !input.itemTableId || !await input.isCurrent()) return false;
     if (!compileApplicationInventoryReservationSchema(input.definition, input.itemTableId).length) return false;
     const first = await input.readConnection();
     if (!first) return false;
@@ -18142,72 +18560,6 @@ function createWebsiteByoPublishRuntimePolicy(reader, stock) {
   };
 }
 
-// server/website-owned-source-reader.ts
-var uuid29 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var object23 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
-async function rpc(client, name2, args) {
-  const { data, error } = await client.rpc(name2, args);
-  if (error) return null;
-  return data;
-}
-function createWebsiteOwnedSourceReader(client) {
-  return {
-    async readSavedProject(projectId, ownerId) {
-      if (!uuid29.test(projectId) || !uuid29.test(ownerId)) return null;
-      const row2 = object23(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
-      const snapshot = object23(row2?.snapshot);
-      if (!row2 || row2.projectId !== projectId || row2.ownerId !== ownerId || !snapshot) return null;
-      return { projectId, ownerId, snapshot: structuredClone(snapshot) };
-    },
-    async readConnection(connectionId, projectId, ownerId) {
-      if (![connectionId, projectId, ownerId].every((value) => uuid29.test(value))) return null;
-      const row2 = object23(await rpc(client, "website_byo_connection_for_worker", {
-        p_connection_id: connectionId,
-        p_project_id: projectId,
-        p_owner_id: ownerId
-      }));
-      if (!row2) return null;
-      try {
-        const value = structuredClone(row2);
-        assertInfrastructureConnection(value);
-        if (value.id !== connectionId || value.projectId !== projectId || value.ownerId !== ownerId) return null;
-        return value;
-      } catch {
-        return null;
-      }
-    },
-    async readOwnedRuntimeBinding(projectId, ownerId, environment) {
-      if (!uuid29.test(projectId) || !uuid29.test(ownerId) || !["preview", "production"].includes(environment)) return null;
-      const row2 = object23(await rpc(client, "website_byo_runtime_binding_for_worker", {
-        p_project_id: projectId,
-        p_owner_id: ownerId,
-        p_environment: environment
-      })), backend = object23(row2?.backend);
-      if (!row2 || !backend || row2.projectId !== projectId || row2.ownerId !== ownerId || row2.environment !== environment || !Number.isSafeInteger(row2.bindingVersion) || row2.bindingVersion < 1 || typeof row2.supabaseConnectionId !== "string" || !uuid29.test(row2.supabaseConnectionId) || !Number.isSafeInteger(row2.supabaseConnectionVersion) || row2.supabaseConnectionVersion < 1 || typeof row2.vercelConnectionId !== "string" || !uuid29.test(row2.vercelConnectionId) || !Number.isSafeInteger(row2.vercelConnectionVersion) || row2.vercelConnectionVersion < 1 || row2.supabaseConnectionId === row2.vercelConnectionId || typeof row2.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
-      try {
-        const origin = new URL(row2.applicationOrigin);
-        if (origin.protocol !== "https:" || origin.origin !== row2.applicationOrigin || origin.username || origin.password || origin.port || origin.hostname.endsWith(".supabase.co")) return null;
-        const publicBackend = { url: backend.url, publishableKey: backend.publishableKey, projectRef: backend.projectRef };
-        validateOwnedApplicationPublicBackend(publicBackend, publicBackend.projectRef);
-        return structuredClone({
-          projectId,
-          ownerId,
-          environment,
-          bindingVersion: row2.bindingVersion,
-          supabaseConnectionId: row2.supabaseConnectionId,
-          supabaseConnectionVersion: row2.supabaseConnectionVersion,
-          vercelConnectionId: row2.vercelConnectionId,
-          vercelConnectionVersion: row2.vercelConnectionVersion,
-          applicationOrigin: row2.applicationOrigin,
-          backend: publicBackend
-        });
-      } catch {
-        return null;
-      }
-    }
-  };
-}
-
 // server/website-byo-publish-host.ts
 function createWebsiteByoPublishHost(input) {
   const reader = createWebsiteOwnedSourceReader(input.platform);
@@ -18221,7 +18573,7 @@ function createWebsiteByoPublishHost(input) {
 }
 
 // server/website-byo-publish-deployment-entry.ts
-var provider10 = /^[A-Za-z0-9_-]{1,200}$/;
+var provider11 = /^[A-Za-z0-9_-]{1,200}$/;
 var githubClient = /^[A-Za-z0-9_]{5,100}$/;
 var publicSecret = /^(?:NEXT_PUBLIC_|VITE_|PUBLIC_).*?(?:SECRET|SERVICE_ROLE|PRIVATE_KEY)/i;
 var keyNames = {
@@ -18277,7 +18629,7 @@ function createWebsiteByoPublishDeploymentEntry(input) {
     const platformVercelAccountId = required(input.environment, keyNames.vercelAccount, 200);
     const githubClientId = required(input.environment, keyNames.githubClient, 100);
     const githubClientSecret = providerSecret(required(input.environment, keyNames.githubSecret, 4096));
-    if (!provider10.test(platformSupabaseOrganizationId) || !provider10.test(platformVercelAccountId) || !githubClient.test(githubClientId)) throw new Error();
+    if (!provider11.test(platformSupabaseOrganizationId) || !provider11.test(platformVercelAccountId) || !githubClient.test(githubClientId)) throw new Error();
     const serviceKey = secretKey(required(input.environment, keyNames.secret, 4096));
     const platform = createClient3(platformUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
