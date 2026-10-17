@@ -162,6 +162,41 @@ try {
   await assert.rejects(query(`set role anon;
     select public.app_stock_available_0('${item}');`), /permission denied/,
     'Anonymous callers cannot inspect merchant stock');
+  // The client stock receipt must not share the public counter's replay key.
+  // An earlier identical debit used to make fulfillment silently skip stock;
+  // an earlier different debit used to make a valid hold impossible to settle.
+  const collisionItem = 'abcd0000-1111-4111-8111-111111111111';
+  const collisionId = 'abcd0000-2222-4222-8222-222222222222';
+  const mismatchItem = 'abcd0000-3333-4333-8333-333333333333';
+  const mismatchId = 'abcd0000-4444-4444-8444-444444444444';
+  await query(`insert into public.app_products(id,owner_id) values
+    ('${collisionItem}','${owner}'),('${mismatchItem}','${owner}');
+    ${login(owner)}
+    select public.app_adjust_counter_0('${collisionItem}',10,gen_random_uuid());
+    select public.app_adjust_counter_0('${collisionItem}',-2,'${collisionId}');
+    select public.app_adjust_counter_0('${mismatchItem}',10,'${mismatchId}');`);
+  assert.match(await reserve(collisionItem,collisionId,2),/reserved$/);
+  const settlements = await Promise.all([
+    finalize(collisionId,'fulfill'), finalize(collisionId,'fulfill'),
+  ]);
+  assert.equal(settlements.filter(text=>/\nfulfilled$/.test(text)).length,1,
+    'Exactly one competing settlement performs the first fulfillment');
+  assert.equal(settlements.filter(text=>/already-fulfilled$/.test(text)).length,1);
+  assert.equal(await available(collisionItem),'6',
+    'An identical earlier public counter request cannot suppress the fulfillment debit');
+  assert.equal(await query(`select quantity from public.app_products where id='${collisionItem}';`),'6');
+  assert.match(await finalize(collisionId,'fulfill'),/already-fulfilled$/);
+  assert.equal(await available(collisionItem),'6','Lost fulfillment responses cannot debit twice');
+  assert.match(await reserve(mismatchItem,mismatchId,2),/reserved$/);
+  assert.match(await finalize(mismatchId,'fulfill'),/\nfulfilled$/,
+    'An earlier different counter request does not block stock settlement');
+  assert.equal(await available(mismatchItem),'8');
+  // The original public counter receipt keeps its own idempotence and identity.
+  assert.match(await query(`${login(owner)}
+    select public.app_adjust_counter_0('${collisionItem}',-2,'${collisionId}');`),/already-adjusted$/);
+  await assert.rejects(query(`${login(owner)}
+    select public.app_adjust_counter_0('${collisionItem}',-3,'${collisionId}');`),/identity mismatch/);
+  assert.equal(await available(collisionItem),'6');
   let proofRows = [];
   const verify = () => verifyCatalog(app, 'products', async statement => {
     const rows = JSON.parse(await query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`));
