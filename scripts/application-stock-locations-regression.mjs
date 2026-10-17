@@ -121,7 +121,10 @@ try {
   await query('alter table public.app_catalog enable trigger app_guard_audit;');
   const catalogQuery=statement=>query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`).then(JSON.parse);
   assert.equal(await verify(app,'levels',catalogQuery),true,'Physical stock proof includes function source, trigger, dimensions, uniqueness and restrictive references');
-  assert.equal(await verifyFull(app,catalogQuery),true,'Normal publication verifies the complete physical stock app');
+  const setupEvidence=[];
+  const fullVerified=await verifyFull(app,async statement=>{const rows=await catalogQuery(statement);setupEvidence.push({statement,rows});return rows;});
+  if(!fullVerified)console.error('Physical stock full-catalog diagnostics:',JSON.stringify(setupEvidence));
+  assert.equal(fullVerified,true,'Normal publication verifies the complete physical stock app');
   await query('alter table public.app_levels disable trigger app_stock_location_guard_2;');
   assert.equal(await verify(app,'levels',catalogQuery),false);await query('alter table public.app_levels enable trigger app_stock_location_guard_2;');
   await query('alter table public.app_levels drop constraint app_stock_location_unique_2;');

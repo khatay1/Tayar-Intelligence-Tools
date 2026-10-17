@@ -69,6 +69,15 @@ try {
   for(const changed of [ownerCatalog.replace('owner_id','id'),ownerCatalog.replace('IS NOT TRUE','IS TRUE'),ownerCatalog.replace("'is_anonymous'","'IS_ANONYMOUS'"),ownerCatalog+' OR true']) {
     assert.equal(await verify(ownerDefinition,async()=>[{...ownerRow,using_expression:changed}]),false,'Deparsed policy drift must remain denied');
   }
+  const ownerCreateCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id) AND (owner_id = ( SELECT auth.uid() AS uid)))";
+  const createOwnerDefinition=structuredClone(ownerDefinition);createOwnerDefinition.tables[0].permissions.push({operation:'create',access:'owner'});
+  const createOwnerRead={...ownerRow,authenticated_create:true,authenticated_column_create:true,using_expression:ownerCatalog};
+  const createOwnerWrite={...createOwnerRead,policy_name:'app_p_0_create',command:'a',using_expression:null,check_expression:ownerCreateCatalog};
+  const checkCreate=expression=>verify(createOwnerDefinition,async sql=>sql.includes('a.attgenerated')?[]:[createOwnerRead,{...createOwnerWrite,check_expression:expression}]);
+  assert.equal(await checkCreate(ownerCreateCatalog),true,'Exact owner INSERT deparse retains the new-owner check');
+  for(const changed of [ownerCreateCatalog.replace('AND','OR'),ownerCreateCatalog.replace('IS NOT TRUE','IS TRUE'),ownerCreateCatalog.replace('owner_id = ( SELECT','id = ( SELECT'),ownerCreateCatalog+' OR true',ownerCatalog]) {
+    assert.equal(await checkCreate(changed),false,'Owner INSERT policy drift remains denied');
+  }
   const roleDefinition = { ...definition, auth: { enabled: true, signUpEnabled: true,
     emailVerificationRequired: false }, roles: [{ id: 'admin', name: 'Admin' }] };
   const roleTables = ['app_role_administrators', 'app_user_roles'].map(table_name => ({

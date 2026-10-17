@@ -16852,8 +16852,10 @@ async function verifyOwnedSupabaseBookingConstraints(definition, query) {
 var compact2 = (expression) => expression.trim();
 var ownerSource = "(((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true) and (select auth.uid()) = owner_id)";
 var ownerCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id))";
+var ownerCreateSource = `((${ownerSource}) and owner_id = (select auth.uid()))`;
+var ownerCreateCatalog = "((( SELECT auth.uid() AS uid) IS NOT NULL) AND (((( SELECT auth.jwt() AS jwt) ->> 'is_anonymous'::text))::boolean IS NOT TRUE) AND (( SELECT auth.uid() AS uid) = owner_id) AND (owner_id = ( SELECT auth.uid() AS uid)))";
 function matchesPolicyExpression(actual, expected) {
-  return compact2(actual) === compact2(expected) || expected === ownerSource && compact2(actual) === ownerCatalog;
+  return compact2(actual) === compact2(expected) || expected === ownerSource && compact2(actual) === ownerCatalog || expected === ownerCreateSource && compact2(actual) === ownerCreateCatalog;
 }
 async function verifyRoleInfrastructure(query) {
   const [schemaRows, tableRows, functionRows] = await Promise.all([

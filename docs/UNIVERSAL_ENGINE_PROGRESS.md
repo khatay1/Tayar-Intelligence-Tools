@@ -848,3 +848,9 @@ No new OSS dependency/source import, live migration, key or provider activation,
 customer Production promotion or Social Hub work. Transfers, stock valuation,
 shared-organization stock, reviewed existing-DB upgrades and final live evidence
 remain open; do not infer them from this physical-level capability.
+
+PR #271 first native run passed physical stock/ownership/concurrency cases and
+its new exact stock catalog proof, then stopped at the existing general owner
+INSERT policy comparison. Extend that comparison only for the exact generated
+PostgreSQL conjunction (including both new-owner checks), with negative drift
+regressions; do not relax RLS or replace semantic proof with policy names.
