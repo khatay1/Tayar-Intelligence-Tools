@@ -6,6 +6,7 @@ import { readOwnedRuntimeEnvironment, type OwnedRuntimeSecretPlan } from './webs
 import { serveOwnedPaymentRoute } from './website-owned-payment-route';
 import { serveOwnedReleaseIdentity, type OwnedReleaseIdentity } from './website-owned-release-identity';
 import { resolveOwnedRuntimeRequestManifest } from './website-owned-request-scope';
+import { serveOwnedReleaseBehavior } from './website-owned-release-behavior';
 
 declare const __TAYAR_MANIFEST__: OwnedApplicationRouteManifest;
 declare const __TAYAR_PAGES__: Map<string, string>;
@@ -22,6 +23,8 @@ export default async function handler(request: Request) {
   const url = new URL(request.url);
   const route = url.searchParams.get('tayarRoute');
   if (route === 'release-proof') return serveOwnedReleaseIdentity(request, __TAYAR_RELEASE_IDENTITY__);
+  if (route === 'release-behavior-proof') return serveOwnedReleaseBehavior(request, { identity: __TAYAR_RELEASE_IDENTITY__,
+    manifest, loadPage: async pageId => new Response(__TAYAR_PAGES__.get(pageId), { headers: { 'content-type': 'text/html; charset=utf-8' } }) });
   if(route==='stripe-webhook'||route?.startsWith('stripe-order-')){
     try{return await serveOwnedPaymentRoute(request,{manifest,route,
       environment:readOwnedRuntimeEnvironment(__TAYAR_SECRET_PLAN__)});}
