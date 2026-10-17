@@ -911,3 +911,27 @@ flow. This closes the planned physical multi-location stock balance/hold/transfe
 slice. Existing-database upgrades, valuation and multi-item batches are separate
 capabilities, not implied by this checkpoint. Continue with general engine gaps;
 customer/provider activation and Social Hub remain deferred.
+
+## Current physical stock value snapshot — 2026-10-17
+
+Continue from merged checkpoint PR #273 `62803c9913927421d92333e05447e7880cc0cac6`.
+Physical stock definitions may now opt into
+`stockValuation={unitCostFieldId,valueFieldId,currency}`. The unit cost is a
+required ordinary numeric field; the value is a stored server formula multiplying
+that cost by the guarded stock counter; the currency is an uppercase ISO code;
+and a real aggregate report must sum the value field. Generation accepts a stock
+valuation request only when a bound data view visibly exposes cost and value and
+the requirements cite both formula and report evidence.
+
+This is a current on-hand snapshot over RLS-readable level rows. It does not
+implement FIFO/LIFO, weighted-average movement costing, COGS, tax, journal
+entries or double-entry accounting. Warehouse transfers continue to move only
+quantity and never infer or rewrite unit cost. Existing stock installations stay
+behind the reviewed-migration boundary.
+
+The next Production-candidate step was rechecked against current Vercel guidance.
+Safe staging requires a Production build without domain assignment (documented
+by Vercel as `--prod --skip-domain`). The server-side deployment interface in use
+does not expose a verified equivalent, so no speculative provider call or domain
+mutation was added. Production promotion and activation remain blocked rather
+than risking an unintended live assignment.
