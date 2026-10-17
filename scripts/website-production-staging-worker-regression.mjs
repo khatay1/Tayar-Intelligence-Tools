@@ -70,7 +70,7 @@ try {
     meta: { githubCommitSha: candidate.headSha, githubCommitRef: scope.sourceBranch,
       tayarProductionOperationId: operationId, tayarSourceDigest: candidate.sourceDigest } };
   function fixture(options = {}) {
-    let claimed = false, recordedId = null, posts = 0, proofs = 0, claims = 0;
+    let claimed = false, recordedId = null, attestation = null, posts = 0, proofs = 0, claims = 0, attestations = 0;
     const client = { rpc: async (name, args) => {
       assert.equal(args.p_project_id, projectId); assert.equal(args.p_owner_id, ownerId);
       if (name === 'website_production_staging_target') return { data: structuredClone(options.target ?? target), error: null };
@@ -88,6 +88,16 @@ try {
         if (options.loseRecord) throw Error('private database response loss');
         return { data: recordedId, error: null };
       }
+      if (name === 'website_record_production_runtime_attestation') {
+        attestations++; assert.deepEqual(args.p_scope, scope); assert.equal(args.p_deployment_id, deployment.id);
+        assert.equal(args.p_live_url, `https://${deployment.url}`); assert.equal(args.p_source_digest, candidate.sourceDigest);
+        assert.equal(args.p_runtime_digest, candidate.runtimeDigest);
+        attestation = { status: 'runtime-verified', operationId, deploymentId: deployment.id,
+          liveUrl: `https://${deployment.url}`, sourceDigest: candidate.sourceDigest, runtimeDigest: candidate.runtimeDigest };
+        if (options.loseAttestationRecord) throw Error('private attestation response loss');
+        return { data: structuredClone(attestation), error: null };
+      }
+      if (name === 'website_read_production_runtime_attestation') return { data: structuredClone(attestation), error: null };
       return rpcSource(name, args);
     } };
     const fetcher = async (resource, init) => {
@@ -120,13 +130,14 @@ try {
     };
     return { input: { client, operationId, projectId, ownerId, platformOrigin: common.platformOrigin, platformUrl: common.platformUrl,
       platformVercelAccountId: 'team_platform1234', verifyRuntime: common.verifyRuntime, isCurrent: async () => true, fetcher },
-      stats: () => ({ posts, proofs, claims }) };
+      stats: () => ({ posts, proofs, claims, attestations }) };
   }
-  for (const options of [{}, { loseCreate: true }, { loseRecord: true }]) {
+  for (const options of [{}, { loseCreate: true }, { loseRecord: true }, { loseAttestationRecord: true }]) {
     const good = fixture(options), result = await stage(good.input);
     assert.equal(result.status, 'runtime-verified'); assert.equal(result.sourceDigest, candidate.sourceDigest);
     assert.equal(result.runtimeDigest, candidate.runtimeDigest); assert.equal((await stage(good.input)).status, 'runtime-verified');
     assert.equal(good.stats().posts, 1); assert.equal(good.stats().proofs, 2);
+    assert.equal(good.stats().attestations, 2);
     assert.doesNotMatch(JSON.stringify(result), /accessToken|publishable|environmentIds|custody/);
   }
   const building = fixture({ building: true }); assert.equal((await stage(building.input)).status, 'observing'); assert.equal(building.stats().proofs, 0);

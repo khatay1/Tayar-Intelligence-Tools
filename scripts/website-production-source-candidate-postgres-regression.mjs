@@ -238,3 +238,47 @@ for (const change of [...runtimeChanges,
 ]) assert.equal(psql(`begin;${change};${asService(stagingTarget)}rollback;`), '', change);
 for (const role of ['anon', 'authenticated']) stagingRefused(`set role ${role};${stagingTarget}`);
 console.log('PASS Production staging target PostgreSQL: read-only private source/runtime/custody selection, stale and foreign refusal, no provider grant exposure');
+
+migration('supabase/migrations/20261017215601_website_production_runtime_attestations.sql');
+const attestation = { status: 'runtime-verified', operationId: operation, deploymentId: 'dpl_staged1234',
+  liveUrl: 'https://clinic-staged.vercel.app', sourceDigest: result.sourceDigest, runtimeDigest: result.runtimeDigest };
+const recordAttestation = (overrides = {}) => {
+  const value = { scope: stagingScope, deploymentId: attestation.deploymentId, liveUrl: attestation.liveUrl,
+    sourceDigest: attestation.sourceDigest, runtimeDigest: attestation.runtimeDigest, ...overrides };
+  return `select public.website_record_production_runtime_attestation('${operation}','${project}','${owner}',
+   '${JSON.stringify(value.scope)}'::jsonb,'${value.deploymentId}','${value.liveUrl}','${value.sourceDigest}','${value.runtimeDigest}')`;
+};
+const readAttestation = (who = owner) => `select public.website_read_production_runtime_attestation('${operation}','${project}','${who}')`;
+const attestationRefused = sql => assert.throws(() => psql(sql), error => /Production runtime attestation|permission denied/.test(String(error.stderr)));
+assert.equal(psql(asService(readAttestation())), '');
+const concurrentAttestations = await Promise.all(Array.from({ length: 4 }, () => new Promise((resolveQuery, reject) => {
+  execFile('psql', [databaseUrl, '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', asService(recordAttestation())],
+    { encoding: 'utf8' }, (error, stdout) => error ? reject(error) : resolveQuery(JSON.parse(stdout.trim())));
+})));
+assert.ok(concurrentAttestations.every(value => JSON.stringify(value) === JSON.stringify(attestation)));
+assert.deepEqual(JSON.parse(psql(asService(recordAttestation()))), attestation, 'Exact response-loss retry is immutable and idempotent');
+assert.deepEqual(JSON.parse(psql(asService(readAttestation()))), attestation);
+assert.equal(psql(asService(readAttestation(id(99)))), '');
+for (const patch of [{ deploymentId: 'dpl_other1234' }, { liveUrl: 'https://other.vercel.app' },
+  { liveUrl: 'https://customer.example' }, { sourceDigest: '0'.repeat(64) }, { runtimeDigest: '0'.repeat(64) },
+  { scope: { ...stagingScope, accountId: 'team_other1234' } }]) attestationRefused(asService(recordAttestation(patch)));
+for (const change of [...runtimeChanges,
+  `update public.projects set content=jsonb_set(content,'{siteName}','"Changed"') where id='${project}'`,
+  `update private.website_github_export_cursors set version=version+1 where connection_id='${g}'`,
+  `update private.website_vercel_runtime_environment_receipts set vercel_environment_ids='{}'::jsonb where project_id='${project}' and environment='production'`,
+  `update private.website_vercel_integration_custody set production_branch='tayar/${project}/production' where connection_id='${v}'`,
+  `update private.website_production_staging_claims set deployment_id='dpl_other1234' where operation_id='${operation}'`,
+]) {
+  assert.equal(psql(`begin;${change};${asService(readAttestation())}rollback;`), '', change);
+  attestationRefused(`begin;${change};${asService(recordAttestation())}rollback;`);
+}
+for (const role of ['anon', 'authenticated']) {
+  attestationRefused(`set role ${role};${recordAttestation()}`); attestationRefused(`set role ${role};${readAttestation()}`);
+}
+for (const role of ['anon', 'authenticated', 'service_role']) {
+  attestationRefused(`set role ${role};select * from private.website_production_runtime_attestations`);
+  attestationRefused(`set role ${role};delete from private.website_production_runtime_attestations`);
+}
+assert.equal(psql("select relrowsecurity from pg_class where oid='private.website_production_runtime_attestations'::regclass"), 't');
+assert.equal(psql('select count(*) from private.website_production_runtime_attestations'), '1');
+console.log('PASS Production runtime attestation PostgreSQL: immutable concurrent receipt, exact deployment/source/runtime binding, stale-scope invisibility and service-only access');

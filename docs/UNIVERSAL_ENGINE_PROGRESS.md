@@ -962,8 +962,8 @@ This closes a false-completion path; a movement-cost ledger remains unimplemente
 
 ## Non-activating Vercel Production staging transport — 2026-10-17
 
-Continue from PR #276, merged as `9e234df70c7edbaeedb3153c8e7e401ea91b5b52`
-after Release Gate `39070127954` and Vercel passed on `93763e50`.
+PR #277 merged as `15fddfa7873bdfc64ddb02a5a6731e23690dc9d7`
+after Release Gate `39070896596` and Vercel passed on `3f6ec85c`.
 The earlier staging API uncertainty is resolved by inspection of Vercel's
 official CLI source: `packages/cli/src/commands/deploy/index.ts` maps
 `--skip-domain` to `autoAssignCustomDomains:false`; the official client
@@ -996,8 +996,8 @@ historical migration changes and Social Hub remain deferred.
 
 ## Durable private Production staging claim — 2026-10-17
 
-PR #277 merged as `15fddfa7873bdfc64ddb02a5a6731e23690dc9d7` after
-Release Gate `39070896596` and Vercel passed on `3f6ec85c`.
+PR #278 merged as `5935105d4d081377929f7ebd0084d747b89aa6c3` after
+Release Gate `39071165284` and Vercel passed on `af3c7552`.
 The new forward-only source migration (created with the pinned Supabase CLI)
 adds a private RLS-enabled staging claim table and service-only claim/record RPCs.
 Each call rechecks the exact immutable Production source checkpoint, matching
@@ -1019,8 +1019,8 @@ approved activation remain open; no new public publishing action is mounted.
 
 ## Service-selected Production staging coordinator — 2026-10-17
 
-PR #278 merged as `5935105d4d081377929f7ebd0084d747b89aa6c3` after
-Release Gate `39071165284` and Vercel passed on `af3c7552`.
+PR #279 merged as `2064cfe7abaa947d09ae1bb3d218f7bd410e31b2` after
+Release Gate `39071854600` and Vercel passed on `3aee0fde`.
 The new read-only service projection selects the prepared source, exact private
 Production connection/version and verified runtime receipt. It reuses the
 existing current-scope proof and returns no provider token or source body.
@@ -1049,3 +1049,24 @@ responses, observation-only retries, pending builds and incorrect runtime proof.
 The existing native PostgreSQL fixture applies the projection and checks stale,
 foreign and browser-role denial. The HTTP endpoint continues to reject staging
 actions; no live migration/provider deployment or customer activation is invoked.
+
+## Durable Production runtime identity attestation — 2026-10-17
+
+Work after PR #279 adds a private RLS-enabled immutable runtime-attestation row
+for the exact staging operation. The service-only recorder accepts only the
+already claimed deployment ID, exact staging scope, provider-pinned unaliased
+`.vercel.app` URL, prepared source digest and compiled runtime digest while all
+source/runtime/custody dependencies remain current. Exact retries are idempotent;
+conflicting deployment, URL or digest values fail closed. The read projection
+returns nothing after any relevant registry, source, runtime-receipt or custody
+change, and neither browser roles nor `service_role` can read the private table.
+
+The trusted staging coordinator now persists this receipt only after the live
+challenge succeeds, and recovers a lost database response by rereading the exact
+receipt. Unit composition covers record-response loss with the actual adapter;
+the isolated PostgreSQL fixture covers concurrent exact recording, immutable
+conflicts, owner isolation, stale-scope invisibility and direct-table denial.
+This receipt proves release identity only. It does not prove application behavior,
+external services, custom-domain activation or customer delivery approval. Native
+PostgreSQL CI remains required before merge; no live migration or provider action
+is performed by this change.
