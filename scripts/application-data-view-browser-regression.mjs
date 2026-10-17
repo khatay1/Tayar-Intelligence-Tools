@@ -239,6 +239,34 @@ async function run(){
   physicalButton(holdLabels[0]).click();await wait(()=>physicalButton({en:'Release hold',ar:'تحرير الحجز',sv:'Frisläpp reservation'}[language]));
   physicalButton({en:'Release hold',ar:'تحرير الحجز',sv:'Frisläpp reservation'}[language]).click();await wait(()=>physicalRoot.querySelector('.editor').hidden);
   stopPhysical();physicalHost.remove();
+  const destinationId='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',destinationWarehouse='ffffffff-ffff-4fff-8fff-ffffffffffff';
+  let transferActor=owner,lostTransfer=true,switchTransfer=false;const browserTransfers=[];
+  const transferRuntime={...physicalRuntime,auth:{currentUser:async()=>({id:transferActor,is_anonymous:false}),currentRoles:async()=>[]},
+    list:async(_table,options)=>options?.filters?.length?[{...physicalRow,id:destinationId,warehouse_id:destinationWarehouse,name:'Destination stock'}]:[physicalRow],
+    stockReservations:(_table,actor)=>({transfer:async(...args)=>{check(actor===owner,'transfer pins its original owner');browserTransfers.push(args);if(lostTransfer){lostTransfer=false;throw Error('secret transfer detail')}if(switchTransfer)transferActor=ids[2];return 'already-transferred'}})};
+  const transferBinding={tableId:'stock_items',columns:['level_product','level_warehouse','item_stock'],actions:['stock-transfer'],pageSize:10};
+  const transferScope={projectRef:'sgewokeojtzsqjaeluan',projectId:'project',pageId:'stock',sectionId:'transfer-'+language};
+  const transferLabels={en:['Transfer stock','Confirm transfer','Stock transfer confirmed.'],ar:['نقل المخزون','تأكيد النقل','تم تأكيد نقل المخزون.'],sv:['Flytta lager','Bekräfta flytt','Lagerflytten bekräftades.']}[language];
+  let transferHost=document.createElement('div');document.body.append(transferHost);
+  let stopTransfer=mountApplicationDataView(transferHost,physicalApp,transferBinding,transferRuntime,language,transferScope),transferRoot=transferHost.shadowRoot;
+  const transferButton=text=>[...transferRoot.querySelectorAll('button')].find(button=>button.textContent===text);
+  const transferIdle=()=>wait(()=>transferRoot.querySelector('.view')?.getAttribute('aria-busy')==='false');
+  await transferIdle();transferButton(transferLabels[0]).click();await wait(()=>transferRoot.querySelector('.editor select')?.value===destinationId);
+  let transferForm=transferRoot.querySelector('.editor form');transferForm.elements.quantity.value='2';transferForm.requestSubmit();await transferIdle();
+  check(browserTransfers.length===1&&browserTransfers[0][0]===ids[0]&&browserTransfers[0][1]===destinationId&&browserTransfers[0][3]===2,'transfer sends the chosen source, destination and quantity');
+  check(transferForm.elements.quantity.readOnly&&transferForm.elements.destination.disabled,'uncertain transfer freezes destination and quantity');
+  check(!transferRoot.textContent.includes('secret transfer detail'),'transfer errors never expose provider output');
+  stopTransfer();transferHost.remove();transferHost=document.createElement('div');document.body.append(transferHost);
+  stopTransfer=mountApplicationDataView(transferHost,physicalApp,transferBinding,transferRuntime,language,transferScope);transferRoot=transferHost.shadowRoot;
+  await transferIdle();transferButton(transferLabels[0]).click();await wait(()=>transferRoot.querySelector('.editor form'));
+  transferForm=transferRoot.querySelector('.editor form');check(transferForm.elements.destination.value===destinationId&&transferForm.elements.quantity.value==='2'&&transferForm.elements.quantity.readOnly,'reload restores the frozen transfer');
+  transferForm.requestSubmit();await wait(()=>transferRoot.querySelector('.editor').hidden);await transferIdle();
+  await wait(()=>transferRoot.querySelector('[role=status]').textContent===transferLabels[2]);
+  check(browserTransfers.length===2&&JSON.stringify(browserTransfers[0])===JSON.stringify(browserTransfers[1]),'lost transfer response retries the same durable request across reload');
+  switchTransfer=true;transferButton(transferLabels[0]).click();await wait(()=>transferRoot.querySelector('.editor select')?.value===destinationId);
+  transferRoot.querySelector('.editor form').requestSubmit();await transferIdle();
+  check(transferRoot.querySelectorAll('tbody tr').length===0,'transfer account switch clears private rows');
+  stopTransfer();transferHost.remove();
   const transactionProducts={id:'transaction_products',key:'transaction_products',name:'Products',fields:[{id:'transaction_name',key:'name',name:'Name',type:'text',required:true},{id:'transaction_stock',key:'quantity',name:'Stock',type:'number',required:true,defaultValue:0}],permissions:[{operation:'read',access:'authenticated'},{operation:'update',access:'authenticated'}],counter:{fieldId:'transaction_stock',minimum:0,maximum:100,integer:true}};
   const transactionOrders={id:'transaction_orders',key:'transaction_orders',name:'Orders',fields:[{id:'transaction_note',key:'note',name:'Note',type:'text',required:true}],permissions:[{operation:'read',access:'owner'},{operation:'create',access:'owner'}],transaction:{itemTableId:'transaction_products',lineTableId:'transaction_lines',lineTransactionFieldId:'transaction_line_order',lineItemFieldId:'transaction_line_item',lineQuantityFieldId:'transaction_line_quantity',counterDirection:'decrement'}};
   const transactionLines={id:'transaction_lines',key:'transaction_lines',name:'Lines',fields:[{id:'transaction_line_order',key:'order_id',name:'Order',type:'reference',required:true,referenceTableId:'transaction_orders'},{id:'transaction_line_item',key:'product_id',name:'Product',type:'reference',required:true,referenceTableId:'transaction_products'},{id:'transaction_line_quantity',key:'quantity',name:'Quantity',type:'number',required:true}],permissions:[{operation:'read',access:'owner'}]};

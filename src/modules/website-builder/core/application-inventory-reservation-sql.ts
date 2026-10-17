@@ -1,3 +1,4 @@
+import { compileApplicationStockTransferSchema } from './application-stock-transfer-sql';
 import type { ApplicationDefinition } from './application-model';
 import { compileApplicationStockLocationsSchema } from './application-stock-locations-sql';
 import { applicationInventoryReservationTarget } from './application-inventory-reservation-target';
@@ -13,7 +14,8 @@ import { applicationInventoryReservationTarget } from './application-inventory-r
  * Uses the native owner-scoped single-app backend. Without stockLocations the
  * supplied location UUID is an immutable tag. With stockLocations, the existing
  * counter belongs to one immutable item/warehouse level and reserve requires
- * that exact warehouse. Shared organization inventory and transfers are absent.
+ * that exact warehouse. Shared organization inventory is absent; physical level transfers use the
+ * separate atomic transfer RPC.
  */
 export function compileApplicationInventoryReservationSchema(input: ApplicationDefinition, itemTableId: string): string[] {
   const { app, index, table } = applicationInventoryReservationTarget(input, itemTableId);
@@ -145,6 +147,7 @@ export function compileApplicationInventoryReservationSchema(input: ApplicationD
     'grant execute on function private.' + checking + '(uuid) to authenticated;',
     'create function public.' + checking + '(item_id uuid) returns numeric language sql security invoker set search_path = \'\' as $stock_public$ select private.' + checking + '(item_id) $stock_public$;',
     'revoke all on function public.' + checking + '(uuid) from public,anon;',
+    ...compileApplicationStockTransferSchema(app, itemTableId),
     'grant execute on function public.' + checking + '(uuid) to authenticated;'
   ];
 }

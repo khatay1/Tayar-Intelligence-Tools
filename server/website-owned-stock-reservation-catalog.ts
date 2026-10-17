@@ -1,3 +1,4 @@
+import { verifyOwnedStockTransfersCatalog } from './website-owned-stock-transfers-catalog';
 import { verifyOwnedStockLocationsCatalog } from './website-owned-stock-locations-catalog';
 import type { ApplicationDefinition } from '../src/modules/website-builder/core/application-model';
 import { compileApplicationInventoryReservationSchema } from '../src/modules/website-builder/core/application-inventory-reservation-sql';
@@ -23,10 +24,10 @@ export async function verifyOwnedStockReservationCatalog(
       if (manifest.has(key)) return false;
       manifest.set(key, { args: match[3], result: match[4], lang: match[5], definer: match[6] === 'definer', source: match[8] });
     }
-    if (manifest.size !== (input.tables[index].stockLocations ? 8 : 7)) return false;
+    if (manifest.size !== (input.tables[index].stockLocations ? 10 : 7)) return false;
     const names = ['app_stock_reserve_' + index, 'app_stock_finalize_' + index,
       'app_stock_available_' + index, 'app_stock_floor_' + index,
-      ...(input.tables[index].stockLocations ? ['app_stock_location_guard_' + index] : [])];
+      ...(input.tables[index].stockLocations ? ['app_stock_location_guard_' + index, 'app_stock_transfer_' + index] : [])];
     const conditions = "p.proname in (" + names.map(literal).join(',') + ")";
     const functionsSql = `select n.nspname as schema_name,p.proname as function_name,
       pg_get_function_identity_arguments(p.oid) as arguments,pg_get_function_result(p.oid) as result,
@@ -117,6 +118,7 @@ export async function verifyOwnedStockReservationCatalog(
     const foreign = constraintsByType.get('f')![0];
     if (!checks.includes(expectedQuantity) || !checks.includes(expectedStatus)
       || foreign !== `FOREIGN KEY (item_id) REFERENCES app_${input.tables[index].key}(id) ON DELETE RESTRICT`) return false;
-    return await verifyOwnedStockLocationsCatalog(input, itemTableId, query);
+    return await verifyOwnedStockLocationsCatalog(input, itemTableId, query)
+      && await verifyOwnedStockTransfersCatalog(input, itemTableId, query);
   } catch { return false; }
 }

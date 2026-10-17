@@ -26,6 +26,17 @@ function validStockHold(value: unknown, itemId: string): value is StockHold {
     && ['reserve', 'held', 'release', 'fulfill'].includes(String(hold.phase));
 }
 
+type StockTransfer = { version: 1; sourceId: string; destinationId: string; requestId: string; quantity: number };
+function validStockTransfer(value: unknown, sourceId: string): value is StockTransfer {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const receipt = value as Record<string, unknown>;
+  return Object.keys(receipt).sort().join(',') === 'destinationId,quantity,requestId,sourceId,version'
+    && receipt.version === 1 && receipt.sourceId === sourceId
+    && typeof receipt.destinationId === 'string' && rowId(receipt.destinationId) === receipt.destinationId && receipt.destinationId !== sourceId
+    && typeof receipt.requestId === 'string' && rowId(receipt.requestId) === receipt.requestId
+    && typeof receipt.quantity === 'number' && Number.isSafeInteger(receipt.quantity) && receipt.quantity > 0 && receipt.quantity <= 1_000_000_000_000;
+}
+
 /** No persistent row cache. Re-check live identity/roles on every action and after
  * each response; a stale account cannot display data fetched by a previous one. */
 export function createApplicationDataViewController(definition: ApplicationDefinition, binding: ApplicationDataViewBinding,
@@ -52,6 +63,16 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     if (hold) durableScope.storage.setItem(stockKey(id), JSON.stringify(hold));
     else durableScope.storage.removeItem(stockKey(id));
   }
+  const transferKey = (id: string) => `${durableScope!.keyPrefix}:stock-transfer:${owner}:${compiled.table.id}:${rowId(id)}`;
+  function readTransfer(id: string): StockTransfer | null {
+    if (!durableScope || !owner) throw new Error('Stock transfer is unavailable.');
+    const raw = durableScope.storage.getItem(transferKey(id));
+    if (raw === null) return null;
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw); } catch { throw new Error('Stock transfer receipt is unavailable.'); }
+    if (!validStockTransfer(parsed, id)) throw new Error('Stock transfer receipt is unavailable.');
+    return parsed;
+  }
   async function identity() {
     if (disposed) throw new Error('Data view is closed.');
     const user = await runtime.auth.currentUser();
@@ -63,9 +84,9 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     const user = await identity(), roles = await runtime.auth.currentRoles();
     await identity();
     if (!dataViewAllows(compiled.table, 'read', user, roles)) { disposed = true; pending = undefined; throw new Error('Data view access is not permitted.'); }
-    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' || action === 'pay' || action === 'refund' || action === 'stock-availability' || action === 'stock-reservation' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles)
-      && (action !== 'stock-availability' && action !== 'stock-reservation' || !!runtime.stockReservations)
-      && (action !== 'stock-reservation' || !!durableScope)
+    return compiled.binding.actions.filter(action => dataViewAllows(compiled.table, action === 'attachments' || action === 'pay' || action === 'refund' || action === 'stock-availability' || action === 'stock-reservation' || action === 'stock-transfer' ? 'read' : action === 'adjust' || action === 'transition' ? 'update' : action === 'transact' ? 'create' : action, user, roles)
+      && (action !== 'stock-availability' && action !== 'stock-reservation' && action !== 'stock-transfer' || !!runtime.stockReservations)
+      && (action !== 'stock-reservation' && action !== 'stock-transfer' || !!durableScope)
       && (!(action === 'pay' || action === 'refund') || runtime.payments?.available)
       && (action !== 'refund' || !!compiled.table.payment && roles.includes(compiled.table.payment.refundRoleId)));
   }
@@ -85,6 +106,43 @@ export function createApplicationDataViewController(definition: ApplicationDefin
   return {
     ...compiled,
     permissions,
+    async stockTransferState(id: string) {
+      if (!(await permissions()).includes('stock-transfer')) throw new Error('Stock transfer is unavailable.');
+      return readTransfer(rowId(id));
+    },
+    async stockTransferOptions(productId: string, locationId: string, page = 0) {
+      if (!(await permissions()).includes('stock-transfer') || !compiled.table.stockLocations
+        || !Number.isSafeInteger(page) || page < 0 || page > 100_000) throw new Error('Stock transfer is unavailable.');
+      const rule = compiled.table.stockLocations;
+      const item = compiled.table.fields.find(field => field.id === rule.itemFieldId)!;
+      const location = compiled.table.fields.find(field => field.id === rule.locationFieldId)!;
+      const text = compiled.table.fields.find(field => field.type === 'text');
+      const rows = await runtime.list(compiled.table.id, { limit: 21, offset: page * 20, sort: {field:'id',direction:'asc'}, filters: [
+        {field:item.key,operator:'eq',value:rowId(productId)}, {field:location.key,operator:'neq',value:rowId(locationId)},
+      ] });
+      await identity();
+      if (!Array.isArray(rows)) throw new Error('Stock destinations are unavailable.');
+      const valid = rows.filter(row => row[item.key] === productId && row[location.key] !== locationId);
+      return {hasNext: rows.length > 20, options: valid.slice(0,20).map(row => ({id:rowId(String(row.id)),
+        label: `${text ? String(row[text.key] ?? '').slice(0,160) + ' — ' : ''}${String(row[location.key]).slice(0,120)}`}))};
+    },
+    async stockTransfer(id: string, destinationId: string, quantity: number) {
+      const source = rowId(id), destination = rowId(destinationId);
+      if (source === destination || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 1_000_000_000_000) throw new Error('Invalid stock transfer.');
+      let result: 'transferred' | 'already-transferred' | undefined;
+      await write('stock-transfer', async () => {
+        if (!durableScope || !runtime.stockReservations) throw new Error('Stock transfer is unavailable.');
+        let receipt = readTransfer(source);
+        if (receipt && (receipt.destinationId !== destination || receipt.quantity !== quantity)) throw new Error('Resolve the existing stock transfer before changing its destination or quantity.');
+        if (!receipt) {
+          receipt = {version:1,sourceId:source,destinationId:destination,requestId:rowId(randomUUID()),quantity};
+          durableScope.storage.setItem(transferKey(source),JSON.stringify(receipt));
+        }
+        result = await runtime.stockReservations(compiled.table.id,owner!).transfer(source,destination,receipt.requestId,quantity);
+        durableScope.storage.removeItem(transferKey(source));
+      });
+      return result!;
+    },
     async stockAvailable(id: string) {
       if (!(await permissions()).includes('stock-availability') || !runtime.stockReservations) throw new Error('Stock availability is unavailable.');
       const result = await runtime.stockReservations(compiled.table.id, owner!).available(rowId(id));

@@ -36,7 +36,7 @@ export function requestedApplicationCapabilities(prompt: string): Set<Applicatio
   const remaining = prompt.replace(stockAvailabilityPattern, '').replace(stockReservationPattern, '');
   const capabilities = new Set(requestedCapabilityPatterns.filter(([, pattern]) => pattern.test(remaining)).map(([capability]) => capability));
   if (stockAvailabilityRequest(prompt)) capabilities.add('records');
-  if (physicalStockLocationRequest(prompt)) capabilities.add('records');
+  if (physicalStockLocationRequest(prompt) || stockTransferRequest(prompt)) capabilities.add('records');
   if (stockReservationRequest(prompt)) capabilities.add('records');
   return capabilities;
 }
@@ -49,7 +49,9 @@ export function prepareGeneratedApplication(
   availableEmailConnectionIds: ReadonlySet<string> = new Set(),
   requireSpecification = false,
 ): ApplicationDefinition | undefined {
-  if (stockTransferRequest(prompt)) throw new Error('Atomic warehouse transfers are unsupported. Independent warehouse balances and ordinary counter adjustments cannot fulfill a transfer requirement. No incomplete application was applied.');
+  if (stockTransferRequest(prompt) && /\b(?:multi[ -]?item|batch|bulk|multiple items|all items)\b|(?:متعدد الأصناف|عدة أصناف|جميع الأصناف|دفعة واحدة)|(?:flera varor|massflytt)/iu.test(prompt)) {
+    throw new Error('Atomic multi-item warehouse transfer batches are unsupported. Single-item transfers cannot fulfill this requirement. No incomplete application was applied.');
+  }
   const stockReservationRequested = stockReservationRequest(prompt);
   if (generated.projectKind !== undefined && !['website', 'application'].includes(generated.projectKind)) throw new Error('AI returned an invalid project kind.');
   if (generated.unsupportedFeatures !== undefined && (!Array.isArray(generated.unsupportedFeatures)
@@ -82,6 +84,7 @@ export function prepareGeneratedApplication(
   let bookingCreates = 0;
   let counterViews = 0;
   let transactionViews = 0;
+  let stockTransferViews = 0;
   let physicalStockViews = 0;
   let stockAvailabilityViews = 0;
   let stockReservationViews = 0;
@@ -92,6 +95,7 @@ export function prepareGeneratedApplication(
     if (section.applicationDataView !== undefined) {
       if (section.type === 'contact' || section.type === 'footer') throw new Error('Data views require a content section.');
       const view = compileApplicationDataView(definition, section.applicationDataView);
+      if (view.table.stockLocations && view.binding.actions.includes('stock-transfer')) stockTransferViews++;
       if (view.table.stockLocations && view.binding.actions.includes('stock-availability')) physicalStockViews++;
       if (view.table.stockReservations && view.binding.actions.includes('stock-availability')) stockAvailabilityViews++;
       if (view.table.stockReservations && view.binding.actions.includes('stock-reservation')) stockReservationViews++;
@@ -131,6 +135,7 @@ export function prepareGeneratedApplication(
     }
     evidence.add(`email:${table.id}`);
   }
+  if (stockTransferRequest(prompt) && !stockTransferViews) throw new Error('Atomic warehouse transfers require saved physical stock locations and a bound stock-transfer view. Ordinary counter adjustments cannot fulfill this requirement. No incomplete application was applied.');
   if (physicalStockLocationRequest(prompt) && !physicalStockViews) throw new Error('Physical stock balances by location require saved stockLocations and a bound stock-availability view with item, location and quantity. A label alone cannot fulfill this requirement. No incomplete application was applied.');
   if (bookingRequest(prompt) && !bookingCreates) throw new Error('Appointment booking requires a bound create form or data view with a database booking rule; ordinary records cannot replace conflict-safe booking.');
   if (/\b(?:data dashboard|record management|crud|data editor)\b|(?:إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt) && !dataViews) throw new Error('Record management requires a bound data view; descriptive pages cannot replace it.');

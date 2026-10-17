@@ -14,6 +14,8 @@ try {
     'src/modules/website-builder/core/application-schema-sql': ['compileInitialApplicationSchema','compileAdditiveApplicationMigration'],
     'src/modules/website-builder/core/editor-generated-application': ['prepareGeneratedApplication'],
     'src/modules/website-builder/core/application-data-view': ['compileApplicationDataView'],
+    'src/modules/website-builder/core/application-data-view-controller': ['createApplicationDataViewController'],
+    'src/modules/website-builder/core/application-stock-reservation-rpc': ['createApplicationStockReservationRpc'],
     'src/modules/website-builder/core/editor-application-repair-safety': ['applicationRepairSafetyIssues'],
     'src/modules/website-builder/core/defaults': ['createSection'],
     'server/website-owned-stock-reservation-catalog': ['verifyOwnedStockReservationCatalog'],
@@ -24,7 +26,7 @@ try {
   const {validateApplicationDefinition:issues,compileInitialApplicationSchema:compile,
     compileAdditiveApplicationMigration:migrate,prepareGeneratedApplication:generate,compileApplicationDataView:view,
     applicationRepairSafetyIssues:repair,createSection,verifyOwnedStockReservationCatalog:verify,
-    verifyOwnedSupabaseCatalogSecurity:verifyFull} = createRequire(import.meta.url)(outfile);
+    verifyOwnedSupabaseCatalogSecurity:verifyFull,createApplicationDataViewController:controller,createApplicationStockReservationRpc:rpc} = createRequire(import.meta.url)(outfile);
   const permissions = ['read','create','update','delete'].map(operation=>({operation,access:'owner'}));
   const app = {version:1,auth:{enabled:true,signUpEnabled:false,emailVerificationRequired:true},roles:[],pageAccess:[],tables:[
     {id:'catalog',key:'catalog',name:'Catalog',permissions,fields:[{id:'catalog_name',key:'name',name:'Name',type:'text',required:true}]},
@@ -33,7 +35,7 @@ try {
       {id:'stock_product',key:'product_id',name:'Item',type:'reference',required:true,referenceTableId:'catalog'},
       {id:'stock_warehouse',key:'warehouse_id',name:'Warehouse',type:'reference',required:true,referenceTableId:'warehouses'},
       {id:'level_quantity',key:'quantity',name:'Quantity',type:'number',required:true,defaultValue:0},
-    ],counter:{fieldId:'level_quantity',minimum:0,integer:true},stockReservations:true,
+    ],counter:{fieldId:'level_quantity',minimum:0,maximum:100,integer:true},stockReservations:true,
     stockLocations:{itemFieldId:'stock_product',locationFieldId:'stock_warehouse'}},
   ]};
   assert.deepEqual(issues(app),[]);
@@ -68,9 +70,43 @@ try {
     assert.ok(generate(generated,pages,prompt).tables[2].stockLocations);
     assert.throws(()=>generate({...generated,application:noLocations},pages,prompt),/Physical stock balances by location/);
   }
+  const transferBinding={...binding,actions:[...binding.actions,'stock-transfer']};
+  const transferPages=structuredClone(pages);transferPages[0].sections[0].applicationDataView=transferBinding;
+  const transferGenerated={...generated,requirements:[...generated.requirements,{id:'stock_transfer',summary:'Transfer stock atomically',capability:'records',evidence:['view:levels:stock-transfer']}]};
   for(const prompt of ['Transfer stock between warehouses','Warehouse transfers','نقل المخزون بين المستودعات','Lageröverföring'])
-    assert.throws(()=>generate(generated,pages,prompt),/Atomic warehouse transfers are unsupported/);
+    {assert.throws(()=>generate(generated,pages,prompt),/Atomic warehouse transfers require/);assert.ok(generate(transferGenerated,transferPages,prompt));}
+  assert.throws(()=>generate(transferGenerated,transferPages,'Atomic batch stock transfers for multiple items'),/multi-item warehouse transfer batches are unsupported/);
   assert.ok(repair(app,pages,pages,noLocations).some(issue=>issue.includes('stockLocations')));
+  const uid=n=>`11111111-1111-4111-8111-${String(n).padStart(12,'0')}`;
+  const memory=new Map(),storage={getItem:key=>memory.get(key)??null,setItem:(key,value)=>memory.set(key,value),removeItem:key=>memory.delete(key)};
+  const scope={keyPrefix:'transfer-test',storage,crypto:{}};
+  let actor=uid(1),lose=true,transferCalls=[];
+  const runtime={auth:{currentUser:async()=>({id:actor,is_anonymous:false}),currentRoles:async()=>[]},list:async(_table,options)=>{
+    assert.deepEqual(options.filters,[{field:'product_id',operator:'eq',value:uid(3)},{field:'warehouse_id',operator:'neq',value:uid(4)}]);
+    return [{id:uid(7),product_id:uid(3),warehouse_id:uid(5),quantity:4}];
+  },stockReservations:(_table,owner)=>({transfer:async(...args)=>{assert.equal(owner,uid(1));transferCalls.push(args);if(lose){lose=false;throw Error('response lost')}return 'already-transferred'}})};
+  let controls=controller(app,transferBinding,runtime,()=>uid(20),scope);
+  assert.equal((await controls.stockTransferOptions(uid(3),uid(4))).options[0].id,uid(7));
+  await assert.rejects(controls.stockTransfer(uid(6),uid(7),2),/response lost/);
+  await assert.rejects(controls.stockTransfer(uid(6),uid(7),3),/existing stock transfer/);
+  await assert.rejects(controls.stockTransfer(uid(6),uid(8),2),/existing stock transfer/);
+  controls.dispose();controls=controller(app,transferBinding,runtime,()=>uid(21),scope);
+  assert.equal((await controls.stockTransferState(uid(6))).requestId,uid(20));
+  assert.equal(await controls.stockTransfer(uid(6),uid(7),2),'already-transferred');
+  assert.deepEqual(transferCalls,[[uid(6),uid(7),uid(20),2],[uid(6),uid(7),uid(20),2]],'Lost responses and reloads reuse the exact transfer identity');
+  assert.equal(await controls.stockTransferState(uid(6)),null);
+  const blocked=controller(app,transferBinding,runtime,()=>uid(22),{...scope,storage:{...storage,setItem(){throw Error('storage blocked')}}});
+  await assert.rejects(blocked.stockTransfer(uid(6),uid(7),1),/storage blocked/);blocked.dispose();assert.equal(transferCalls.length,2);
+  memory.set(`${scope.keyPrefix}:stock-transfer:${uid(1)}:levels:${uid(6)}`,JSON.stringify({version:1,sourceId:uid(6),destinationId:uid(7),requestId:'invalid',quantity:2}));
+  await assert.rejects(controls.stockTransfer(uid(6),uid(7),2));assert.equal(transferCalls.length,2);memory.clear();
+  actor=uid(2);await assert.rejects(controls.stockTransfer(uid(6),uid(7),2),/identity changed/);assert.equal(transferCalls.length,2);controls.dispose();
+  let rpcCalls=[];
+  const bridge={rpc:async(name,args)=>{rpcCalls.push({name,args});return{data:'transferred',error:null}}};
+  assert.equal(await rpc(app,'levels',bridge).transfer(uid(6),uid(7),uid(20),2),'transferred');
+  assert.deepEqual(rpcCalls,[{name:'app_stock_transfer_2',args:{source_id:uid(6),destination_id:uid(7),request_id:uid(20),amount:2}}]);
+  for(const args of [[uid(6),uid(6),uid(20),2],[uid(6),uid(7),uid(20),0],[uid(6),uid(7),'bad',2]])await assert.rejects(rpc(app,'levels',bridge).transfer(...args));
+  await assert.rejects(rpc(noLocations,'levels',bridge).transfer(uid(6),uid(7),uid(20),2));assert.equal(rpcCalls.length,1);
+  await assert.rejects(rpc(app,'levels',{rpc:async()=>({data:'already-adjusted',error:null})}).transfer(uid(6),uid(7),uid(20),2));
   console.log('PASS saved stock locations: strict owner references, visible identity, generation, transfer refusal and repair preservation');
   if(!process.argv.includes('--postgres')) process.exit(0);
   const databaseUrl=process.env.TAYAR_STOCK_LOCATIONS_TEST_DATABASE_URL;
@@ -119,6 +155,58 @@ try {
   await query('alter table public.app_catalog disable trigger app_guard_audit;');
   await assert.rejects(query(`update public.app_catalog set owner_id='${foreign}' where id='${product}';`),/foreign key constraint/);
   await query('alter table public.app_catalog enable trigger app_guard_audit;');
+  const transferProduct=id(30),from=id(31),to=id(32),foreignLevel=id(34);
+  await query(`insert into public.app_catalog(id,owner_id,name) values ('${transferProduct}','${owner}','Transfer product');
+    insert into public.app_levels(id,owner_id,product_id,warehouse_id) values
+      ('${from}','${owner}','${transferProduct}','${warehouseA}'),('${to}','${owner}','${transferProduct}','${warehouseB}'),
+      ('${foreignLevel}','${foreign}','${foreignProduct}','${foreignWarehouse}');
+    ${login(owner)}select public.app_adjust_counter_2('${from}',20,gen_random_uuid());select public.app_adjust_counter_2('${to}',90,gen_random_uuid());`);
+  const transfer=(source,destination,receipt,quantity,who=owner)=>query(`${login(who)}set lock_timeout='2s';set statement_timeout='4s';select public.app_stock_transfer_2('${source}','${destination}','${receipt}',${quantity});`);
+  const balances=()=>query(`select quantity from public.app_levels where id in ('${from}','${to}') order by id;`);
+  assert.match(await reserve(from,warehouseA,id(40),15),/reserved$/);
+  await assert.rejects(transfer(from,to,id(41),6),/cross reservations/);
+  assert.equal(await balances(),'20\n90');
+  assert.equal(await query(`select count(*) from private.app_stock_transfers_2 where request_id='${id(41)}';`),'0','A failed transfer stores no success receipt');
+  assert.match(await transfer(from,to,id(42),5),/transferred$/);
+  assert.equal(await balances(),'15\n95');
+  assert.match(await transfer(from,to,id(42),5),/already-transferred$/,'Response-loss retry succeeds even when current free stock is zero');
+  assert.equal(await balances(),'15\n95');
+  for(const [source,destination,amount] of [[from,to,4],[to,from,5],[levelA,levelB,5]])await assert.rejects(transfer(source,destination,id(42),amount),/identity mismatch/);
+  for(const [source,destination,who] of [[from,levelA,owner],[from,from,owner],[from,foreignLevel,owner],[from,to,foreign]])await assert.rejects(transfer(source,destination,id(43),1,who),/unavailable/);
+  for(const quantity of [0,-1,1.5])await assert.rejects(transfer(from,to,id(43),quantity),/unavailable/);
+  await query(`${login(owner)}select public.app_adjust_counter_2('${from}',2,gen_random_uuid());select public.app_adjust_counter_2('${to}',5,gen_random_uuid());`);
+  const beforeDebits=await query('select count(*) from private.app_counter_requests;');
+  await assert.rejects(transfer(from,to,id(44),2),/bounds/,'The destination maximum rejects the second counter leg');
+  assert.equal(await balances(),'17\n100','Credit failure rolls back the source debit');
+  assert.equal(await query('select count(*) from private.app_counter_requests;'),beforeDebits,'Credit failure rolls back internal counter receipts');
+  assert.equal(await query(`select count(*) from private.app_stock_transfers_2 where request_id='${id(44)}';`),'0');
+  await query(`${login(owner)}select public.app_adjust_counter_2('${to}',-2,gen_random_uuid());`);
+  assert.match(await transfer(from,to,id(44),2),/transferred$/,'The same request may retry after an atomic rejection');
+  assert.equal(await balances(),'15\n100');
+  await query(`${login(owner)}select public.app_stock_finalize_2('${id(40)}','release');select public.app_adjust_counter_2('${to}',-100,gen_random_uuid());`);
+  const racing=await Promise.allSettled([id(50),id(51)].map(receipt=>transfer(from,to,receipt,10)));
+  assert.equal(racing.filter(result=>result.status==='fulfilled').length,1,'Competing transfers cannot oversell the source');
+  assert.equal(await balances(),'5\n10');
+  const opposite=await Promise.all([transfer(from,to,id(52),2),transfer(to,from,id(53),2)]);
+  assert.ok(opposite.every(result=>/\ntransferred$/.test(result)),'Opposite transfers acquire the same ordered locks without deadlock');
+  assert.equal(await balances(),'5\n10','Opposite transfers conserve the total quantity');
+  const sameRequest=await Promise.all([transfer(from,to,id(60),2),transfer(from,to,id(60),2)]);
+  assert.equal(sameRequest.filter(result=>/\ntransferred$/.test(result)).length,1);
+  assert.equal(sameRequest.filter(result=>/already-transferred$/.test(result)).length,1);
+  assert.equal(await balances(),'3\n12');
+  assert.match(await reserve(from,warehouseA,id(70),3),/reserved$/);
+  await query(`update private.app_stock_reservations_2 set expires_at=statement_timestamp()-interval '1 second' where reservation_id='${id(70)}';`);
+  const nativeRpc=rpc(app,'levels',{rpc:async(name,args)=>{
+    assert.equal(name,'app_stock_transfer_2');
+    const text=await transfer(args.source_id,args.destination_id,args.request_id,args.amount);
+    return {data:text.split('\n').at(-1),error:null};
+  }});
+  assert.equal(await nativeRpc.transfer(from,to,id(71),1),'transferred','The real RPC adapter executes against the generated native function and ignores expired holds');
+  assert.equal(await nativeRpc.transfer(from,to,id(71),1),'already-transferred');
+  assert.equal(await balances(),'2\n13');
+  await assert.rejects(query(`${login(owner)}select * from private.app_stock_transfers_2;`),/permission denied/);
+  await assert.rejects(query(`set role anon;select public.app_stock_transfer_2('${from}','${to}','${id(72)}',1);`),/permission denied/);
+  await assert.rejects(query(`${login(owner)}select set_config('request.jwt.claims','{"is_anonymous":true}',false);select public.app_stock_transfer_2('${from}','${to}','${id(72)}',1);`),/unavailable/);
   const catalogQuery=statement=>query(`select coalesce(json_agg(row),'[]') from (${statement}) row;`).then(JSON.parse);
   assert.equal(await verify(app,'levels',catalogQuery),true,'Physical stock proof includes function source, trigger, dimensions, uniqueness and restrictive references');
   const setupEvidence=[];
@@ -136,5 +224,13 @@ try {
   await query('alter table public.app_levels alter column warehouse_id drop not null;');
   assert.equal(await verify(app,'levels',catalogQuery),false);await query('alter table public.app_levels alter column warehouse_id set not null;');
   assert.equal(await verify(app,'levels',catalogQuery),true);
+  await query('grant select on private.app_stock_transfers_2 to authenticated;');
+  assert.equal(await verify(app,'levels',catalogQuery),false,'A browser-readable transfer ledger cannot pass publication');
+  await query('revoke select on private.app_stock_transfers_2 from authenticated;alter table private.app_stock_transfers_2 disable row level security;');
+  assert.equal(await verify(app,'levels',catalogQuery),false);await query('alter table private.app_stock_transfers_2 enable row level security;');
+  await query('alter table private.app_stock_transfers_2 drop constraint app_stock_transfers_2_pkey;');
+  assert.equal(await verify(app,'levels',catalogQuery),false);await query('alter table private.app_stock_transfers_2 add primary key (actor_id,request_id);');
+  assert.equal(await verify(app,'levels',catalogQuery),true);
+  console.log('PASS native PostgreSQL transfers: held-unit floors, same owner/item, atomic rollback, durable replay, competing/opposite locks, adapter execution and private receipt proof');
   console.log('PASS native PostgreSQL physical stock: independent warehouse balances, exact-location holds, concurrent oversell prevention, immutable owner references and catalog drift refusal');
 } finally { await rm(dir,{recursive:true,force:true}); }
