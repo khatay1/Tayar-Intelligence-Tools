@@ -116,7 +116,7 @@ export async function stageWebsiteProductionCandidate(input: {
       vercel: { accessToken: custody.accessToken as string, userId: custody.userId as string,
         accountId: custody.accountId as string, vercelProjectId: custody.vercelProjectId as string },
       isCurrent: current, fetcher: input.fetcher });
-    await verifyServices();
+    const serviceDestinations = canonical((await verifyServices()).environmentIds);
     if (!await current()) throw new Error();
     const staged = await stageOwnedVercelProductionDeployment({ candidate: target.scope.candidate,
       runtimeEnvironmentReceiptVersion: target.scope.runtimeEnvironmentReceiptVersion, runtimeEnvironmentIds: target.scope.runtimeEnvironmentIds,
@@ -133,7 +133,7 @@ export async function stageWebsiteProductionCandidate(input: {
     await verifyOwnedDeployedBehavior({ projectId: input.projectId, liveUrl: staged.liveUrl,
       files: source.files, isCurrent: current, fetcher: input.fetcher });
     if (!await current()) throw new Error();
-    await verifyServices();
+    if (canonical((await verifyServices()).environmentIds) !== serviceDestinations) throw new Error();
     if (!await current()) throw new Error();
     await verifyBackend();
     if (!await current()) throw new Error();

@@ -22,7 +22,7 @@ try {
         `export async function verifyWebsiteOwnedProductionBackend(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale backend proof')}` }));
       build.onResolve({ filter: /website-owned-production-services-verification$/ }, () => ({ path: 'service-proof', namespace: 'fixture' }));
       build.onLoad({ filter: /^service-proof$/, namespace: 'fixture' }, () => ({ contents:
-        `export async function verifyWebsiteOwnedProductionServices(value){globalThis.__tayarServiceProofs.push(value);if(!await value.isCurrent())throw Error('stale service proof');return{environmentIds:{}}}` }));
+        `export async function verifyWebsiteOwnedProductionServices(value){globalThis.__tayarServiceProofs.push(value);if(!await value.isCurrent())throw Error('stale service proof');return{environmentIds:globalThis.__tayarServiceDestinations?.shift()??{}}}` }));
     } }] });
   const { stageWebsiteProductionCandidate: stage, captureWebsiteOwnedApplicationSource: capture,
     captureWebsiteOwnedProductionSource: prepare, createWebsiteOwnedSourceReader: readerFor,
@@ -162,6 +162,25 @@ try {
     assert.equal(globalThis.__tayarServiceProofs.slice(proofStart).length, 4);
     assert.doesNotMatch(JSON.stringify(result), /accessToken|publishable|environmentIds|custody/);
   }
+  // Even independently valid receipts must select the same destinations before
+  // staging and after the deployed behavior proof. No attestation on drift.
+  for (const destinations of [
+    [{ STRIPE_SECRET_KEY: 'env_stripe_old' }, { STRIPE_SECRET_KEY: 'env_stripe_new' }],
+    [{ TAYAR_RESEND_01_API_KEY: 'env_email_old' }, {}],
+    [{}, { CRON_SECRET: 'env_cron_new' }],
+  ]) {
+    globalThis.__tayarServiceDestinations = structuredClone(destinations);
+    const drift = fixture(); await assert.rejects(stage(drift.input), /staging unavailable/);
+    assert.equal(drift.stats().posts, 1); assert.equal(drift.stats().behaviorProofs, 1);
+    assert.equal(drift.stats().attestations, 0);
+  }
+  globalThis.__tayarServiceDestinations = [
+    { CRON_SECRET: 'env_cron', SUPABASE_SECRET_KEY: 'env_backend' },
+    { SUPABASE_SECRET_KEY: 'env_backend', CRON_SECRET: 'env_cron' },
+  ];
+  const reordered = fixture(); assert.equal((await stage(reordered.input)).status, 'runtime-verified');
+  assert.equal(reordered.stats().attestations, 1);
+  delete globalThis.__tayarServiceDestinations;
   const building = fixture({ building: true }); assert.equal((await stage(building.input)).status, 'observing'); assert.equal(building.stats().identityProofs, 0);
   const wrongRuntime = fixture({ wrongRuntime: true }); await assert.rejects(stage(wrongRuntime.input), /staging unavailable/);
   assert.equal(wrongRuntime.stats().posts, 1); assert.equal(wrongRuntime.stats().identityProofs, 1); assert.equal(wrongRuntime.stats().behaviorProofs, 0);
@@ -182,5 +201,5 @@ try {
   const changed = fixture({ changeAfterPost: true }); await assert.rejects(stage(changed.input), /staging unavailable/);
   assert.equal(changed.stats().posts, 1); assert.equal(changed.stats().identityProofs, 0); assert.equal(changed.stats().behaviorProofs, 0);
   console.log('PASS staged Production coordinator: actual source compiler/reader/store/transport/runtime handshake, private target selection, exact source scope, response-loss retry and stale identity refusal (RPC/provider mocked)');
-} finally { delete globalThis.__tayarBackendProofs; delete globalThis.__tayarServiceProofs;
+} finally { delete globalThis.__tayarServiceDestinations; delete globalThis.__tayarBackendProofs; delete globalThis.__tayarServiceProofs;
   await rm(dir, { recursive: true, force: true }); }

@@ -23,7 +23,7 @@ try{
       `}));
       builder.onResolve({filter:/website-owned-runtime-secret-staging$/},()=>({path:'generated',namespace:'fixture'}));
       builder.onLoad({filter:/^generated$/,namespace:'fixture'},()=>({contents:`
-        export async function inspectOwnedRuntimeSecretState(value){globalThis.__tayarServiceProof.calls.push(['generated-state',value]);return{ready:globalThis.__tayarServiceProof.ready,environmentId:'env_'+value.secret.environmentKey.toLowerCase(),handoffOperationId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'}}
+        export async function inspectOwnedRuntimeSecretState(value){globalThis.__tayarServiceProof.calls.push(['generated-state',value]);return{ready:globalThis.__tayarServiceProof.ready,environmentId:globalThis.__tayarServiceProof.generatedEnvironmentId??'env_'+value.secret.environmentKey.toLowerCase(),handoffOperationId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'}}
       `}));
       builder.onResolve({filter:/website-owned-vercel-environment$/},()=>({path:'vercel',namespace:'fixture'}));
       builder.onLoad({filter:/^vercel$/,namespace:'fixture'},()=>({contents:`
@@ -60,6 +60,12 @@ try{
     'generated-state','generated-destination','generated-state','generated-destination']);
   assert.ok(globalThis.__tayarServiceProof.calls.slice(-6).every(call=>call[1].environment==='production'||call[1].target==='production'));
 
+  for (const id of ['env_duplicate123', 'invalid destination id']) {
+    globalThis.__tayarServiceProof.generatedEnvironmentId=id;
+    await assert.rejects(verify({...input,capabilities:emailCapabilities,emailRuntime}),
+      /Customer Production service verification is unavailable/);
+  }
+  delete globalThis.__tayarServiceProof.generatedEnvironmentId;
   globalThis.__tayarServiceProof.ready=false;
   await assert.rejects(verify({...input,capabilities:stripeCapabilities,stripeRuntime}),/Customer Production service verification is unavailable/);
   globalThis.__tayarServiceProof.ready=true;

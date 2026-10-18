@@ -1124,6 +1124,8 @@ domain, promote an alias or constitute customer delivery approval.
 
 ## Revalidated Production service receipts — 2026-10-18
 
+PR #283 merged as `aa1d593e8a6e6e6a57f034b36bf9e02812d737c4` after
+Release Gate `39114998127` and Vercel passed on `a17ea8fc`.
 The staging coordinator now accepts supported Stripe Checkout and saved email
 notifications only when every required Production secret already has a durable,
 current handoff receipt and the exact sensitive Vercel environment-variable ID
@@ -1143,3 +1145,19 @@ have an independent customer-owned provisioning and receipt path. CMS remains
 blocked by the source capability policy. This change verifies prior approved
 handoffs; it does not create secrets, call a live customer service, promote a
 deployment or activate a custom domain.
+
+## Production service destination continuity — 2026-10-18
+
+The staging coordinator now retains the canonical service destination-ID map
+verified before staging and requires an exact match after the deployed behavior
+proof, before recording the runtime attestation. Independently valid replacement,
+added or removed destinations cannot create a success receipt for an earlier
+build. Map key order does not affect identity. The service verifier also rejects
+malformed or reused destination IDs across required secret slots.
+
+Regression coverage checks Stripe replacement, email removal, generated-secret
+addition, reordered equivalent maps and duplicate/malformed generated IDs. This
+is continuity evidence within one staging attempt; it does not prove provider
+service behavior, persist a new service attestation or activate a customer site.
+Webhook/order-payment and CMS orchestration remain open. No customer keys or
+provider mutations are used by these tests.
