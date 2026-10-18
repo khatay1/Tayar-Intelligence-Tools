@@ -58,6 +58,8 @@ jobs:
       - name: Disabled Social Hub boundary and inbox regression
         run: |
           npm run smoke:social-hub
+          node scripts/build-social-hub-runtime.mjs --check
+          node scripts/social-hub-runtime-regression.mjs
           timeout 40s node scripts/social-inbox-browser-regression.mjs
 
       - name: Isolated Social Hub tenant permissions and queue PostgreSQL regression
