@@ -18412,6 +18412,8 @@ var generated = [
 async function verifyWebsiteOwnedProductionServices(input) {
   try {
     if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((value) => uuid34.test(value)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !input.vercel.accessToken || input.vercel.accessToken.length > 4096 || /[\r\n]/.test(input.vercel.accessToken) || !provider11.test(input.vercel.userId) || !provider11.test(input.vercel.accountId) || !project11.test(input.vercel.vercelProjectId) || input.capabilities.blockers.length || input.capabilities.needs.cms || !await input.isCurrent()) throw new Error();
+    const providers2 = new Set(input.capabilities.integrationProviders);
+    if (providers2.size !== input.capabilities.integrationProviders.length || [...providers2].some((value) => !["stripe", "resend"].includes(value)) || providers2.has("stripe") !== Boolean(input.stripeRuntime) || providers2.has("resend") !== Boolean(input.emailRuntime)) throw new Error();
     const plan = createOwnedRuntimeSecretPlan({
       environment: "production",
       capabilities: input.capabilities,
