@@ -36,10 +36,10 @@ run().catch(e=>{document.querySelector('#result').textContent='FAIL '+e.stack});
   const result = await build({ stdin: { contents: fixture, resolveDir: process.cwd(), sourcefile: 'social-inbox-fixture.tsx', loader: 'tsx' }, bundle: true, write: false,
     platform: 'browser', format: 'iife', target: 'es2020', jsx: 'automatic', alias: { '@': resolve('src') }, define: { 'process.env.NODE_ENV': '"production"' },
     plugins: [{ name: 'fixture-preferences', setup(builder) {
-      builder.onResolve({ filter: /(?:Auth|Admin)Context$/ }, () => ({ path: 'fixture-preferences', namespace: 'fixture' }));
+      builder.onResolve({ filter: /(?:Auth|Admin|Preferences)Context$/ }, () => ({ path: 'fixture-preferences', namespace: 'fixture' }));
       builder.onResolve({ filter: /^@\/lib\/supabase$/ }, () => ({path:'supabase',namespace:'rpc'}));
       builder.onLoad({filter:/.*/,namespace:'rpc'},()=>({contents:'export const supabase={rpc:(...args)=>globalThis.socialFixture.rpc(...args)}',loader:'js'}));
-      builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: 'export function useAuth(){return {user:globalThis.socialFixture.user}};export function useAdmin(){return {isAdmin:false}}', loader: 'js' }));
+      builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: "export function useAuth(){return {user:globalThis.socialFixture.user}};export function useAdmin(){return {isAdmin:false}};export function usePreferences(){return {prefs:{language:'en'}}}", loader: 'js' }));
     } }] });
   if (process.argv.includes('--check-bundle')) { console.log('PASS social inbox browser fixture compiles'); }
   else {
