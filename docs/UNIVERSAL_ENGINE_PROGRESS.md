@@ -1148,6 +1148,8 @@ deployment or activate a custom domain.
 
 ## Production service destination continuity — 2026-10-18
 
+PR #284 merged as `0200340399132f27ddb057027ba4e1100afecf28` after
+Release Gate `39116217865` and Vercel passed on `bd9fe7fe`.
 The staging coordinator now retains the canonical service destination-ID map
 verified before staging and requires an exact match after the deployed behavior
 proof, before recording the runtime attestation. Independently valid replacement,
@@ -1161,3 +1163,35 @@ is continuity evidence within one staging attempt; it does not prove provider
 service behavior, persist a new service attestation or activate a customer site.
 Webhook/order-payment and CMS orchestration remain open. No customer keys or
 provider mutations are used by these tests.
+
+## Customer Stripe webhook endpoint precondition — 2026-10-18
+
+Added a server-only, read-only endpoint verifier for the pending customer-owned
+webhook custody path. It reuses the actual Stripe account proof, requires the
+expected account and matching test/live credential mode, then retrieves only the
+exact endpoint ID through the fixed Stripe API origin. Customer origins never
+receive credentials or verification requests.
+
+The endpoint must be enabled, use the exact canonical HTTPS application webhook
+URL, match saved project/environment metadata, have no associated Connect
+application, pin API version `2026-08-26.dahlia`, and select exactly the six order
+payment/refund events supported by the current handler. Missing, wildcard, extra
+or duplicate events fail closed. Reads are bounded by bytes even for unbounded
+streams; scope is checked around asynchronous boundaries. Errors and returned
+evidence contain no provider credential, signing secret or provider response.
+
+The verifier is an internal precondition, not yet mounted or called by the
+Production coordinator. Stripe retrieval does not return a signing secret, so
+endpoint verification deliberately cannot mark the secret as verified or enable
+order-payment publishing. Durable endpoint creation/selection, signing-secret
+custody and Vercel handoff, runtime receipt composition and actual delivery
+proof remain open. No provider writes, live customer probes or activation occur.
+
+The mocked regression covers Production and sandbox modes, foreign accounts,
+project/URL/mode/version drift, exact event selection, stale scope, malformed and
+oversized streamed responses, cancellation, and credential confinement. It runs
+in the existing integrations smoke command used by Release Gate.
+
+Reference: Stripe webhook endpoint object and retrieve API documentation:
+https://docs.stripe.com/api/webhook_endpoints/object
+https://docs.stripe.com/api/webhook_endpoints/retrieve
