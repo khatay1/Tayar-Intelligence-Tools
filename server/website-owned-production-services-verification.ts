@@ -81,7 +81,8 @@ export async function verifyWebsiteOwnedProductionServices(input:{
       ||[...requirements].some(key=>key.startsWith('TAYAR_RESEND_')))throw new Error();
     // STRIPE_WEBHOOK_SECRET and any future service key require a dedicated,
     // independently verified receipt before Production staging can support them.
-    if(requirements.size||!await current())throw new Error();
+    const ids=Object.values(environmentIds);
+    if(requirements.size||ids.some(id=>!provider.test(id))||new Set(ids).size!==ids.length||!await current())throw new Error();
     return{environmentIds:Object.fromEntries(Object.entries(environmentIds).sort(([left],[right])=>left.localeCompare(right)))};
   }catch{throw new Error('Customer Production service verification is unavailable.');}
 }

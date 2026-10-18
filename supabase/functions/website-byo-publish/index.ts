@@ -18499,7 +18499,8 @@ async function verifyWebsiteOwnedProductionServices(input) {
         environmentIds[secret.environmentKey] = state.environmentId;
       }
     } else if (generated.some((secret) => requirements.has(secret.environmentKey)) || [...requirements].some((key2) => key2.startsWith("TAYAR_RESEND_"))) throw new Error();
-    if (requirements.size || !await current()) throw new Error();
+    const ids2 = Object.values(environmentIds);
+    if (requirements.size || ids2.some((id4) => !provider11.test(id4)) || new Set(ids2).size !== ids2.length || !await current()) throw new Error();
     return { environmentIds: Object.fromEntries(Object.entries(environmentIds).sort(([left], [right]) => left.localeCompare(right))) };
   } catch {
     throw new Error("Customer Production service verification is unavailable.");
@@ -18612,7 +18613,7 @@ async function stageWebsiteProductionCandidate(input) {
       isCurrent: current,
       fetcher: input.fetcher
     });
-    await verifyServices();
+    const serviceDestinations = canonical3((await verifyServices()).environmentIds);
     if (!await current()) throw new Error();
     const staged = await stageOwnedVercelProductionDeployment({
       candidate: target2.scope.candidate,
@@ -18650,7 +18651,7 @@ async function stageWebsiteProductionCandidate(input) {
       fetcher: input.fetcher
     });
     if (!await current()) throw new Error();
-    await verifyServices();
+    if (canonical3((await verifyServices()).environmentIds) !== serviceDestinations) throw new Error();
     if (!await current()) throw new Error();
     await verifyBackend();
     if (!await current()) throw new Error();
