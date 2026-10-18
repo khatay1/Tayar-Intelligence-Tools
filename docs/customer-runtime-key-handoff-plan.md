@@ -41,3 +41,12 @@ The email worker route is `GET /api/application-email-worker` and accepts only `
 ## Live test boundary
 
 The final live pass requires the customer's approval before sending an email, creating a charge, or issuing a refund. Webhook signature, replay, conflict, authorization, and failure-path tests run with provider test modes first. Production probes use non-destructive provider endpoints unless the customer explicitly approves a real transaction.
+
+The internal `verifyOwnedStripeWebhookEndpoint` precondition now verifies the
+customer account, exact saved project/environment and HTTPS endpoint URL, live
+mode, enabled status, pinned API version and the complete order event set with
+read-only API access. Restricted keys used here need Account and Webhook Endpoint
+read access. Its `endpoint-verified` result is metadata evidence only: retrieval
+cannot prove/recover the signing secret, delivery, or durable secret handoff.
+The Production publisher still rejects order-payment activation until those
+independent custody and receipt paths exist.
