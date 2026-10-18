@@ -67,6 +67,8 @@ jobs:
         run: |
           psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_social_hub_test;'
           timeout 60s node scripts/social-hub-postgres-regression.mjs --postgres
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'drop database tayar_social_hub_test;'
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'drop role anon, authenticated, service_role;'
 
       - name: Customer deployed runtime identity regression
         run: |
