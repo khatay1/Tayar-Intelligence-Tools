@@ -10,6 +10,7 @@ import { verifyOwnedDeployedRuntime } from './website-owned-runtime-verification
 import { recordWebsiteProductionRuntimeAttestation } from './website-production-runtime-attestation';
 import { verifyOwnedDeployedBehavior } from './website-owned-behavior-verification';
 import { verifyWebsiteOwnedProductionBackend } from './website-owned-production-backend-verification';
+import { verifyWebsiteOwnedProductionServices } from './website-owned-production-services-verification';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const provider = /^[A-Za-z0-9_-]{3,128}$/;
@@ -80,8 +81,7 @@ export async function stageWebsiteProductionCandidate(input: {
       || source.connection.version !== github.version || source.connection.targetId !== target.scope.repositoryId
       || source.vercel.id !== vercel.connectionId || source.vercel.version !== vercel.version
       || source.vercel.accountId !== target.scope.accountId || source.vercel.targetId !== target.scope.projectId
-      || source.stripeRuntime || source.emailRuntime || source.capabilities.blockers.length || source.capabilities.needs.integrations
-      || source.capabilities.needs.cms) throw new Error();
+      || source.capabilities.blockers.length || source.capabilities.needs.cms) throw new Error();
     let active = true;
     const current = async () => {
       if (!active) return false;
@@ -109,6 +109,15 @@ export async function stageWebsiteProductionCandidate(input: {
       || custody.accountId !== target.scope.accountId || custody.vercelProjectId !== target.scope.projectId
       || custody.repositoryId !== target.scope.repositoryId || typeof custody.repositoryOwner !== 'string'
       || typeof custody.repositoryName !== 'string' || typeof custody.productionBranch !== 'string') throw new Error();
+    const verifyServices = () => verifyWebsiteOwnedProductionServices({ client: input.client,
+      projectId: input.projectId, ownerId: input.ownerId, vercelConnectionId: target.vercelConnectionId,
+      vercelConnectionVersion: target.vercelConnectionVersion, capabilities: source.capabilities,
+      stripeRuntime: source.stripeRuntime, emailRuntime: source.emailRuntime,
+      vercel: { accessToken: custody.accessToken as string, userId: custody.userId as string,
+        accountId: custody.accountId as string, vercelProjectId: custody.vercelProjectId as string },
+      isCurrent: current, fetcher: input.fetcher });
+    await verifyServices();
+    if (!await current()) throw new Error();
     const staged = await stageOwnedVercelProductionDeployment({ candidate: target.scope.candidate,
       runtimeEnvironmentReceiptVersion: target.scope.runtimeEnvironmentReceiptVersion, runtimeEnvironmentIds: target.scope.runtimeEnvironmentIds,
       store: createWebsiteProductionStagingStore({ client: input.client, isCurrent: current }),
@@ -123,6 +132,8 @@ export async function stageWebsiteProductionCandidate(input: {
     if (!await current()) throw new Error();
     await verifyOwnedDeployedBehavior({ projectId: input.projectId, liveUrl: staged.liveUrl,
       files: source.files, isCurrent: current, fetcher: input.fetcher });
+    if (!await current()) throw new Error();
+    await verifyServices();
     if (!await current()) throw new Error();
     await verifyBackend();
     if (!await current()) throw new Error();

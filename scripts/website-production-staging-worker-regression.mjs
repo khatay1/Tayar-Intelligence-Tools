@@ -9,6 +9,7 @@ import { createApplicationReferenceProjects } from './fixtures/application-refer
 const dir = await mkdtemp(join(tmpdir(), 'tayar-staging-worker-'));
 try {
   globalThis.__tayarBackendProofs = [];
+  globalThis.__tayarServiceProofs = [];
   const out = join(dir, 'worker.cjs');
   await build({ stdin: { contents: `export * from './server/website-production-staging-worker';
     export {captureWebsiteOwnedApplicationSource,captureWebsiteOwnedProductionSource} from './server/website-owned-source-capture';
@@ -19,6 +20,9 @@ try {
       build.onResolve({ filter: /website-owned-production-backend-verification$/ }, () => ({ path: 'backend-proof', namespace: 'fixture' }));
       build.onLoad({ filter: /^backend-proof$/, namespace: 'fixture' }, () => ({ contents:
         `export async function verifyWebsiteOwnedProductionBackend(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale backend proof')}` }));
+      build.onResolve({ filter: /website-owned-production-services-verification$/ }, () => ({ path: 'service-proof', namespace: 'fixture' }));
+      build.onLoad({ filter: /^service-proof$/, namespace: 'fixture' }, () => ({ contents:
+        `export async function verifyWebsiteOwnedProductionServices(value){globalThis.__tayarServiceProofs.push(value);if(!await value.isCurrent())throw Error('stale service proof');return{environmentIds:{}}}` }));
     } }] });
   const { stageWebsiteProductionCandidate: stage, captureWebsiteOwnedApplicationSource: capture,
     captureWebsiteOwnedProductionSource: prepare, createWebsiteOwnedSourceReader: readerFor,
@@ -155,6 +159,7 @@ try {
     const proofs = globalThis.__tayarBackendProofs.slice(proofStart); assert.equal(proofs.length, 4);
     assert.ok(proofs.every(value => value.connectionId === s && value.connectionVersion === 1
       && value.platformSupabaseOrganizationId === 'tayar_supabase' && value.backend.projectRef === bindings.production.backend.projectRef));
+    assert.equal(globalThis.__tayarServiceProofs.slice(proofStart).length, 4);
     assert.doesNotMatch(JSON.stringify(result), /accessToken|publishable|environmentIds|custody/);
   }
   const building = fixture({ building: true }); assert.equal((await stage(building.input)).status, 'observing'); assert.equal(building.stats().identityProofs, 0);
@@ -177,4 +182,5 @@ try {
   const changed = fixture({ changeAfterPost: true }); await assert.rejects(stage(changed.input), /staging unavailable/);
   assert.equal(changed.stats().posts, 1); assert.equal(changed.stats().identityProofs, 0); assert.equal(changed.stats().behaviorProofs, 0);
   console.log('PASS staged Production coordinator: actual source compiler/reader/store/transport/runtime handshake, private target selection, exact source scope, response-loss retry and stale identity refusal (RPC/provider mocked)');
-} finally { delete globalThis.__tayarBackendProofs; await rm(dir, { recursive: true, force: true }); }
+} finally { delete globalThis.__tayarBackendProofs; delete globalThis.__tayarServiceProofs;
+  await rm(dir, { recursive: true, force: true }); }
