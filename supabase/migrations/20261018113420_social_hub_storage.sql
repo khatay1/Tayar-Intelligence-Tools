@@ -342,3 +342,263 @@ grant execute on function private.read_social_hub_credential(uuid,uuid,uuid)to s
 create function public.read_social_hub_credential(p_scope_id uuid,p_connection_id uuid,p_secret_ref uuid)returns text language sql security invoker set search_path='' as $$select private.read_social_hub_credential(p_scope_id,p_connection_id,p_secret_ref)$$;
 revoke all on function public.read_social_hub_credential(uuid,uuid,uuid)from public,anon,authenticated;
 grant execute on function public.read_social_hub_credential(uuid,uuid,uuid)to service_role;
+
+-- Durable worker routing and recipient evidence. Secrets remain in existing Vault.
+create table private.social_hub_webhook_bindings(
+ connection_id uuid primary key,scope_id uuid not null,webhook_hash text not null unique check(webhook_hash~'^[a-f0-9]{64}$'),
+ secret_id uuid not null unique,created_at timestamptz not null default now(),
+ foreign key(connection_id,scope_id)references private.social_hub_connections(id,scope_id)on delete cascade
+);
+create index social_hub_webhook_scope on private.social_hub_webhook_bindings(scope_id);
+create table private.social_hub_recipient_policies(
+ connection_id uuid not null,scope_id uuid not null,recipient_id text not null check(recipient_id~'^-?[0-9]{1,30}$'),
+ consent_verified boolean not null default false,recipient_initiated boolean not null default false,
+ opted_out boolean not null default false,last_inbound_at timestamptz,evidence_message_id uuid references private.social_hub_messages(id)on delete set null,
+ updated_at timestamptz not null default now(),primary key(connection_id,recipient_id),
+ foreign key(connection_id,scope_id)references private.social_hub_connections(id,scope_id)on delete cascade
+);
+create index social_hub_recipient_scope on private.social_hub_recipient_policies(scope_id);
+create index social_hub_recipient_evidence on private.social_hub_recipient_policies(evidence_message_id);
+create table private.social_hub_dispatch_limits(
+ bucket_key text primary key,enabled boolean not null default false,
+ max_per_minute integer not null default 0 check(max_per_minute between 0 and 100000),
+ daily_budget_microunits bigint not null default 0 check(daily_budget_microunits between 0 and 1000000000000),
+ unit_cost_microunits bigint not null default 0 check(unit_cost_microunits between 0 and 1000000000),
+ minute_start timestamptz not null default date_trunc('minute',now()),minute_count integer not null default 0 check(minute_count>=0),
+ spend_day date not null default current_date,daily_reserved_microunits bigint not null default 0 check(daily_reserved_microunits>=0)
+);
+insert into private.social_hub_dispatch_limits(bucket_key)values('global');
+create table private.social_hub_dispatch_reservations(
+ id uuid primary key default gen_random_uuid(),outbox_id uuid not null references private.social_hub_outbox(id)on delete cascade,
+ claim_token uuid not null unique,scope_id uuid not null references private.social_hub_scopes(id)on delete cascade,
+ connection_id uuid not null references private.social_hub_connections(id)on delete cascade,
+ estimated_cost_microunits bigint not null check(estimated_cost_microunits>=0),reserved_at timestamptz not null default now()
+);
+create index social_hub_dispatch_outbox on private.social_hub_dispatch_reservations(outbox_id);
+create index social_hub_dispatch_scope on private.social_hub_dispatch_reservations(scope_id);
+create index social_hub_dispatch_connection on private.social_hub_dispatch_reservations(connection_id);
+create table private.social_hub_automation_events(
+ id uuid primary key default gen_random_uuid(),scope_id uuid not null references private.social_hub_scopes(id)on delete cascade,
+ conversation_id uuid not null references private.social_hub_conversations(id)on delete cascade,
+ message_id uuid not null unique references private.social_hub_messages(id)on delete cascade,
+ event_type text not null default 'message_received' check(event_type='message_received'),created_at timestamptz not null default now(),processed_at timestamptz
+);
+create index social_hub_automation_scope on private.social_hub_automation_events(scope_id);
+create index social_hub_automation_conversation on private.social_hub_automation_events(conversation_id);
+do $$declare t text;begin foreach t in array array['webhook_bindings','recipient_policies','dispatch_limits','dispatch_reservations','automation_events']loop
+ execute format('alter table private.social_hub_%I enable row level security',t);
+ execute format('revoke all on private.social_hub_%I from public,anon,authenticated',t);
+ execute format('grant all on private.social_hub_%I to service_role',t);
+end loop;end $$;
+create function private.social_hub_webhook_secret_cleanup()returns trigger language plpgsql security definer set search_path='' as $$
+begin delete from vault.secrets where id=old.secret_id;return old;end $$;
+revoke all on function private.social_hub_webhook_secret_cleanup()from public,anon,authenticated;
+create trigger social_hub_webhook_secret_cleanup after delete on private.social_hub_webhook_bindings for each row execute function private.social_hub_webhook_secret_cleanup();
+
+create function private.get_social_hub_actor_access(p_scope_id uuid,p_user_id uuid)returns jsonb language sql security definer set search_path='' as $$
+ select jsonb_build_object('ownership',s.kind,'enabled',s.enabled,'canManage',
+ not exists(select 1 from public.profiles where id=p_user_id and coalesce(suspended,false))and
+ case when s.kind='official' then exists(select 1 from public.profiles where id=p_user_id and role='admin'and not coalesce(suspended,false))
+ when s.workspace_id is null then s.owner_id=p_user_id else exists(select 1 from public.team_workspace_members where workspace_id=s.workspace_id and user_id=p_user_id and role in('owner','admin'))end)
+ from private.social_hub_scopes s where id=p_scope_id
+$$;
+create function private.configure_social_hub_scope(p_scope_id uuid,p_enabled boolean,p_automation_enabled boolean default false)returns void language plpgsql security definer set search_path='' as $$
+begin
+ if p_enabled is null or p_automation_enabled is null or(p_automation_enabled and not p_enabled)then raise exception 'Invalid scope activation';end if;
+ update private.social_hub_scopes set enabled=p_enabled,automation_enabled=p_automation_enabled where id=p_scope_id;
+ if not found then raise exception 'Scope unavailable';end if;
+ if not p_enabled then update private.social_hub_outbox set status=case when status='sending'then'review'else'cancelled'end,last_error_code='scope_disabled'where scope_id=p_scope_id and status in('queued','sending');end if;
+end $$;
+create function private.configure_social_hub_webhook(p_scope_id uuid,p_connection_id uuid,p_webhook_hash text,p_secret text)returns uuid language plpgsql security definer set search_path='' as $$
+declare v_id uuid;begin
+ perform 1 from private.social_hub_connections where id=p_connection_id and scope_id=p_scope_id and status='connected'and permissions_verified and(expires_at is null or expires_at>now())for update;
+ if not found or p_secret is null or length(p_secret)<16 or length(p_secret)>256 or p_secret~E'[\\r\\n]'then raise exception 'Invalid webhook setup';end if;
+ delete from private.social_hub_webhook_bindings where connection_id=p_connection_id and scope_id=p_scope_id;
+ v_id:=vault.create_secret(p_secret,'social-webhook-'||gen_random_uuid()::text,'Scoped official provider webhook secret',null);
+ insert into private.social_hub_webhook_bindings(connection_id,scope_id,webhook_hash,secret_id)values(p_connection_id,p_scope_id,p_webhook_hash,v_id);
+ update private.social_hub_connections set webhook_verified=false where id=p_connection_id;return v_id;
+end $$;
+create function private.resolve_social_hub_webhook(p_webhook_hash text)returns jsonb language sql security definer set search_path='' as $$
+ select jsonb_build_object('connection',private.get_social_hub_connection(c.id,c.scope_id),'webhook_secret_ref',b.secret_id)
+ from private.social_hub_webhook_bindings b join private.social_hub_connections c on c.id=b.connection_id and c.scope_id=b.scope_id
+ join private.social_hub_scopes s on s.id=c.scope_id where b.webhook_hash=p_webhook_hash and s.enabled and c.status='connected'and c.permissions_verified and(c.expires_at is null or c.expires_at>now())
+$$;
+create function private.read_social_hub_webhook_secret(p_scope_id uuid,p_connection_id uuid,p_secret_ref uuid)returns text language sql security definer set search_path='' as $$
+ select d.decrypted_secret from private.social_hub_webhook_bindings b
+ join vault.decrypted_secrets d on d.id=b.secret_id join private.social_hub_connections c on c.id=b.connection_id and c.scope_id=b.scope_id
+ join private.social_hub_scopes s on s.id=c.scope_id where b.scope_id=p_scope_id and b.connection_id=p_connection_id and b.secret_id=p_secret_ref
+ and s.enabled and c.status='connected'and c.permissions_verified and(c.expires_at is null or c.expires_at>now())
+$$;
+-- Signature and destination verification precede this service-only transaction in social-hub-worker.ts.
+create or replace function private.ingest_social_hub_message(p_scope_id uuid,p_connection_id uuid,p_event_id text,p_external_conversation_id text,p_external_message_id text,p_sender_name text,p_text text,p_occurred_at timestamptz,p_attachment_refs jsonb default '[]')returns uuid language plpgsql security definer set search_path='' as $$
+declare v_conversation uuid;v_message uuid;begin
+ perform 1 from private.social_hub_scopes where id=p_scope_id and enabled;
+ if not found then raise exception 'Social Hub disabled';end if;
+ perform 1 from private.social_hub_connections c where c.id=p_connection_id and c.scope_id=p_scope_id and c.status='connected'and c.permissions_verified and(c.expires_at is null or c.expires_at>now())
+ and(c.webhook_verified or exists(select 1 from private.social_hub_webhook_bindings where connection_id=p_connection_id and scope_id=p_scope_id))for update;
+ if not found then raise exception 'Channel not verified';end if;
+ if p_occurred_at>now()+interval '5 minutes' or p_external_conversation_id!~'^-?[0-9]{1,30}$'then raise exception 'Invalid inbound evidence';end if;
+ insert into private.social_hub_webhook_events(connection_id,scope_id,event_id)values(p_connection_id,p_scope_id,p_event_id)on conflict do nothing;
+ if not found then return null;end if;
+ insert into private.social_hub_conversations(scope_id,connection_id,external_id,customer_name,last_message_at)values(p_scope_id,p_connection_id,p_external_conversation_id,left(p_sender_name,200),p_occurred_at)
+ on conflict(connection_id,external_id)do update set last_message_at=greatest(social_hub_conversations.last_message_at,excluded.last_message_at)returning id into v_conversation;
+ insert into private.social_hub_messages(scope_id,conversation_id,connection_id,external_id,direction,text,attachment_refs,occurred_at)values(p_scope_id,v_conversation,p_connection_id,p_external_message_id,'inbound',p_text,p_attachment_refs,p_occurred_at)
+ on conflict(connection_id,external_id)do nothing returning id into v_message;
+ if v_message is null then return null;end if;
+ update private.social_hub_connections set webhook_verified=true where id=p_connection_id;
+ insert into private.social_hub_recipient_policies(connection_id,scope_id,recipient_id,consent_verified,recipient_initiated,last_inbound_at,evidence_message_id)
+ values(p_connection_id,p_scope_id,p_external_conversation_id,true,true,least(p_occurred_at,now()),v_message)
+ on conflict(connection_id,recipient_id)do update set consent_verified=not social_hub_recipient_policies.opted_out,recipient_initiated=true,
+ last_inbound_at=greatest(social_hub_recipient_policies.last_inbound_at,excluded.last_inbound_at),evidence_message_id=excluded.evidence_message_id,updated_at=now();
+ insert into private.social_hub_automation_events(scope_id,conversation_id,message_id)values(p_scope_id,v_conversation,v_message);return v_message;
+end $$;
+create function private.set_social_hub_recipient_consent(p_scope_id uuid,p_connection_id uuid,p_recipient_id text,p_consent boolean,p_evidence_message_id uuid default null)returns void language plpgsql security definer set search_path='' as $$
+begin
+ if p_consent is null then raise exception 'Consent decision required';end if;
+ if p_consent and not exists(select 1 from private.social_hub_messages m join private.social_hub_conversations c on c.id=m.conversation_id and c.scope_id=m.scope_id where m.id=p_evidence_message_id and m.scope_id=p_scope_id and m.connection_id=p_connection_id and c.external_id=p_recipient_id and m.direction='inbound'and m.occurred_at>now()-interval '24 hours')then raise exception 'Fresh recipient evidence required';end if;
+ update private.social_hub_recipient_policies set consent_verified=p_consent,opted_out=not p_consent,evidence_message_id=case when p_consent then p_evidence_message_id else evidence_message_id end,updated_at=now() where scope_id=p_scope_id and connection_id=p_connection_id and recipient_id=p_recipient_id;
+ if not found then raise exception 'Recipient unavailable';end if;
+end $$;
+
+create function private.claim_social_hub_outgoing(p_scope_id uuid,p_connection_id uuid,p_job_id uuid)returns jsonb language plpgsql security definer set search_path='' as $$
+declare v private.social_hub_outbox;v_result jsonb;begin
+ update private.social_hub_outbox set status='review',last_error_code='lease_expired_ambiguous',claim_token=null where id=p_job_id and scope_id=p_scope_id and connection_id=p_connection_id and status='sending'and lease_until<now();
+ select o.* into v from private.social_hub_outbox o join private.social_hub_connections c on c.id=o.connection_id and c.scope_id=o.scope_id
+ join private.social_hub_scopes s on s.id=o.scope_id where o.id=p_job_id and o.scope_id=p_scope_id and o.connection_id=p_connection_id and o.status='queued'and o.available_at<=now()and o.attempt_count<5
+ and s.enabled and c.status='connected'and c.permissions_verified and c.webhook_verified and(c.expires_at is null or c.expires_at>now())for update of o skip locked;
+ if not found then return null;end if;
+ update private.social_hub_outbox set status='sending',attempt_count=attempt_count+1,lease_until=now()+interval '2 minutes',claim_token=gen_random_uuid()where id=v.id returning * into v;
+ select jsonb_build_object('id',v.id,'claim_token',v.claim_token,'lease_until',v.lease_until,'scope_id',v.scope_id,'connection_id',v.connection_id,'external_account_id',c.external_account_id,'recipient_id',t.external_id,'text',v.text)into v_result from private.social_hub_connections c join private.social_hub_conversations t on t.id=v.conversation_id and t.scope_id=v.scope_id where c.id=v.connection_id;return v_result;
+end $$;
+create function private.resolve_social_hub_outgoing(p_job_id uuid,p_claim_token uuid)returns jsonb language sql security definer set search_path='' as $$
+ select jsonb_build_object('connection',private.get_social_hub_connection(c.id,c.scope_id),'policy',jsonb_build_object('consent_verified',p.consent_verified and not p.opted_out,'recipient_initiated',p.recipient_initiated,'last_inbound_at',p.last_inbound_at))
+ from private.social_hub_outbox o join private.social_hub_connections c on c.id=o.connection_id and c.scope_id=o.scope_id
+ join private.social_hub_scopes s on s.id=o.scope_id join private.social_hub_conversations t on t.id=o.conversation_id and t.scope_id=o.scope_id
+ join private.social_hub_recipient_policies p on p.connection_id=o.connection_id and p.scope_id=o.scope_id and p.recipient_id=t.external_id
+ where o.id=p_job_id and o.claim_token=p_claim_token and o.status='sending'and o.lease_until>now()and s.enabled
+ and c.status='connected'and c.permissions_verified and c.webhook_verified and(c.expires_at is null or c.expires_at>now())
+$$;
+create function private.configure_social_hub_dispatch_limit(p_bucket_key text,p_enabled boolean,p_max_per_minute integer,p_daily_budget_microunits bigint,p_unit_cost_microunits bigint)returns void language plpgsql security definer set search_path='' as $$
+begin
+ if p_bucket_key is null or p_bucket_key!~'^(global|scope:[0-9a-f-]{36}|channel:(telegram|whatsapp|facebook|instagram)|account:(telegram|whatsapp|facebook|instagram):[0-9]{1,30})$'then raise exception 'Invalid dispatch bucket';end if;
+ insert into private.social_hub_dispatch_limits(bucket_key,enabled,max_per_minute,daily_budget_microunits,unit_cost_microunits)values(p_bucket_key,p_enabled,p_max_per_minute,p_daily_budget_microunits,p_unit_cost_microunits)
+ on conflict(bucket_key)do update set enabled=excluded.enabled,max_per_minute=excluded.max_per_minute,daily_budget_microunits=excluded.daily_budget_microunits,unit_cost_microunits=excluded.unit_cost_microunits;
+end $$;
+create function private.reserve_social_hub_dispatch(p_job_id uuid,p_claim_token uuid)returns boolean language plpgsql security definer set search_path='' as $$
+declare o private.social_hub_outbox;c private.social_hub_connections;s private.social_hub_scopes;t private.social_hub_conversations;p private.social_hub_recipient_policies;
+ k text[];b private.social_hub_dispatch_limits;v_count integer:=0;v_cost bigint:=0;begin
+ select * into o from private.social_hub_outbox where id=p_job_id and claim_token=p_claim_token and status='sending'and lease_until>now()+interval '12 seconds';
+ if not found or exists(select 1 from private.social_hub_dispatch_reservations where claim_token=p_claim_token)then return false;end if;
+ select * into s from private.social_hub_scopes where id=o.scope_id for update;if not found or not s.enabled then return false;end if;
+ select * into c from private.social_hub_connections where id=o.connection_id and scope_id=o.scope_id for update;
+ if not found or c.status<>'connected'or not c.permissions_verified or not c.webhook_verified or(c.expires_at is not null and c.expires_at<=now())or c.secret_ref is null then return false;end if;
+ select * into o from private.social_hub_outbox where id=p_job_id and claim_token=p_claim_token and status='sending'and lease_until>now()+interval '12 seconds'for update;
+ if not found or exists(select 1 from private.social_hub_dispatch_reservations where claim_token=p_claim_token)then return false;end if;
+ if not exists(select 1 from private.social_hub_credentials where secret_id::text=c.secret_ref and scope_id=o.scope_id and connection_id=o.connection_id)then return false;end if;
+ select * into t from private.social_hub_conversations where id=o.conversation_id and scope_id=o.scope_id;
+ select * into p from private.social_hub_recipient_policies where connection_id=o.connection_id and scope_id=o.scope_id and recipient_id=t.external_id for update;
+ if not found or not p.consent_verified or p.opted_out or not p.recipient_initiated or p.last_inbound_at is null or p.last_inbound_at>now()or(c.channel<>'telegram'and p.last_inbound_at<=now()-interval '24 hours')then return false;end if;
+ if length(o.text)>(case when c.channel in('facebook','instagram')then 1000 else 4000 end)then return false;end if;
+ k:=array['global','scope:'||o.scope_id::text,'channel:'||c.channel,'account:'||c.channel||':'||c.external_account_id];
+ -- Consistent bucket lock order prevents concurrent quota overspend and deadlocks.
+ for b in select * from private.social_hub_dispatch_limits where bucket_key=any(k)order by bucket_key for update loop
+ v_count:=v_count+1;if not b.enabled or b.max_per_minute=0 or b.daily_budget_microunits=0 then return false;end if;
+ v_cost:=greatest(v_cost,b.unit_cost_microunits);
+ end loop;
+ if v_count<>4 then return false;end if;
+ for b in select * from private.social_hub_dispatch_limits where bucket_key=any(k)order by bucket_key loop
+ if(case when b.minute_start=date_trunc('minute',now())then b.minute_count else 0 end)>=b.max_per_minute or
+ (case when b.spend_day=current_date then b.daily_reserved_microunits else 0 end)+v_cost>b.daily_budget_microunits then return false;end if;
+ end loop;
+ insert into private.social_hub_dispatch_reservations(outbox_id,claim_token,scope_id,connection_id,estimated_cost_microunits)values(o.id,p_claim_token,o.scope_id,o.connection_id,v_cost);
+ update private.social_hub_dispatch_limits set minute_count=case when minute_start=date_trunc('minute',now())then minute_count+1 else 1 end,minute_start=date_trunc('minute',now()),daily_reserved_microunits=case when spend_day=current_date then daily_reserved_microunits+v_cost else v_cost end,spend_day=current_date where bucket_key=any(k);
+ return true;
+end $$;
+
+revoke all on function private.configure_social_hub_scope(uuid,boolean,boolean)from public,anon,authenticated;
+grant execute on function private.configure_social_hub_scope(uuid,boolean,boolean)to service_role;
+create function public.configure_social_hub_scope(p_scope_id uuid,p_enabled boolean,p_automation_enabled boolean default false)returns void language sql security invoker set search_path='' as $$select private.configure_social_hub_scope(p_scope_id,p_enabled,p_automation_enabled)$$;
+revoke all on function public.configure_social_hub_scope(uuid,boolean,boolean)from public,anon,authenticated;
+grant execute on function public.configure_social_hub_scope(uuid,boolean,boolean)to service_role;
+
+revoke all on function private.configure_social_hub_webhook(uuid,uuid,text,text)from public,anon,authenticated;
+grant execute on function private.configure_social_hub_webhook(uuid,uuid,text,text)to service_role;
+create function public.configure_social_hub_webhook(p_scope_id uuid,p_connection_id uuid,p_webhook_hash text,p_secret text)returns uuid language sql security invoker set search_path='' as $$select private.configure_social_hub_webhook(p_scope_id,p_connection_id,p_webhook_hash,p_secret)$$;
+revoke all on function public.configure_social_hub_webhook(uuid,uuid,text,text)from public,anon,authenticated;
+grant execute on function public.configure_social_hub_webhook(uuid,uuid,text,text)to service_role;
+
+revoke all on function private.resolve_social_hub_webhook(text)from public,anon,authenticated;
+grant execute on function private.resolve_social_hub_webhook(text)to service_role;
+create function public.resolve_social_hub_webhook(p_webhook_hash text)returns jsonb language sql security invoker set search_path='' as $$select private.resolve_social_hub_webhook(p_webhook_hash)$$;
+revoke all on function public.resolve_social_hub_webhook(text)from public,anon,authenticated;
+grant execute on function public.resolve_social_hub_webhook(text)to service_role;
+
+revoke all on function private.read_social_hub_webhook_secret(uuid,uuid,uuid)from public,anon,authenticated;
+grant execute on function private.read_social_hub_webhook_secret(uuid,uuid,uuid)to service_role;
+create function public.read_social_hub_webhook_secret(p_scope_id uuid,p_connection_id uuid,p_secret_ref uuid)returns text language sql security invoker set search_path='' as $$select private.read_social_hub_webhook_secret(p_scope_id,p_connection_id,p_secret_ref)$$;
+revoke all on function public.read_social_hub_webhook_secret(uuid,uuid,uuid)from public,anon,authenticated;
+grant execute on function public.read_social_hub_webhook_secret(uuid,uuid,uuid)to service_role;
+
+revoke all on function private.set_social_hub_recipient_consent(uuid,uuid,text,boolean,uuid)from public,anon,authenticated;
+grant execute on function private.set_social_hub_recipient_consent(uuid,uuid,text,boolean,uuid)to service_role;
+create function public.set_social_hub_recipient_consent(p_scope_id uuid,p_connection_id uuid,p_recipient_id text,p_consent boolean,p_evidence_message_id uuid default null)returns void language sql security invoker set search_path='' as $$select private.set_social_hub_recipient_consent(p_scope_id,p_connection_id,p_recipient_id,p_consent,p_evidence_message_id)$$;
+revoke all on function public.set_social_hub_recipient_consent(uuid,uuid,text,boolean,uuid)from public,anon,authenticated;
+grant execute on function public.set_social_hub_recipient_consent(uuid,uuid,text,boolean,uuid)to service_role;
+
+revoke all on function private.claim_social_hub_outgoing(uuid,uuid,uuid)from public,anon,authenticated;
+grant execute on function private.claim_social_hub_outgoing(uuid,uuid,uuid)to service_role;
+create function public.claim_social_hub_outgoing(p_scope_id uuid,p_connection_id uuid,p_job_id uuid)returns jsonb language sql security invoker set search_path='' as $$select private.claim_social_hub_outgoing(p_scope_id,p_connection_id,p_job_id)$$;
+revoke all on function public.claim_social_hub_outgoing(uuid,uuid,uuid)from public,anon,authenticated;
+grant execute on function public.claim_social_hub_outgoing(uuid,uuid,uuid)to service_role;
+
+revoke all on function private.resolve_social_hub_outgoing(uuid,uuid)from public,anon,authenticated;
+grant execute on function private.resolve_social_hub_outgoing(uuid,uuid)to service_role;
+create function public.resolve_social_hub_outgoing(p_job_id uuid,p_claim_token uuid)returns jsonb language sql security invoker set search_path='' as $$select private.resolve_social_hub_outgoing(p_job_id,p_claim_token)$$;
+revoke all on function public.resolve_social_hub_outgoing(uuid,uuid)from public,anon,authenticated;
+grant execute on function public.resolve_social_hub_outgoing(uuid,uuid)to service_role;
+
+revoke all on function private.configure_social_hub_dispatch_limit(text,boolean,integer,bigint,bigint)from public,anon,authenticated;
+grant execute on function private.configure_social_hub_dispatch_limit(text,boolean,integer,bigint,bigint)to service_role;
+create function public.configure_social_hub_dispatch_limit(p_bucket_key text,p_enabled boolean,p_max_per_minute integer,p_daily_budget_microunits bigint,p_unit_cost_microunits bigint)returns void language sql security invoker set search_path='' as $$select private.configure_social_hub_dispatch_limit(p_bucket_key,p_enabled,p_max_per_minute,p_daily_budget_microunits,p_unit_cost_microunits)$$;
+revoke all on function public.configure_social_hub_dispatch_limit(text,boolean,integer,bigint,bigint)from public,anon,authenticated;
+grant execute on function public.configure_social_hub_dispatch_limit(text,boolean,integer,bigint,bigint)to service_role;
+
+revoke all on function private.reserve_social_hub_dispatch(uuid,uuid)from public,anon,authenticated;
+grant execute on function private.reserve_social_hub_dispatch(uuid,uuid)to service_role;
+create function public.reserve_social_hub_dispatch(p_job_id uuid,p_claim_token uuid)returns boolean language sql security invoker set search_path='' as $$select private.reserve_social_hub_dispatch(p_job_id,p_claim_token)$$;
+revoke all on function public.reserve_social_hub_dispatch(uuid,uuid)from public,anon,authenticated;
+grant execute on function public.reserve_social_hub_dispatch(uuid,uuid)to service_role;
+
+create table private.social_hub_connect_rate_limits(
+ scope_id uuid not null references private.social_hub_scopes(id)on delete cascade,user_id uuid not null references auth.users(id)on delete cascade,
+ minute_start timestamptz not null,minute_count integer not null,hour_start timestamptz not null,hour_count integer not null,
+ primary key(scope_id,user_id)
+);
+create index social_hub_connect_rate_user on private.social_hub_connect_rate_limits(user_id);
+alter table private.social_hub_connect_rate_limits enable row level security;
+revoke all on private.social_hub_connect_rate_limits from public,anon,authenticated;
+grant all on private.social_hub_connect_rate_limits to service_role;
+create function private.consume_social_hub_connect_rate_limit(p_scope_id uuid,p_user_id uuid,p_action text)returns boolean language plpgsql security definer set search_path='' as $$
+declare a jsonb;v_user uuid;begin
+ if p_action is null or p_action not in('begin','callback','telegram','disconnect')then return false;end if;
+ a:=private.get_social_hub_actor_access(p_scope_id,p_user_id);
+ if a is null or not coalesce((a->>'canManage')::boolean,false)or not coalesce((a->>'enabled')::boolean,false)then return false;end if;
+ insert into private.social_hub_connect_rate_limits(scope_id,user_id,minute_start,minute_count,hour_start,hour_count)
+ values(p_scope_id,p_user_id,date_trunc('minute',now()),1,date_trunc('hour',now()),1)
+ on conflict(scope_id,user_id)do update set
+ minute_start=date_trunc('minute',now()),minute_count=case when social_hub_connect_rate_limits.minute_start=date_trunc('minute',now())then social_hub_connect_rate_limits.minute_count+1 else 1 end,
+ hour_start=date_trunc('hour',now()),hour_count=case when social_hub_connect_rate_limits.hour_start=date_trunc('hour',now())then social_hub_connect_rate_limits.hour_count+1 else 1 end
+ where(social_hub_connect_rate_limits.minute_start<>date_trunc('minute',now())or social_hub_connect_rate_limits.minute_count<20)
+ and(social_hub_connect_rate_limits.hour_start<>date_trunc('hour',now())or social_hub_connect_rate_limits.hour_count<100)
+ returning user_id into v_user;return v_user is not null;
+end $$;
+revoke all on function private.consume_social_hub_connect_rate_limit(uuid,uuid,text)from public,anon,authenticated;
+grant execute on function private.consume_social_hub_connect_rate_limit(uuid,uuid,text)to service_role;
+create function public.consume_social_hub_connect_rate_limit(p_scope_id uuid,p_user_id uuid,p_action text)returns boolean language sql security invoker set search_path='' as $$select private.consume_social_hub_connect_rate_limit(p_scope_id,p_user_id,p_action)$$;
+revoke all on function public.consume_social_hub_connect_rate_limit(uuid,uuid,text)from public,anon,authenticated;
+grant execute on function public.consume_social_hub_connect_rate_limit(uuid,uuid,text)to service_role;
+revoke all on function private.get_social_hub_actor_access(uuid,uuid)from public,anon,authenticated;
+grant execute on function private.get_social_hub_actor_access(uuid,uuid)to service_role;
+create function public.get_social_hub_actor_access(p_scope_id uuid,p_user_id uuid)returns jsonb language sql security invoker set search_path='' as $$select private.get_social_hub_actor_access(p_scope_id,p_user_id)$$;
+revoke all on function public.get_social_hub_actor_access(uuid,uuid)from public,anon,authenticated;
+grant execute on function public.get_social_hub_actor_access(uuid,uuid)to service_role;

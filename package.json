@@ -76,7 +76,7 @@
     "smoke:website-builder:reports": "node scripts/application-reports-regression.mjs",
     "smoke:website-builder:data-views": "node scripts/application-data-view-regression.mjs",
     "smoke:website-builder:data-views:browser": "node scripts/application-data-view-browser-regression.mjs",
-    "smoke:social-hub": "node scripts/social-channel-regression.mjs && node scripts/social-connect-regression.mjs && node scripts/social-hub-worker-regression.mjs && node scripts/social-assistant-regression.mjs && node scripts/social-inbox-browser-regression.mjs --check-bundle"
+    "smoke:social-hub": "node scripts/social-channel-regression.mjs && node scripts/social-connect-regression.mjs && node scripts/social-connect-endpoint-regression.mjs && node scripts/social-hub-worker-regression.mjs && node scripts/social-hub-worker-store-regression.mjs && node scripts/social-assistant-regression.mjs && node scripts/social-assistant-engine-regression.mjs && node scripts/social-inbox-browser-regression.mjs --check-bundle"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
