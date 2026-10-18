@@ -17,7 +17,8 @@ const calls=[];
 globalThis.socialFixture={calls,user:{id:'user1'}};
 const scope={id:'scope1',kind:'customer',enabled:true,automation_enabled:false};
 const inbox={scope,connections:[{id:'conn1',channel:'telegram',external_account_id:'bot1',status:'connected'}],conversations:[{id:'conv1',connection_id:'conn1',external_id:'chat1',status:'open',assigned_to:null,updated_at:'2026-10-18'}],messages:[{id:'m1',conversation_id:'conv1',direction:'inbound',text:'Opening hours?',created_at:'2026-10-18'}],notes:[]};
-globalThis.socialFixture.rpc=async(name,args)=>{calls.push({name,args}); if(name==='list_social_hub_scopes')return {data:[scope]};if(name==='get_social_hub_inbox')return {data:inbox};if(name==='enqueue_social_hub_message')return {data:'job1'};if(name==='mutate_social_hub_conversation')return {data:true};throw Error('unknown RPC')};
+globalThis.socialFixture.rpc=async(name,args)=>{calls.push({name,args}); if(name==='get_social_hub_assistant_settings')return {data:null};if(name==='list_social_hub_scopes')return {data:[scope]};if(name==='get_social_hub_inbox')return {data:inbox};if(name==='enqueue_social_hub_message')return {data:'job1'};if(name==='mutate_social_hub_conversation')return {data:true};throw Error('unknown RPC')};
+globalThis.fetch=async(url,options)=>{check(url==='/api/social-assistant','Fixed assistant destination');check(JSON.stringify(JSON.parse(options.body))===JSON.stringify({scopeId:'scope1',conversationId:'conv1',messageId:'m1'}),'Assistant accepts identifiers only');return new Response(JSON.stringify({decision:{kind:'suggestion',messageId:'m1',text:'Open at 09:00'}}));};
 const check=(v,m)=>{if(!v)throw Error(m)};
 const wait=()=>new Promise(r=>setTimeout(r,30));
 const change=(control,value)=>{Object.getOwnPropertyDescriptor(control instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLTextAreaElement.prototype,'value').set.call(control,value);control.dispatchEvent(new Event(control instanceof HTMLSelectElement?'change':'input',{bubbles:true}))};
@@ -26,6 +27,8 @@ async function run(){const host=document.createElement('div');document.body.appe
 change(document.querySelector('[aria-label="Account scope"]'),'scope1');await wait();await wait();
 const conversation=document.querySelector('nav button');check(conversation.textContent.includes('telegram'),'Channel visible');conversation.click();await wait();
 check(document.querySelector('[role="log"]').textContent.includes('Opening hours?'),'Actual message visible');
+button('Suggest reply').click();await wait();await wait();button('Use suggestion in draft').click();await wait();
+check(document.querySelector('textarea').value==='Open at 09:00','Suggestion fills draft');check(!calls.some(c=>c.name==='enqueue_social_hub_message'),'Suggestion never sends');
 change(document.querySelector('textarea'),'Open at 09:00');await wait();button('Queue reply').click();await wait();await wait();
 check(calls.some(c=>c.name==='enqueue_social_hub_message'&&c.args.p_text==='Open at 09:00'&&c.args.p_idempotency_key),'Queue with idempotency');
 check(document.body.textContent.includes('Reply queued'),'No delivery claim');
@@ -38,7 +41,7 @@ run().catch(e=>{document.querySelector('#result').textContent='FAIL '+e.stack});
     plugins: [{ name: 'fixture-preferences', setup(builder) {
       builder.onResolve({ filter: /(?:Auth|Admin|Preferences)Context$/ }, () => ({ path: 'fixture-preferences', namespace: 'fixture' }));
       builder.onResolve({ filter: /^@\/lib\/supabase$/ }, () => ({path:'supabase',namespace:'rpc'}));
-      builder.onLoad({filter:/.*/,namespace:'rpc'},()=>({contents:'export const supabase={rpc:(...args)=>globalThis.socialFixture.rpc(...args)}',loader:'js'}));
+      builder.onLoad({filter:/.*/,namespace:'rpc'},()=>({contents:'export const supabase={rpc:(...args)=>globalThis.socialFixture.rpc(...args),auth:{getSession:async()=>({data:{session:{access_token:"fixture-browser-session"}}})}}',loader:'js'}));
       builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: "export function useAuth(){return {user:globalThis.socialFixture.user}};export function useAdmin(){return {isAdmin:false}};export function usePreferences(){return {prefs:{language:'en'}}}", loader: 'js' }));
     } }] });
   if (process.argv.includes('--check-bundle')) { console.log('PASS social inbox browser fixture compiles'); }

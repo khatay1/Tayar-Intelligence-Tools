@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SocialConnectPanel from './SocialConnectPanel';
+import SocialAssistantPanel from './SocialAssistantPanel';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { socialHubClient as client, type SocialInbox, type SocialScope } from './client';
@@ -56,6 +57,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
     (status === 'all' || item.status === status) && `${item.external_id} ${currentInbox?.messages.filter(m => m.conversation_id === item.id).map(m => m.text).join(' ')}`
       .toLocaleLowerCase().includes(query.toLocaleLowerCase())), [currentInbox, query, status]);
   const selected = currentInbox?.conversations.find(item => item.id === conversationId);
+  const assistantMessage = currentInbox?.messages.find(message => message.conversation_id === selected?.id && message.direction === 'inbound');
   async function mutate(operation: () => Promise<unknown>, success: string) {
     const identity = activeIdentity.current;
     if (busy) return;
@@ -92,6 +94,10 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
     {notice && <p role="status">{notice}</p>}
     {currentInbox && <>
       <SocialConnectPanel key={currentInbox.scope.id} scope={currentInbox.scope} connections={currentInbox.connections} onChange={refresh}/>
+      <SocialAssistantPanel key={`${userId}:${currentInbox.scope.id}:${selected?.id ?? ''}:${assistantMessage?.id ?? ''}`}
+        scopeId={currentInbox.scope.id} conversationId={selected?.id}
+        messageId={assistantMessage?.id}
+        onReply={setDraft}/>
       <div className="flex flex-wrap gap-3">{currentInbox.connections.map(connection => <span key={connection.id}>{connection.channel} · {connection.external_account_id} · {connection.status}</span>)}</div>
       {!currentInbox.scope.enabled && <p>{l('Inbox activation is disabled.')}</p>}
       <label>{l('Search')} <input className="text-slate-900" value={query} onChange={e => setQuery(e.target.value)} /></label>
