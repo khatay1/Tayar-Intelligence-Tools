@@ -1099,6 +1099,8 @@ service, custom-domain, availability/SLA or delivery-approval evidence.
 
 ## Revalidated Production Supabase/Auth boundary — 2026-10-18
 
+PR #282 merged as `773eb3209b36a017eb6192c3cc859ec16100afc4` after
+Release Gate `39114006199` and Vercel passed on `34081f30`.
 The trusted staging coordinator now re-proves the exact customer-owned
 Production Supabase backend both before creating or observing the Vercel
 deployment and again immediately before recording the durable runtime receipt.
@@ -1119,3 +1121,25 @@ This is read-only Production backend/security evidence tied to the existing
 runtime receipt. It does not apply a customer migration, exercise an end-user
 workflow or database mutation, configure Stripe/email/CMS, assign a custom
 domain, promote an alias or constitute customer delivery approval.
+
+## Revalidated Production service receipts — 2026-10-18
+
+The staging coordinator now accepts supported Stripe Checkout and saved email
+notifications only when every required Production secret already has a durable,
+current handoff receipt and the exact sensitive Vercel environment-variable ID
+still exists. It checks the metadata-only receipt and non-decrypting Vercel
+destination before staging and repeats the complete proof after deployed runtime
+behavior succeeds, before recording the runtime attestation.
+
+Stripe requires the exact source-secret version, verified customer account
+binding and `STRIPE_SECRET_KEY` destination. Email requires every deterministic
+Resend slot plus the independently activated `SUPABASE_SECRET_KEY` and
+`CRON_SECRET` destinations. The proof returns only sorted environment IDs and
+never reads a destination value. Missing, rotated, removed, duplicate, foreign
+or stale receipts fail closed.
+
+Order-payment flows remain blocked because `STRIPE_WEBHOOK_SECRET` does not yet
+have an independent customer-owned provisioning and receipt path. CMS remains
+blocked by the source capability policy. This change verifies prior approved
+handoffs; it does not create secrets, call a live customer service, promote a
+deployment or activate a custom domain.
