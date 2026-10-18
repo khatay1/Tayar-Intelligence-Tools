@@ -1,0 +1,55 @@
+# Official social channel boundaries
+
+`server/social-channels.ts` is a server-only transport and webhook boundary. All entry points require an explicit `enabled: true`; omission leaves the feature disabled. It does not mount public routes, run OAuth, persist credentials, claim durable jobs, or advertise live channel readiness. Those responsibilities must be supplied by the authenticated Connect, inbox and queue composition. Descriptors explicitly say `mocked-only`.
+
+## Contracts
+
+- Trusted server routing supplies `SocialConnectionBinding`, tenant and connection scope, and credentials resolved from secret custody. Never accept these attestations or policy booleans from a browser request.
+- `verifyAndNormalizeSocialWebhook` verifies the **original bytes** before decoding JSON. Meta channels use app-secret SHA-256 HMAC in `X-Hub-Signature-256`; Telegram uses the separately provisioned webhook secret in `X-Telegram-Bot-Api-Secret-Token`. Secrets have a local minimum length of 16 characters. It restricts body size to 256 KiB, batches to 100 entries/events, checks destination account ownership and rejects malformed identity and timestamp fields.
+- Normalized events include `tenantId`, `connectionId`, `channel`, `externalAccountId`, `externalConversationId`, `externalMessageId`, `senderId`, `text`, `occurredAt`, and `attachmentRefs`. These identities must be committed atomically through durable dedup before acknowledging delivery. Signatures alone do not prevent replay. Telegram message identity includes update id and message id; persistence should use that external message id as event id too.
+- Current ingress supports WhatsApp text messages, Messenger/Instagram text messages (skips echoes), Telegram private chat text/caption and image/document references. Unsupported events return no messages. References never trigger network fetches. Media sending, delivery receipts, group chat handling, and attachment download/scanning are not implemented here.
+- `sendSocialMessage` requires a connected, permission-verified and webhook-verified binding plus exact tenant and connection scope. `expiresAt` must be a future timestamp or explicit `null` for provider-verified nonexpiring credentials; missing/expired expiry is rejected independently of saved status. It accepts server-resolved consent/window/template evidence. Telegram requires prior recipient initiation; all channels require consent. Free-form Meta messages require a last incoming message less than 24 hours old and not in the future. Outside that window WhatsApp requires a matching explicitly approved template; only no-parameter templates are supported. Sensitive operations and nonstandard messaging-window exceptions are unsupported.
+- All outbound requests are POSTs to fixed HTTPS platform hosts. Account and recipient identifiers cannot inject path/host segments. Graph API version is explicitly server configured, not assumed current. Instagram uses **Facebook Login / Page token** with `instagram_basic` and `instagram_manage_messages`, on `graph.facebook.com`; Instagram Login tokens are not interchangeable. Telegram token appears in the platform-mandated URL, so never log request URLs or exception bodies.
+- Requests have a 10 second abort deadline, redirects are rejected and responses are bounded to 64 KiB. No automatic retries occur. Network errors, timeouts, redirect attempts, 5xx, malformed/oversized successful responses produce `review` because delivery may have occurred. HTTP rejection produces `rejected` (429 reason `rate-limited`). Provider acknowledgement produces `accepted`, which is not proof of delivery. Queue workers must durably claim first, save outcome once, and require reconciliation or explicit review before retrying uncertain outcomes.
+- `verifySocialWebhookChallenge` only echoes numeric challenges for the exact server configured token and subscribe mode. The challenge does not verify account ownership or webhook signature and must not set a connection live on its own.
+
+## Official references checked 2026-10-18
+
+- [Telegram Bot API](https://core.telegram.org/bots/api): webhook secret header, HTTPS bot token endpoint and sendMessage schema.
+- [Meta official WhatsApp collection](https://www.postman.com/meta/whatsapp-business-platform/documentation/wl) and [Messages prerequisites](https://www.postman.com/meta/whatsapp-business-platform/folder/13382743-ba8d099d-007e-4b52-b9f2-3cf3c60e4fbc).
+- [WhatsApp template request](https://www.postman.com/meta/whatsapp-business-platform/request/lwtlz1k/send-message-template-interactive) and [customer support window](https://www.postman.com/meta/whatsapp-business-platform/folder/fuaee8l/statuses-object).
+- [Meta official Messenger collection](https://www.postman.com/meta/messenger-platform-api/documentation/iyp204x/messenger-platform-api): Page token, permissions, endpoint and standard 24-hour window.
+- [Instagram Facebook Login messaging](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/messaging-api/) and [webhook signature reference](https://developers.facebook.com/docs/messenger-platform/webhooks/).
+
+Direct Meta documentation retrieval was rate limited (429). Meta-owned Postman search results supplied schemas for supported requests. Before activation, recheck provider versions, app review/scopes and current policy requirements in the app dashboard. No live provider test, account connection, app-review approval, production migration or production activation was performed.
+
+## Validation
+
+Run `node scripts/social-channel-regression.mjs`. The regression bundles the server module and uses fixture credentials and mocked fetch responses. It exercises all four channels, raw-body signature tampering, wrong Telegram secrets, account destination mismatch, missing identity, body limits, echoes, group exclusion, tenant scope rejection, consent and template/window policy, endpoint path injection, redirects, response limits, secret-safe exceptions and uncertain-delivery no-retry behavior. No real messages are sent.
+
+## Worker composition
+
+`server/social-hub-worker.ts` composes these boundaries without mounting an HTTP route:
+
+1. A server lookup resolves an opaque 32–128 character webhook id to exactly one binding and secret reference. URL/body tenant values are ignored.
+2. The server vault authorizes tenant + connection + credential purpose. Original webhook bytes are verified and normalized.
+3. Each message is durably deduplicated and committed before a 200 response. Signature failures return 401; storage failures return 503 so a provider can retry.
+4. The dispatcher claims a durable fenced lease, re-reads the connection and recipient-specific policy, resolves the credential, reserves the dispatch budget under the active lease, then calls the official transport once. It settles by compare-and-set. Failed settlement returns review and must not trigger a resend.
+
+The `SocialHubWorkerStore` is an explicit required production contract. `ingest` maps to `ingest_social_hub_message`: tenantId → p_scope_id; connectionId → p_connection_id; externalMessageId → p_event_id and p_external_message_id; externalConversationId → p_external_conversation_id; senderId → p_sender_name; text/occurredAt/attachmentRefs → corresponding fields. A null RPC result means duplicate. Queue status mapping must turn blocked into terminal rejected; accepted/rejected/review map directly, and `rate-limited` should map to `rate_limited` only for a proven 429 response.
+
+Mounting remains blocked until production adapters provide opaque webhook lookup, recipient consent/window/template evidence, current scoped secret custody, durable lease fencing, and an atomic `reserveDispatch` implementation checking account/channel/tenant rates, cost limits, active flag and current connection status. The existing claim/settle SQL alone does not satisfy all those requirements. No in-memory store should be used in production.
+
+`node scripts/social-hub-worker-regression.mjs` exercises the actual parser, worker and outbound adapter together with an in-memory fixture implementation of the durable-store contract. It verifies dedup/ack behavior, untrusted tenant inputs, failed signatures/storage, single leased sends, cross-tenant claims, credential expiry, consent changes, dispatch reservations, uncertain delivery and settlement failure. This proves the composition contract in isolation, not a deployed durable backend or real channel connectivity.
+
+## Concrete database adapters
+
+`server/social-hub-worker-store.ts` now implements the worker store and scoped credential vault against explicit service-role RPCs. `createSocialHubRpcWorkers(serviceClient, config)` constructs a complete webhook + leased dispatch path and defaults to disabled. It remains unmounted pending deployment and provider activation.
+
+- Webhook routing hashes the opaque route id with SHA-256 and calls `resolve_social_hub_webhook`; plaintext route tokens are not stored as database lookup arguments.
+- Authenticated ingress calls `ingest_social_hub_message`; null means durable duplicate. Sending uses `claim_social_hub_outgoing`, `resolve_social_hub_outgoing`, `reserve_social_hub_dispatch` and `settle_social_hub_outbox`. Returned scope, account, lease and identifier fields are validated before use.
+- Scoped `read_social_hub_webhook_secret` and `read_social_hub_credential` resolve Vault values; provider errors are reduced to generic persistence failures. Browser runtimes are rejected at construction and every RPC.
+- PostgreSQL reservation must atomically enforce configured global, tenant, channel and account budgets and current scope/connection/consent/window evidence. Until all budgets are provisioned, dispatch is denied. Text replies are supported; outbound parameterized/approved templates are not yet persisted by this adapter.
+- Optional GET verification uses a distinct trusted `resolveChallengeToken(opaqueId)` host callback. It never uses the Meta app signing secret as a verification token. Without the callback GET returns 405. Query duplicates and incorrect tokens fail closed. A successful challenge does not independently set a connection live.
+
+`node scripts/social-hub-worker-store-regression.mjs` exercises the complete concrete RPC adapter + worker + real signature parser/outbound transport using an explicit mock of each database RPC. It verifies parameter contracts, hashed route lookup, scoped secret reads, durable dedup contract, claim/reserve/settle ordering, ambiguous delivery and settlement failures, malicious database scope returns, browser rejection, default-disabled composition and GET verification. The SQL migration is separately validated with the persistence regression; these checks remain isolated and do not imply deployment or real platform connectivity.
