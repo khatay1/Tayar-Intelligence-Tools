@@ -1,0 +1,23 @@
+{
+  "source": "https://github.com/cporter202/API-mega-list",
+  "readmeSHA256": "70d72358486691d205e69453e5aec7f38fd3f2170aa442ff93518caaaf909d28",
+  "reviewedAt": "2026-10-18T11:36:40.884Z",
+  "stats": {
+    "unique": 7751,
+    "duplicates": 3101,
+    "sponsored": 22,
+    "rejected": 0,
+    "trackingRemoved": 10852
+  },
+  "approval": "none",
+  "licensing": "not-established",
+  "categories": [
+    "AI",
+    "Agents",
+    "Automation",
+    "Business",
+    "Developer Tools"
+  ],
+  "runtimeImports": 0,
+  "policy": "Candidates remain quarantined. No service endorsement, code license, account pricing, permission grant or live integration is inferred. Sponsored entries are excluded; tracking is removed before deduplication. Provider terms and official endpoints require individual review."
+}

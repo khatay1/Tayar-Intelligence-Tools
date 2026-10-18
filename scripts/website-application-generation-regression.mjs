@@ -53,6 +53,9 @@ try {
     return { state, checkpoints, request: globalThis.__generationRequest };
   }
   const built = await run(response);
+  assert.ok(built.request.integrationCapabilities.capabilities.some(item => item.id === 'booking' && item.adapter === 'internal'));
+  assert.ok(built.request.integrationCapabilities.policy.includes('deferred plans only'));
+  assert.ok(built.request.integrationCapabilities.capabilities.filter(item => item.providerId !== 'tayar').every(item => ['isolated-existing-adapter', 'metadata-only'].includes(item.testStatus)));
   assert.equal(built.state.AiStage, 'ready');
   assert.equal(built.state.Application.tables[0].key, 'appointments');
   assert.equal(built.state.Application.pageAccess[0].pageId, built.state.Pages[1].id);
