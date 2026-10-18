@@ -28,3 +28,5 @@ import './media-studio-max';
 export { toolRegistry } from './registry';
 export { CATEGORIES, getCategory } from './categories';
 export type { ToolModule, ToolCategory, ToolStatus, ToolTier, CategoryMeta } from './types';
+
+import './social-hub';

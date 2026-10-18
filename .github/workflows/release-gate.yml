@@ -55,6 +55,21 @@ jobs:
           node scripts/migration-source-map-regression.mjs
           node scripts/verify-migration-source-map.mjs
 
+      - name: Disabled Social Hub boundary and inbox regression
+        run: |
+          npm run smoke:social-hub
+          timeout 40s node scripts/social-inbox-browser-regression.mjs
+
+      - name: Isolated Social Hub tenant permissions and queue PostgreSQL regression
+        env:
+          TAYAR_BOOKING_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_booking_test
+          TAYAR_SOCIAL_HUB_TEST_DATABASE_URL: postgres://postgres:booking-test-only@localhost:5432/tayar_social_hub_test
+        run: |
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'create database tayar_social_hub_test;'
+          timeout 60s node scripts/social-hub-postgres-regression.mjs --postgres
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'drop database tayar_social_hub_test;'
+          psql "$TAYAR_BOOKING_TEST_DATABASE_URL" -X -v ON_ERROR_STOP=1 -c 'drop role anon, authenticated, service_role;'
+
       - name: Customer deployed runtime identity regression
         run: |
           node scripts/website-owned-runtime-verification-regression.mjs
