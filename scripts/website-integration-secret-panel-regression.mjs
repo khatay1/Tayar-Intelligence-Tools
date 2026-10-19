@@ -44,5 +44,11 @@ try {
     onChange() {}, onSetSecret: async () => {},
   }));
   assert.doesNotMatch(stale, /Configured — enter to replace/);
-  console.log('PASS integration secret panel: enabled only with a secure writer and one environment');
+  const empty = renderToStaticMarkup(React.createElement(Panel, { config: { version: 1, connections: [] }, onChange() {} }));
+  assert.match(empty, /API capabilities/);
+  assert.match(empty, /Existing native capability/);
+  assert.match(empty, /Discover reviewed capabilities without activating an external service/);
+  assert.match(empty, />0 enabled</);
+  assert.doesNotMatch(empty, />0 active</);
+  console.log('PASS integration secret panel and capability workbench: safe credential controls and truthful activation labels');
 } finally { await rm(dir, { recursive: true, force: true }); }

@@ -11,6 +11,7 @@ import {
   type EditorIntegrationEvent,
   type EditorIntegrationsConfig,
 } from '../core/editor-integrations';
+import { getUniversalAPICapabilities, prepareUniversalProjectIntegration } from '../core/universal-api-registry';
 import type { WebsiteSecretInventory } from '../services/websiteProjectSecretService';
 
 interface Props {
@@ -36,6 +37,45 @@ function toggleEvent(events: EditorIntegrationEvent[] | undefined, event: Editor
   return current.filter(item => item !== event);
 }
 
+function UniversalCapabilityPanel({ config, onChange }: Pick<Props, 'config' | 'onChange'>) {
+  const l = useLocalizer();
+  const capabilities = useMemo(() => getUniversalAPICapabilities(), []);
+  const [query, setQuery] = useState('');
+  const [capabilityId, setCapabilityId] = useState(capabilities[0]?.id ?? '');
+  const [notice, setNotice] = useState('');
+  const selected = capabilities.find(item => item.id === capabilityId) ?? capabilities[0];
+  const visible = capabilities.filter(item => `${item.name} ${item.category} ${item.providerId}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const options = selected && !visible.some(item => item.id === selected.id) ? [selected, ...visible] : visible;
+  const existing = selected?.adapter.kind === 'existing' ? config.connections.find(item => item.providerId === selected.providerId) : undefined;
+  const externalSource = selected?.source.startsWith('https://') ? selected.source : undefined;
+
+  return <div className="builder-v2-card builder-v2-card--nested" data-testid="universal-api-capabilities">
+    <div className="builder-v2-card__header"><div><strong>{l('API capabilities')}</strong><small>{l('Discover reviewed capabilities without activating an external service.')}</small></div><span>{capabilities.length} {l('reviewed')}</span></div>
+    <div className="builder-v2-grid">
+      <label>{l('Search capabilities')}<input type="search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={l('Search by function or provider')} /></label>
+      <label>{l('Capability')}<select value={selected?.id ?? ''} onChange={event => { setCapabilityId(event.target.value); setNotice(''); }}>{options.map(item => <option key={item.id} value={item.id}>{item.name} · {item.category}</option>)}</select></label>
+    </div>
+    {selected && <div>
+      <p><strong>{selected.adapter.kind === 'internal' ? l('Existing native capability') : l('External setup required')}</strong> · {selected.authentication} · {selected.cost}</p>
+      <small>{selected.adapter.kind === 'internal'
+        ? l('No extra provider is needed. Validate the generated schema and permissions for the project.')
+        : l('A draft remains disabled until credentials, provider approval and a real connection test are complete.')}</small>
+      <p><small>{l('Test evidence')}: {selected.testStatus} · {l('Reliability')}: {selected.reliability}</small></p>
+      {externalSource && <a href={externalSource} target="_blank" rel="noreferrer">{l('Original provider documentation')}</a>}
+      {selected.adapter.kind === 'existing' && <div><button type="button" onClick={() => {
+        try {
+          const id = `${selected.providerId}-${Date.now().toString(36)}`;
+          const result = prepareUniversalProjectIntegration(config, selected.id, id, 'preview');
+          if (!result.reused) onChange(result.config);
+          setNotice(result.reused ? l('Existing provider connection reused; no duplicate was created.') : l('Disabled preview adapter prepared. Add credentials securely, review permissions, then run a real connection test.'));
+        } catch { setNotice(l('The adapter draft could not be prepared.')); }
+      }}>{l(existing ? 'Use existing connection' : 'Prepare disabled adapter')}</button></div>}
+      {notice && <p role="status">{notice}</p>}
+    </div>}
+    {!options.length && <p>{l('No reviewed capability matches this search.')}</p>}
+  </div>;
+}
+
 export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onInspectSecrets, secretScope, onTestConnection }: Props) {
   const l = useLocalizer();
   const [providerId, setProviderId] = useState(EDITOR_INTEGRATION_PROVIDERS[0]?.id ?? '');
@@ -57,7 +97,8 @@ export function BuilderIntegrationsMaxPanel({ config, onChange, onSetSecret, onI
   const patch = (id: string, change: Partial<EditorIntegrationConnection>) => onChange({ ...config, connections: config.connections.map(item => item.id === id ? { ...item, ...change, updatedAt: new Date().toISOString() } : item) });
 
   return <section className="builder-v2-card" data-testid="integrations-max-panel">
-    <div className="builder-v2-card__header"><div><strong>{l('Integrations')}</strong><p>{l('Connect analytics, payments, email, CRM, APIs and signed webhooks.')}</p></div><span>{config.connections.filter(item => item.enabled).length} {l('active')}</span></div>
+    <div className="builder-v2-card__header"><div><strong>{l('Integrations')}</strong><p>{l('Connect analytics, payments, email, CRM, APIs and signed webhooks.')}</p></div><span>{config.connections.filter(item => item.enabled).length} {l('enabled')}</span></div>
+    <UniversalCapabilityPanel config={config} onChange={onChange} />
     <div className="builder-v2-grid"><label>{l('Provider')}<select value={providerId} onChange={event => setProviderId(event.target.value)}>{EDITOR_INTEGRATION_PROVIDERS.map(provider => <option key={provider.id} value={provider.id}>{provider.name} · {provider.category}</option>)}</select></label><button type="button" onClick={() => onChange({ ...config, connections: [...config.connections, createConnection(providerId)] })}>{l('Add integration')}</button></div>
     {error && <p role="alert">{l(error)}</p>}
     {!onSetSecret && <p>{l('Secure secret storage is not connected yet.')}</p>}

@@ -4,6 +4,16 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'API capabilities':'قدرات API','Discover reviewed capabilities without activating an external service.':'اكتشف القدرات المراجعة دون تفعيل خدمة خارجية.','reviewed':'مراجعة',
+  'Search capabilities':'البحث في القدرات','Search by function or provider':'ابحث حسب الوظيفة أو المزود','Capability':'القدرة',
+  'Existing native capability':'قدرة أصلية موجودة','External setup required':'يلزم إعداد خارجي',
+  'No extra provider is needed. Validate the generated schema and permissions for the project.':'لا يلزم مزود إضافي. تحقق من مخطط المشروع المُنشأ وصلاحياته.',
+  'A draft remains disabled until credentials, provider approval and a real connection test are complete.':'تبقى المسودة معطلة حتى اكتمال بيانات الاعتماد وموافقة المزود واختبار اتصال حقيقي.',
+  'Test evidence':'دليل الاختبار','Reliability':'الاعتمادية','Original provider documentation':'توثيق المزود الأصلي',
+  'Use existing connection':'استخدام الاتصال الموجود','Prepare disabled adapter':'تجهيز محول معطل',
+  'Existing provider connection reused; no duplicate was created.':'أُعيد استخدام اتصال المزود الموجود؛ لم تُنشأ نسخة مكررة.',
+  'Disabled preview adapter prepared. Add credentials securely, review permissions, then run a real connection test.':'جُهّز محول معاينة معطل. أضف بيانات الاعتماد بأمان، وراجع الصلاحيات، ثم نفّذ اختبار اتصال حقيقياً.',
+  'The adapter draft could not be prepared.':'تعذر تجهيز مسودة المحول.','No reviewed capability matches this search.':'لا توجد قدرة مراجعة تطابق البحث.',
   'Trigger':'المحفز','Incoming message':'رسالة واردة','Conversation assigned':'أُسندت المحادثة','Human follow-up requested':'طُلبت متابعة موظف',
   'Load older messages':'تحميل رسائل أقدم','Conversation history unavailable.':'سجل المحادثة غير متاح.','Conversation messages':'رسائل المحادثة',
   'Select project':'اختر المشروع',
@@ -685,6 +695,16 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'API capabilities':'API-funktioner','Discover reviewed capabilities without activating an external service.':'Upptäck granskade funktioner utan att aktivera en extern tjänst.','reviewed':'granskade',
+  'Search capabilities':'Sök funktioner','Search by function or provider':'Sök efter funktion eller leverantör','Capability':'Funktion',
+  'Existing native capability':'Befintlig inbyggd funktion','External setup required':'Extern konfiguration krävs',
+  'No extra provider is needed. Validate the generated schema and permissions for the project.':'Ingen extra leverantör behövs. Validera projektets genererade schema och behörigheter.',
+  'A draft remains disabled until credentials, provider approval and a real connection test are complete.':'Ett utkast förblir inaktiverat tills autentiseringsuppgifter, leverantörsgodkännande och ett verkligt anslutningstest är klara.',
+  'Test evidence':'Testunderlag','Reliability':'Tillförlitlighet','Original provider documentation':'Leverantörens originaldokumentation',
+  'Use existing connection':'Använd befintlig anslutning','Prepare disabled adapter':'Förbered inaktiverad adapter',
+  'Existing provider connection reused; no duplicate was created.':'Den befintliga leverantörsanslutningen återanvändes; ingen dubblett skapades.',
+  'Disabled preview adapter prepared. Add credentials securely, review permissions, then run a real connection test.':'En inaktiverad förhandsvisningsadapter förbereddes. Lägg till uppgifter säkert, granska behörigheter och kör sedan ett verkligt anslutningstest.',
+  'The adapter draft could not be prepared.':'Adapterutkastet kunde inte förberedas.','No reviewed capability matches this search.':'Ingen granskad funktion matchar sökningen.',
   'Trigger':'Utlösare','Incoming message':'Inkommande meddelande','Conversation assigned':'Konversation tilldelad','Human follow-up requested':'Mänsklig uppföljning begärd',
   'Load older messages':'Ladda äldre meddelanden','Conversation history unavailable.':'Konversationshistoriken är inte tillgänglig.','Conversation messages':'Konversationsmeddelanden',
   'Select project':'Välj projekt',
