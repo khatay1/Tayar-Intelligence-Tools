@@ -55,6 +55,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${crmFile}`,'utf8'));
  const projectGuardFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_crm_project_access.sql'));
  await db.exec(await readFile(`supabase/migrations/${projectGuardFile}`,'utf8'));
+ const historyFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_message_history.sql'));
+ await db.exec(await readFile(`supabase/migrations/${historyFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');
  insert into projects values('${uid(21)}','${uid(1)}','${uid(20)}',null),('${uid(23)}','${uid(2)}',null,null);
@@ -115,6 +117,23 @@ try {
  await denied(`select public.ingest_social_hub_message('${personal}','${uid(30)}','event-2','12345','message-2','Alice','hello',now())`);
  await actor(uid(1));const inbox=(await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data;
  assert.equal(inbox.messages.length,1);assert.equal(inbox.connections[0].secret_ref,undefined);const conversation=inbox.conversations[0].id;
+ assert.equal((await sql(`select public.get_social_hub_message_history('${conversation}')data`))[0].data.messages[0].id,message);
+ await denied(`select public.get_social_hub_message_history('${conversation}',null,101)`);
+ await denied(`select public.get_social_hub_message_history('${conversation}','${uid(99)}')`);
+ await actor(uid(2));await denied(`select public.get_social_hub_message_history('${conversation}')`);
+ await actor(null,'postgres');
+ await db.exec(`insert into private.social_hub_conversations(id,scope_id,connection_id,external_id)values('${uid(990)}','${scope}','${uid(30)}','54321');
+ insert into private.social_hub_messages(id,scope_id,conversation_id,connection_id,external_id,direction,text,occurred_at)values('${uid(991)}','${scope}','${uid(990)}','${uid(30)}','foreign-cursor','inbound','Other conversation',now())`);
+ await actor(uid(1));await denied(`select public.get_social_hub_message_history('${conversation}','${uid(991)}')`);
+ await actor(null,'postgres');await db.exec(`delete from private.social_hub_conversations where id='${uid(990)}'`);
+ await db.exec(`insert into private.social_hub_messages(id,scope_id,conversation_id,connection_id,external_id,direction,text,occurred_at)
+ select ('00000000-0000-4000-8000-'||lpad((1000+i)::text,12,'0'))::uuid,'${scope}','${conversation}','${uid(30)}','history-'||i,'inbound','Older message '||i,'2020-01-01T00:00:00Z'::timestamptz from generate_series(1,55)i`);
+ await actor(uid(4));const historyPage=(await sql(`select public.get_social_hub_message_history('${conversation}')data`))[0].data;
+ assert.equal(historyPage.messages.length,50);assert.ok(historyPage.nextBeforeId);
+ const olderPage=(await sql(`select public.get_social_hub_message_history('${conversation}','${historyPage.nextBeforeId}')data`))[0].data;
+ assert.equal(olderPage.messages.length,6);assert.equal(olderPage.nextBeforeId,null);
+ assert.equal(new Set([...historyPage.messages,...olderPage.messages].map(item=>item.id)).size,56,'tied timestamps use UUID keyset without overlap or loss');
+ await actor(null,'postgres');await db.exec(`delete from private.social_hub_messages where external_id like 'history-%'`);await actor(uid(1));
  assert.equal(inbox.crmLeads.length,1);assert.equal(inbox.followups.length,0);
  await db.exec(`select public.link_social_hub_crm_lead('${conversation}','${uid(22)}')`);
  assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.conversations[0].crm_lead_id,uid(22));
