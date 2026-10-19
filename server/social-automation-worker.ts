@@ -15,22 +15,26 @@ export function createSocialAutomationWorker(client:Pick<SupabaseClient,'rpc'>,e
     let processed=0;
     for(let i=0;i<3&&enabled()===true;i++){
       const value=await rpc('claim_social_hub_automation',{});if(value===null)break;
-      const row=object(value),eventId=id(row.id),claimToken=id(row.claimToken),scopeId=id(row.scopeId),messageId=id(row.messageId);
+      const row=object(value),eventId=id(row.id),claimToken=id(row.claimToken),scopeId=id(row.scopeId);
+      const trigger=row.trigger??'message.received';
+      if(!['message.received','conversation.assigned','human.requested'].includes(String(trigger)))fail();
+      const messageId=trigger==='message.received'?id(row.messageId):undefined;
       if(typeof row.text!=='string'||row.text.length>16000||typeof row.humanAssigned!=='boolean'||!Array.isArray(row.rules)||row.rules.length>20||!Array.isArray(row.knowledge)||row.knowledge.length>20)fail();
       const rules:SocialAutomationRule[]=row.rules.map(value=>{
-        const rule=object(value);if(rule.scopeId!==scopeId||typeof rule.enabled!=='boolean'||rule.trigger!=='message.received'
+        const rule=object(value);if(rule.scopeId!==scopeId||typeof rule.enabled!=='boolean'||rule.trigger!==trigger
           ||typeof rule.contains!=='string'||rule.contains.length>200||!['suggest','handoff','notify','reply'].includes(String(rule.action)))fail();
-        return {id:id(rule.id),scopeId,enabled:rule.enabled,trigger:'message.received',contains:rule.contains,action:rule.action as SocialAutomationRule['action'],approvedAnswerId:rule.approvedAnswerId===null?undefined:id(rule.approvedAnswerId)};
+        if(trigger!=='message.received'&&(rule.action==='reply'||rule.contains!==''))fail();
+        return {id:id(rule.id),scopeId,enabled:rule.enabled,trigger:trigger as SocialAutomationRule['trigger'],contains:rule.contains,action:rule.action as SocialAutomationRule['action'],approvedAnswerId:rule.approvedAnswerId===null?undefined:id(rule.approvedAnswerId)};
       });
       const knowledge:SocialKnowledgeAnswer[]=row.knowledge.map(value=>{
         const item=object(value);if(item.scopeId!==scopeId||typeof item.question!=='string'||item.question.length>400||typeof item.answer!=='string'||item.answer.length>4000||typeof item.language!=='string'||typeof item.approved!=='boolean'||typeof item.sensitive!=='boolean')fail();
         return {id:id(item.id),scopeId,question:item.question,answer:item.answer,language:item.language,approved:item.approved,sensitive:item.sensitive};
       });
-      let decisions=planSocialAutomation(true,true,{id:eventId,scopeId,trigger:'message.received',text:row.text},rules);
+      let decisions=planSocialAutomation(true,true,{id:eventId,scopeId,trigger:trigger as SocialAutomationRule['trigger'],text:row.text},rules);
       const hasHandoff=decisions.some(decision=>decision.action==='handoff');
       decisions=decisions.filter(decision=>{
         if(decision.action!=='reply')return true;
-        if(hasHandoff||row.humanAssigned)return false;
+        if(!messageId||hasHandoff||row.humanAssigned)return false;
         const answer=knowledge.find(item=>item.id===decision.approvedAnswerId);if(!answer)return false;
         const reply=suggestSocialReply({enabled:true,automationEnabled:true,scopeId,messageId,text:row.text as string,language:answer.language,humanAssigned:false,knowledge});
         return reply.kind==='auto-reply-candidate'&&reply.sourceIds.length===1&&reply.sourceIds[0]===answer.id;

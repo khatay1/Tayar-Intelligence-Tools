@@ -4,11 +4,12 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Trigger':'المحفز','Incoming message':'رسالة واردة','Conversation assigned':'أُسندت المحادثة','Human follow-up requested':'طُلبت متابعة موظف',
   'Load older messages':'تحميل رسائل أقدم','Conversation history unavailable.':'سجل المحادثة غير متاح.','Conversation messages':'رسائل المحادثة',
   'Select project':'اختر المشروع',
   'Owned website project':'مشروع موقع تملكه','Project list unavailable.':'قائمة المشاريع غير متاحة.','Create project inbox':'إنشاء صندوق للمشروع','Project inbox created; activation remains disabled.':'أُنشئ صندوق المشروع؛ يبقى التفعيل معطلاً.',
   "Social automation": "أتمتة التواصل", "Automation unavailable. Check access and activation.": "الأتمتة غير متاحة. تحقق من الصلاحيات والتفعيل.",
-  "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "تنطبق القواعد على الرسائل الواردة الجديدة. تتطلب الردود التلقائية سؤالاً مطابقاً ومعتمداً؛ وتتطلب الرسائل الحساسة مراجعة موظف.",
+  "Rules apply to new events. Automatic replies require an exact approved question; sensitive messages require human review.": "تنطبق القواعد على الأحداث الجديدة. تتطلب الردود التلقائية سؤالاً مطابقاً ومعتمداً؛ وتتطلب الرسائل الحساسة مراجعة موظف.",
   "Activation also requires the approved server scheduler.": "يتطلب التفعيل أيضاً تشغيل المجدول المعتمد على الخادم.",
   "Stop automation": "إيقاف الأتمتة", "Enable automation": "تفعيل الأتمتة", "Automation rule": "قاعدة أتمتة", "New rule": "قاعدة جديدة",
   "All incoming messages": "جميع الرسائل الواردة", "Phrase contains": "تحتوي الرسالة على", "Create follow-up note": "إنشاء ملاحظة متابعة",
@@ -684,11 +685,12 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Trigger':'Utlösare','Incoming message':'Inkommande meddelande','Conversation assigned':'Konversation tilldelad','Human follow-up requested':'Mänsklig uppföljning begärd',
   'Load older messages':'Ladda äldre meddelanden','Conversation history unavailable.':'Konversationshistoriken är inte tillgänglig.','Conversation messages':'Konversationsmeddelanden',
   'Select project':'Välj projekt',
   'Owned website project':'Eget webbplatsprojekt','Project list unavailable.':'Projektlistan är inte tillgänglig.','Create project inbox':'Skapa projektinkorg','Project inbox created; activation remains disabled.':'Projektinkorgen skapades; aktivering förblir avstängd.',
   "Social automation": "Social automatisering", "Automation unavailable. Check access and activation.": "Automatisering är inte tillgänglig. Kontrollera behörighet och aktivering.",
-  "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "Regler gäller nya inkommande meddelanden. Automatiska svar kräver en exakt godkänd fråga; känsliga meddelanden kräver mänsklig granskning.",
+  "Rules apply to new events. Automatic replies require an exact approved question; sensitive messages require human review.": "Regler gäller nya händelser. Automatiska svar kräver en exakt godkänd fråga; känsliga meddelanden kräver mänsklig granskning.",
   "Activation also requires the approved server scheduler.": "Aktivering kräver även den godkända schemaläggaren på servern.",
   "Stop automation": "Stoppa automatisering", "Enable automation": "Aktivera automatisering", "Automation rule": "Automatiseringsregel", "New rule": "Ny regel",
   "All incoming messages": "Alla inkommande meddelanden", "Phrase contains": "Frasen innehåller", "Create follow-up note": "Skapa uppföljningsanteckning",

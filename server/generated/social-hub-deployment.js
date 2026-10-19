@@ -1350,23 +1350,27 @@ function createSocialAutomationWorker(client, enabled) {
     for (let i = 0; i < 3 && enabled() === true; i++) {
       const value = await rpc("claim_social_hub_automation", {});
       if (value === null) break;
-      const row3 = object(value), eventId = id5(row3.id), claimToken = id5(row3.claimToken), scopeId = id5(row3.scopeId), messageId = id5(row3.messageId);
+      const row3 = object(value), eventId = id5(row3.id), claimToken = id5(row3.claimToken), scopeId = id5(row3.scopeId);
+      const trigger = row3.trigger ?? "message.received";
+      if (!["message.received", "conversation.assigned", "human.requested"].includes(String(trigger))) fail5();
+      const messageId = trigger === "message.received" ? id5(row3.messageId) : void 0;
       if (typeof row3.text !== "string" || row3.text.length > 16e3 || typeof row3.humanAssigned !== "boolean" || !Array.isArray(row3.rules) || row3.rules.length > 20 || !Array.isArray(row3.knowledge) || row3.knowledge.length > 20) fail5();
       const rules = row3.rules.map((value2) => {
         const rule = object(value2);
-        if (rule.scopeId !== scopeId || typeof rule.enabled !== "boolean" || rule.trigger !== "message.received" || typeof rule.contains !== "string" || rule.contains.length > 200 || !["suggest", "handoff", "notify", "reply"].includes(String(rule.action))) fail5();
-        return { id: id5(rule.id), scopeId, enabled: rule.enabled, trigger: "message.received", contains: rule.contains, action: rule.action, approvedAnswerId: rule.approvedAnswerId === null ? void 0 : id5(rule.approvedAnswerId) };
+        if (rule.scopeId !== scopeId || typeof rule.enabled !== "boolean" || rule.trigger !== trigger || typeof rule.contains !== "string" || rule.contains.length > 200 || !["suggest", "handoff", "notify", "reply"].includes(String(rule.action))) fail5();
+        if (trigger !== "message.received" && (rule.action === "reply" || rule.contains !== "")) fail5();
+        return { id: id5(rule.id), scopeId, enabled: rule.enabled, trigger, contains: rule.contains, action: rule.action, approvedAnswerId: rule.approvedAnswerId === null ? void 0 : id5(rule.approvedAnswerId) };
       });
       const knowledge = row3.knowledge.map((value2) => {
         const item = object(value2);
         if (item.scopeId !== scopeId || typeof item.question !== "string" || item.question.length > 400 || typeof item.answer !== "string" || item.answer.length > 4e3 || typeof item.language !== "string" || typeof item.approved !== "boolean" || typeof item.sensitive !== "boolean") fail5();
         return { id: id5(item.id), scopeId, question: item.question, answer: item.answer, language: item.language, approved: item.approved, sensitive: item.sensitive };
       });
-      let decisions = planSocialAutomation(true, true, { id: eventId, scopeId, trigger: "message.received", text: row3.text }, rules);
+      let decisions = planSocialAutomation(true, true, { id: eventId, scopeId, trigger, text: row3.text }, rules);
       const hasHandoff = decisions.some((decision) => decision.action === "handoff");
       decisions = decisions.filter((decision) => {
         if (decision.action !== "reply") return true;
-        if (hasHandoff || row3.humanAssigned) return false;
+        if (!messageId || hasHandoff || row3.humanAssigned) return false;
         const answer = knowledge.find((item) => item.id === decision.approvedAnswerId);
         if (!answer) return false;
         const reply = suggestSocialReply({ enabled: true, automationEnabled: true, scopeId, messageId, text: row3.text, language: answer.language, humanAssigned: false, knowledge });

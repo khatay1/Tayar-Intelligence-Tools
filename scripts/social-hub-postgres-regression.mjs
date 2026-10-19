@@ -57,6 +57,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${projectGuardFile}`,'utf8'));
  const historyFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_message_history.sql'));
  await db.exec(await readFile(`supabase/migrations/${historyFile}`,'utf8'));
+ const conversationEventsFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_conversation_events.sql'));
+ await db.exec(await readFile(`supabase/migrations/${conversationEventsFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');
  insert into projects values('${uid(21)}','${uid(1)}','${uid(20)}',null),('${uid(23)}','${uid(2)}',null,null);
@@ -268,6 +270,27 @@ try {
  await actor(uid(1));assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.conversations[0].status,'human_required','handoff precedes reply even when ordered later');
  await actor(uid(1));await db.exec(`select public.set_social_hub_automation('${scope}',false)`);
  await actor(null,'service_role');assert.equal((await sql('select public.claim_social_hub_automation()data'))[0].data,null);
+ // Internal conversation triggers never authorize provider sending.
+ await actor(uid(3));await denied(`select public.save_social_hub_event_rule('${scope}',null,true,'conversation.assigned','','notify')`);
+ await actor(uid(1));await denied(`select public.save_social_hub_event_rule('${scope}',null,true,'conversation.assigned','','reply','${knowledgeId}')`);
+ const assignedRule=(await sql(`select public.save_social_hub_event_rule('${scope}',null,true,'conversation.assigned','','notify')id`))[0].id;
+ const humanRule=(await sql(`select public.save_social_hub_event_rule('${scope}',null,true,'human.requested','','notify')id`))[0].id;
+ await denied(`select public.save_social_hub_automation_rule('${scope}','${assignedRule}',true,'','reply','${knowledgeId}')`);
+ await db.exec(`select public.set_social_hub_automation('${scope}',true);select public.mutate_social_hub_conversation('${conversation}',p_assigned_to=>'${uid(3)}',p_set_assignment=>true)`);
+ await actor(null,'service_role');const assignedEvent=(await sql('select public.claim_social_hub_automation()data'))[0].data;
+ assert.equal(assignedEvent.trigger,'conversation.assigned');assert.equal(assignedEvent.messageId,null);assert.equal(assignedEvent.rules.length,1);
+ const completeAssigned=`select public.complete_social_hub_automation('${assignedEvent.id}','${assignedEvent.claimToken}','[{"ruleId":"${assignedRule}","action":"notify"},{"ruleId":"${autoRule}","action":"reply"}]')ok`;
+ assert.equal((await sql(completeAssigned))[0].ok,true);assert.equal((await sql(completeAssigned))[0].ok,false);
+ await actor(uid(1));await db.exec(`select public.mutate_social_hub_conversation('${conversation}',p_assigned_to=>'${uid(3)}',p_set_assignment=>true)`);
+ await actor(null,'service_role');assert.equal((await sql('select public.claim_social_hub_automation()data'))[0].data,null,'no duplicate assignment event for unchanged value');
+ await actor(uid(1));await db.exec(`select public.mutate_social_hub_conversation('${conversation}',p_status=>'open');select public.mutate_social_hub_conversation('${conversation}',p_status=>'human_required')`);
+ await actor(null,'service_role');const humanEvent=(await sql('select public.claim_social_hub_automation()data'))[0].data;
+ assert.equal(humanEvent.trigger,'human.requested');
+ assert.equal((await sql(`select public.complete_social_hub_automation('${humanEvent.id}','${humanEvent.claimToken}','[{"ruleId":"${humanRule}","action":"notify"}]')ok`))[0].ok,true);
+ await actor(null,'postgres');assert.equal((await sql(`select count(*)::int n from private.social_hub_notes where conversation_id='${conversation}'and text='Automation: assigned conversation requires review.'`))[0].n,1);
+ assert.equal((await sql(`select count(*)::int n from private.social_hub_notes where conversation_id='${conversation}'and text='Automation: human follow-up requested.'`))[0].n,1);
+ await actor(uid(1));await db.exec(`select public.set_social_hub_automation('${scope}',false);select public.mutate_social_hub_conversation('${conversation}',p_assigned_to=>'${uid(1)}',p_set_assignment=>true)`);
+ await actor(null,'service_role');assert.equal((await sql('select public.claim_social_hub_automation()data'))[0].data,null,'disabled scope automation captures no internal event');
  await actor(null,'service_role');
  await db.exec(`select public.social_hub_revoke_credential('${personal}','${uid(30)}','${stored}')`);
  assert.ok((await sql(`select public.read_social_hub_credential('${scope}','${uid(30)}','${stored}')token`))[0].token);

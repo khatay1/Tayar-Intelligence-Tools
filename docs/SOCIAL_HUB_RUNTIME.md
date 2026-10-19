@@ -44,8 +44,15 @@ automation disable also blocks already queued automatic provider calls.
 
 Supported automation actions are follow-up/review notes, `human_required` status and
 approved reply queueing for incoming messages. Notes are visible in the inbox and
-do not send push notifications. Order/booking, assignment and outside-hours triggers
+do not send push notifications. Order/booking and outside-hours triggers
 and live channel verification remain separate unfinished work.
+
+Managers may also configure disabled-by-default rules for `conversation.assigned`
+and `human.requested`. Database triggers capture only real value changes while
+scope automation and a matching rule are enabled. These events carry identifiers
+without message text and can create review notes or request human handoff, never
+queue a provider reply. The existing worker lease, replay fence, scope/rule/manager
+reauthorization and immediate stop apply. An unchanged assignment creates no event.
 
 Project-backed customer scopes can link a conversation to an existing lead in the
 project's Website Builder CRM. Only scope managers receive the bounded CRM candidate

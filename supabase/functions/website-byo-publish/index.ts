@@ -7205,6 +7205,10 @@ function localizeUi(text3, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Trigger": "\u0627\u0644\u0645\u062D\u0641\u0632",
+  "Incoming message": "\u0631\u0633\u0627\u0644\u0629 \u0648\u0627\u0631\u062F\u0629",
+  "Conversation assigned": "\u0623\u064F\u0633\u0646\u062F\u062A \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
+  "Human follow-up requested": "\u0637\u064F\u0644\u0628\u062A \u0645\u062A\u0627\u0628\u0639\u0629 \u0645\u0648\u0638\u0641",
   "Load older messages": "\u062A\u062D\u0645\u064A\u0644 \u0631\u0633\u0627\u0626\u0644 \u0623\u0642\u062F\u0645",
   "Conversation history unavailable.": "\u0633\u062C\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D.",
   "Conversation messages": "\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
@@ -7215,7 +7219,7 @@ var arSupplement = {
   "Project inbox created; activation remains disabled.": "\u0623\u064F\u0646\u0634\u0626 \u0635\u0646\u062F\u0648\u0642 \u0627\u0644\u0645\u0634\u0631\u0648\u0639\u061B \u064A\u0628\u0642\u0649 \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0645\u0639\u0637\u0644\u0627\u064B.",
   "Social automation": "\u0623\u062A\u0645\u062A\u0629 \u0627\u0644\u062A\u0648\u0627\u0635\u0644",
   "Automation unavailable. Check access and activation.": "\u0627\u0644\u0623\u062A\u0645\u062A\u0629 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629. \u062A\u062D\u0642\u0642 \u0645\u0646 \u0627\u0644\u0635\u0644\u0627\u062D\u064A\u0627\u062A \u0648\u0627\u0644\u062A\u0641\u0639\u064A\u0644.",
-  "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "\u062A\u0646\u0637\u0628\u0642 \u0627\u0644\u0642\u0648\u0627\u0639\u062F \u0639\u0644\u0649 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0648\u0627\u0631\u062F\u0629 \u0627\u0644\u062C\u062F\u064A\u062F\u0629. \u062A\u062A\u0637\u0644\u0628 \u0627\u0644\u0631\u062F\u0648\u062F \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A\u0629 \u0633\u0624\u0627\u0644\u0627\u064B \u0645\u0637\u0627\u0628\u0642\u0627\u064B \u0648\u0645\u0639\u062A\u0645\u062F\u0627\u064B\u061B \u0648\u062A\u062A\u0637\u0644\u0628 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u062D\u0633\u0627\u0633\u0629 \u0645\u0631\u0627\u062C\u0639\u0629 \u0645\u0648\u0638\u0641.",
+  "Rules apply to new events. Automatic replies require an exact approved question; sensitive messages require human review.": "\u062A\u0646\u0637\u0628\u0642 \u0627\u0644\u0642\u0648\u0627\u0639\u062F \u0639\u0644\u0649 \u0627\u0644\u0623\u062D\u062F\u0627\u062B \u0627\u0644\u062C\u062F\u064A\u062F\u0629. \u062A\u062A\u0637\u0644\u0628 \u0627\u0644\u0631\u062F\u0648\u062F \u0627\u0644\u062A\u0644\u0642\u0627\u0626\u064A\u0629 \u0633\u0624\u0627\u0644\u0627\u064B \u0645\u0637\u0627\u0628\u0642\u0627\u064B \u0648\u0645\u0639\u062A\u0645\u062F\u0627\u064B\u061B \u0648\u062A\u062A\u0637\u0644\u0628 \u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u062D\u0633\u0627\u0633\u0629 \u0645\u0631\u0627\u062C\u0639\u0629 \u0645\u0648\u0638\u0641.",
   "Activation also requires the approved server scheduler.": "\u064A\u062A\u0637\u0644\u0628 \u0627\u0644\u062A\u0641\u0639\u064A\u0644 \u0623\u064A\u0636\u0627\u064B \u062A\u0634\u063A\u064A\u0644 \u0627\u0644\u0645\u062C\u062F\u0648\u0644 \u0627\u0644\u0645\u0639\u062A\u0645\u062F \u0639\u0644\u0649 \u0627\u0644\u062E\u0627\u062F\u0645.",
   "Stop automation": "\u0625\u064A\u0642\u0627\u0641 \u0627\u0644\u0623\u062A\u0645\u062A\u0629",
   "Enable automation": "\u062A\u0641\u0639\u064A\u0644 \u0627\u0644\u0623\u062A\u0645\u062A\u0629",
@@ -7941,6 +7945,10 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Trigger": "Utl\xF6sare",
+  "Incoming message": "Inkommande meddelande",
+  "Conversation assigned": "Konversation tilldelad",
+  "Human follow-up requested": "M\xE4nsklig uppf\xF6ljning beg\xE4rd",
   "Load older messages": "Ladda \xE4ldre meddelanden",
   "Conversation history unavailable.": "Konversationshistoriken \xE4r inte tillg\xE4nglig.",
   "Conversation messages": "Konversationsmeddelanden",
@@ -7951,7 +7959,7 @@ var svSupplement = {
   "Project inbox created; activation remains disabled.": "Projektinkorgen skapades; aktivering f\xF6rblir avst\xE4ngd.",
   "Social automation": "Social automatisering",
   "Automation unavailable. Check access and activation.": "Automatisering \xE4r inte tillg\xE4nglig. Kontrollera beh\xF6righet och aktivering.",
-  "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "Regler g\xE4ller nya inkommande meddelanden. Automatiska svar kr\xE4ver en exakt godk\xE4nd fr\xE5ga; k\xE4nsliga meddelanden kr\xE4ver m\xE4nsklig granskning.",
+  "Rules apply to new events. Automatic replies require an exact approved question; sensitive messages require human review.": "Regler g\xE4ller nya h\xE4ndelser. Automatiska svar kr\xE4ver en exakt godk\xE4nd fr\xE5ga; k\xE4nsliga meddelanden kr\xE4ver m\xE4nsklig granskning.",
   "Activation also requires the approved server scheduler.": "Aktivering kr\xE4ver \xE4ven den godk\xE4nda schemal\xE4ggaren p\xE5 servern.",
   "Stop automation": "Stoppa automatisering",
   "Enable automation": "Aktivera automatisering",
