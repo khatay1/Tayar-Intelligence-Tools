@@ -57,6 +57,8 @@ try {
  await actor(uid(1));
  const scope=(await sql(`select public.create_social_hub_scope('customer','${uid(20)}','${uid(21)}')id`))[0].id;
  const personal=(await sql(`select public.create_social_hub_scope('customer')id`))[0].id;
+ await denied(`select public.create_social_hub_scope('customer','${uid(20)}','${uid(23)}')`);
+ await denied(`select public.create_social_hub_scope('customer',null,'${uid(23)}')`);
  assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.scope.enabled,false);
  await denied(`select * from private.social_hub_connections`);
  await denied(`select public.create_social_hub_scope('official')`);
@@ -115,6 +117,7 @@ try {
  const followup=(await sql(`select public.create_social_hub_followup('${conversation}','Call customer')id`))[0].id;
  await db.exec(`select public.mutate_social_hub_followup('${followup}','done','${uid(3)}',true)`);
  await actor(uid(3));assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.crmLeads,null,'CRM candidates require manager access');
+ await denied(`select public.create_social_hub_scope('customer','${uid(20)}','${uid(21)}')`);
  const editorFollowup=(await sql(`select public.create_social_hub_followup('${conversation}','Editor follow-up')id`))[0].id;assert.ok(editorFollowup);
  await actor(uid(4));await denied(`select public.create_social_hub_followup('${conversation}','Viewer follow-up')`);
  await actor(uid(3));await db.exec(`select public.mutate_social_hub_conversation('${conversation}',p_status=>'human_required')`);
