@@ -7,7 +7,7 @@ export interface SocialConversation {
   status: 'open' | 'pending' | 'archived' | 'resolved' | 'human_required'; assigned_to: string | null;
   crm_lead_id: string | null; last_message_at: string;
 }
-export interface SocialMessage { id: string; conversation_id: string; direction: string; text: string; created_at: string; occurred_at:string }
+export interface SocialMessage { id: string; conversation_id: string; direction: string; text: string; created_at: string; occurred_at:string; attachment_refs:unknown }
 export interface SocialMessagePage { messages:SocialMessage[]; nextBeforeId:string|null }
 export interface SocialUnreadCount { conversationId:string; unread:number }
 export interface SocialNote { id: string; conversation_id: string; text: string; created_at: string }

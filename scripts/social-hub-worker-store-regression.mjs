@@ -24,7 +24,7 @@ try{
    case 'resolve_social_hub_webhook_challenge':assert.equal(args.p_webhook_hash,createHash('sha256').update(opaque).digest('hex'));assert.ok(!JSON.stringify(args).includes(opaque));data=verify;break;
    case 'read_social_hub_webhook_secret':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_secret_ref,hookRef);data=secret;break;
    case 'read_social_hub_credential':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_secret_ref,sendRef);data=credential;break;
-   case 'ingest_social_hub_message':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_event_id,'1:2');assert.equal(args.p_external_conversation_id,'42');data=inserted?null:messageId;inserted=true;break;
+   case 'ingest_social_hub_message':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_event_id,'1:2');assert.equal(args.p_external_conversation_id,'42');assert.deepEqual(args.p_attachment_refs,[{type:'document',providerId:'file_123'}]);data=inserted?null:messageId;inserted=true;break;
    case 'claim_social_hub_outgoing':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_job_id,job);if(state!=='queued'){data=null;break;}state='sending';data={id:job,scope_id:malformedClaim?'99999999-9999-4999-8999-999999999999':scope,connection_id:connection,claim_token:lease,lease_until:'2026-10-18T10:02:00Z',external_account_id:'123456',recipient_id:'42',text:'Your order is ready'};break;
    case 'resolve_social_hub_outgoing':assert.equal(args.p_job_id,job);assert.equal(args.p_claim_token,lease);data={connection:account,policy:{consent_verified:true,recipient_initiated:true,last_inbound_at:'2026-10-18T09:30:00Z'}};break;
    case 'reserve_social_hub_dispatch':assert.equal(args.p_job_id,job);assert.equal(args.p_claim_token,lease);data=!reserved;reserved=true;break;
@@ -34,7 +34,7 @@ try{
  }};
  const persistence=create(client),enabled=()=>true;
  const off=compose(client);assert.equal((await off.webhook(new Request('https://tayar.example'),opaque)).status,404);assert.equal((await off.dispatch({tenantId:scope,connectionId:connection},job)).reason,'feature-disabled');
- const request=()=>new Request('https://tayar.example/api/webhook?tenantId=attacker',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':secret},body:JSON.stringify({update_id:1,message:{message_id:2,chat:{id:42,type:'private'},from:{id:42},text:'Order status?',date:1792314000}})});
+ const request=()=>new Request('https://tayar.example/api/webhook?tenantId=attacker',{method:'POST',headers:{'content-type':'application/json','x-telegram-bot-api-secret-token':secret},body:JSON.stringify({update_id:1,message:{message_id:2,chat:{id:42,type:'private'},from:{id:42},text:'Order status?',document:{file_id:'file_123'},date:1792314000}})});
  const receive=handler({enabled,...persistence});assert.equal((await receive(request(),opaque)).status,200);assert.equal(inserted,true);assert.equal((await receive(request(),opaque)).status,200);
  const sending={enabled,...persistence,scope:{tenantId:scope,connectionId:connection},jobId:job,now:()=>new Date('2026-10-18T10:00:00Z'),fetcher:async(url,options)=>{networkCalls++;assert.equal(options.redirect,'error');return Response.json({ok:true,result:{message_id:8}})}};
  assert.deepEqual(await dispatch(sending),{status:'accepted',providerMessageId:'8'});assert.equal(state,'accepted');assert.equal(networkCalls,1);assert.equal((await dispatch(sending)).status,'idle');
@@ -42,6 +42,7 @@ try{
  state='queued';reserved=false;failRPC='settle_social_hub_outbox';const uncertain=await dispatch(sending);assert.equal(uncertain.reason,'settlement-unconfirmed');assert.ok(!JSON.stringify(uncertain).includes(credential));failRPC=null;
  state='queued';malformedClaim=true;await assert.rejects(()=>dispatch(sending),/persistence unavailable/);malformedClaim=false;
  failRPC='resolve_social_hub_webhook';assert.equal((await receive(request(),opaque)).status,503);failRPC=null;
+ await assert.rejects(()=>persistence.store.ingest({tenantId:scope,connectionId:connection,channel:'telegram',externalAccountId:'123456',externalConversationId:'42',externalMessageId:'1:2',senderId:'42',text:'x',occurredAt:'2026-10-18T10:00:00Z',attachmentRefs:[{type:'image',providerId:'safe',url:'https://attacker.example'}]}),/persistence unavailable/);
  await assert.rejects(()=>persistence.vault.resolve({tenantId:'invalid',connectionId:connection,secretRef:sendRef,purpose:'send'}));
  globalThis.window={};assert.throws(()=>create(client),/persistence unavailable/);delete globalThis.window;
  const get=(token=verify)=>new Request(`https://tayar.example/api/webhook?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=1234`);
