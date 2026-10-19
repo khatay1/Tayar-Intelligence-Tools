@@ -27,6 +27,18 @@ async function opaqueHash(opaqueId: string) {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(opaqueId))),byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 
+/** Resolve only the separately provisioned Meta GET verification token for this opaque route. */
+export function createSocialHubChallengeResolver(client: Pick<SupabaseClient,'rpc'>) {
+  if (isUntrustedBrowserRuntime()) fail();
+  return async (opaqueId:string):Promise<string|null> => {
+    let value:unknown;
+    try {const result=await client.rpc('resolve_social_hub_webhook_challenge',{p_webhook_hash:await opaqueHash(opaqueId)});if(result.error)fail();value=result.data;}catch{return fail();}
+    if(value===null)return null;const token=string(value);
+    if(token.length<16||token.length>256||[...token].some(character=>/\s/.test(character)||character.charCodeAt(0)<32||character.charCodeAt(0)===127))fail();
+    return token;
+  };
+}
+
 /** Concrete service-role RPC adapters. SQL enforces scope, expiry, budgets, reservations and Vault custody.
  * This factory must only receive an existing trusted server service client; it does not take URLs/keys from requests. */
 export function createSocialHubWorkerPersistence(client: Pick<SupabaseClient, 'rpc'>): {store:SocialHubWorkerStore;vault:SocialSecretVault} {

@@ -10,7 +10,7 @@ const directory=await mkdtemp(join(tmpdir(),'tayar-social-worker-store-'));
 try{
  const entry=join(directory,'entry.ts');await writeFile(entry,`export * from ${JSON.stringify(resolve('server/social-hub-worker-store.ts'))};\nexport * from ${JSON.stringify(resolve('server/social-hub-worker.ts'))};`);
  await build({entryPoints:[entry],bundle:true,platform:'node',format:'cjs',outfile:join(directory,'test.cjs')});
- const {createSocialHubRpcWorkers:compose,createSocialHubWorkerPersistence:create,createSocialHubWebhookHandler:handler,dispatchSocialHubOutgoing:dispatch}=createRequire(import.meta.url)(join(directory,'test.cjs'));
+ const {createSocialHubRpcWorkers:compose,createSocialHubWorkerPersistence:create,createSocialHubChallengeResolver:challengeResolver,createSocialHubWebhookHandler:handler,dispatchSocialHubOutgoing:dispatch}=createRequire(import.meta.url)(join(directory,'test.cjs'));
  const scope='11111111-1111-4111-8111-111111111111',connection='22222222-2222-4222-8222-222222222222',job='33333333-3333-4333-8333-333333333333',lease='44444444-4444-4444-8444-444444444444',sendRef='55555555-5555-4555-8555-555555555555',hookRef='66666666-6666-4666-8666-666666666666',messageId='77777777-7777-4777-8777-777777777777';
  const secret='fixture_webhook_secret_32chars',credential='123456:fixture_token_abcdefghijklmnop',opaque='opaqueWebhookRoute_'.repeat(3),verify='separate_verify_token_123456789';
  const account={id:connection,scope_id:scope,channel:'telegram',external_account_id:'123456',ownership:'customer',status:'connected',permissions_verified:true,webhook_verified:true,expires_at:null,secret_ref:sendRef};
@@ -21,6 +21,7 @@ try{
   let data;
   switch(name){
    case 'resolve_social_hub_webhook':assert.equal(args.p_webhook_hash,createHash('sha256').update(opaque).digest('hex'));assert.ok(!JSON.stringify(args).includes(opaque));data={connection:account,webhook_secret_ref:hookRef};break;
+   case 'resolve_social_hub_webhook_challenge':assert.equal(args.p_webhook_hash,createHash('sha256').update(opaque).digest('hex'));assert.ok(!JSON.stringify(args).includes(opaque));data=verify;break;
    case 'read_social_hub_webhook_secret':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_secret_ref,hookRef);data=secret;break;
    case 'read_social_hub_credential':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_secret_ref,sendRef);data=credential;break;
    case 'ingest_social_hub_message':assert.equal(args.p_scope_id,scope);assert.equal(args.p_connection_id,connection);assert.equal(args.p_event_id,'1:2');assert.equal(args.p_external_conversation_id,'42');data=inserted?null:messageId;inserted=true;break;
@@ -45,6 +46,7 @@ try{
  globalThis.window={};assert.throws(()=>create(client),/persistence unavailable/);delete globalThis.window;
  const get=(token=verify)=>new Request(`https://tayar.example/api/webhook?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=1234`);
  assert.equal((await receive(get(),opaque)).status,405);
+ const composedChallenge=compose(client,{enabled,resolveChallengeToken:challengeResolver(client)});const composedSuccess=await composedChallenge.webhook(get(),opaque);assert.equal(composedSuccess.status,200);assert.equal(await composedSuccess.text(),'1234');
  const challenges=handler({enabled,...persistence,resolveChallengeToken:async id=>id===opaque?verify:null});const success=await challenges(get(),opaque);assert.equal(success.status,200);assert.equal(await success.text(),'1234');
  assert.equal((await challenges(get('incorrect_verify_token'),opaque)).status,401);
  assert.equal((await challenges(new Request(get().url+'&hub.mode=subscribe'),opaque)).status,400);
