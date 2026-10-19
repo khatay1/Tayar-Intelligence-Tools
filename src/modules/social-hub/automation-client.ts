@@ -1,0 +1,10 @@
+import { supabase } from '@/lib/supabase';
+export interface AutomationRule { id:string;enabled:boolean;contains:string;action:'suggest'|'handoff'|'notify'|'reply';approved_answer_id:string|null }
+async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{const {data,error}=await supabase.rpc(name,args);if(error)throw Error('Automation unavailable.');return data as T;}
+export const socialAutomationClient={
+  rules:(scopeId:string)=>rpc<AutomationRule[]|null>('get_social_hub_automation_rules',{p_scope_id:scopeId}),
+  activate:(scopeId:string,enabled:boolean)=>rpc('set_social_hub_automation',{p_scope_id:scopeId,p_enabled:enabled}),
+  save:(scopeId:string,rule:Omit<AutomationRule,'id'>&{id:string|null})=>rpc<string>('save_social_hub_automation_rule',{
+    p_scope_id:scopeId,p_id:rule.id,p_enabled:rule.enabled,p_contains:rule.contains,p_action:rule.action,p_answer_id:rule.action==='reply'?rule.approved_answer_id:null,
+  }),
+};

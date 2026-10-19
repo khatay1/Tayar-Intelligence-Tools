@@ -190,14 +190,14 @@ async function completeSocialMetaConnectInternal(input, config, deps) {
 }
 async function saveGrant(actor, grant, accessToken, deps) {
   await deps.authorize(actor, grant.ownership);
-  const id5 = crypto.randomUUID();
-  const tokenRef = await deps.vault.put({ tenantId: actor.tenantId, connectionId: id5, accessToken });
+  const id6 = crypto.randomUUID();
+  const tokenRef = await deps.vault.put({ tenantId: actor.tenantId, connectionId: id6, accessToken });
   if (!uuid.test(tokenRef)) fail();
   try {
     await deps.authorize(actor, grant.ownership);
     const connection = {
       ...grant,
-      id: id5,
+      id: id6,
       tenantId: actor.tenantId,
       ownerUserId: actor.userId,
       status: "connected",
@@ -209,7 +209,7 @@ async function saveGrant(actor, grant, accessToken, deps) {
     await deps.store.saveConnection(connection, null);
     return publicConnection(connection);
   } catch {
-    await deps.vault.revoke({ tenantId: actor.tenantId, connectionId: id5, tokenRef });
+    await deps.vault.revoke({ tenantId: actor.tenantId, connectionId: id6, tokenRef });
     return fail();
   }
 }
@@ -223,23 +223,23 @@ async function connectSocialTelegramInternal(input, deps) {
   if (body2.ok !== true || bot.is_bot !== true || !Number.isSafeInteger(bot.id) || Number(bot.id) <= 0 || String(bot.id) !== input.botToken.split(":")[0]) fail();
   return saveGrant(input.actor, { channel: "telegram", accountId: String(bot.id), ownership: input.ownership, scopes: ["bot"], expiresAt: null }, input.botToken, deps);
 }
-async function disconnectSocialConnectionInternal(actor, id5, deps) {
+async function disconnectSocialConnectionInternal(actor, id6, deps) {
   server();
   actorValid(actor);
-  if (!uuid.test(id5)) fail();
-  const existing = await deps.store.getConnection({ id: id5, tenantId: actor.tenantId });
+  if (!uuid.test(id6)) fail();
+  const existing = await deps.store.getConnection({ id: id6, tenantId: actor.tenantId });
   if (!existing || existing.tenantId !== actor.tenantId) fail();
   await deps.authorize(actor, existing.ownership);
   const disconnected = { ...existing, ownerUserId: actor.userId, status: "disconnected", permissionsVerified: false, webhookVerified: false, version: existing.version + 1 };
   await deps.store.saveConnection(disconnected, existing.version);
-  if (existing.tokenRef) await deps.vault.revoke({ tenantId: actor.tenantId, connectionId: id5, tokenRef: existing.tokenRef });
+  if (existing.tokenRef) await deps.vault.revoke({ tenantId: actor.tenantId, connectionId: id6, tokenRef: existing.tokenRef });
   return publicConnection(disconnected);
 }
-async function socialConnectionStatusInternal(actor, id5, deps) {
+async function socialConnectionStatusInternal(actor, id6, deps) {
   server();
   actorValid(actor);
-  if (!uuid.test(id5)) fail();
-  const connection = await deps.store.getConnection({ id: id5, tenantId: actor.tenantId });
+  if (!uuid.test(id6)) fail();
+  const connection = await deps.store.getConnection({ id: id6, tenantId: actor.tenantId });
   if (!connection || connection.tenantId !== actor.tenantId) fail();
   await deps.authorize(actor, connection.ownership);
   const expired = connection.expiresAt !== null && (!Number.isFinite(Date.parse(connection.expiresAt)) || Date.parse(connection.expiresAt) <= (deps.now ?? Date.now)());
@@ -811,7 +811,7 @@ async function dispatchSocialHubOutgoing(input) {
     } else {
       const connection = await input.store.resolveOutgoing(lease);
       const now = (input.now?.() ?? /* @__PURE__ */ new Date()).getTime();
-      if (!connection || connection.binding.accountId !== lease.accountId || !Number.isFinite(now) || !Number.isFinite(Date.parse(lease.leaseExpiresAt)) || Date.parse(lease.leaseExpiresAt) - now < 12e3 || input.enabled() !== true) {
+      if (lease.automationRuleId && input.automationEnabled?.() !== true || !connection || connection.binding.accountId !== lease.accountId || !Number.isFinite(now) || !Number.isFinite(Date.parse(lease.leaseExpiresAt)) || Date.parse(lease.leaseExpiresAt) - now < 12e3 || input.enabled() !== true) {
         outcome = { status: "blocked", reason: "connection-or-lease-unavailable" };
       } else {
         const credential = await input.vault.resolve({ tenantId: lease.tenantId, connectionId: lease.connectionId, secretRef: connection.secretRef, purpose: "send" });
@@ -965,7 +965,8 @@ function createSocialHubWorkerPersistence(client) {
         connectionId: id3(row3.connection_id),
         accountId: string2(row3.external_account_id),
         recipientId: string2(row3.recipient_id),
-        text: string2(row3.text)
+        text: string2(row3.text),
+        ...row3.automation_rule_id == null ? {} : { automationRuleId: id3(row3.automation_rule_id) }
       };
     },
     async resolveOutgoing(lease) {
@@ -1048,7 +1049,8 @@ function createSocialHubRpcWorkers(client, config = {}) {
       jobId,
       graphVersion: config.graphVersion,
       now: config.now,
-      fetcher: config.fetcher
+      fetcher: config.fetcher,
+      automationEnabled: config.automationEnabled
     })
   };
 }
@@ -1082,6 +1084,17 @@ function suggestSocialReply(input) {
     messageId: input.messageId
   };
 }
+function planSocialAutomation(enabled, automationEnabled, event, rules) {
+  if (!enabled || !automationEnabled || !event.id || !event.scopeId) return [];
+  return rules.filter((rule) => rule.enabled && rule.scopeId === event.scopeId && rule.trigger === event.trigger && ["suggest", "handoff", "notify", "reply"].includes(rule.action) && (!rule.contains || rule.contains.length <= 200 && (event.text ?? "").slice(0, 8e3).normalize("NFKC").toLocaleLowerCase().includes(rule.contains.normalize("NFKC").toLocaleLowerCase())) && (rule.action !== "reply" || Boolean(rule.approvedAnswerId))).slice(0, 20).map((rule) => ({
+    ruleId: rule.id,
+    action: rule.action,
+    approvedAnswerId: rule.approvedAnswerId,
+    eventId: event.id,
+    scopeId: event.scopeId,
+    idempotencyKey: `social:${event.id}:${rule.id}`
+  }));
+}
 async function suggestSocialReplyWithModel(input, dependencies) {
   const local = suggestSocialReply(input);
   if (local.kind !== "handoff" || local.reason !== "unconfirmed") return local;
@@ -1093,7 +1106,7 @@ async function suggestSocialReplyWithModel(input, dependencies) {
       scopeId: input.scopeId,
       text: input.text,
       language: input.language,
-      answers: answers.map(({ id: id5, question }) => ({ id: id5, question })),
+      answers: answers.map(({ id: id6, question }) => ({ id: id6, question })),
       signal: AbortSignal.timeout(8e3)
     });
     const answer = typeof choice === "string" ? answers.find((item) => item.id === choice) : void 0;
@@ -1151,9 +1164,9 @@ async function boundedText(body2, limit) {
 }
 function parseScope(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const object = value;
-  if (Object.keys(object).length !== 3 || !uuid5.test(String(object.scopeId)) || !uuid5.test(String(object.conversationId)) || !uuid5.test(String(object.messageId))) return null;
-  return object;
+  const object2 = value;
+  if (Object.keys(object2).length !== 3 || !uuid5.test(String(object2.scopeId)) || !uuid5.test(String(object2.conversationId)) || !uuid5.test(String(object2.messageId))) return null;
+  return object2;
 }
 function validateConfig2(config) {
   const platform = new URL(config.platformOrigin), application = new URL(config.applicationOrigin);
@@ -1312,6 +1325,62 @@ function createSocialAssistantDeployment(environment) {
   }
 }
 
+// server/social-automation-worker.ts
+var uuid6 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function fail5() {
+  throw Error("Social automation unavailable.");
+}
+function object(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail5();
+  return value;
+}
+function id5(value) {
+  if (typeof value !== "string" || !uuid6.test(value)) fail5();
+  return value;
+}
+function createSocialAutomationWorker(client, enabled) {
+  if (isUntrustedBrowserRuntime()) fail5();
+  async function rpc(name, args) {
+    const { data, error } = await client.rpc(name, args);
+    if (error) fail5();
+    return data;
+  }
+  return async () => {
+    let processed = 0;
+    for (let i = 0; i < 3 && enabled() === true; i++) {
+      const value = await rpc("claim_social_hub_automation", {});
+      if (value === null) break;
+      const row3 = object(value), eventId = id5(row3.id), claimToken = id5(row3.claimToken), scopeId = id5(row3.scopeId), messageId = id5(row3.messageId);
+      if (typeof row3.text !== "string" || row3.text.length > 16e3 || typeof row3.humanAssigned !== "boolean" || !Array.isArray(row3.rules) || row3.rules.length > 20 || !Array.isArray(row3.knowledge) || row3.knowledge.length > 20) fail5();
+      const rules = row3.rules.map((value2) => {
+        const rule = object(value2);
+        if (rule.scopeId !== scopeId || typeof rule.enabled !== "boolean" || rule.trigger !== "message.received" || typeof rule.contains !== "string" || rule.contains.length > 200 || !["suggest", "handoff", "notify", "reply"].includes(String(rule.action))) fail5();
+        return { id: id5(rule.id), scopeId, enabled: rule.enabled, trigger: "message.received", contains: rule.contains, action: rule.action, approvedAnswerId: rule.approvedAnswerId === null ? void 0 : id5(rule.approvedAnswerId) };
+      });
+      const knowledge = row3.knowledge.map((value2) => {
+        const item = object(value2);
+        if (item.scopeId !== scopeId || typeof item.question !== "string" || item.question.length > 400 || typeof item.answer !== "string" || item.answer.length > 4e3 || typeof item.language !== "string" || typeof item.approved !== "boolean" || typeof item.sensitive !== "boolean") fail5();
+        return { id: id5(item.id), scopeId, question: item.question, answer: item.answer, language: item.language, approved: item.approved, sensitive: item.sensitive };
+      });
+      let decisions = planSocialAutomation(true, true, { id: eventId, scopeId, trigger: "message.received", text: row3.text }, rules);
+      const hasHandoff = decisions.some((decision) => decision.action === "handoff");
+      decisions = decisions.filter((decision) => {
+        if (decision.action !== "reply") return true;
+        if (hasHandoff || row3.humanAssigned) return false;
+        const answer = knowledge.find((item) => item.id === decision.approvedAnswerId);
+        if (!answer) return false;
+        const reply = suggestSocialReply({ enabled: true, automationEnabled: true, scopeId, messageId, text: row3.text, language: answer.language, humanAssigned: false, knowledge });
+        return reply.kind === "auto-reply-candidate" && reply.sourceIds.length === 1 && reply.sourceIds[0] === answer.id;
+      });
+      if (enabled() !== true) break;
+      const committed = await rpc("complete_social_hub_automation", { p_event_id: eventId, p_claim_token: claimToken, p_decisions: decisions.map(({ ruleId, action }) => ({ ruleId, action })) });
+      if (committed !== true) fail5();
+      processed++;
+    }
+    return { processed };
+  };
+}
+
 // server/social-dispatch-runtime.ts
 function unavailable() {
   return new Response(null, { status: 503 });
@@ -1327,7 +1396,8 @@ async function equalSecret2(received, expected) {
 function createSocialDispatchHandler(input) {
   if (input.secret.length < 32 || input.secret.length > 512 || /\s/.test(input.secret)) throw Error("Invalid scheduler secret.");
   const listDue = createSocialHubDueOutgoingReader(input.client);
-  const workers = createSocialHubRpcWorkers(input.client, { enabled: input.enabled, graphVersion: input.graphVersion, fetcher: input.fetcher });
+  const workers = createSocialHubRpcWorkers(input.client, { enabled: input.enabled, graphVersion: input.graphVersion, fetcher: input.fetcher, automationEnabled: input.automationEnabled });
+  const automate = createSocialAutomationWorker(input.client, () => input.enabled() === true && input.automationEnabled?.() === true);
   return async (request) => {
     if (input.enabled() !== true) return unavailable();
     if (request.method !== "GET") return new Response(null, { status: 405 });
@@ -1336,6 +1406,7 @@ function createSocialDispatchHandler(input) {
     const authorization = request.headers.get("authorization") ?? "";
     if (!authorization.startsWith("Bearer ") || !await equalSecret2(authorization.slice(7), input.secret)) return new Response(null, { status: 401 });
     try {
+      await automate();
       const due = await listDue(3);
       let accepted = 0, review = 0, rejected = 0, idle = 0;
       for (const item of due) {
@@ -1376,6 +1447,7 @@ function createSocialHubDeployment(environment) {
       webhook = workers.webhook;
       if (environment.SOCIAL_DISPATCH_ENABLED === "true") dispatch = createSocialDispatchHandler({
         enabled: () => true,
+        automationEnabled: () => environment.SOCIAL_AUTOMATION_ENABLED === "true",
         secret: environment.SOCIAL_DISPATCH_CRON_SECRET ?? "",
         client,
         graphVersion: environment.SOCIAL_META_GRAPH_VERSION

@@ -45,6 +45,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${dispatchFile}`,'utf8'));
  const challengeFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_meta_challenge.sql'));
  await db.exec(await readFile(`supabase/migrations/${challengeFile}`,'utf8'));
+ const automationFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_automation_runtime.sql'));
+ await db.exec(await readFile(`supabase/migrations/${automationFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');`);
  await actor(uid(1));
@@ -166,6 +168,49 @@ try {
  assert.equal((await sql(`select public.get_social_hub_assistant_context('${scope}','${conversation}','${message}')data`))[0].data.externalClassification.approved,false,'revocation removes per-message review');
  await db.exec(`select public.configure_social_hub_assistant('${scope}',false,false,'en',0)`);
  assert.equal((await sql(`select public.get_social_hub_assistant_context('${scope}','${conversation}','${message}')data`))[0].data,null);
+ // Durable automation: current permissions, same tenant, single commit and dispatch-time revocation.
+ await actor(uid(4));await denied(`select public.save_social_hub_automation_rule('${scope}',null,true,'','notify')`);
+ await denied(`select public.set_social_hub_automation('${scope}',true)`);
+ await actor(uid(1));await denied(`select public.save_social_hub_automation_rule('${personal}',null,true,'','reply','${knowledgeId}')`);
+ const autoRule=(await sql(`select public.save_social_hub_automation_rule('${scope}',null,true,'','reply','${knowledgeId}')id`))[0].id;
+ await db.exec(`select public.set_social_hub_automation('${scope}',true)`);
+ await denied('select public.claim_social_hub_automation()');
+ await actor(null,'service_role');
+ // Existing historical events cannot trigger a rule configured later.
+ for(let i=0;i<2;i++){const event=(await sql('select public.claim_social_hub_automation()data'))[0].data;assert.ok(event);assert.equal((await sql(`select public.complete_social_hub_automation('${event.id}','${event.claimToken}','[{"ruleId":"${autoRule}","action":"reply"}]')ok`))[0].ok,true);}
+ const autoMessage=(await sql(`select public.ingest_social_hub_message('${scope}','${uid(30)}','auto-event','12345','auto-message','Alice','hello',now())id`))[0].id;
+ const autoEvent=(await sql('select public.claim_social_hub_automation()data'))[0].data;assert.equal(autoEvent.messageId,autoMessage);
+ assert.equal((await sql('select public.claim_social_hub_automation()data'))[0].data,null,'live lease cannot be claimed twice');
+ const complete=`select public.complete_social_hub_automation('${autoEvent.id}','${autoEvent.claimToken}','[{"ruleId":"${autoRule}","action":"reply"}]')ok`;
+ assert.equal((await sql(complete))[0].ok,true);assert.equal((await sql(complete))[0].ok,false,'completion is single-use');
+ await actor(null,'postgres');const autoQueue=(await sql(`select id,text from private.social_hub_outbox where automation_rule_id='${autoRule}'`))[0];assert.equal(autoQueue.text,'Hello from the shop');assert.equal((await sql(`select count(*)::int n from private.social_hub_outbox where automation_rule_id='${autoRule}'`))[0].n,1);
+ await actor(null,'service_role');const autoClaim=(await sql(`select public.claim_social_hub_outgoing('${scope}','${uid(30)}','${autoQueue.id}')data`))[0].data;assert.ok(autoClaim);
+ await actor(uid(1));await db.exec(`select public.save_social_hub_knowledge('${scope}','${knowledgeId}','hello','Revoked answer','en',false,false)`);
+ await actor(null,'service_role');assert.equal((await sql(`select public.reserve_social_hub_dispatch('${autoQueue.id}','${autoClaim.claim_token}')ok`))[0].ok,false,'knowledge revocation blocks claimed automatic reply');
+ await actor(uid(1));const notifyRule=(await sql(`select public.save_social_hub_automation_rule('${scope}',null,true,'','notify')id`))[0].id;
+ await actor(null,'service_role');await db.exec(`select public.ingest_social_hub_message('${scope}','${uid(30)}','recover-event','12345','recover-message','Alice','follow up',now())`);
+ const expired=(await sql('select public.claim_social_hub_automation()data'))[0].data;
+ await actor(null,'postgres');await db.exec(`update private.social_hub_automation_events set lease_until=now()-interval '1 second' where id='${expired.id}'`);
+ await actor(null,'service_role');const recovered=(await sql('select public.claim_social_hub_automation()data'))[0].data;assert.equal(recovered.id,expired.id);assert.notEqual(recovered.claimToken,expired.claimToken);
+ const notifyDecisions=`'[{"ruleId":"${notifyRule}","action":"notify"}]'`;
+ assert.equal((await sql(`select public.complete_social_hub_automation('${expired.id}','${expired.claimToken}',${notifyDecisions})ok`))[0].ok,false,'old worker is fenced');
+ assert.equal((await sql(`select public.complete_social_hub_automation('${recovered.id}','${recovered.claimToken}',${notifyDecisions})ok`))[0].ok,true);
+ assert.equal((await sql(`select public.complete_social_hub_automation('${recovered.id}','${recovered.claimToken}',${notifyDecisions})ok`))[0].ok,false);
+ await actor(null,'postgres');assert.equal((await sql(`select count(*)::int n from private.social_hub_notes where conversation_id='${conversation}'and text='Automation: follow-up requested.'`))[0].n,1);
+ await actor(uid(1));await db.exec(`select public.save_social_hub_knowledge('${scope}','${knowledgeId}','hello','Hello from the shop','en',true,false)`);
+ await actor(null,'service_role');await db.exec(`select public.ingest_social_hub_message('${scope}','${uid(30)}','auto-disable-event','12345','auto-disable-message','Alice','hello',now())`);
+ const disabling=(await sql('select public.claim_social_hub_automation()data'))[0].data;
+ await db.exec(`select public.complete_social_hub_automation('${disabling.id}','${disabling.claimToken}','[{"ruleId":"${autoRule}","action":"reply"}]')`);
+ await actor(uid(1));await db.exec(`select public.save_social_hub_automation_rule('${scope}','${autoRule}',false,'','reply','${knowledgeId}')`);
+ await actor(null,'postgres');assert.equal((await sql(`select count(*)::int n from private.social_hub_outbox where automation_rule_id='${autoRule}'and status='queued'`))[0].n,0,'disabling a rule cancels pending replies');
+ await actor(uid(1));await db.exec(`select public.save_social_hub_automation_rule('${scope}','${autoRule}',true,'','reply','${knowledgeId}')`);
+ const handoffRule=(await sql(`select public.save_social_hub_automation_rule('${scope}',null,true,'','handoff')id`))[0].id;
+ await actor(null,'service_role');await db.exec(`select public.ingest_social_hub_message('${scope}','${uid(30)}','handoff-event','12345','handoff-message','Alice','hello',now())`);
+ const handoff=(await sql('select public.claim_social_hub_automation()data'))[0].data;
+ await db.exec(`select public.complete_social_hub_automation('${handoff.id}','${handoff.claimToken}','[{"ruleId":"${autoRule}","action":"reply"},{"ruleId":"${handoffRule}","action":"handoff"}]')`);
+ await actor(uid(1));assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.conversations[0].status,'human_required','handoff precedes reply even when ordered later');
+ await actor(uid(1));await db.exec(`select public.set_social_hub_automation('${scope}',false)`);
+ await actor(null,'service_role');assert.equal((await sql('select public.claim_social_hub_automation()data'))[0].data,null);
  await actor(null,'service_role');
  await db.exec(`select public.social_hub_revoke_credential('${personal}','${uid(30)}','${stored}')`);
  assert.ok((await sql(`select public.read_social_hub_credential('${scope}','${uid(30)}','${stored}')token`))[0].token);

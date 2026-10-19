@@ -18,6 +18,10 @@ They are disabled until `SOCIAL_HUB_ENABLED=true` and the database scope is enab
 - `/api/social-dispatch` is a GET-only scheduler target. It accepts only an exact
   Bearer scheduler secret, discovers at most three due job IDs server-side and
   sends them through the existing claim, consent, quota, cost and settlement fence.
+  With `SOCIAL_AUTOMATION_ENABLED=true`, it first consumes at most three persisted
+  `message.received` events. The existing local rule planner and approved-answer
+  matcher select actions; one fenced SQL transaction rechecks current rules,
+  permissions and scope before writing notes, human handoffs or the existing outbox.
 
 Server configuration: `SOCIAL_HUB_ORIGIN` (exact HTTPS app origin), `SUPABASE_URL`
 and `SUPABASE_SECRET_KEY` or existing `SUPABASE_SERVICE_ROLE_KEY`. Meta additionally
@@ -29,6 +33,20 @@ a `VITE_` prefix. Dispatch additionally requires `SOCIAL_DISPATCH_ENABLED=true`
 and a distinct `SOCIAL_DISPATCH_CRON_SECRET` of at least 32 non-whitespace
 characters. No cron is installed by this change; activation remains an explicit
 deployment step. Rebuild the runtime with `node scripts/build-social-hub-runtime.mjs`.
+
+Managers can configure up to 20 disabled-by-default rules and enable/stop scope
+automation from Social Hub. Only new events after activation and rule configuration
+can act. Reply rules require an exact case-insensitive, trimmed approved question,
+an unchanged approved answer and no sensitive content. Human handoff takes priority.
+The local rule planner never calls a model or a generic external webhook. Knowledge,
+scope, rule and manager revocation are rechecked at dispatch reservation. Global
+automation disable also blocks already queued automatic provider calls.
+
+Supported automation actions are follow-up/review notes, `human_required` status and
+approved reply queueing for incoming messages. Notes are visible in the inbox; this
+does not create a CRM/support ticket or send push notifications. Order/booking,
+assignment and outside-hours triggers, CRM actions and live channel verification
+remain separate unfinished work.
 
 Before activation, apply the reviewed migration in an isolated database, configure
 the scoped webhook binding through the existing service-only RPC, and provision a

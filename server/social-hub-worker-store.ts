@@ -74,7 +74,8 @@ export function createSocialHubWorkerPersistence(client: Pick<SupabaseClient, 'r
         || !/^\d{1,30}$/.test(string(row.external_account_id)) || !/^-?\d{1,30}$/.test(string(row.recipient_id))
         || string(row.text).length < 1 || string(row.text).length > 4096)fail();
       return {jobId:id(row.id),leaseId:id(row.claim_token),leaseExpiresAt:date(row.lease_until),tenantId:id(row.scope_id),
-        connectionId:id(row.connection_id),accountId:string(row.external_account_id),recipientId:string(row.recipient_id),text:string(row.text)};
+        connectionId:id(row.connection_id),accountId:string(row.external_account_id),recipientId:string(row.recipient_id),text:string(row.text),
+        ...(row.automation_rule_id==null?{}:{automationRuleId:id(row.automation_rule_id)})};
     },
     async resolveOutgoing(lease) {
       leaseScope(lease);
@@ -135,6 +136,7 @@ export function createSocialHubDueOutgoingReader(client: Pick<SupabaseClient, 'r
 /** Fully composed but unmounted RPC-backed workers. Disabled unless explicitly enabled by trusted host config. */
 export function createSocialHubRpcWorkers(client: Pick<SupabaseClient, 'rpc'>, config: {
   enabled?: () => boolean; graphVersion?: string; now?: () => Date; fetcher?: typeof fetch;
+  automationEnabled?: () => boolean;
   resolveChallengeToken?: (opaqueId: string) => Promise<string | null>;
 } = {}) {
   const persistence = createSocialHubWorkerPersistence(client);
@@ -142,6 +144,6 @@ export function createSocialHubRpcWorkers(client: Pick<SupabaseClient, 'rpc'>, c
   return {
     webhook: createSocialHubWebhookHandler({enabled,...persistence,resolveChallengeToken:config.resolveChallengeToken}),
     dispatch: (scope: {tenantId:string;connectionId:string}, jobId:string) => dispatchSocialHubOutgoing({enabled,...persistence,
-      scope,jobId,graphVersion:config.graphVersion,now:config.now,fetcher:config.fetcher}),
+      scope,jobId,graphVersion:config.graphVersion,now:config.now,fetcher:config.fetcher,automationEnabled:config.automationEnabled}),
   };
 }

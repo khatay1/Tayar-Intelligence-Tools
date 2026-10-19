@@ -17,7 +17,7 @@ const calls=[];
 globalThis.socialFixture={calls,user:{id:'user1'}};
 const scope={id:'scope1',kind:'customer',enabled:true,automation_enabled:false};
 const inbox={scope,connections:[{id:'conn1',channel:'telegram',external_account_id:'bot1',status:'connected'}],conversations:[{id:'conv1',connection_id:'conn1',external_id:'chat1',status:'open',assigned_to:null,updated_at:'2026-10-18'}],messages:[{id:'m1',conversation_id:'conv1',direction:'inbound',text:'Opening hours?',created_at:'2026-10-18'}],notes:[]};
-globalThis.socialFixture.rpc=async(name,args)=>{calls.push({name,args}); if(name==='get_social_hub_assistant_settings')return {data:null};if(name==='list_social_hub_scopes')return {data:[scope]};if(name==='get_social_hub_inbox')return {data:inbox};if(name==='enqueue_social_hub_message')return {data:'job1'};if(name==='mutate_social_hub_conversation')return {data:true};throw Error('unknown RPC')};
+globalThis.socialFixture.rpc=async(name,args)=>{calls.push({name,args});if(name==='get_social_hub_automation_rules')return {data:[]};if(name==='set_social_hub_automation'){scope.automation_enabled=args.p_enabled;return {data:null}}if(name==='save_social_hub_automation_rule')return {data:'rule1'};if(name==='get_social_hub_assistant_settings')return {data:null};if(name==='list_social_hub_scopes')return {data:[scope]};if(name==='get_social_hub_inbox')return {data:inbox};if(name==='enqueue_social_hub_message')return {data:'job1'};if(name==='mutate_social_hub_conversation')return {data:true};throw Error('unknown RPC')};
 globalThis.fetch=async(url,options)=>{check(url==='/api/social-assistant','Fixed assistant destination');check(JSON.stringify(JSON.parse(options.body))===JSON.stringify({scopeId:'scope1',conversationId:'conv1',messageId:'m1'}),'Assistant accepts identifiers only');return new Response(JSON.stringify({decision:{kind:'suggestion',messageId:'m1',text:'Open at 09:00'}}));};
 const check=(v,m)=>{if(!v)throw Error(m)};
 const wait=()=>new Promise(r=>setTimeout(r,30));
@@ -25,6 +25,8 @@ const change=(control,value)=>{Object.getOwnPropertyDescriptor(control instanceo
 const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent===text);
 async function run(){const host=document.createElement('div');document.body.append(host);const root=createRoot(host);root.render(<SocialHubTool darkMode={false}/>);await wait();await wait();
 change(document.querySelector('[aria-label="Account scope"]'),'scope1');await wait();await wait();
+button('Save rule').click();await wait();await wait();check(calls.some(c=>c.name==='save_social_hub_automation_rule'&&c.args.p_scope_id==='scope1'&&c.args.p_enabled===false&&c.args.p_action==='notify'),'Rules default disabled');
+button('Enable automation').click();await wait();await wait();check(!!button('Stop automation'),'Automation enable state refresh');button('Stop automation').click();await wait();await wait();check(calls.some(c=>c.name==='set_social_hub_automation'&&c.args.p_enabled===false),'Immediate stop control');
 const conversation=document.querySelector('nav button');check(conversation.textContent.includes('telegram'),'Channel visible');conversation.click();await wait();
 check(document.querySelector('[role="log"]').textContent.includes('Opening hours?'),'Actual message visible');
 button('Suggest reply').click();await wait();await wait();button('Use suggestion in draft').click();await wait();

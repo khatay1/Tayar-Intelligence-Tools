@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSocialHubDueOutgoingReader, createSocialHubRpcWorkers } from './social-hub-worker-store';
+import { createSocialAutomationWorker } from './social-automation-worker';
 
 function unavailable() { return new Response(null,{status:503}); }
 async function equalSecret(received:string,expected:string) {
@@ -8,10 +9,11 @@ async function equalSecret(received:string,expected:string) {
 }
 
 /** Dedicated scheduler endpoint. It never accepts scope/job/provider data from the request. */
-export function createSocialDispatchHandler(input:{enabled:()=>boolean;secret:string;client:Pick<SupabaseClient,'rpc'>;graphVersion?:string;fetcher?:typeof fetch}) {
+export function createSocialDispatchHandler(input:{enabled:()=>boolean;automationEnabled?:()=>boolean;secret:string;client:Pick<SupabaseClient,'rpc'>;graphVersion?:string;fetcher?:typeof fetch}) {
   if (input.secret.length<32 || input.secret.length>512 || /\s/.test(input.secret)) throw Error('Invalid scheduler secret.');
   const listDue=createSocialHubDueOutgoingReader(input.client);
-  const workers=createSocialHubRpcWorkers(input.client,{enabled:input.enabled,graphVersion:input.graphVersion,fetcher:input.fetcher});
+  const workers=createSocialHubRpcWorkers(input.client,{enabled:input.enabled,graphVersion:input.graphVersion,fetcher:input.fetcher,automationEnabled:input.automationEnabled});
+  const automate=createSocialAutomationWorker(input.client,()=>input.enabled()===true&&input.automationEnabled?.()===true);
   return async (request:Request):Promise<Response> => {
     if(input.enabled()!==true)return unavailable();
     if(request.method!=='GET')return new Response(null,{status:405});
@@ -19,6 +21,7 @@ export function createSocialDispatchHandler(input:{enabled:()=>boolean;secret:st
     const authorization=request.headers.get('authorization')??'';
     if(!authorization.startsWith('Bearer ')||!await equalSecret(authorization.slice(7),input.secret))return new Response(null,{status:401});
     try {
+      await automate();
       const due=await listDue(3);let accepted=0,review=0,rejected=0,idle=0;
       for(const item of due){
         if(input.enabled()!==true)return unavailable();

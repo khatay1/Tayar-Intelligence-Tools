@@ -62,6 +62,7 @@ jobs:
           node scripts/social-hub-runtime-regression.mjs
           node scripts/social-assistant-store-regression.mjs
           node scripts/social-dispatch-runtime-regression.mjs
+          node scripts/social-automation-worker-regression.mjs
           npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler --lib es2023,dom,dom.iterable server/social-hub-deployment.ts
           timeout 40s node scripts/social-inbox-browser-regression.mjs
 
