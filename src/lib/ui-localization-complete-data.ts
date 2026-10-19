@@ -4,6 +4,8 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Select project':'اختر المشروع',
+  'Owned website project':'مشروع موقع تملكه','Project list unavailable.':'قائمة المشاريع غير متاحة.','Create project inbox':'إنشاء صندوق للمشروع','Project inbox created; activation remains disabled.':'أُنشئ صندوق المشروع؛ يبقى التفعيل معطلاً.',
   "Social automation": "أتمتة التواصل", "Automation unavailable. Check access and activation.": "الأتمتة غير متاحة. تحقق من الصلاحيات والتفعيل.",
   "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "تنطبق القواعد على الرسائل الواردة الجديدة. تتطلب الردود التلقائية سؤالاً مطابقاً ومعتمداً؛ وتتطلب الرسائل الحساسة مراجعة موظف.",
   "Activation also requires the approved server scheduler.": "يتطلب التفعيل أيضاً تشغيل المجدول المعتمد على الخادم.",
@@ -681,6 +683,8 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Select project':'Välj projekt',
+  'Owned website project':'Eget webbplatsprojekt','Project list unavailable.':'Projektlistan är inte tillgänglig.','Create project inbox':'Skapa projektinkorg','Project inbox created; activation remains disabled.':'Projektinkorgen skapades; aktivering förblir avstängd.',
   "Social automation": "Social automatisering", "Automation unavailable. Check access and activation.": "Automatisering är inte tillgänglig. Kontrollera behörighet och aktivering.",
   "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "Regler gäller nya inkommande meddelanden. Automatiska svar kräver en exakt godkänd fråga; känsliga meddelanden kräver mänsklig granskning.",
   "Activation also requires the approved server scheduler.": "Aktivering kräver även den godkända schemaläggaren på servern.",

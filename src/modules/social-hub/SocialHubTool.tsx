@@ -4,7 +4,7 @@ import SocialAssistantPanel from './SocialAssistantPanel';
 import SocialAutomationPanel from './SocialAutomationPanel';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { socialHubClient as client, type SocialInbox, type SocialScope } from './client';
+import { socialHubClient as client, type SocialInbox, type SocialScope, type SocialProject } from './client';
 import { useLocalizer } from '@/lib/ui-localization';
 
 export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
@@ -13,6 +13,9 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
   const { isAdmin } = useAdmin();
   const [scopes, setScopes] = useState<SocialScope[]>([]);
   const [scopeId, setScopeId] = useState('');
+  const [projects,setProjects]=useState<SocialProject[]>([]);
+  const [projectId,setProjectId]=useState('');
+  const [projectsIdentity,setProjectsIdentity]=useState('');
   const [inboxIdentity,setInboxIdentity] = useState('');
   const [scopesIdentity,setScopesIdentity] = useState('');
   const [inbox, setInbox] = useState<SocialInbox | null>(null);
@@ -40,6 +43,9 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
   useEffect(() => {
     let current = true;
     setScopes([]); setScopeId(''); setInbox(null); setConversationId(''); setDraft(''); setNote(''); setFollowupTitle(''); setNotice('');
+    setProjects([]);setProjectId('');setProjectsIdentity('');
+    if(userId)void client.projects(userId).then(rows=>{if(current){setProjects(rows);setProjectsIdentity(userId);}})
+      .catch(()=>{if(current)setNotice(l('Project list unavailable.'));});
     if (userId) void client.scopes().then(rows => { if (current) {setScopes(rows);setScopesIdentity(userId);} })
       .catch(() => { if (current) setNotice(l('Social Hub requires an approved deployment and access.')); });
     const revisionRef = generation;
@@ -55,6 +61,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
   }, [refresh]);
   const currentInbox = inboxIdentity === `${userId}:${scopeId}` ? inbox : null;
   const currentScopes = scopesIdentity === userId ? scopes : [];
+  const currentProjects=projectsIdentity===userId?projects:[];
   const visible = useMemo(() => (currentInbox?.conversations ?? []).filter(item =>
     (status === 'all' || item.status === status) && `${item.external_id} ${currentInbox?.messages.filter(m => m.conversation_id === item.id).map(m => m.text).join(' ')}`
       .toLocaleLowerCase().includes(query.toLocaleLowerCase())), [currentInbox, query, status]);
@@ -88,6 +95,15 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
       <button disabled={busy || !userId} onClick={() => void mutate(async () => {
         await client.createScope('customer'); setScopes(await client.scopes());
       }, l('Private customer scope created; activation remains disabled.'))}>{l('Create private inbox')}</button>
+      <label>{l('Owned website project')} <select aria-label={l('Owned website project')} className="text-slate-900" disabled={busy} value={projectId} onChange={e=>setProjectId(e.target.value)}>
+        <option value="">{l('Select project')}</option>{currentProjects.map(project=><option key={project.id} value={project.id}>{project.title}</option>)}
+      </select></label>
+      <button disabled={busy||!userId||!currentProjects.some(project=>project.id===projectId)} onClick={()=>{
+        const project=currentProjects.find(item=>item.id===projectId);if(!project)return;
+        const identity=activeIdentity.current;
+        void mutate(async()=>{const id=await client.createScope('customer',project);const rows=await client.scopes();
+          if(activeIdentity.current===identity){setScopes(rows);setScopesIdentity(userId??'');setScopeId(id);}},l('Project inbox created; activation remains disabled.'));
+      }}>{l('Create project inbox')}</button>
       {isAdmin && <button disabled={busy} onClick={() => void mutate(async () => {
         await client.createScope('official'); setScopes(await client.scopes());
       }, l('Official inbox created; activation remains disabled.'))}>{l('Create Tayar official inbox')}</button>}

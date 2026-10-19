@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 export interface SocialScope { id: string; kind: 'customer' | 'official'; enabled: boolean; automation_enabled: boolean }
+export interface SocialProject { id:string; title:string; workspace_id:string|null }
 export interface SocialConnection { id: string; channel: string; external_account_id: string; status: string }
 export interface SocialConversation {
   id: string; connection_id: string; external_id: string;
@@ -18,7 +19,15 @@ async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise
 }
 export const socialHubClient = {
   scopes: () => rpc<SocialScope[]>('list_social_hub_scopes'),
-  createScope: (kind: 'customer' | 'official') => rpc<string>('create_social_hub_scope', { p_kind: kind }),
+  projects: async (userId:string):Promise<SocialProject[]> => {
+    const {data,error}=await supabase.from('projects').select('id,title,workspace_id')
+      .eq('user_id',userId).eq('type','website-builder').is('deleted_at',null).order('updated_at',{ascending:false}).limit(100);
+    if(error)throw new Error('Project list unavailable.');
+    return data??[];
+  },
+  createScope: (kind: 'customer' | 'official',project?:SocialProject) => rpc<string>('create_social_hub_scope', {
+    p_kind:kind,p_workspace_id:project?.workspace_id??null,p_project_id:project?.id??null,
+  }),
   inbox: (scopeId: string) => rpc<SocialInbox>('get_social_hub_inbox', { p_scope_id: scopeId }),
   update: (id: string, patch: { status?: string; note?: string; assignedTo?: string | null }) => rpc('mutate_social_hub_conversation', {
     p_conversation_id: id, p_status: patch.status ?? null, p_note: patch.note ?? null,

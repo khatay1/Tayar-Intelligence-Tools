@@ -53,6 +53,11 @@ list or may change the link; editors can continue inbox work without receiving C
 contact details. A lead from another project is rejected in the database. The link
 does not create a new lead or mutate CRM fields.
 
+The inbox can create a disabled scope from the signed-in owner's most recent 100
+active Website Builder projects. It preserves the selected project's workspace;
+the existing checked creation RPC remains authoritative and rejects an unrelated
+project or a workspace editor. No customer backend is provisioned by this action.
+
 Follow-ups are private Social Hub work items in the same scope. Editors can create
 and complete them, and may only assign them to eligible members of that scope.
 Entering `human_required` creates one open handoff follow-up atomically; repeated
