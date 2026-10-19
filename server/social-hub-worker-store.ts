@@ -103,6 +103,23 @@ export function createSocialHubWorkerPersistence(client: Pick<SupabaseClient, 'r
   return {store,vault};
 }
 
+export interface SocialDueOutgoing { jobId: string; tenantId: string; connectionId: string }
+
+/** Returns only opaque identifiers. Claiming and reading message content remain inside the fenced worker flow. */
+export function createSocialHubDueOutgoingReader(client: Pick<SupabaseClient, 'rpc'>) {
+  if (isUntrustedBrowserRuntime()) fail();
+  return async (limit = 3): Promise<SocialDueOutgoing[]> => {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 3 || isUntrustedBrowserRuntime()) fail();
+    let value: unknown;
+    try { const result=await client.rpc('list_due_social_hub_outgoing',{p_limit:limit});if(result.error)fail();value=result.data; } catch { return fail(); }
+    if (!Array.isArray(value) || value.length > limit) fail();
+    return value.map(item => {
+      const row=record(item);
+      return {jobId:id(row.job_id),tenantId:id(row.scope_id),connectionId:id(row.connection_id)};
+    });
+  };
+}
+
 /** Fully composed but unmounted RPC-backed workers. Disabled unless explicitly enabled by trusted host config. */
 export function createSocialHubRpcWorkers(client: Pick<SupabaseClient, 'rpc'>, config: {
   enabled?: () => boolean; graphVersion?: string; now?: () => Date; fetcher?: typeof fetch;

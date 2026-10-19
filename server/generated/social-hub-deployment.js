@@ -1000,6 +1000,25 @@ function createSocialHubWorkerPersistence(client) {
   };
   return { store, vault };
 }
+function createSocialHubDueOutgoingReader(client) {
+  if (isUntrustedBrowserRuntime()) fail4();
+  return async (limit = 3) => {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 3 || isUntrustedBrowserRuntime()) fail4();
+    let value;
+    try {
+      const result = await client.rpc("list_due_social_hub_outgoing", { p_limit: limit });
+      if (result.error) fail4();
+      value = result.data;
+    } catch {
+      return fail4();
+    }
+    if (!Array.isArray(value) || value.length > limit) fail4();
+    return value.map((item) => {
+      const row3 = record3(item);
+      return { jobId: id3(row3.job_id), tenantId: id3(row3.scope_id), connectionId: id3(row3.connection_id) };
+    });
+  };
+}
 function createSocialHubRpcWorkers(client, config = {}) {
   const persistence = createSocialHubWorkerPersistence(client);
   const enabled = config.enabled ?? (() => false);
@@ -1276,10 +1295,51 @@ function createSocialAssistantDeployment(environment) {
   }
 }
 
+// server/social-dispatch-runtime.ts
+function unavailable() {
+  return new Response(null, { status: 503 });
+}
+async function equalSecret2(received, expected) {
+  const encoder = new TextEncoder();
+  const [a, b] = await Promise.all([crypto.subtle.digest("SHA-256", encoder.encode(received)), crypto.subtle.digest("SHA-256", encoder.encode(expected))]);
+  const left = new Uint8Array(a), right = new Uint8Array(b);
+  let mismatch = left.length ^ right.length;
+  for (let i = 0; i < Math.max(left.length, right.length); i++) mismatch |= (left[i % left.length] ?? 0) ^ (right[i % right.length] ?? 0);
+  return mismatch === 0;
+}
+function createSocialDispatchHandler(input) {
+  if (input.secret.length < 32 || input.secret.length > 512 || /\s/.test(input.secret)) throw Error("Invalid scheduler secret.");
+  const listDue = createSocialHubDueOutgoingReader(input.client);
+  const workers = createSocialHubRpcWorkers(input.client, { enabled: input.enabled, graphVersion: input.graphVersion, fetcher: input.fetcher });
+  return async (request) => {
+    if (input.enabled() !== true) return unavailable();
+    if (request.method !== "GET") return new Response(null, { status: 405 });
+    const url = new URL(request.url);
+    if (url.search) return new Response(null, { status: 400 });
+    const authorization = request.headers.get("authorization") ?? "";
+    if (!authorization.startsWith("Bearer ") || !await equalSecret2(authorization.slice(7), input.secret)) return new Response(null, { status: 401 });
+    try {
+      const due = await listDue(3);
+      let accepted = 0, review = 0, rejected = 0, idle = 0;
+      for (const item of due) {
+        if (input.enabled() !== true) return unavailable();
+        const outcome = await workers.dispatch({ tenantId: item.tenantId, connectionId: item.connectionId }, item.jobId);
+        if (outcome.status === "accepted") accepted++;
+        else if (outcome.status === "review") review++;
+        else if (outcome.status === "idle") idle++;
+        else rejected++;
+      }
+      return Response.json({ processed: due.length, accepted, review, rejected, idle }, { headers: { "Cache-Control": "private, no-store" } });
+    } catch {
+      return unavailable();
+    }
+  };
+}
+
 // server/social-hub-deployment.ts
 function createSocialHubDeployment(environment) {
-  const unavailable = () => new Response(null, { status: 503 });
-  let connect = async () => unavailable();
+  const unavailable2 = () => new Response(null, { status: 503 });
+  let connect = async () => unavailable2();
   try {
     const origin = new URL(environment.SOCIAL_HUB_ORIGIN ?? "");
     const callback = environment.SOCIAL_META_CALLBACK_URL ?? environment.SOCIAL_CONNECT_CALLBACK_URL;
@@ -1287,7 +1347,8 @@ function createSocialHubDeployment(environment) {
     connect = createSocialConnectEdge(environment);
   } catch {
   }
-  let webhook = async () => unavailable();
+  let webhook = async () => unavailable2();
+  let dispatch = async () => unavailable2();
   if (environment.SOCIAL_HUB_ENABLED === "true") {
     try {
       const url = new URL(environment.SUPABASE_URL ?? "");
@@ -1296,10 +1357,16 @@ function createSocialHubDeployment(environment) {
       const client = createClient3(url.origin, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
       const workers = createSocialHubRpcWorkers(client, { enabled: () => true });
       webhook = workers.webhook;
+      if (environment.SOCIAL_DISPATCH_ENABLED === "true") dispatch = createSocialDispatchHandler({
+        enabled: () => true,
+        secret: environment.SOCIAL_DISPATCH_CRON_SECRET ?? "",
+        client,
+        graphVersion: environment.SOCIAL_META_GRAPH_VERSION
+      });
     } catch {
     }
   }
-  return { connect, webhook, assistant: createSocialAssistantDeployment(environment) };
+  return { connect, webhook, assistant: createSocialAssistantDeployment(environment), dispatch };
 }
 export {
   createSocialHubDeployment

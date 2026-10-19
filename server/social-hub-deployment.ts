@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createSocialConnectEdge } from './social-connect-endpoint';
 import { createSocialHubRpcWorkers } from './social-hub-worker-store';
 import { createSocialAssistantDeployment } from './social-assistant-store';
+import { createSocialDispatchHandler } from './social-dispatch-runtime';
 
 /** Cold-start server composition. All channels remain off until explicitly enabled. */
 export function createSocialHubDeployment(environment: Record<string, string | undefined>) {
@@ -16,6 +17,7 @@ export function createSocialHubDeployment(environment: Record<string, string | u
     connect = createSocialConnectEdge(environment);
   } catch { /* Do not accept a callback path the deployed router cannot serve. */ }
   let webhook: (request: Request, opaqueId: string) => Promise<Response> = async () => unavailable();
+  let dispatch: (request: Request) => Promise<Response> = async () => unavailable();
   if (environment.SOCIAL_HUB_ENABLED === 'true') {
     try {
       const url = new URL(environment.SUPABASE_URL ?? '');
@@ -26,7 +28,9 @@ export function createSocialHubDeployment(environment: Record<string, string | u
       const workers = createSocialHubRpcWorkers(client, { enabled: () => true });
       // GET verification needs a separately scoped Vault token; until provisioned it stays denied.
       webhook = workers.webhook;
+      if (environment.SOCIAL_DISPATCH_ENABLED === 'true') dispatch=createSocialDispatchHandler({enabled:()=>true,
+        secret:environment.SOCIAL_DISPATCH_CRON_SECRET??'',client,graphVersion:environment.SOCIAL_META_GRAPH_VERSION});
     } catch { /* Sanitized unavailable response; never log configuration. */ }
   }
-  return { connect, webhook, assistant: createSocialAssistantDeployment(environment) };
+  return { connect, webhook, assistant: createSocialAssistantDeployment(environment), dispatch };
 }
