@@ -7205,6 +7205,9 @@ function localizeUi(text3, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Load older messages": "\u062A\u062D\u0645\u064A\u0644 \u0631\u0633\u0627\u0626\u0644 \u0623\u0642\u062F\u0645",
+  "Conversation history unavailable.": "\u0633\u062C\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D.",
+  "Conversation messages": "\u0631\u0633\u0627\u0626\u0644 \u0627\u0644\u0645\u062D\u0627\u062F\u062B\u0629",
   "Select project": "\u0627\u062E\u062A\u0631 \u0627\u0644\u0645\u0634\u0631\u0648\u0639",
   "Owned website project": "\u0645\u0634\u0631\u0648\u0639 \u0645\u0648\u0642\u0639 \u062A\u0645\u0644\u0643\u0647",
   "Project list unavailable.": "\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0634\u0627\u0631\u064A\u0639 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629.",
@@ -7938,6 +7941,9 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Load older messages": "Ladda \xE4ldre meddelanden",
+  "Conversation history unavailable.": "Konversationshistoriken \xE4r inte tillg\xE4nglig.",
+  "Conversation messages": "Konversationsmeddelanden",
   "Select project": "V\xE4lj projekt",
   "Owned website project": "Eget webbplatsprojekt",
   "Project list unavailable.": "Projektlistan \xE4r inte tillg\xE4nglig.",

@@ -7,7 +7,8 @@ export interface SocialConversation {
   status: 'open' | 'pending' | 'archived' | 'resolved' | 'human_required'; assigned_to: string | null;
   crm_lead_id: string | null; last_message_at: string;
 }
-export interface SocialMessage { id: string; conversation_id: string; direction: string; text: string; created_at: string }
+export interface SocialMessage { id: string; conversation_id: string; direction: string; text: string; created_at: string; occurred_at:string }
+export interface SocialMessagePage { messages:SocialMessage[]; nextBeforeId:string|null }
 export interface SocialNote { id: string; conversation_id: string; text: string; created_at: string }
 export interface SocialFollowup { id:string; conversation_id:string; title:string; body:string; status:'open'|'done'; source:'manual'|'handoff'; assigned_to:string|null; created_at:string }
 export interface SocialCrmLead { id:string; name:string; email:string; stage:string; priority:number }
@@ -29,6 +30,9 @@ export const socialHubClient = {
     p_kind:kind,p_workspace_id:project?.workspace_id??null,p_project_id:project?.id??null,
   }),
   inbox: (scopeId: string) => rpc<SocialInbox>('get_social_hub_inbox', { p_scope_id: scopeId }),
+  history: (conversationId:string,beforeId:string|null=null) => rpc<SocialMessagePage>('get_social_hub_message_history',{
+    p_conversation_id:conversationId,p_before_id:beforeId,p_limit:50,
+  }),
   update: (id: string, patch: { status?: string; note?: string; assignedTo?: string | null }) => rpc('mutate_social_hub_conversation', {
     p_conversation_id: id, p_status: patch.status ?? null, p_note: patch.note ?? null,
     p_assigned_to: patch.assignedTo ?? null, p_set_assignment: 'assignedTo' in patch,

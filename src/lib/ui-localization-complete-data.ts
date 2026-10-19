@@ -4,6 +4,7 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Load older messages':'تحميل رسائل أقدم','Conversation history unavailable.':'سجل المحادثة غير متاح.','Conversation messages':'رسائل المحادثة',
   'Select project':'اختر المشروع',
   'Owned website project':'مشروع موقع تملكه','Project list unavailable.':'قائمة المشاريع غير متاحة.','Create project inbox':'إنشاء صندوق للمشروع','Project inbox created; activation remains disabled.':'أُنشئ صندوق المشروع؛ يبقى التفعيل معطلاً.',
   "Social automation": "أتمتة التواصل", "Automation unavailable. Check access and activation.": "الأتمتة غير متاحة. تحقق من الصلاحيات والتفعيل.",
@@ -683,6 +684,7 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Load older messages':'Ladda äldre meddelanden','Conversation history unavailable.':'Konversationshistoriken är inte tillgänglig.','Conversation messages':'Konversationsmeddelanden',
   'Select project':'Välj projekt',
   'Owned website project':'Eget webbplatsprojekt','Project list unavailable.':'Projektlistan är inte tillgänglig.','Create project inbox':'Skapa projektinkorg','Project inbox created; activation remains disabled.':'Projektinkorgen skapades; aktivering förblir avstängd.',
   "Social automation": "Social automatisering", "Automation unavailable. Check access and activation.": "Automatisering är inte tillgänglig. Kontrollera behörighet och aktivering.",

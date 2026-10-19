@@ -85,3 +85,10 @@ no-store headers and disabled/malformed deployment. The dispatch runtime regress
 tests exact scheduler authorization and the existing claim/reserve/settle path. Existing endpoint and worker
 regressions cover Auth, RPC, signatures, tenant scope, Vault and dedup composition.
 These are isolated tests, not evidence of a connected real social account.
+
+The selected conversation loads its own 50-message history pages instead of relying
+on the global 500-message inbox snapshot. The server resolves the cursor inside the
+authorized conversation and orders by occurrence time plus message UUID, preserving
+timestamp ties without offset pagination. Visible conversations refresh their latest
+page every 15 seconds; larger bursts reset pagination to avoid hiding a gap. Loaded
+history stays in component memory and is discarded on user/scope/conversation change.

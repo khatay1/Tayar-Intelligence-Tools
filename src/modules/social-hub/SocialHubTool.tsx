@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SocialConnectPanel from './SocialConnectPanel';
 import SocialAssistantPanel from './SocialAssistantPanel';
 import SocialAutomationPanel from './SocialAutomationPanel';
+import SocialMessageHistory from './SocialMessageHistory';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { socialHubClient as client, type SocialInbox, type SocialScope, type SocialProject } from './client';
@@ -20,6 +21,8 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
   const [scopesIdentity,setScopesIdentity] = useState('');
   const [inbox, setInbox] = useState<SocialInbox | null>(null);
   const [conversationId, setConversationId] = useState('');
+  const [historyLatest,setHistoryLatest]=useState<{conversationId:string;messageId:string|undefined}|null>(null);
+  const onLatestInbound=useCallback((conversationId:string,messageId:string|undefined)=>setHistoryLatest({conversationId,messageId}),[]);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [draft, setDraft] = useState('');
@@ -67,6 +70,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
       .toLocaleLowerCase().includes(query.toLocaleLowerCase())), [currentInbox, query, status]);
   const selected = currentInbox?.conversations.find(item => item.id === conversationId);
   const assistantMessage = currentInbox?.messages.find(message => message.conversation_id === selected?.id && message.direction === 'inbound');
+  const assistantMessageId=historyLatest?.conversationId===selected?.id?historyLatest?.messageId:assistantMessage?.id;
   async function mutate(operation: () => Promise<unknown>, success: string) {
     const identity = activeIdentity.current;
     if (busy) return;
@@ -113,9 +117,9 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
     {currentInbox && <>
       <SocialConnectPanel key={currentInbox.scope.id} scope={currentInbox.scope} connections={currentInbox.connections} onChange={refresh}/>
       <SocialAutomationPanel key={`${userId}:${currentInbox.scope.id}`} scope={currentInbox.scope} onChange={refresh}/>
-      <SocialAssistantPanel key={`${userId}:${currentInbox.scope.id}:${selected?.id ?? ''}:${assistantMessage?.id ?? ''}`}
+      <SocialAssistantPanel key={`${userId}:${currentInbox.scope.id}:${selected?.id ?? ''}:${assistantMessageId ?? ''}`}
         scopeId={currentInbox.scope.id} conversationId={selected?.id}
-        messageId={assistantMessage?.id}
+        messageId={assistantMessageId}
         onReply={setDraft}/>
       <div className="flex flex-wrap gap-3">{currentInbox.connections.map(connection => <span key={connection.id}>{connection.channel} · {connection.external_account_id} · {connection.status}</span>)}</div>
       {!currentInbox.scope.enabled && <p>{l('Inbox activation is disabled.')}</p>}
@@ -126,7 +130,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
           {currentInbox.connections.find(c => c.id === item.connection_id)?.channel} · {item.external_id} · {item.status}
         </button>)}{!visible.length && <p>{l('No conversations.')}</p>}</nav>
         {selected && <div className="space-y-3">
-          <div role="log" aria-label="Conversation messages">{currentInbox.messages.filter(m => m.conversation_id === selected.id).map(m => <p key={m.id} className="border-b p-2">{m.direction}: {m.text}</p>)}</div>
+          <SocialMessageHistory key={`${userId}:${currentInbox.scope.id}:${selected.id}`} conversationId={selected.id} onLatestInbound={onLatestInbound}/>
           {(currentInbox.outbox ?? []).filter(job => job.conversation_id === selected.id).map(job => <p key={job.id}>Outgoing ({job.status}): {job.text}</p>)}
           <label>{l('Reply')}<textarea className="block w-full text-slate-900" maxLength={4000} value={draft} onChange={e => setDraft(e.target.value)} /></label>
           <button disabled={busy || !draft.trim() || !currentInbox.scope.enabled} onClick={enqueue}>{l('Queue reply')}</button>
