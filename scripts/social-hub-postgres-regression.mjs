@@ -59,6 +59,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${historyFile}`,'utf8'));
  const conversationEventsFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_conversation_events.sql'));
  await db.exec(await readFile(`supabase/migrations/${conversationEventsFile}`,'utf8'));
+ const unreadFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_unread_state.sql'));
+ await db.exec(await readFile(`supabase/migrations/${unreadFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');
  insert into projects values('${uid(21)}','${uid(1)}','${uid(20)}',null),('${uid(23)}','${uid(2)}',null,null);
@@ -119,6 +121,17 @@ try {
  await denied(`select public.ingest_social_hub_message('${personal}','${uid(30)}','event-2','12345','message-2','Alice','hello',now())`);
  await actor(uid(1));const inbox=(await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data;
  assert.equal(inbox.messages.length,1);assert.equal(inbox.connections[0].secret_ref,undefined);const conversation=inbox.conversations[0].id;
+ let unread=(await sql(`select public.get_social_hub_unread_counts('${scope}')data`))[0].data;
+ assert.equal(unread.find(item=>item.conversationId===conversation).unread,1);
+ await db.exec(`select public.mark_social_hub_conversation_read('${conversation}')`);
+ unread=(await sql(`select public.get_social_hub_unread_counts('${scope}')data`))[0].data;assert.equal(unread[0].unread,0);
+ await actor(uid(3));unread=(await sql(`select public.get_social_hub_unread_counts('${scope}')data`))[0].data;
+ assert.equal(unread[0].unread,1,'read state is isolated per team member');
+ await actor(uid(2));await denied(`select public.get_social_hub_unread_counts('${scope}')`);await denied(`select public.mark_social_hub_conversation_read('${conversation}')`);
+ await actor(null,'service_role');const unreadMessage=(await sql(`select public.ingest_social_hub_message('${scope}','${uid(30)}','event-unread-2','12345','message-unread-2','Alice','new message',now()+interval '1 second')id`))[0].id;
+ await actor(uid(1));unread=(await sql(`select public.get_social_hub_unread_counts('${scope}')data`))[0].data;assert.equal(unread[0].unread,1,'new inbound message becomes unread after cursor');
+ await db.exec(`select public.mark_social_hub_conversation_read('${conversation}')`);unread=(await sql(`select public.get_social_hub_unread_counts('${scope}')data`))[0].data;assert.equal(unread[0].unread,0);
+ await actor(null,'postgres');await db.exec(`delete from private.social_hub_messages where id='${unreadMessage}';delete from private.social_hub_webhook_events where event_id='event-unread-2'`);await actor(uid(1));
  assert.equal((await sql(`select public.get_social_hub_message_history('${conversation}')data`))[0].data.messages[0].id,message);
  await denied(`select public.get_social_hub_message_history('${conversation}',null,101)`);
  await denied(`select public.get_social_hub_message_history('${conversation}','${uid(99)}')`);

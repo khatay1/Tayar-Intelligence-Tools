@@ -4,6 +4,7 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'unread message':'رسالة غير مقروءة','unread messages':'رسائل غير مقروءة','Unread messages':'الرسائل غير المقروءة','new':'جديدة','Read status could not be saved.':'تعذر حفظ حالة القراءة.',
   'API capabilities':'قدرات API','Discover reviewed capabilities without activating an external service.':'اكتشف القدرات المراجعة دون تفعيل خدمة خارجية.','reviewed':'مراجعة',
   'Search capabilities':'البحث في القدرات','Search by function or provider':'ابحث حسب الوظيفة أو المزود','Capability':'القدرة',
   'Existing native capability':'قدرة أصلية موجودة','External setup required':'يلزم إعداد خارجي',
@@ -695,6 +696,7 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'unread message':'oläst meddelande','unread messages':'olästa meddelanden','Unread messages':'Olästa meddelanden','new':'nya','Read status could not be saved.':'Lässtatusen kunde inte sparas.',
   'API capabilities':'API-funktioner','Discover reviewed capabilities without activating an external service.':'Upptäck granskade funktioner utan att aktivera en extern tjänst.','reviewed':'granskade',
   'Search capabilities':'Sök funktioner','Search by function or provider':'Sök efter funktion eller leverantör','Capability':'Funktion',
   'Existing native capability':'Befintlig inbyggd funktion','External setup required':'Extern konfiguration krävs',

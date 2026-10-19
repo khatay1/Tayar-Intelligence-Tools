@@ -39,8 +39,8 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
     if (!scopeId || !userId) return;
     const revision = ++generation.current;
     try {
-      const result = await client.inbox(scopeId);
-      if (revision === generation.current) { setInbox(result); setInboxIdentity(`${userId}:${scopeId}`); }
+      const [result,unread] = await Promise.all([client.inbox(scopeId),client.unread(scopeId)]);
+      if (revision === generation.current) { setInbox({...result,unread}); setInboxIdentity(`${userId}:${scopeId}`); }
     } catch { if (revision === generation.current) setNotice(l('Inbox unavailable. Access or activation is required.')); }
   }, [l, scopeId, userId]);
   useEffect(() => {
@@ -71,6 +71,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
   const selected = currentInbox?.conversations.find(item => item.id === conversationId);
   const assistantMessage = currentInbox?.messages.find(message => message.conversation_id === selected?.id && message.direction === 'inbound');
   const assistantMessageId=historyLatest?.conversationId===selected?.id?historyLatest?.messageId:assistantMessage?.id;
+  const unreadTotal=(currentInbox?.unread??[]).reduce((sum,item)=>sum+item.unread,0);
   async function mutate(operation: () => Promise<unknown>, success: string) {
     const identity = activeIdentity.current;
     if (busy) return;
@@ -125,10 +126,15 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
       {!currentInbox.scope.enabled && <p>{l('Inbox activation is disabled.')}</p>}
       <label>{l('Search')} <input className="text-slate-900" value={query} onChange={e => setQuery(e.target.value)} /></label>
       <label>{l('Status')} <select className="text-slate-900" value={status} onChange={e => setStatus(e.target.value)}>{['all','open','pending','resolved','human_required','archived'].map(value => <option key={value}>{l(value)}</option>)}</select></label>
+      <p role="status">{unreadTotal} {l(unreadTotal===1?'unread message':'unread messages')}</p>
       <div className="grid gap-4 md:grid-cols-2">
-        <nav aria-label="Conversations" className="space-y-2">{visible.map(item => <button key={item.id} className="block rounded border p-3 text-start w-full" aria-pressed={item.id === conversationId} onClick={() => { setConversationId(item.id); setDraft(''); setNote(''); setFollowupTitle(''); }}>
-          {currentInbox.connections.find(c => c.id === item.connection_id)?.channel} · {item.external_id} · {item.status}
-        </button>)}{!visible.length && <p>{l('No conversations.')}</p>}</nav>
+        <nav aria-label="Conversations" className="space-y-2">{visible.map(item => {const unread=currentInbox.unread.find(entry=>entry.conversationId===item.id)?.unread??0;return <button key={item.id} className="block rounded border p-3 text-start w-full" aria-pressed={item.id === conversationId} onClick={() => {
+          setConversationId(item.id); setDraft(''); setNote(''); setFollowupTitle('');
+          if(unread>0){setInbox(previous=>previous?{...previous,unread:previous.unread.map(entry=>entry.conversationId===item.id?{...entry,unread:0}:entry)}:previous);
+            void client.markRead(item.id).then(refresh).catch(()=>setNotice(l('Read status could not be saved.')));}
+        }}>
+          {currentInbox.connections.find(c => c.id === item.connection_id)?.channel} · {item.external_id} · {item.status}{unread>0&&<> · <span aria-label={l('Unread messages')}>{unread} {l('new')}</span></>}
+        </button>})}{!visible.length && <p>{l('No conversations.')}</p>}</nav>
         {selected && <div className="space-y-3">
           <SocialMessageHistory key={`${userId}:${currentInbox.scope.id}:${selected.id}`} conversationId={selected.id} onLatestInbound={onLatestInbound}/>
           {(currentInbox.outbox ?? []).filter(job => job.conversation_id === selected.id).map(job => <p key={job.id}>Outgoing ({job.status}): {job.text}</p>)}
