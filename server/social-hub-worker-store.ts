@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isUntrustedBrowserRuntime } from '../src/modules/website-builder/services/trustedServerRuntime';
-import type { SocialChannel, SocialConnectionBinding, SocialSendPolicy } from './social-channels';
+import type { SocialAttachmentRef, SocialChannel, SocialConnectionBinding, SocialSendPolicy } from './social-channels';
 import { createSocialHubWebhookHandler, dispatchSocialHubOutgoing, type SocialHubWorkerStore, type SocialOutgoingLease, type SocialSecretVault } from './social-hub-worker';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -10,6 +10,15 @@ function string(value: unknown): string { if (typeof value !== 'string') fail();
 function id(value: unknown): string { const result = string(value); if (!uuid.test(result)) fail(); return result; }
 function date(value: unknown): string { const result = string(value); if (!Number.isFinite(Date.parse(result))) fail(); return result; }
 function boolean(value: unknown): boolean { if (typeof value !== 'boolean') fail(); return value; }
+function attachmentRefs(value: unknown): SocialAttachmentRef[] {
+  if (!Array.isArray(value) || value.length > 30) fail();
+  return value.map(candidate => {
+    const item=record(candidate),keys=Object.keys(item).sort().join(',');
+    if(!['providerId,type','type'].includes(keys)||!['image','document','audio','video','sticker'].includes(string(item.type)))fail();
+    if(item.providerId!==undefined&&!/^[A-Za-z0-9_.:@=-]{1,256}$/.test(string(item.providerId)))fail();
+    return {type:item.type as SocialAttachmentRef['type'],...(item.providerId===undefined?{}:{providerId:string(item.providerId)})};
+  });
+}
 function binding(value: unknown): SocialConnectionBinding {
   const row = record(value);
   if (!['whatsapp','telegram','facebook','instagram'].includes(string(row.channel))
@@ -58,11 +67,12 @@ export function createSocialHubWorkerPersistence(client: Pick<SupabaseClient, 'r
       id(event.tenantId);id(event.connectionId);
       if(event.externalConversationId !== event.senderId || !/^-?\d{1,30}$/.test(event.senderId)
         || typeof event.externalMessageId !== 'string' || event.externalMessageId.length < 1 || event.externalMessageId.length > 256
-        || typeof event.text !== 'string' || event.text.length > 16_384 || !Array.isArray(event.attachmentRefs) || event.attachmentRefs.length > 30)fail();
+        || typeof event.text !== 'string' || event.text.length > 16_384)fail();
       date(event.occurredAt);
+      const attachments=attachmentRefs(event.attachmentRefs);
       const result=await rpc('ingest_social_hub_message',{p_scope_id:event.tenantId,p_connection_id:event.connectionId,
         p_event_id:event.externalMessageId,p_external_conversation_id:event.externalConversationId,p_external_message_id:event.externalMessageId,
-        p_sender_name:event.senderId,p_text:event.text,p_occurred_at:event.occurredAt,p_attachment_refs:event.attachmentRefs});
+        p_sender_name:event.senderId,p_text:event.text,p_occurred_at:event.occurredAt,p_attachment_refs:attachments});
       if(result === null)return 'duplicate';id(result);return 'applied';
     },
     async claim(scope,jobId) {

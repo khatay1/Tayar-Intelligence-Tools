@@ -5,10 +5,11 @@ export interface SocialConnectionBinding {
   ownership: 'official' | 'customer'; status: 'connected' | 'disconnected' | 'expired';
   permissionsVerified: boolean; webhookVerified: boolean; expiresAt: string | null;
 }
+export interface SocialAttachmentRef { type: 'image' | 'document' | 'audio' | 'video' | 'sticker'; providerId?: string }
 export interface NormalizedSocialMessage {
   tenantId: string; connectionId: string; channel: SocialChannel; externalAccountId: string;
   externalConversationId: string; externalMessageId: string; senderId: string; text: string;
-  occurredAt: string; attachmentRefs: { type: string; providerId?: string }[];
+  occurredAt: string; attachmentRefs: SocialAttachmentRef[];
 }
 export const SOCIAL_CHANNELS = Object.freeze({
   whatsapp: { name: 'WhatsApp Business Platform', auth: 'meta-embedded-signup', host: 'graph.facebook.com', permissions: ['whatsapp_business_management', 'whatsapp_business_messaging'], docs: 'https://developers.facebook.com/docs/whatsapp/cloud-api/', verification: 'mocked-only' },
@@ -72,7 +73,7 @@ export async function verifyAndNormalizeSocialWebhook(input: {
   }
   let root; try { root = record(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw))); } catch { fail(); }
   const events: NormalizedSocialMessage[] = [];
-  const add = (messageId: unknown, sender: unknown, text: unknown, seconds: unknown, attachments: {type:string;providerId?:string}[] = []) => {
+  const add = (messageId: unknown, sender: unknown, text: unknown, seconds: unknown, attachments: SocialAttachmentRef[] = []) => {
     if (typeof text !== 'string' || text.length > 16_384 || !Number.isSafeInteger(seconds) || (seconds as number) <= 0 || (seconds as number) > 32_503_680_000) fail();
     if ((typeof messageId !== 'string' && !Number.isSafeInteger(messageId)) || (typeof sender !== 'string' && !Number.isSafeInteger(sender))) fail();
     const senderId = str(String(sender), /^-?\d{1,30}$/);
@@ -90,7 +91,7 @@ export async function verifyAndNormalizeSocialWebhook(input: {
       if (chat.type !== 'private') return [];
       const sender = record(message.from); if (sender.is_bot === true || String(sender.id) !== String(chat.id)) fail();
       const photos = message.photo ? array(message.photo) : [];
-      const refs = message.document ? [{type: 'document', providerId: str(record(message.document).file_id)}]
+      const refs: SocialAttachmentRef[] = message.document ? [{type: 'document', providerId: str(record(message.document).file_id)}]
         : message.photo ? [{type: 'image', providerId: str(record(photos[photos.length - 1]).file_id)}] : [];
       if (message.text !== undefined || message.caption !== undefined || refs.length) add(`${root!.update_id}:${message.message_id}`, chat.id, message.text ?? message.caption ?? '', message.date, refs);
     }

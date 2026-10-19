@@ -867,6 +867,15 @@ function boolean(value) {
   if (typeof value !== "boolean") fail4();
   return value;
 }
+function attachmentRefs(value) {
+  if (!Array.isArray(value) || value.length > 30) fail4();
+  return value.map((candidate) => {
+    const item = record3(candidate), keys = Object.keys(item).sort().join(",");
+    if (!["providerId,type", "type"].includes(keys) || !["image", "document", "audio", "video", "sticker"].includes(string2(item.type))) fail4();
+    if (item.providerId !== void 0 && !/^[A-Za-z0-9_.:@=-]{1,256}$/.test(string2(item.providerId))) fail4();
+    return { type: item.type, ...item.providerId === void 0 ? {} : { providerId: string2(item.providerId) } };
+  });
+}
 function binding(value) {
   const row3 = record3(value);
   if (!["whatsapp", "telegram", "facebook", "instagram"].includes(string2(row3.channel)) || !["connected", "disconnected", "expired"].includes(string2(row3.status)) || !["official", "customer"].includes(string2(row3.ownership)) || !/^\d{1,30}$/.test(string2(row3.external_account_id))) fail4();
@@ -932,8 +941,9 @@ function createSocialHubWorkerPersistence(client) {
     async ingest(event) {
       id3(event.tenantId);
       id3(event.connectionId);
-      if (event.externalConversationId !== event.senderId || !/^-?\d{1,30}$/.test(event.senderId) || typeof event.externalMessageId !== "string" || event.externalMessageId.length < 1 || event.externalMessageId.length > 256 || typeof event.text !== "string" || event.text.length > 16384 || !Array.isArray(event.attachmentRefs) || event.attachmentRefs.length > 30) fail4();
+      if (event.externalConversationId !== event.senderId || !/^-?\d{1,30}$/.test(event.senderId) || typeof event.externalMessageId !== "string" || event.externalMessageId.length < 1 || event.externalMessageId.length > 256 || typeof event.text !== "string" || event.text.length > 16384) fail4();
       date2(event.occurredAt);
+      const attachments = attachmentRefs(event.attachmentRefs);
       const result = await rpc("ingest_social_hub_message", {
         p_scope_id: event.tenantId,
         p_connection_id: event.connectionId,
@@ -943,7 +953,7 @@ function createSocialHubWorkerPersistence(client) {
         p_sender_name: event.senderId,
         p_text: event.text,
         p_occurred_at: event.occurredAt,
-        p_attachment_refs: event.attachmentRefs
+        p_attachment_refs: attachments
       });
       if (result === null) return "duplicate";
       id3(result);

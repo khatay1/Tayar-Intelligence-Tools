@@ -7205,6 +7205,11 @@ function localizeUi(text3, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Image attachment": "\u0645\u0631\u0641\u0642 \u0635\u0648\u0631\u0629",
+  "Document attachment": "\u0645\u0631\u0641\u0642 \u0645\u0633\u062A\u0646\u062F",
+  "Audio attachment": "\u0645\u0631\u0641\u0642 \u0635\u0648\u062A\u064A",
+  "Video attachment": "\u0645\u0631\u0641\u0642 \u0641\u064A\u062F\u064A\u0648",
+  "Sticker attachment": "\u0645\u0631\u0641\u0642 \u0645\u0644\u0635\u0642",
   "unread message": "\u0631\u0633\u0627\u0644\u0629 \u063A\u064A\u0631 \u0645\u0642\u0631\u0648\u0621\u0629",
   "unread messages": "\u0631\u0633\u0627\u0626\u0644 \u063A\u064A\u0631 \u0645\u0642\u0631\u0648\u0621\u0629",
   "Unread messages": "\u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u063A\u064A\u0631 \u0627\u0644\u0645\u0642\u0631\u0648\u0621\u0629",
@@ -7969,6 +7974,11 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Image attachment": "Bildbilaga",
+  "Document attachment": "Dokumentbilaga",
+  "Audio attachment": "Ljudbilaga",
+  "Video attachment": "Videobilaga",
+  "Sticker attachment": "Dekalbilaga",
   "unread message": "ol\xE4st meddelande",
   "unread messages": "ol\xE4sta meddelanden",
   "Unread messages": "Ol\xE4sta meddelanden",

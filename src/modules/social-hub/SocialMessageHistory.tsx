@@ -2,6 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocalizer } from '@/lib/ui-localization';
 import { socialHubClient, type SocialMessage } from './client';
 
+const attachmentLabels:Record<string,string>={image:'Image attachment',document:'Document attachment',audio:'Audio attachment',video:'Video attachment',sticker:'Sticker attachment'};
+function safeAttachmentTypes(value:unknown):string[]{
+  if(!Array.isArray(value)||value.length>30)return[];
+  const result:string[]=[];
+  for(const item of value){
+    if(!item||typeof item!=='object'||Array.isArray(item))continue;
+    const type=(item as {type?:unknown}).type;
+    if(typeof type==='string'&&Object.prototype.hasOwnProperty.call(attachmentLabels,type))result.push(type);
+  }
+  return result;
+}
+
 export default function SocialMessageHistory({conversationId,onLatestInbound}:{
   conversationId:string;onLatestInbound:(conversationId:string,messageId:string|undefined)=>void;
 }){
@@ -49,7 +61,9 @@ export default function SocialMessageHistory({conversationId,onLatestInbound}:{
   return <div className="space-y-2">
     {next&&<button disabled={busy} onClick={()=>void older()}>{l('Load older messages')}</button>}
     <div role="log" aria-label={l('Conversation messages')} aria-live="polite">
-      {[...messages].reverse().map(message=><p key={message.id} className="border-b p-2">{message.direction}: {message.text}</p>)}
+      {[...messages].reverse().map(message=>{const attachments=safeAttachmentTypes(message.attachment_refs);return <div key={message.id} className="border-b p-2"><p>{message.direction}: {message.text}</p>
+        {!!attachments.length&&<ul>{attachments.map((type,index)=><li key={`${type}-${index}`}>{l(attachmentLabels[type])}</li>)}</ul>}
+      </div>;})}
     </div>
     {notice&&<p role="status">{notice}</p>}
   </div>;
