@@ -21,6 +21,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
   const [status, setStatus] = useState('all');
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
+  const [followupTitle, setFollowupTitle] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
@@ -38,14 +39,14 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
   }, [l, scopeId, userId]);
   useEffect(() => {
     let current = true;
-    setScopes([]); setScopeId(''); setInbox(null); setConversationId(''); setDraft(''); setNote(''); setNotice('');
+    setScopes([]); setScopeId(''); setInbox(null); setConversationId(''); setDraft(''); setNote(''); setFollowupTitle(''); setNotice('');
     if (userId) void client.scopes().then(rows => { if (current) {setScopes(rows);setScopesIdentity(userId);} })
       .catch(() => { if (current) setNotice(l('Social Hub requires an approved deployment and access.')); });
     const revisionRef = generation;
     return () => { current = false; revisionRef.current++; };
   }, [l, userId]);
   useEffect(() => {
-    setInbox(null); setConversationId(''); setDraft(''); setNote(''); sendAttempt.current = null;
+    setInbox(null); setConversationId(''); setDraft(''); setNote(''); setFollowupTitle(''); sendAttempt.current = null;
     void refresh();
     // Bounded polling is read-only; visibility avoids background message reads.
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 15000);
@@ -105,7 +106,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
       <label>{l('Search')} <input className="text-slate-900" value={query} onChange={e => setQuery(e.target.value)} /></label>
       <label>{l('Status')} <select className="text-slate-900" value={status} onChange={e => setStatus(e.target.value)}>{['all','open','pending','resolved','human_required','archived'].map(value => <option key={value}>{l(value)}</option>)}</select></label>
       <div className="grid gap-4 md:grid-cols-2">
-        <nav aria-label="Conversations" className="space-y-2">{visible.map(item => <button key={item.id} className="block rounded border p-3 text-start w-full" aria-pressed={item.id === conversationId} onClick={() => { setConversationId(item.id); setDraft(''); setNote(''); }}>
+        <nav aria-label="Conversations" className="space-y-2">{visible.map(item => <button key={item.id} className="block rounded border p-3 text-start w-full" aria-pressed={item.id === conversationId} onClick={() => { setConversationId(item.id); setDraft(''); setNote(''); setFollowupTitle(''); }}>
           {currentInbox.connections.find(c => c.id === item.connection_id)?.channel} · {item.external_id} · {item.status}
         </button>)}{!visible.length && <p>{l('No conversations.')}</p>}</nav>
         {selected && <div className="space-y-3">
@@ -121,6 +122,19 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
           </select></label>
           <button disabled={busy} onClick={() => void mutate(() => client.update(selected.id,{assignedTo:userId}), l('Assigned to you.'))}>{l('Assign to me')}</button>
           <button disabled={busy} onClick={() => void mutate(() => client.update(selected.id,{assignedTo:null}), l('Assignment cleared.'))}>{l('Unassign')}</button>
+          {currentInbox.crmLeads && <label>{l('CRM lead')} <select aria-label={l('CRM lead')} className="text-slate-900" disabled={busy} value={selected.crm_lead_id ?? ''}
+            onChange={e => void mutate(() => client.linkCrmLead(selected.id,e.target.value||null),l('CRM link saved.'))}>
+            <option value="">{l('No CRM link')}</option>{currentInbox.crmLeads.map(lead=><option key={lead.id} value={lead.id}>{lead.name} · {lead.email} · {lead.stage}</option>)}
+          </select></label>}
+          <div className="space-y-2">
+            <h2 className="font-medium">{l('Follow-ups')}</h2>
+            <label>{l('Follow-up title')}<input className="block w-full text-slate-900" maxLength={200} value={followupTitle} onChange={e=>setFollowupTitle(e.target.value)}/></label>
+            <button disabled={busy||!followupTitle.trim()} onClick={()=>void mutate(async()=>{await client.createFollowup(selected.id,followupTitle.trim());setFollowupTitle('');},l('Follow-up created.'))}>{l('Create follow-up')}</button>
+            {currentInbox.followups.filter(item=>item.conversation_id===selected.id).map(item=><div key={item.id} className="rounded border p-2">
+              <span>{item.title} · {l(item.status)}</span>
+              {item.status==='open'&&<button className="ms-2" disabled={busy} onClick={()=>void mutate(()=>client.updateFollowup(item.id,{status:'done'}),l('Follow-up completed.'))}>{l('Mark done')}</button>}
+            </div>)}
+          </div>
         </div>}
       </div>
     </>}

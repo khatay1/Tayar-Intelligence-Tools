@@ -43,10 +43,21 @@ scope, rule and manager revocation are rechecked at dispatch reservation. Global
 automation disable also blocks already queued automatic provider calls.
 
 Supported automation actions are follow-up/review notes, `human_required` status and
-approved reply queueing for incoming messages. Notes are visible in the inbox; this
-does not create a CRM/support ticket or send push notifications. Order/booking,
-assignment and outside-hours triggers, CRM actions and live channel verification
-remain separate unfinished work.
+approved reply queueing for incoming messages. Notes are visible in the inbox and
+do not send push notifications. Order/booking, assignment and outside-hours triggers
+and live channel verification remain separate unfinished work.
+
+Project-backed customer scopes can link a conversation to an existing lead in the
+project's Website Builder CRM. Only scope managers receive the bounded CRM candidate
+list or may change the link; editors can continue inbox work without receiving CRM
+contact details. A lead from another project is rejected in the database. The link
+does not create a new lead or mutate CRM fields.
+
+Follow-ups are private Social Hub work items in the same scope. Editors can create
+and complete them, and may only assign them to eligible members of that scope.
+Entering `human_required` creates one open handoff follow-up atomically; repeated
+handoffs do not duplicate open work. These items are distinct from Tayar product
+support tickets and do not notify an external ticketing system.
 
 Before activation, apply the reviewed migration in an isolated database, configure
 the scoped webhook binding through the existing service-only RPC, and provision a

@@ -3,11 +3,14 @@ export interface SocialScope { id: string; kind: 'customer' | 'official'; enable
 export interface SocialConnection { id: string; channel: string; external_account_id: string; status: string }
 export interface SocialConversation {
   id: string; connection_id: string; external_id: string;
-  status: 'open' | 'pending' | 'archived' | 'resolved' | 'human_required'; assigned_to: string | null; last_message_at: string;
+  status: 'open' | 'pending' | 'archived' | 'resolved' | 'human_required'; assigned_to: string | null;
+  crm_lead_id: string | null; last_message_at: string;
 }
 export interface SocialMessage { id: string; conversation_id: string; direction: string; text: string; created_at: string }
 export interface SocialNote { id: string; conversation_id: string; text: string; created_at: string }
-export interface SocialInbox { scope: SocialScope; connections: SocialConnection[]; conversations: SocialConversation[]; messages: SocialMessage[]; notes: SocialNote[]; outbox: Array<{id:string;conversation_id:string;text:string;status:string}> }
+export interface SocialFollowup { id:string; conversation_id:string; title:string; body:string; status:'open'|'done'; source:'manual'|'handoff'; assigned_to:string|null; created_at:string }
+export interface SocialCrmLead { id:string; name:string; email:string; stage:string; priority:number }
+export interface SocialInbox { scope: SocialScope; connections: SocialConnection[]; conversations: SocialConversation[]; messages: SocialMessage[]; notes: SocialNote[]; outbox: Array<{id:string;conversation_id:string;text:string;status:string}>; followups:SocialFollowup[]; crmLeads:SocialCrmLead[]|null }
 async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.rpc(name, args);
   if (error) throw new Error('Social Hub is unavailable. Check access and deployment readiness.');
@@ -23,5 +26,14 @@ export const socialHubClient = {
   }),
   enqueue: (id: string, text: string, key: string) => rpc<string>('enqueue_social_hub_message', {
     p_conversation_id: id, p_text: text, p_idempotency_key: key,
+  }),
+  linkCrmLead: (conversationId:string,leadId:string|null) => rpc('link_social_hub_crm_lead', {
+    p_conversation_id:conversationId,p_lead_id:leadId,
+  }),
+  createFollowup: (conversationId:string,title:string,body='') => rpc<string>('create_social_hub_followup', {
+    p_conversation_id:conversationId,p_title:title,p_body:body,
+  }),
+  updateFollowup: (id:string,patch:{status?:'open'|'done';assignedTo?:string|null}) => rpc('mutate_social_hub_followup', {
+    p_id:id,p_status:patch.status??null,p_assigned_to:patch.assignedTo??null,p_set_assignment:'assignedTo' in patch,
   }),
 };

@@ -34,6 +34,7 @@ try {
  create table public.team_workspaces(id uuid primary key,owner_id uuid);
  create table public.team_workspace_members(workspace_id uuid,user_id uuid,role text,primary key(workspace_id,user_id));
  create table public.projects(id uuid primary key,user_id uuid,workspace_id uuid,deleted_at timestamptz);
+ create table public.website_leads(id uuid primary key default gen_random_uuid(),project_id uuid not null references public.projects(id),user_id uuid not null references auth.users(id),name text not null,email text not null,message text not null default '',stage text not null default 'new',priority smallint not null default 0,updated_at timestamptz not null default now());
  create function auth.uid()returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated,service_role;grant execute on function auth.uid()to authenticated,service_role;
  create function public.is_admin()returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.profiles where id=auth.uid()and role='admin'and not suspended)$$;`);
@@ -47,10 +48,14 @@ try {
  await db.exec(await readFile(`supabase/migrations/${challengeFile}`,'utf8'));
  const automationFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_automation_runtime.sql'));
  await db.exec(await readFile(`supabase/migrations/${automationFile}`,'utf8'));
+ const crmFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_crm_followups.sql'));
+ await db.exec(await readFile(`supabase/migrations/${crmFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
- insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');`);
+ insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');
+ insert into projects values('${uid(21)}','${uid(1)}','${uid(20)}',null),('${uid(23)}','${uid(2)}',null,null);
+ insert into website_leads(id,project_id,user_id,name,email)values('${uid(22)}','${uid(21)}','${uid(1)}','Alice lead','alice@example.test'),('${uid(24)}','${uid(23)}','${uid(2)}','Other lead','other@example.test');`);
  await actor(uid(1));
- const scope=(await sql(`select public.create_social_hub_scope('customer','${uid(20)}')id`))[0].id;
+ const scope=(await sql(`select public.create_social_hub_scope('customer','${uid(20)}','${uid(21)}')id`))[0].id;
  const personal=(await sql(`select public.create_social_hub_scope('customer')id`))[0].id;
  assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.scope.enabled,false);
  await denied(`select * from private.social_hub_connections`);
@@ -103,6 +108,21 @@ try {
  await denied(`select public.ingest_social_hub_message('${personal}','${uid(30)}','event-2','12345','message-2','Alice','hello',now())`);
  await actor(uid(1));const inbox=(await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data;
  assert.equal(inbox.messages.length,1);assert.equal(inbox.connections[0].secret_ref,undefined);const conversation=inbox.conversations[0].id;
+ assert.equal(inbox.crmLeads.length,1);assert.equal(inbox.followups.length,0);
+ await db.exec(`select public.link_social_hub_crm_lead('${conversation}','${uid(22)}')`);
+ assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.conversations[0].crm_lead_id,uid(22));
+ await denied(`select public.link_social_hub_crm_lead('${conversation}','${uid(24)}')`);
+ const followup=(await sql(`select public.create_social_hub_followup('${conversation}','Call customer')id`))[0].id;
+ await db.exec(`select public.mutate_social_hub_followup('${followup}','done','${uid(3)}',true)`);
+ await actor(uid(3));assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.crmLeads,null,'CRM candidates require manager access');
+ const editorFollowup=(await sql(`select public.create_social_hub_followup('${conversation}','Editor follow-up')id`))[0].id;assert.ok(editorFollowup);
+ await actor(uid(4));await denied(`select public.create_social_hub_followup('${conversation}','Viewer follow-up')`);
+ await actor(uid(3));await db.exec(`select public.mutate_social_hub_conversation('${conversation}',p_status=>'human_required')`);
+ await actor(uid(1));let linkedInbox=(await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data;
+ assert.equal(linkedInbox.followups.filter(item=>item.source==='handoff'&&item.status==='open').length,1,'human handoff creates one open follow-up');
+ await db.exec(`select public.mutate_social_hub_conversation('${conversation}',p_status=>'open');select public.mutate_social_hub_conversation('${conversation}',p_status=>'human_required')`);
+ linkedInbox=(await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data;
+ assert.equal(linkedInbox.followups.filter(item=>item.source==='handoff'&&item.status==='open').length,1,'repeated handoff does not duplicate open work');
  await actor(uid(4));await denied(`select public.mutate_social_hub_conversation('${conversation}',p_note=>'no')`);
  await denied(`select public.enqueue_social_hub_message('${conversation}','hello','viewer-key')`);
  await actor(uid(3));await db.exec(`select public.mutate_social_hub_conversation('${conversation}',p_status=>'pending',p_assigned_to=>'${uid(3)}',p_note=>'Internal note',p_set_assignment=>true)`);
@@ -221,5 +241,5 @@ try {
  assert.equal((await sql(`select count(*)::int n from vault.secrets where id='${stored}'`))[0].n,0);
  assert.equal((await sql(`select count(*)::int n from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and c.relname like 'social_hub_%' and c.relkind='r' and not c.relrowsecurity`))[0].n,0);
  assert.equal((await sql(`select count(*)::int n from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('private','public')and p.proname like '%social_hub%'and has_function_privilege('anon',p.oid,'execute')`))[0].n,0);
- console.log('PASS isolated PostgreSQL: tenant/official/role isolation, assistant knowledge/review permissions, consent revocation, human handoff, daily quota and message reservation replay, atomic Connect rate limit, grants/RLS, scoped webhook dedup, assignment, idempotent outbox, default-deny dispatch limits, single dispatch reservation, safe retry, lease review, OAuth single use and scoped Vault custody/revoke (fixture Vault only; encryption not tested). No live channel or production database claims.');
+ console.log('PASS isolated PostgreSQL: tenant/official/role isolation, project-scoped CRM links, manager-only CRM candidates, follow-up permissions/dedup, assistant knowledge/review permissions, consent revocation, human handoff, daily quota and message reservation replay, atomic Connect rate limit, grants/RLS, scoped webhook dedup, assignment, idempotent outbox, default-deny dispatch limits, single dispatch reservation, safe retry, lease review, OAuth single use and scoped Vault custody/revoke (fixture Vault only; encryption not tested). No live channel or production database claims.');
 } finally {await db.close();}
