@@ -41,6 +41,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
  const assistantFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_assistant_runtime.sql'));
  await db.exec(await readFile(`supabase/migrations/${assistantFile}`,'utf8'));
+ const dispatchFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_dispatch_runtime.sql'));
+ await db.exec(await readFile(`supabase/migrations/${dispatchFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');`);
  await actor(uid(1));
@@ -103,7 +105,9 @@ try {
  await actor(null,'service_role');assert.deepEqual((await sql('select public.claim_social_hub_outbox()data'))[0].data,[]);
  await actor(uid(1));assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.outbox[0].status,'review');
  const safeQueue=(await sql(`select public.enqueue_social_hub_message('${conversation}','safe reply','dedup-key-2')id`))[0].id;
+ await denied(`select public.list_due_social_hub_outgoing()`);
  await actor(null,'service_role');
+ const due=(await sql(`select public.list_due_social_hub_outgoing(50)data`))[0].data;assert.equal(due.length,1);assert.deepEqual(due[0],{job_id:safeQueue,scope_id:scope,connection_id:uid(30)});assert.equal(due[0].text,undefined);
  const safeClaim=(await sql(`select public.claim_social_hub_outgoing('${scope}','${uid(30)}','${safeQueue}')data`))[0].data;
  assert.equal(safeClaim.id,safeQueue);assert.equal((await sql(`select public.reserve_social_hub_dispatch('${safeQueue}','${safeClaim.claim_token}')ok`))[0].ok,false);
  const buckets=['global',`scope:${scope}`,'channel:telegram','account:telegram:123456789'];

@@ -13,21 +13,23 @@ export function createSocialHubNodeHandler({ kind, origin, deployment }) {
       const url = new URL(req.url || '/', origin);
       if (url.origin !== origin || String(req.headers.host || '').toLowerCase() !== configured.host) throw Error();
       const paths = kind === 'connect' ? ['/api/social-connect', '/api/social-connect-callback']
-        : kind === 'assistant' ? ['/api/social-assistant'] : kind === 'webhook' ? ['/api/social-webhook'] : [];
+        : kind === 'assistant' ? ['/api/social-assistant'] : kind === 'dispatch' ? ['/api/social-dispatch'] : kind === 'webhook' ? ['/api/social-webhook'] : [];
       if (!paths.includes(url.pathname)) { res.statusCode = 404; res.end(); return; }
+      if (kind === 'dispatch' && url.search) { res.statusCode = 400; res.end(); return; }
       if (!['GET', 'POST'].includes(req.method)) { res.statusCode = 405; res.end(); return; }
       if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') { res.statusCode = 415; res.end(); return; }
       const headers = new Headers();
       for (const name of ['authorization','origin','sec-fetch-site','content-type','content-length','x-hub-signature-256','x-telegram-bot-api-secret-token']) {
         if (typeof req.headers[name] === 'string') headers.set(name, req.headers[name]);
       }
-      const limit = kind === 'connect' ? 16384 : 262144;
+      const limit = kind === 'connect' ? 16384 : kind === 'dispatch' ? 0 : 262144;
       if (Number(headers.get('content-length') || 0) > limit) { res.statusCode = 413; res.end(); return; }
       const request = new Request(url, { method: req.method, headers,
         ...(req.method === 'POST' ? { body: Readable.toWeb(req), duplex: 'half' } : {}) });
       let result;
       if (kind === 'connect') result = await deployment.connect(request);
       else if (kind === 'assistant') result = await deployment.assistant(request);
+      else if (kind === 'dispatch') result = await deployment.dispatch(request);
       else {
         const ids = url.searchParams.getAll('id');
         if (ids.length !== 1 || !/^[A-Za-z0-9_-]{32,128}$/.test(ids[0])

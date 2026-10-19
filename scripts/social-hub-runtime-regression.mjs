@@ -9,6 +9,7 @@ const calls = [];
 const deployment = {
   async connect(request) { calls.push(request); return new Response('callback', { status: 202, headers: { 'cache-control': 'no-store' } }); },
   async assistant(request) { assert.equal(request.method, 'POST'); return new Response('{"decision":{"kind":"disabled"}}'); },
+  async dispatch(request) { assert.equal(request.method, 'GET'); return Response.json({ processed: 0 }); },
   async webhook(request, id) {
     assert.equal(id, 'a'.repeat(32)); assert.equal(request.headers.get('x-hub-signature-256'), 'sha256=fixture');
     assert.deepEqual(Buffer.from(await request.arrayBuffer()), raw); calls.push(request);
@@ -45,9 +46,13 @@ try {
   assert.equal((await disabled.connect(new Request(origin))).status, 503);
   assert.equal((await disabled.webhook(new Request(origin), 'a'.repeat(32))).status, 503);
   assert.equal((await disabled.assistant(new Request(origin))).status, 503);
+  assert.equal((await disabled.dispatch(new Request(origin))).status, 503);
+  handler = createSocialHubNodeHandler({ kind: 'dispatch', origin, deployment });
+  assert.equal((await send('/api/social-dispatch', { method: 'GET' })).status, 200);
+  assert.equal((await send('/api/social-dispatch?job=attacker', { method: 'GET' })).status, 400);
   const malformed = createSocialHubDeployment({ SOCIAL_HUB_ENABLED: 'true', SUPABASE_URL: 'https://attacker.example', SUPABASE_SECRET_KEY: 'fixture' });
   assert.equal((await malformed.webhook(new Request(origin), 'a'.repeat(32))).status, 503);
-  for (const file of ['social-connect', 'social-webhook']) {
+  for (const file of ['social-connect', 'social-webhook', 'social-dispatch']) {
     const entry = await readFile(`api/${file}.js`, 'utf8'); assert.match(entry, /bodyParser: false/); assert.match(entry, /createSocialHubDeployment\(process.env\)/);
   }
   console.log('PASS Social Hub Node routes: real HTTP raw bytes, fixed host/path, origin rejection, callback routing, body/encoding limits, no-store and disabled deployment');
