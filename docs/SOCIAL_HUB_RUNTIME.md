@@ -58,6 +58,12 @@ active Website Builder projects. It preserves the selected project's workspace;
 the existing checked creation RPC remains authoritative and rejects an unrelated
 project or a workspace editor. No customer backend is provisioned by this action.
 
+CRM reads and links also recheck the project's current owner/workspace, deletion
+state and existing project-manager role. A transferred/deleted project's candidate
+list and stored CRM references are redacted from the old scope, while unrelated
+inbox operations retain their existing scope permissions. Internal pre-guard RPC
+implementations are revoked from client and service roles.
+
 Follow-ups are private Social Hub work items in the same scope. Editors can create
 and complete them, and may only assign them to eligible members of that scope.
 Entering `human_required` creates one open handoff follow-up atomically; repeated

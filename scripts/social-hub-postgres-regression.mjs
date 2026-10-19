@@ -38,6 +38,9 @@ try {
  create function auth.uid()returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated,service_role;grant execute on function auth.uid()to authenticated,service_role;
  create function public.is_admin()returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.profiles where id=auth.uid()and role='admin'and not suspended)$$;`);
+ await db.exec(`create function public.website_project_team_role(p_project_id uuid)returns text language sql stable security definer set search_path='' as $$
+  select case when p.user_id=auth.uid()then 'owner' else(select m.role from public.team_workspace_members m where m.workspace_id=p.workspace_id and m.user_id=auth.uid())end
+  from public.projects p where p.id=p_project_id$$;`);
  const file = (await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_storage.sql'));
  await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
  const assistantFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_assistant_runtime.sql'));
@@ -50,6 +53,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${automationFile}`,'utf8'));
  const crmFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_crm_followups.sql'));
  await db.exec(await readFile(`supabase/migrations/${crmFile}`,'utf8'));
+ const projectGuardFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_crm_project_access.sql'));
+ await db.exec(await readFile(`supabase/migrations/${projectGuardFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');
  insert into projects values('${uid(21)}','${uid(1)}','${uid(20)}',null),('${uid(23)}','${uid(2)}',null,null);
@@ -113,6 +118,16 @@ try {
  assert.equal(inbox.crmLeads.length,1);assert.equal(inbox.followups.length,0);
  await db.exec(`select public.link_social_hub_crm_lead('${conversation}','${uid(22)}')`);
  assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.conversations[0].crm_lead_id,uid(22));
+ await actor(null,'postgres');await db.exec(`update projects set user_id='${uid(2)}',workspace_id=null where id='${uid(21)}'`);
+ await actor(uid(1));let transferredInbox=(await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data;
+ assert.equal(transferredInbox.crmLeads,null,'former scope manager cannot read transferred project CRM');
+ assert.equal(transferredInbox.conversations[0].crm_lead_id,undefined,'transferred CRM link is redacted');
+ await denied(`select public.link_social_hub_crm_lead('${conversation}','${uid(22)}')`);
+ await actor(null,'postgres');await db.exec(`update projects set user_id='${uid(1)}',workspace_id='${uid(20)}',deleted_at=now() where id='${uid(21)}'`);
+ await actor(uid(1));assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.crmLeads,null,'deleted project CRM is denied');
+ await denied(`select public.link_social_hub_crm_lead('${conversation}',null)`);
+ await actor(null,'postgres');await db.exec(`update projects set deleted_at=null where id='${uid(21)}'`);
+ await actor(uid(1));
  await denied(`select public.link_social_hub_crm_lead('${conversation}','${uid(24)}')`);
  const followup=(await sql(`select public.create_social_hub_followup('${conversation}','Call customer')id`))[0].id;
  await db.exec(`select public.mutate_social_hub_followup('${followup}','done','${uid(3)}',true)`);
