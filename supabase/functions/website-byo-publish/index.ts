@@ -7205,6 +7205,11 @@ function localizeUi(text3, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "unread message": "\u0631\u0633\u0627\u0644\u0629 \u063A\u064A\u0631 \u0645\u0642\u0631\u0648\u0621\u0629",
+  "unread messages": "\u0631\u0633\u0627\u0626\u0644 \u063A\u064A\u0631 \u0645\u0642\u0631\u0648\u0621\u0629",
+  "Unread messages": "\u0627\u0644\u0631\u0633\u0627\u0626\u0644 \u063A\u064A\u0631 \u0627\u0644\u0645\u0642\u0631\u0648\u0621\u0629",
+  "new": "\u062C\u062F\u064A\u062F\u0629",
+  "Read status could not be saved.": "\u062A\u0639\u0630\u0631 \u062D\u0641\u0638 \u062D\u0627\u0644\u0629 \u0627\u0644\u0642\u0631\u0627\u0621\u0629.",
   "API capabilities": "\u0642\u062F\u0631\u0627\u062A API",
   "Discover reviewed capabilities without activating an external service.": "\u0627\u0643\u062A\u0634\u0641 \u0627\u0644\u0642\u062F\u0631\u0627\u062A \u0627\u0644\u0645\u0631\u0627\u062C\u0639\u0629 \u062F\u0648\u0646 \u062A\u0641\u0639\u064A\u0644 \u062E\u062F\u0645\u0629 \u062E\u0627\u0631\u062C\u064A\u0629.",
   "reviewed": "\u0645\u0631\u0627\u062C\u0639\u0629",
@@ -7964,6 +7969,11 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "unread message": "ol\xE4st meddelande",
+  "unread messages": "ol\xE4sta meddelanden",
+  "Unread messages": "Ol\xE4sta meddelanden",
+  "new": "nya",
+  "Read status could not be saved.": "L\xE4sstatusen kunde inte sparas.",
   "API capabilities": "API-funktioner",
   "Discover reviewed capabilities without activating an external service.": "Uppt\xE4ck granskade funktioner utan att aktivera en extern tj\xE4nst.",
   "reviewed": "granskade",
