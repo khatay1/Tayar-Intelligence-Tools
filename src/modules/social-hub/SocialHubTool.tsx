@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SocialConnectPanel from './SocialConnectPanel';
 import SocialAssistantPanel from './SocialAssistantPanel';
+import SocialAutomationPanel from './SocialAutomationPanel';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { socialHubClient as client, type SocialInbox, type SocialScope } from './client';
@@ -94,6 +95,7 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
     {notice && <p role="status">{notice}</p>}
     {currentInbox && <>
       <SocialConnectPanel key={currentInbox.scope.id} scope={currentInbox.scope} connections={currentInbox.connections} onChange={refresh}/>
+      <SocialAutomationPanel key={`${userId}:${currentInbox.scope.id}`} scope={currentInbox.scope} onChange={refresh}/>
       <SocialAssistantPanel key={`${userId}:${currentInbox.scope.id}:${selected?.id ?? ''}:${assistantMessage?.id ?? ''}`}
         scopeId={currentInbox.scope.id} conversationId={selected?.id}
         messageId={assistantMessage?.id}

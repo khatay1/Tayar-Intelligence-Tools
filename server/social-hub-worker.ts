@@ -8,6 +8,7 @@ export interface SocialWebhookTarget { binding: SocialConnectionBinding; secretR
 export interface SocialOutgoingLease {
   jobId: string; leaseId: string; leaseExpiresAt: string; tenantId: string; connectionId: string;
   accountId: string; recipientId: string; text?: string; template?: {name: string; language: string};
+  automationRuleId?: string;
 }
 export interface SocialHubWorkerStore {
   /** Opaque ID must map to one server-held target; request payload must never choose tenant/account/credential. */
@@ -67,6 +68,7 @@ export function createSocialHubWebhookHandler(dependencies: { enabled: () => boo
  * No credentials, request URLs, provider bodies or caught exceptions are returned or logged. */
 export async function dispatchSocialHubOutgoing(input: {
   enabled: () => boolean; scope: {tenantId:string;connectionId:string}; jobId: string;
+  automationEnabled?: () => boolean;
   store: SocialHubWorkerStore; vault: SocialSecretVault; graphVersion?: string; now?: () => Date; fetcher?: typeof fetch;
 }): Promise<SocialSendOutcome | {status:'idle'}> {
   if (input.enabled() !== true) return {status:'blocked',reason:'feature-disabled'};
@@ -81,7 +83,7 @@ export async function dispatchSocialHubOutgoing(input: {
       const connection = await input.store.resolveOutgoing(lease);
       const now = (input.now?.() ?? new Date()).getTime();
       // Do not start a request that may outlive the durable dispatch fence.
-      if (!connection || connection.binding.accountId !== lease.accountId || !Number.isFinite(now)
+      if ((lease.automationRuleId && input.automationEnabled?.() !== true) || !connection || connection.binding.accountId !== lease.accountId || !Number.isFinite(now)
         || !Number.isFinite(Date.parse(lease.leaseExpiresAt)) || Date.parse(lease.leaseExpiresAt) - now < 12_000 || input.enabled() !== true) {
         outcome = {status:'blocked',reason:'connection-or-lease-unavailable'};
       } else {

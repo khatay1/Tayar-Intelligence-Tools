@@ -28,6 +28,7 @@ export function createSocialHubDeployment(environment: Record<string, string | u
       const workers = createSocialHubRpcWorkers(client, { enabled: () => true, resolveChallengeToken:createSocialHubChallengeResolver(client) });
       webhook = workers.webhook;
       if (environment.SOCIAL_DISPATCH_ENABLED === 'true') dispatch=createSocialDispatchHandler({enabled:()=>true,
+        automationEnabled:()=>environment.SOCIAL_AUTOMATION_ENABLED==='true',
         secret:environment.SOCIAL_DISPATCH_CRON_SECRET??'',client,graphVersion:environment.SOCIAL_META_GRAPH_VERSION});
     } catch { /* Sanitized unavailable response; never log configuration. */ }
   }

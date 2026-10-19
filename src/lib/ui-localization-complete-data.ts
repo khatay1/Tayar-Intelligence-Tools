@@ -4,6 +4,13 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  "Social automation": "أتمتة التواصل", "Automation unavailable. Check access and activation.": "الأتمتة غير متاحة. تحقق من الصلاحيات والتفعيل.",
+  "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "تنطبق القواعد على الرسائل الواردة الجديدة. تتطلب الردود التلقائية سؤالاً مطابقاً ومعتمداً؛ وتتطلب الرسائل الحساسة مراجعة موظف.",
+  "Activation also requires the approved server scheduler.": "يتطلب التفعيل أيضاً تشغيل المجدول المعتمد على الخادم.",
+  "Stop automation": "إيقاف الأتمتة", "Enable automation": "تفعيل الأتمتة", "Automation rule": "قاعدة أتمتة", "New rule": "قاعدة جديدة",
+  "All incoming messages": "جميع الرسائل الواردة", "Phrase contains": "تحتوي الرسالة على", "Create follow-up note": "إنشاء ملاحظة متابعة",
+  "Request reply review": "طلب مراجعة الرد", "Request human handoff": "طلب تدخل موظف", "Queue approved automatic reply": "إضافة الرد التلقائي المعتمد للطابور",
+  "Select answer": "اختر الإجابة", "Enable rule": "تفعيل القاعدة", "Save rule": "حفظ القاعدة", "Rule saved.": "حُفظت القاعدة.",
   "Assistant unavailable. Check access and activation.": "المساعد غير متاح. تحقق من الصلاحيات والتفعيل.",
   "Social Assistant": "مساعد التواصل", "Answer": "الإجابة",
   "Suggestions use approved business answers. Review every reply before sending.": "تستخدم الاقتراحات إجابات النشاط المعتمدة. راجع كل رد قبل الإرسال.",
@@ -671,6 +678,13 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  "Social automation": "Social automatisering", "Automation unavailable. Check access and activation.": "Automatisering är inte tillgänglig. Kontrollera behörighet och aktivering.",
+  "Rules apply to new incoming messages. Automatic replies require an exact approved question; sensitive messages require human review.": "Regler gäller nya inkommande meddelanden. Automatiska svar kräver en exakt godkänd fråga; känsliga meddelanden kräver mänsklig granskning.",
+  "Activation also requires the approved server scheduler.": "Aktivering kräver även den godkända schemaläggaren på servern.",
+  "Stop automation": "Stoppa automatisering", "Enable automation": "Aktivera automatisering", "Automation rule": "Automatiseringsregel", "New rule": "Ny regel",
+  "All incoming messages": "Alla inkommande meddelanden", "Phrase contains": "Frasen innehåller", "Create follow-up note": "Skapa uppföljningsanteckning",
+  "Request reply review": "Begär svarsgranskning", "Request human handoff": "Begär mänsklig hjälp", "Queue approved automatic reply": "Köa godkänt automatiskt svar",
+  "Select answer": "Välj svar", "Enable rule": "Aktivera regel", "Save rule": "Spara regel", "Rule saved.": "Regeln sparades.",
   "Assistant unavailable. Check access and activation.": "Assistenten är inte tillgänglig. Kontrollera åtkomst och aktivering.",
   "Social Assistant": "Social assistent", "Answer": "Svar",
   "Suggestions use approved business answers. Review every reply before sending.": "Förslag använder godkända företagssvar. Granska varje svar före sändning.",
