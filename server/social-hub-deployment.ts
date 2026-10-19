@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createSocialConnectEdge } from './social-connect-endpoint';
 import { createSocialHubRpcWorkers } from './social-hub-worker-store';
+import { createSocialAssistantDeployment } from './social-assistant-store';
 
 /** Cold-start server composition. All channels remain off until explicitly enabled. */
 export function createSocialHubDeployment(environment: Record<string, string | undefined>) {
@@ -27,5 +28,5 @@ export function createSocialHubDeployment(environment: Record<string, string | u
       webhook = workers.webhook;
     } catch { /* Sanitized unavailable response; never log configuration. */ }
   }
-  return { connect, webhook };
+  return { connect, webhook, assistant: createSocialAssistantDeployment(environment) };
 }

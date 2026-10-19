@@ -1,6 +1,6 @@
 # Optional Social Assistant classifier integration
 
-`server/social-assistant-engine.ts` is an unmounted, server-only composition over
+`server/social-assistant-engine.ts` is a server-only composition over
 Tayar's existing `/functions/v1/ai-engine`. It adds no SDK, provider credential,
 provider/model choice, paid-service activation or direct provider endpoint.
 The engine retains its current JWT authentication, rate limiter, billing usage
@@ -37,16 +37,38 @@ cannot automatically emit a message. It has no send/outbox/tool/payment capabili
 Manual sending and any separately approved automation must pass their own current
 channel policies, consent, permissions and idempotency gates.
 
-## Host work still required
+## Persisted host and route
 
-No route, database RPC or production deployment is installed by this module.
-The host interface needs actual persisted consent/knowledge/context reads and a
-durable tenant/message budget reservation before mounting. Existing AI billing
-reserves usage per authenticated user; it does not replace the additional tenant
-reservation. A failed/ambiguous call must not release its reservation into an
-unbounded retry loop. An eventual cross-origin Edge deployment also needs the
-existing project's CORS/deployment composition. No live AI or social account calls
-were made during validation.
+`server/social-assistant-store.ts` now supplies the concrete host using the caller's
+verified Tayar JWT and authenticated, scope-checked PostgreSQL RPCs. Each request
+gets its own Supabase client. `/api/social-assistant` accepts only scope,
+conversation and message UUIDs. It requires both `SOCIAL_HUB_ENABLED=true` and
+`SOCIAL_ASSISTANT_ENABLED=true`, an exact HTTPS `SOCIAL_HUB_ORIGIN`, `SUPABASE_URL`
+and a public `SUPABASE_PUBLISHABLE_KEY` or legacy `SUPABASE_ANON_KEY`. It does not
+use a service key for assistant reads or reservations.
+
+The additive assistant migration creates private RLS-protected settings, approved
+knowledge, message review and reservation tables. Existing scope managers can
+configure settings and approve business answers from the inbox panel; editors can
+request suggestions, and viewers cannot. Official scopes retain platform-admin
+authorization. Every context binds the exact scope, conversation and inbound
+message, and suspended users are refused. Changing settings deletes existing
+message reviews, so renewed external consent needs a fresh review.
+
+External classification requires manager consent, a separately reviewed redacted
+question tied to the message's current text hash, an unexpired review by a current
+manager, and a positive daily tenant allowance. Settings default off with a zero
+allowance. Row locks serialize the daily reservation; a message reserves at most
+once, including after a failed or ambiguous AI call. Existing AI-engine user billing
+remains in force as well. Knowledge and language are loaded from storage, never
+accepted from the suggestion request. The UI can copy a suggestion into a draft;
+the user still sends through the existing outbox policy gates.
+
+The migration has only been tested in disposable databases. No production migration,
+live AI call or real social account was used. The native PostgreSQL test covers
+manager/editor/viewer/tenant isolation, approval revocation, human-assignment refusal,
+daily quota and reservation replay. The browser fixture verifies suggestion-to-draft
+behavior without automatic sending.
 
 Run `node scripts/social-assistant-engine-regression.mjs` for isolated request,
 authorization-denial, explicit consent, redaction, sensitive-content refusal,

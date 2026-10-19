@@ -12,6 +12,9 @@ They are disabled until `SOCIAL_HUB_ENABLED=true` and the database scope is enab
 - `/api/social-webhook?id=<opaque-route-id>` resolves a SHA-256 route binding,
   retrieves the scoped Vault signing secret, verifies the original request bytes
   and commits messages with durable dedup before acknowledging.
+- `/api/social-assistant` uses the existing signed-in session and persisted approved
+  knowledge to suggest a reply. It additionally requires `SOCIAL_ASSISTANT_ENABLED`
+  and configured public Supabase key; see `SOCIAL_ASSISTANT_ENGINE.md`.
 
 Server configuration: `SOCIAL_HUB_ORIGIN` (exact HTTPS app origin), `SUPABASE_URL`
 and `SUPABASE_SECRET_KEY` or existing `SUPABASE_SERVICE_ROLE_KEY`. Meta additionally
@@ -26,7 +29,7 @@ the scoped webhook binding through the existing service-only RPC, register the
 provider subscription and complete live channel verification. Meta GET challenge
 handling stays denied until a separate scoped verification token is provisioned;
 the app signing secret is never reused as that token. This batch does not install
-an outbound scheduler, mount the assistant, configure provider subscriptions or
+an outbound scheduler, configure provider subscriptions or
 change production environment variables or databases.
 
 `node scripts/social-hub-runtime-regression.mjs` tests the actual Node HTTP bridge

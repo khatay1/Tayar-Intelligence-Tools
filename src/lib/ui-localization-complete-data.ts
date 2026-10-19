@@ -4,6 +4,18 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  "Assistant unavailable. Check access and activation.": "المساعد غير متاح. تحقق من الصلاحيات والتفعيل.",
+  "Social Assistant": "مساعد التواصل", "Answer": "الإجابة",
+  "Suggestions use approved business answers. Review every reply before sending.": "تستخدم الاقتراحات إجابات النشاط المعتمدة. راجع كل رد قبل الإرسال.",
+  "No confirmed answer. A human should follow up.": "لا توجد إجابة مؤكدة. يلزم متابعة موظف.",
+  "Suggest reply": "اقتراح رد", "Use suggestion in draft": "استخدام الاقتراح في المسودة",
+  "Assistant settings and knowledge": "إعدادات المساعد ومعرفته", "Enable assistant suggestions": "تفعيل اقتراحات المساعد",
+  "Allow reviewed redacted questions through managed AI providers": "السماح بالأسئلة المنقحة والمراجعة عبر مزودي الذكاء الاصطناعي المُدارين",
+  "External AI requires a separate reviewed text for each message. Never include medical data or personal identifiers.": "يتطلب الذكاء الاصطناعي الخارجي نصاً مراجعاً منفصلاً لكل رسالة. لا تضمّن بيانات طبية أو معرّفات شخصية.",
+  "Daily classification limit": "الحد اليومي لتصنيف الأسئلة", "Save assistant settings": "حفظ إعدادات المساعد",
+  "Approved business answers": "إجابات النشاط المعتمدة", "New answer": "إجابة جديدة",
+  "Approved for suggestions": "معتمدة للاقتراحات", "Sensitive content": "محتوى حساس", "Save answer": "حفظ الإجابة",
+  "Reviewed redacted question": "السؤال المنقح والمراجع", "Approve reviewed question": "اعتماد السؤال المراجع",
   "Account verified. Webhook setup and delivery testing are still required.": "تم التحقق من الحساب. ما زال إعداد Webhook واختبار التسليم مطلوبين.",
   "Connect verification failed. Start again.": "فشل التحقق من الاتصال. ابدأ من جديد.",
   "Bot identity verified. Configure its official webhook before messaging.": "تم التحقق من هوية البوت. اضبط Webhook الرسمي قبل المراسلة.",
@@ -659,6 +671,18 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  "Assistant unavailable. Check access and activation.": "Assistenten är inte tillgänglig. Kontrollera åtkomst och aktivering.",
+  "Social Assistant": "Social assistent", "Answer": "Svar",
+  "Suggestions use approved business answers. Review every reply before sending.": "Förslag använder godkända företagssvar. Granska varje svar före sändning.",
+  "No confirmed answer. A human should follow up.": "Inget bekräftat svar. En medarbetare bör följa upp.",
+  "Suggest reply": "Föreslå svar", "Use suggestion in draft": "Använd förslaget i utkastet",
+  "Assistant settings and knowledge": "Assistentens inställningar och kunskap", "Enable assistant suggestions": "Aktivera assistentförslag",
+  "Allow reviewed redacted questions through managed AI providers": "Tillåt granskade avidentifierade frågor via hanterade AI-leverantörer",
+  "External AI requires a separate reviewed text for each message. Never include medical data or personal identifiers.": "Extern AI kräver en separat granskad text för varje meddelande. Inkludera aldrig medicinska data eller personidentifierare.",
+  "Daily classification limit": "Daglig klassificeringsgräns", "Save assistant settings": "Spara assistentinställningar",
+  "Approved business answers": "Godkända företagssvar", "New answer": "Nytt svar",
+  "Approved for suggestions": "Godkänt för förslag", "Sensitive content": "Känsligt innehåll", "Save answer": "Spara svar",
+  "Reviewed redacted question": "Granskad avidentifierad fråga", "Approve reviewed question": "Godkänn granskad fråga",
   "Account verified. Webhook setup and delivery testing are still required.": "Kontot har verifierats. Webhook-konfiguration och leveranstest återstår.",
   "Connect verification failed. Start again.": "Anslutningsverifieringen misslyckades. Börja om.",
   "Bot identity verified. Configure its official webhook before messaging.": "Botens identitet har verifierats. Konfigurera dess officiella webhook före meddelanden.",

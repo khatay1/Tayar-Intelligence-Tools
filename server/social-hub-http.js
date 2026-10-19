@@ -12,7 +12,8 @@ export function createSocialHubNodeHandler({ kind, origin, deployment }) {
       if (configured.protocol !== 'https:' || configured.origin !== origin || configured.username || configured.password) throw Error();
       const url = new URL(req.url || '/', origin);
       if (url.origin !== origin || String(req.headers.host || '').toLowerCase() !== configured.host) throw Error();
-      const paths = kind === 'connect' ? ['/api/social-connect', '/api/social-connect-callback'] : ['/api/social-webhook'];
+      const paths = kind === 'connect' ? ['/api/social-connect', '/api/social-connect-callback']
+        : kind === 'assistant' ? ['/api/social-assistant'] : kind === 'webhook' ? ['/api/social-webhook'] : [];
       if (!paths.includes(url.pathname)) { res.statusCode = 404; res.end(); return; }
       if (!['GET', 'POST'].includes(req.method)) { res.statusCode = 405; res.end(); return; }
       if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') { res.statusCode = 415; res.end(); return; }
@@ -26,6 +27,7 @@ export function createSocialHubNodeHandler({ kind, origin, deployment }) {
         ...(req.method === 'POST' ? { body: Readable.toWeb(req), duplex: 'half' } : {}) });
       let result;
       if (kind === 'connect') result = await deployment.connect(request);
+      else if (kind === 'assistant') result = await deployment.assistant(request);
       else {
         const ids = url.searchParams.getAll('id');
         if (ids.length !== 1 || !/^[A-Za-z0-9_-]{32,128}$/.test(ids[0])
