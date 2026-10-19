@@ -43,6 +43,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${assistantFile}`,'utf8'));
  const dispatchFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_dispatch_runtime.sql'));
  await db.exec(await readFile(`supabase/migrations/${dispatchFile}`,'utf8'));
+ const challengeFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_meta_challenge.sql'));
+ await db.exec(await readFile(`supabase/migrations/${challengeFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');`);
  await actor(uid(1));
@@ -73,6 +75,19 @@ try {
  const webhook=(await sql(`select public.resolve_social_hub_webhook('${webhookHash}')data`))[0].data;
  assert.equal(webhook.connection.scope_id,scope);assert.equal(webhook.webhook_secret_ref,webhookSecretId);
  assert.equal((await sql(`select public.read_social_hub_webhook_secret('${scope}','${uid(30)}','${webhookSecretId}')secret`))[0].secret,webhookSecret);
+ await actor(uid(1));await denied(`select public.configure_social_hub_webhook_challenge('${scope}','${uid(30)}','${webhookHash}','verify-token-separate-123456')`);
+ await actor(null,'service_role');await denied(`select public.configure_social_hub_webhook_challenge('${scope}','${uid(30)}','${webhookHash}','verify-token-separate-123456')`);
+ const metaStored=(await sql(`select public.social_hub_store_credential('${scope}','${uid(32)}','fixture-meta-token-no-live-access')id`))[0].id;
+ const metaRecord={...record,channel:'facebook',accountId:'223456789',id:uid(32),tokenRef:metaStored};
+ await db.exec(`select public.save_social_hub_connection(${literal(JSON.stringify(metaRecord))}::jsonb)`);
+ const metaHash='c'.repeat(64);await db.exec(`select public.configure_social_hub_webhook('${scope}','${uid(32)}','${metaHash}','fixture-meta-signing-secret')`);
+ const challengeId=(await sql(`select public.configure_social_hub_webhook_challenge('${scope}','${uid(32)}','${metaHash}','verify-token-separate-123456')id`))[0].id;
+ assert.ok(challengeId);assert.equal((await sql(`select public.resolve_social_hub_webhook_challenge('${metaHash}')token`))[0].token,'verify-token-separate-123456');
+ assert.notEqual(challengeId,(await sql(`select secret_id id from private.social_hub_webhook_bindings where connection_id='${uid(32)}'`))[0].id);
+ const replacedChallengeId=(await sql(`select public.configure_social_hub_webhook_challenge('${scope}','${uid(32)}','${metaHash}','verify-token-replaced-123456')id`))[0].id;
+ assert.notEqual(replacedChallengeId,challengeId);await actor(null,'postgres');assert.equal((await sql(`select count(*)::int n from vault.secrets where id='${challengeId}'`))[0].n,0);await actor(null,'service_role');
+ assert.equal((await sql(`select public.resolve_social_hub_webhook_challenge('${metaHash}')token`))[0].token,'verify-token-replaced-123456');
+ await actor(uid(1));await denied(`select public.resolve_social_hub_webhook_challenge('${metaHash}')`);await actor(null,'service_role');
  assert.equal((await sql(`select public.get_social_hub_actor_access('${scope}','${uid(1)}')data`))[0].data.canManage,true);
  assert.equal((await sql(`select public.get_social_hub_actor_access('${scope}','${uid(4)}')data`))[0].data.canManage,false);
  for(let i=0;i<20;i++)assert.equal((await sql(`select public.consume_social_hub_connect_rate_limit('${scope}','${uid(1)}','begin')ok`))[0].ok,true);

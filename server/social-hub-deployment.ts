@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { createSocialConnectEdge } from './social-connect-endpoint';
-import { createSocialHubRpcWorkers } from './social-hub-worker-store';
+import { createSocialHubChallengeResolver, createSocialHubRpcWorkers } from './social-hub-worker-store';
 import { createSocialAssistantDeployment } from './social-assistant-store';
 import { createSocialDispatchHandler } from './social-dispatch-runtime';
 
@@ -25,8 +25,7 @@ export function createSocialHubDeployment(environment: Record<string, string | u
       if (url.protocol !== 'https:' || !/^[a-z0-9]{20}\.supabase\.co$/.test(url.hostname)
         || url.origin + '/' !== url.href || !key || /\s/.test(key)) throw Error();
       const client = createClient(url.origin, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
-      const workers = createSocialHubRpcWorkers(client, { enabled: () => true });
-      // GET verification needs a separately scoped Vault token; until provisioned it stays denied.
+      const workers = createSocialHubRpcWorkers(client, { enabled: () => true, resolveChallengeToken:createSocialHubChallengeResolver(client) });
       webhook = workers.webhook;
       if (environment.SOCIAL_DISPATCH_ENABLED === 'true') dispatch=createSocialDispatchHandler({enabled:()=>true,
         secret:environment.SOCIAL_DISPATCH_CRON_SECRET??'',client,graphVersion:environment.SOCIAL_META_GRAPH_VERSION});

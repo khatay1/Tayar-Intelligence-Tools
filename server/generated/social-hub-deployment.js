@@ -893,6 +893,23 @@ async function opaqueHash(opaqueId) {
   if (!/^[A-Za-z0-9_-]{32,128}$/.test(opaqueId)) fail4();
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(opaqueId))), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+function createSocialHubChallengeResolver(client) {
+  if (isUntrustedBrowserRuntime()) fail4();
+  return async (opaqueId) => {
+    let value;
+    try {
+      const result = await client.rpc("resolve_social_hub_webhook_challenge", { p_webhook_hash: await opaqueHash(opaqueId) });
+      if (result.error) fail4();
+      value = result.data;
+    } catch {
+      return fail4();
+    }
+    if (value === null) return null;
+    const token = string2(value);
+    if (token.length < 16 || token.length > 256 || [...token].some((character) => /\s/.test(character) || character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) fail4();
+    return token;
+  };
+}
 function createSocialHubWorkerPersistence(client) {
   if (isUntrustedBrowserRuntime()) fail4();
   async function rpc(name, args) {
@@ -1355,7 +1372,7 @@ function createSocialHubDeployment(environment) {
       const key = environment.SUPABASE_SECRET_KEY ?? environment.SUPABASE_SERVICE_ROLE_KEY;
       if (url.protocol !== "https:" || !/^[a-z0-9]{20}\.supabase\.co$/.test(url.hostname) || url.origin + "/" !== url.href || !key || /\s/.test(key)) throw Error();
       const client = createClient3(url.origin, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
-      const workers = createSocialHubRpcWorkers(client, { enabled: () => true });
+      const workers = createSocialHubRpcWorkers(client, { enabled: () => true, resolveChallengeToken: createSocialHubChallengeResolver(client) });
       webhook = workers.webhook;
       if (environment.SOCIAL_DISPATCH_ENABLED === "true") dispatch = createSocialDispatchHandler({
         enabled: () => true,

@@ -31,10 +31,11 @@ characters. No cron is installed by this change; activation remains an explicit
 deployment step. Rebuild the runtime with `node scripts/build-social-hub-runtime.mjs`.
 
 Before activation, apply the reviewed migration in an isolated database, configure
-the scoped webhook binding through the existing service-only RPC, register the
-provider subscription and complete live channel verification. Meta GET challenge
-handling stays denied until a separate scoped verification token is provisioned;
-the app signing secret is never reused as that token. This batch exposes a disabled
+the scoped webhook binding through the existing service-only RPC, and provision a
+distinct Meta GET verification token with the service-only
+`configure_social_hub_webhook_challenge` RPC. Register the provider subscription
+and complete live channel verification. Challenge handling stays denied when this
+token is absent; the app signing secret is never reused as that token. This exposes a disabled
 scheduler target but does not install a cron, configure provider subscriptions or
 change production environment variables or databases.
 
