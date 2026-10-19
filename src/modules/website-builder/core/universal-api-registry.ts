@@ -127,3 +127,34 @@ export function prepareUniversalIntegrationDraft(capabilityId: string, connectio
     requiredSetup: provider.fields.filter(field => field.required).map(field => ({ field: field.key, secret: field.secret === true })),
     issues: validateEditorIntegrations(config), activation: 'deferred' as const, providerTest: 'not-run' as const };
 }
+
+export interface PreparedUniversalProjectIntegration {
+  capabilityId: string;
+  connectionId: string;
+  config: EditorIntegrationsConfig;
+  reused: boolean;
+  activation: 'deferred';
+  providerTest: 'not-run';
+}
+
+/** Adds a disabled adapter draft to a project configuration, or points to the
+ * project's existing provider connection. It never enables a connection,
+ * copies credentials, or treats configuration as provider verification. */
+export function prepareUniversalProjectIntegration(config: EditorIntegrationsConfig, capabilityId: string,
+  connectionId: string, environment: EditorIntegrationEnvironment = 'preview'): PreparedUniversalProjectIntegration {
+  const normalized = normalizeEditorIntegrationsConfig(config);
+  const capability = getUniversalAPICapabilities().find(item => item.id === capabilityId);
+  if (!capability || capability.adapter.kind !== 'existing') throw new Error('This capability does not require a provider adapter draft.');
+  const existing = normalized.connections.find(connection => connection.providerId === capability.providerId);
+  if (existing) return { capabilityId, connectionId: existing.id, config: normalized, reused: true, activation: 'deferred', providerTest: 'not-run' };
+  if (normalized.connections.some(connection => connection.id === connectionId)) throw new Error('Integration ID is already in use.');
+  const draft = prepareUniversalIntegrationDraft(capabilityId, connectionId, environment);
+  return {
+    capabilityId,
+    connectionId,
+    config: { ...normalized, connections: [...normalized.connections, ...draft.config.connections] },
+    reused: false,
+    activation: 'deferred',
+    providerTest: 'not-run',
+  };
+}
