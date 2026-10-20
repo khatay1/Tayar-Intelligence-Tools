@@ -15,6 +15,29 @@ The new `server/opencode-v2-local-planner.mjs` exposes
 it is NOT a remote binary attestation. The sandbox builder must pin the
 OpenCode artifact by verified digest and ensure the runtime version matches.
 
+## Local server authentication
+
+The V2 CLI at v1.19.3 calls `Daemon.password()` when starting `serve`.
+It creates/reuses a private password in its state directory and passes it
+to the server authorization middleware. Loopback does not bypass Basic auth.
+The trusted sandbox supervisor must supply that worker-specific password as
+`config.serverPassword` (16–256 printable ASCII characters). The adapter
+requires it before making any request and sends `Basic opencode:<password>`
+as a base64 Authorization header on every request, including interruption.
+It never places the password in URLs, prompts, returned plans, or error messages.
+Redirects are rejected, and a failed authentication stops before inference.
+
+Read the password only inside the disposable isolation domain using its
+private state permissions; do not reuse a real user's persistent daemon state,
+platform secrets, or provider keys. Do not expose this field through a browser,
+VITE variable, public endpoint, checked-in config, or logs. The module does not
+read ambient environment credentials or automatically discover a host daemon.
+
+Reviewed upstream v1.19.3 sources: `packages/cli/src/services/daemon.ts`,
+`packages/cli/src/commands/handlers/serve.ts`, `packages/server/src/auth.ts`,
+and `packages/server/src/middleware/authorization.ts` in
+https://github.com/anomalyco/opencode/tree/v1.19.3 .
+
 ## V2 request contract (inspected upstream tag v1.19.3)
 - GET `/api/health` (requires `healthy: true`).
 - GET `/api/agent?location[directory]=<trusted-workspace>` (must resolve the trusted workspace and expose a dedicated `tayar-readonly` agent
@@ -57,9 +80,12 @@ OpenCode artifact by verified digest and ensure the runtime version matches.
 
 `node scripts/opencode-v2-local-planner-regression.mjs`
 
-This test has a mocked, no-network OpenCode server and is included in the
+This test has a mocked OpenCode transport and an authenticated loopback HTTP
+protocol fixture using native fetch (success, 401, rejected redirect, and
+authenticated failure interruption). It is included in the
 existing targeted OpenCode workflow and Coding Assistance Release Gate smoke.
-It demonstrates request-shape and fail-closed guards only. No live OpenCode
+It demonstrates request-shape, HTTP authentication and fail-closed guards only.
+The HTTP fixture is not an OpenCode process or model. No live OpenCode
 or local model session has yet been executed.
 
 Upstream reviewed contract:

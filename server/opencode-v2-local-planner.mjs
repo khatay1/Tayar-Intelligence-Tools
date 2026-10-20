@@ -40,6 +40,13 @@ export function checkV2Config(config) {
       !/^\/workspace\/[A-Za-z0-9_-]{3,60}$/.test(config.workspaceDirectory)) {
     throw new OpenCodeV2Error('invalid-workspace');
   }
+  // v1.19.3 `serve` obtains a private daemon password even on loopback.
+  // The supervisor supplies it from the disposable worker's private state;
+  // never use a browser field, URL, prompt, or platform/provider credential.
+  if (typeof config.serverPassword !== 'string' ||
+      !/^[\x21-\x7e]{16,256}$/.test(config.serverPassword)) {
+    throw new OpenCodeV2Error('invalid-server-credential');
+  }
   return { origin: url.origin, modelID: config.modelID,
     workspaceDirectory: config.workspaceDirectory };
 }
@@ -105,12 +112,12 @@ async function boundedJson(response) {
   catch { throw new OpenCodeV2Error('invalid-response'); }
 }
 
-async function request(fetcher, origin, method, path, body, timeoutMs, empty = false) {
+async function request(fetcher, origin, authorization, method, path, body, timeoutMs, empty = false) {
   let response;
   try {
     response = await fetcher(origin + path, {
       method, redirect: 'error', cache: 'no-store',
-      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      headers: { accept: 'application/json', 'content-type': 'application/json', authorization },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -164,23 +171,26 @@ function extractPlan(messages, modelID) {
 
 export async function planWithOpenCodeV2({ config, prompt, fetcher = fetch }) {
   const { origin, modelID, workspaceDirectory } = checkV2Config(config);
+  const authorization = `Basic ${btoa(`opencode:${config.serverPassword}`)}`;
+  const authenticatedRequest = (method, path, body, timeoutMs, empty = false) =>
+    request(fetcher, origin, authorization, method, path, body, timeoutMs, empty);
   if (typeof prompt !== 'string' || !prompt.trim() ||
       new TextEncoder().encode(prompt).length > MAX_PROMPT) {
     throw new OpenCodeV2Error('invalid-prompt');
   }
   if (typeof fetcher !== 'function') throw new OpenCodeV2Error('invalid-fetcher');
   // Verify the protocol and exact effective agent policy BEFORE any inference.
-  const health = await request(fetcher, origin, 'GET', '/api/health', undefined, 10000);
+  const health = await authenticatedRequest('GET', '/api/health', undefined, 10000);
   if (health?.healthy !== true) throw new OpenCodeV2Error('unsupported-protocol');
   const agentPath = '/api/agent?location%5Bdirectory%5D=' + encodeURIComponent(workspaceDirectory);
-  const agents = await request(fetcher, origin, 'GET', agentPath, undefined, 10000);
+  const agents = await authenticatedRequest('GET', agentPath, undefined, 10000);
   if (!Array.isArray(agents?.data) || agents.location?.directory !== workspaceDirectory) {
     throw new OpenCodeV2Error('unexpected-workspace');
   }
   checkReadOnlyAgent(agents.data.find(agent => agent?.id === AGENT));
   let sessionId;
   try {
-    const created = await request(fetcher, origin, 'POST', '/api/session', {
+    const created = await authenticatedRequest('POST', '/api/session', {
       agent: AGENT, model: { id: modelID, providerID: 'ollama' },
       location: { directory: workspaceDirectory },
     }, 15000);
@@ -190,7 +200,7 @@ export async function planWithOpenCodeV2({ config, prompt, fetcher = fetch }) {
         session.model?.providerID !== 'ollama' ||
         session.location?.directory !== workspaceDirectory) throw new OpenCodeV2Error('invalid-session');
     sessionId = session.id;
-    const admitted = await request(fetcher, origin, 'POST',
+    const admitted = await authenticatedRequest('POST',
       '/api/session/' + sessionId + '/prompt', { prompt: { text: prompt } }, 15000);
     if (admitted?.data?.sessionID !== sessionId ||
         typeof admitted.data.id !== 'string' || !admitted.data.id.startsWith('msg_')) {
@@ -198,16 +208,16 @@ export async function planWithOpenCodeV2({ config, prompt, fetcher = fetch }) {
     }
     // The V2 API uses explicit wait and projected messages; unlike the legacy
     // protocol it has no DELETE session endpoint at the pinned release.
-    await request(fetcher, origin, 'POST', '/api/session/' + sessionId + '/wait',
+    await authenticatedRequest('POST', '/api/session/' + sessionId + '/wait',
       undefined, 90000, true);
-    const messages = await request(fetcher, origin, 'GET',
+    const messages = await authenticatedRequest('GET',
       '/api/session/' + sessionId + '/message?limit=19&order=desc', undefined, 15000);
     const plan = extractPlan(messages?.data, modelID);
     return { plan, mode: 'read-only', providerID: 'ollama', modelID };
   } catch (error) {
     if (sessionId) {
       try {
-        await request(fetcher, origin, 'POST', '/api/session/' + sessionId + '/interrupt',
+        await authenticatedRequest('POST', '/api/session/' + sessionId + '/interrupt',
           undefined, 3000, true);
       } catch { /* The trusted caller must destroy the entire ephemeral worker. */ }
     }
