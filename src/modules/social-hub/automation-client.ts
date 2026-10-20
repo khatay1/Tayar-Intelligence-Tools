@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 export interface BusinessHoursSlot { day:number;openMinute:number;closeMinute:number }
-export interface AutomationRule { id:string;enabled:boolean;trigger:'message.received'|'conversation.assigned'|'human.requested'|'outside.hours';contains:string;action:'suggest'|'handoff'|'notify'|'reply';approved_answer_id:string|null }
+export interface AutomationRule { id:string;enabled:boolean;trigger:'message.received'|'conversation.assigned'|'human.requested'|'outside.hours'|'order.status.changed'|'booking.reminder';contains:string;action:'suggest'|'handoff'|'notify'|'reply';approved_answer_id:string|null }
 async function rpc<T>(name:string,args:Record<string,unknown>):Promise<T>{const {data,error}=await supabase.rpc(name,args);if(error)throw Error('Automation unavailable.');return data as T;}
 export const socialAutomationClient={
   rules:(scopeId:string)=>rpc<AutomationRule[]|null>('get_social_hub_automation_rules',{p_scope_id:scopeId}),

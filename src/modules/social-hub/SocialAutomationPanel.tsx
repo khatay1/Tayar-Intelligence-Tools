@@ -4,7 +4,7 @@ import type { SocialScope } from './client';
 import { socialAssistantClient, type KnowledgeAnswer } from './assistant-client';
 import { socialAutomationClient as client, type AutomationRule, type BusinessHoursSlot } from './automation-client';
 
-const triggerLabels={'message.received':'Incoming message','conversation.assigned':'Conversation assigned','human.requested':'Human follow-up requested','outside.hours':'Outside business hours'};
+const triggerLabels={'message.received':'Incoming message','conversation.assigned':'Conversation assigned','human.requested':'Human follow-up requested','outside.hours':'Outside business hours','order.status.changed':'Order status changed','booking.reminder':'Booking reminder due'};
 const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const clock=(minute:number)=>`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
 const minute=(value:string,fallback:number)=>{const[hour,part]=value.split(':').map(Number),result=hour*60+part;return Number.isInteger(result)?result:fallback;};
@@ -28,6 +28,7 @@ export default function SocialAutomationPanel({scope,onChange}:{scope:SocialScop
   return <details className="rounded border p-3 space-y-3"><summary>{l('Social automation')}</summary>
     <p>{l('Rules apply to new events. Automatic replies require an exact approved question; sensitive messages require human review.')}</p>
     <p>{l('Activation also requires the approved server scheduler.')}</p>
+    <p>{l('Project event triggers require a verified server bridge from the connected project.')}</p>
     <button disabled={busy||!scope.enabled} onClick={()=>void run(async()=>{await client.activate(scope.id,!scope.automation_enabled);await onChange();})}>
       {l(scope.automation_enabled?'Stop automation':'Enable automation')}
     </button>
@@ -44,7 +45,7 @@ export default function SocialAutomationPanel({scope,onChange}:{scope:SocialScop
       <option value="">{l('New rule')}</option>{rules.map(item=><option key={item.id} value={item.id}>{l(triggerLabels[item.trigger])} · {item.action} {item.contains} · {l(item.enabled?'enabled':'disabled')}</option>)}
     </select></label>
     <label>{l('Trigger')}<select aria-label={l('Trigger')} value={rule.trigger} onChange={e=>setRule({...rule,trigger:e.target.value as AutomationRule['trigger'],contains:'',action:rule.action==='reply'?'notify':rule.action})}>
-      <option value="message.received">{l('Incoming message')}</option><option value="conversation.assigned">{l('Conversation assigned')}</option><option value="human.requested">{l('Human follow-up requested')}</option><option value="outside.hours">{l('Outside business hours')}</option>
+      <option value="message.received">{l('Incoming message')}</option><option value="conversation.assigned">{l('Conversation assigned')}</option><option value="human.requested">{l('Human follow-up requested')}</option><option value="outside.hours">{l('Outside business hours')}</option><option value="order.status.changed">{l('Order status changed')}</option><option value="booking.reminder">{l('Booking reminder due')}</option>
     </select></label>
     {rule.trigger==='message.received'&&<label>{l('Phrase contains')}<input maxLength={200} value={rule.contains} onChange={e=>setRule({...rule,contains:e.target.value})}/></label>}
     <label>{l('Action')}<select value={rule.action} onChange={e=>setRule({...rule,action:e.target.value as AutomationRule['action']})}>

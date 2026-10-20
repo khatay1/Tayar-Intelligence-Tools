@@ -7205,6 +7205,9 @@ function localizeUi(text3, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Order status changed": "\u062A\u063A\u064A\u0651\u0631\u062A \u062D\u0627\u0644\u0629 \u0627\u0644\u0637\u0644\u0628",
+  "Booking reminder due": "\u062D\u0627\u0646 \u062A\u0630\u0643\u064A\u0631 \u0627\u0644\u062D\u062C\u0632",
+  "Project event triggers require a verified server bridge from the connected project.": "\u062A\u062A\u0637\u0644\u0628 \u0645\u062D\u0641\u0632\u0627\u062A \u0623\u062D\u062F\u0627\u062B \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u062C\u0633\u0631\u0627\u064B \u062E\u0627\u062F\u0645\u064A\u0627\u064B \u0645\u0648\u062B\u0651\u0642\u0627\u064B \u0645\u0646 \u0627\u0644\u0645\u0634\u0631\u0648\u0639 \u0627\u0644\u0645\u062A\u0635\u0644.",
   "Business hours": "\u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644",
   "Save business hours": "\u062D\u0641\u0638 \u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644",
   "Business hours saved.": "\u062A\u0645 \u062D\u0641\u0638 \u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644.",
@@ -7984,6 +7987,9 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Order status changed": "Orderstatus \xE4ndrad",
+  "Booking reminder due": "Bokningsp\xE5minnelse f\xF6rfaller",
+  "Project event triggers require a verified server bridge from the connected project.": "Projektutl\xF6sare kr\xE4ver en verifierad serverbrygga fr\xE5n det anslutna projektet.",
   "Business hours": "\xD6ppettider",
   "Save business hours": "Spara \xF6ppettider",
   "Business hours saved.": "\xD6ppettiderna har sparats.",

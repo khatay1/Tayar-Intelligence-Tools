@@ -4,6 +4,7 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Order status changed':'تغيّرت حالة الطلب','Booking reminder due':'حان تذكير الحجز','Project event triggers require a verified server bridge from the connected project.':'تتطلب محفزات أحداث المشروع جسراً خادمياً موثّقاً من المشروع المتصل.',
   'Business hours':'ساعات العمل','Save business hours':'حفظ ساعات العمل','Business hours saved.':'تم حفظ ساعات العمل.','Outside business hours':'خارج ساعات العمل','opens':'يفتح','closes':'يغلق',
   'Assigned team member':'عضو الفريق المعيّن','Assignment saved.':'حُفظ التعيين.','Unassigned':'غير معيّن','Follow-up assignee':'مسؤول المتابعة',
   'Image attachment':'مرفق صورة','Document attachment':'مرفق مستند','Audio attachment':'مرفق صوتي','Video attachment':'مرفق فيديو','Sticker attachment':'مرفق ملصق',
@@ -699,6 +700,7 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Order status changed':'Orderstatus ändrad','Booking reminder due':'Bokningspåminnelse förfaller','Project event triggers require a verified server bridge from the connected project.':'Projektutlösare kräver en verifierad serverbrygga från det anslutna projektet.',
   'Business hours':'Öppettider','Save business hours':'Spara öppettider','Business hours saved.':'Öppettiderna har sparats.','Outside business hours':'Utanför öppettider','opens':'öppnar','closes':'stänger',
   'Assigned team member':'Tilldelad teammedlem','Assignment saved.':'Tilldelningen sparades.','Unassigned':'Ej tilldelad','Follow-up assignee':'Ansvarig för uppföljning',
   'Image attachment':'Bildbilaga','Document attachment':'Dokumentbilaga','Audio attachment':'Ljudbilaga','Video attachment':'Videobilaga','Sticker attachment':'Dekalbilaga',
