@@ -9,32 +9,38 @@ const base = {
   providerID: 'ollama',
   modelID: 'qwen2.5-coder:7b',
 };
-const rejects = async (config, prompt = 'Inspect this isolated project') =>
-  assert.rejects(planWithLocalOpenCode({ config, prompt, fetcher: () => {
-    throw new Error('network should not be reached');
-  }}));
-for (const config of [
-  { ...base, enabled: false }, { ...base, sandboxed: false },
-  { ...base, offline: false }, { ...base, baseUrl: 'https://127.0.0.1:4096' },
-  { ...base, baseUrl: 'http://localhost:4096' },
-  { ...base, baseUrl: 'http://127.0.0.1:4096@evil.com' },
-  { ...base, baseUrl: 'http://127.0.0.1:4096/path' },
-  { ...base, baseUrl: 'http://127.0.0.1:4096/?x=1' },
-  { ...base, baseUrl: 'http://127.0.0.1:4096#hash' },
-  { ...base, providerID: 'openai' }, { ...base, providerID: 'opencode' },
-  { ...base, modelID: 'gpt-5' }, // Not inherently a cloud endpoint, local custom IDs permitted.
-]) {
-  if (config.modelID === 'gpt-5') {
-    assert.equal(validateLocalOpenCodeConfig(config).modelID, 'gpt-5');
-  } else {
-    await rejects(config);
-  }
+async function expectEarlyRejection(config, prompt, code) {
+  let networkTouched = false;
+  await assert.rejects(planWithLocalOpenCode({
+    config, prompt,
+    fetcher: () => { networkTouched = true; throw new Error('network should not be reached'); },
+  }), { code });
+  assert.equal(networkTouched, false, 'invalid policy/prompt must fail BEFORE fetch');
+}
+const configFailures = [
+  [{ enabled: false }, 'disabled'],
+  [{ sandboxed: false }, 'isolation-required'],
+  [{ offline: false }, 'isolation-required'],
+  [{ baseUrl: 'https://127.0.0.1:4096' }, 'invalid-endpoint'],
+  [{ baseUrl: 'http://localhost:4096' }, 'invalid-endpoint'],
+  [{ baseUrl: 'http://127.0.0.1:4096@evil.com' }, 'invalid-endpoint'],
+  [{ baseUrl: 'http://127.0.0.1:4096/path' }, 'invalid-endpoint'],
+  [{ baseUrl: 'http://127.0.0.1:4096/?x=1' }, 'invalid-endpoint'],
+  [{ baseUrl: 'http://127.0.0.1:4096#hash' }, 'invalid-endpoint'],
+  [{ providerID: 'openai' }, 'local-model-required'],
+  [{ providerID: 'opencode' }, 'local-model-required'],
+];
+for (const [change, code] of configFailures) {
+  await expectEarlyRejection({ ...base, ...change }, 'Inspect this isolated project', code);
 }
 for (const modelID of ['my-cloud-model', 'remote-llm', '', '../bad model']) {
-  await rejects({ ...base, modelID });
+  await expectEarlyRejection({ ...base, modelID }, 'Inspect this isolated project', 'local-model-required');
 }
-await rejects(base, '');
-await rejects(base, 'x'.repeat(11000));
+assert.deepEqual(validateLocalOpenCodeConfig(base), {
+  baseUrl: 'http://127.0.0.1:4096', modelID: base.modelID,
+});
+await expectEarlyRejection(base, '', 'invalid-prompt');
+await expectEarlyRejection(base, 'x'.repeat(11000), 'invalid-prompt');
 
 const calls = [];
 let diff = [];
