@@ -98,6 +98,11 @@ jobs:
       - name: Coding Assistance smoke
         run: npm run smoke:code-assistant
 
+      - name: OpenCode local agent offline regression
+        run: |
+          node --experimental-strip-types --no-warnings scripts/opencode-local-agent-regression.mjs
+          npx tsc --noEmit --strict --skipLibCheck --target es2022 --module esnext --moduleResolution bundler --lib es2023,dom,dom.iterable server/opencode-local-agent.ts
+
       - name: Pure inventory reservation preflight regression
         run: node --experimental-strip-types scripts/application-inventory-reservations-regression.mjs
 
