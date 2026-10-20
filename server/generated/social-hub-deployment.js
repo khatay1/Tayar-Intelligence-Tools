@@ -572,6 +572,14 @@ var SOCIAL_CHANNELS = Object.freeze({
 var id2 = /^[A-Za-z0-9_.:@-]{1,200}$/;
 var providerId = /^[A-Za-z0-9_.:@=-]{1,256}$/;
 var numeric2 = /^\d{1,30}$/;
+var metaAttachmentTypes = Object.freeze({
+  image: "image",
+  document: "document",
+  file: "document",
+  audio: "audio",
+  video: "video",
+  sticker: "sticker"
+});
 function fail3() {
   throw new Error("Social channel request rejected.");
 }
@@ -583,6 +591,33 @@ function bindingValid(binding2) {
 }
 function credentialActive(binding2, now) {
   return Number.isFinite(now) && (binding2.expiresAt === null || typeof binding2.expiresAt === "string" && Number.isFinite(Date.parse(binding2.expiresAt)) && Date.parse(binding2.expiresAt) > now);
+}
+function telegramAttachments(message) {
+  const candidates = [
+    ["document", "document"],
+    ["audio", "audio"],
+    ["voice", "audio"],
+    ["video", "video"],
+    ["video_note", "video"],
+    ["animation", "video"],
+    ["sticker", "sticker"]
+  ];
+  const result = [];
+  if (message.photo !== void 0) {
+    const photos = array(message.photo);
+    if (!photos.length) fail3();
+    result.push({ type: "image", providerId: str(record2(photos[photos.length - 1]).file_id) });
+  }
+  for (const [key, type] of candidates) if (message[key] !== void 0) result.push({ type, providerId: str(record2(message[key]).file_id) });
+  if (result.length > 1) fail3();
+  return result;
+}
+function metaAttachments(value) {
+  if (value === void 0) return [];
+  return array(value).flatMap((candidate) => {
+    const type = record2(candidate).type;
+    return typeof type === "string" && Object.prototype.hasOwnProperty.call(metaAttachmentTypes, type) ? [{ type: metaAttachmentTypes[type] }] : [];
+  });
 }
 async function equalSecret(left, right) {
   const encoder = new TextEncoder();
@@ -667,8 +702,7 @@ async function verifyAndNormalizeSocialWebhook(input) {
       if (chat.type !== "private") return [];
       const sender = record2(message.from);
       if (sender.is_bot === true || String(sender.id) !== String(chat.id)) fail3();
-      const photos = message.photo ? array(message.photo) : [];
-      const refs = message.document ? [{ type: "document", providerId: str(record2(message.document).file_id) }] : message.photo ? [{ type: "image", providerId: str(record2(photos[photos.length - 1]).file_id) }] : [];
+      const refs = telegramAttachments(message);
       if (message.text !== void 0 || message.caption !== void 0 || refs.length) add(`${root.update_id}:${message.message_id}`, chat.id, message.text ?? message.caption ?? "", message.date, refs);
     }
     return events;
@@ -684,8 +718,11 @@ async function verifyAndNormalizeSocialWebhook(input) {
         if (str(record2(value.metadata).phone_number_id, numeric2) !== binding2.accountId) fail3();
         for (const rawMessage of array(value.messages ?? [])) {
           const message = record2(rawMessage);
-          if (message.type !== "text") continue;
-          add(message.id, message.from, record2(message.text).body, Number(message.timestamp));
+          if (message.type === "text") add(message.id, message.from, record2(message.text).body, Number(message.timestamp));
+          else if (typeof message.type === "string" && Object.prototype.hasOwnProperty.call(metaAttachmentTypes, message.type)) {
+            const media = record2(message[message.type]);
+            add(message.id, message.from, media.caption ?? "", Number(message.timestamp), [{ type: metaAttachmentTypes[message.type], providerId: str(media.id) }]);
+          }
         }
       }
     } else {
@@ -696,7 +733,8 @@ async function verifyAndNormalizeSocialWebhook(input) {
         const message = record2(event.message);
         if (message.is_echo === true) continue;
         if (String(record2(event.recipient).id) !== binding2.accountId) fail3();
-        if (message.text !== void 0) add(message.mid, record2(event.sender).id, message.text, Math.floor(Number(event.timestamp) / 1e3));
+        const refs = metaAttachments(message.attachments);
+        if (message.text !== void 0 || refs.length) add(message.mid, record2(event.sender).id, message.text ?? "", Math.floor(Number(event.timestamp) / 1e3), refs);
       }
     }
   }
