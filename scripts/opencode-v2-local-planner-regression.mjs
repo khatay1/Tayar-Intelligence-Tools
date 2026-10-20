@@ -12,9 +12,11 @@ const config = {
   enabled: true, isolated: true, offline: true, readonlyWorktree: true,
   runtimeVersion: 'v1.19.3', baseUrl: 'http://127.0.0.1:4096',
   providerID: 'ollama', modelID: 'qwen2.5-coder:7b',
+  workspaceDirectory: '/workspace/test-tenant-123',
 };
 assert.deepEqual(checkV2Config(config), {
   origin: 'http://127.0.0.1:4096', modelID: config.modelID,
+  workspaceDirectory: config.workspaceDirectory,
 });
 assert.equal(checkReadOnlyAgent({ id:'tayar-readonly', permissions: rules }), true);
 for (const unsafe of [
@@ -43,6 +45,8 @@ for (const [override, code] of [
   [{baseUrl:'http://localhost:4096'},'invalid-endpoint'],
   [{baseUrl:'http://127.0.0.1:4096/admin'},'invalid-endpoint'],
   [{baseUrl:'http://127.0.0.1:4096@malicious.test'},'invalid-endpoint'],
+  [{workspaceDirectory:'/tmp/customer'},'invalid-workspace'],
+  [{workspaceDirectory:'/workspace/../secret'},'invalid-workspace'],
 ]) await rejectBeforeNetwork(override,code);
 await rejectBeforeNetwork({},'invalid-prompt','');
 await rejectBeforeNetwork({},'invalid-prompt','x'.repeat(11000));
@@ -60,10 +64,16 @@ const fetcher = async (url, opts) => {
   assert.equal(opts.redirect,'error');
   assert.equal(opts.cache,'no-store');
   if (u.pathname === '/api/health') return Response.json({healthy:true});
-  if (u.pathname === '/api/agent') return Response.json({data:[{id:'tayar-readonly',permissions:agentRules}]});
+  if (u.pathname === '/api/agent') {
+    assert.equal(u.searchParams.get('location[directory]'),config.workspaceDirectory);
+    return Response.json({
+      location:{directory: config.workspaceDirectory},
+      data:[{id:'tayar-readonly',permissions:agentRules}],
+    });
+  }
   if (u.pathname === '/api/session' && opts.method === 'POST') {
-    assert.deepEqual(body,{agent:'tayar-readonly',model:{id:config.modelID,providerID:'ollama'}});
-    return Response.json({data:{id:'ses_1234',agent:'tayar-readonly',model:body.model}});
+    assert.deepEqual(body,{agent:'tayar-readonly',model:{id:config.modelID,providerID:'ollama'},location:{directory:config.workspaceDirectory}});
+    return Response.json({data:{id:'ses_1234',agent:'tayar-readonly',model:body.model,location:body.location}});
   }
   if (u.pathname === '/api/session/ses_1234/prompt') {
     assert.deepEqual(body,{prompt:{text:'Inspect project'}});
@@ -93,7 +103,7 @@ assert.deepEqual(await planWithOpenCodeV2(request),{
 });
 assert.equal(calls.filter(x=>x.path.includes('/prompt')).length,1);
 assert.equal(calls.filter(x=>x.path.includes('/interrupt')).length,0);
-assert.equal(calls.find(x=>x.path==='/api/agent').method,'GET');
+assert.equal(calls.find(x=>x.path.startsWith('/api/agent?')).method,'GET');
 calls.length=0; agentRules=[...rules,{action:'shell',resource:'*',effect:'allow'}];
 await assert.rejects(planWithOpenCodeV2(request),{code:'unsafe-agent-policy'});
 assert.equal(calls.some(x=>x.path==='/api/session'),false,

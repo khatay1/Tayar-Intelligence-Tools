@@ -17,10 +17,10 @@ OpenCode artifact by verified digest and ensure the runtime version matches.
 
 ## V2 request contract (inspected upstream tag v1.19.3)
 - GET `/api/health` (requires `healthy: true`).
-- GET `/api/agent` (must expose a dedicated `tayar-readonly` agent
+- GET `/api/agent?location[directory]=<trusted-workspace>` (must resolve the trusted workspace and expose a dedicated `tayar-readonly` agent
   with exactly four ordered permission rules: deny-all, then allow only
   `read`, `glob`, `grep`, for any resource).
-- POST `/api/session` with `{agent,model:{providerID:'ollama',id:modelID}}`.
+- POST `/api/session` with `{agent,model:{providerID:'ollama',id:modelID},location:{directory:workspaceDirectory}}` and verify the returned location.
 - POST `/api/session/:sessionID/prompt` with `{prompt:{text}}`.
 - POST `/api/session/:sessionID/wait` for HTTP 204.
 - GET `/api/session/:sessionID/message?limit=19&order=desc`
@@ -34,7 +34,7 @@ OpenCode artifact by verified digest and ensure the runtime version matches.
 1. No web/UI route added. Only authenticated trusted server components can
    invoke this module. Browser inputs may never choose the OpenCode origin,
    model, version, agent, or sandbox flags.
-2. The host supervisor MUST provision a fresh workspace and model server
+2. The host supervisor MUST assign a trusted `workspaceDirectory` under `/workspace/<opaque-id>` and provision a fresh workspace and model server
    per isolation domain, with read-only mounted project source, no customer
    or platform credentials, no Docker/socket/host mounts, and egress
    blocked by OS/network policy. The booleans are declarations, not proof.

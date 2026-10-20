@@ -36,7 +36,12 @@ export function checkV2Config(config) {
       Number(url.port) < 1 || Number(url.port) > 65535) {
     throw new OpenCodeV2Error('invalid-endpoint');
   }
-  return { origin: url.origin, modelID: config.modelID };
+  if (typeof config.workspaceDirectory !== 'string' ||
+      !/^\/workspace\/[A-Za-z0-9_-]{3,60}$/.test(config.workspaceDirectory)) {
+    throw new OpenCodeV2Error('invalid-workspace');
+  }
+  return { origin: url.origin, modelID: config.modelID,
+    workspaceDirectory: config.workspaceDirectory };
 }
 
 /**
@@ -158,7 +163,7 @@ function extractPlan(messages, modelID) {
 }
 
 export async function planWithOpenCodeV2({ config, prompt, fetcher = fetch }) {
-  const { origin, modelID } = checkV2Config(config);
+  const { origin, modelID, workspaceDirectory } = checkV2Config(config);
   if (typeof prompt !== 'string' || !prompt.trim() ||
       new TextEncoder().encode(prompt).length > MAX_PROMPT) {
     throw new OpenCodeV2Error('invalid-prompt');
@@ -167,18 +172,23 @@ export async function planWithOpenCodeV2({ config, prompt, fetcher = fetch }) {
   // Verify the protocol and exact effective agent policy BEFORE any inference.
   const health = await request(fetcher, origin, 'GET', '/api/health', undefined, 10000);
   if (health?.healthy !== true) throw new OpenCodeV2Error('unsupported-protocol');
-  const agents = await request(fetcher, origin, 'GET', '/api/agent', undefined, 10000);
-  if (!Array.isArray(agents?.data)) throw new OpenCodeV2Error('unsupported-protocol');
+  const agentPath = '/api/agent?location%5Bdirectory%5D=' + encodeURIComponent(workspaceDirectory);
+  const agents = await request(fetcher, origin, 'GET', agentPath, undefined, 10000);
+  if (!Array.isArray(agents?.data) || agents.location?.directory !== workspaceDirectory) {
+    throw new OpenCodeV2Error('unexpected-workspace');
+  }
   checkReadOnlyAgent(agents.data.find(agent => agent?.id === AGENT));
   let sessionId;
   try {
     const created = await request(fetcher, origin, 'POST', '/api/session', {
       agent: AGENT, model: { id: modelID, providerID: 'ollama' },
+      location: { directory: workspaceDirectory },
     }, 15000);
     const session = created?.data;
     if (typeof session?.id !== 'string' || !SESSION.test(session.id) ||
         session.agent !== AGENT || session.model?.id !== modelID ||
-        session.model?.providerID !== 'ollama') throw new OpenCodeV2Error('invalid-session');
+        session.model?.providerID !== 'ollama' ||
+        session.location?.directory !== workspaceDirectory) throw new OpenCodeV2Error('invalid-session');
     sessionId = session.id;
     const admitted = await request(fetcher, origin, 'POST',
       '/api/session/' + sessionId + '/prompt', { prompt: { text: prompt } }, 15000);
