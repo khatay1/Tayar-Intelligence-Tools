@@ -1215,3 +1215,24 @@ in the existing integrations smoke command used by Release Gate.
 Reference: Stripe webhook endpoint object and retrieve API documentation:
 https://docs.stripe.com/api/webhook_endpoints/object
 https://docs.stripe.com/api/webhook_endpoints/retrieve
+
+## Saved Stripe webhook source and handoff proof — 2026-10-20
+
+Order-payment source capture now requires an exact saved Stripe webhook endpoint
+ID plus an environment-scoped opaque signing-secret reference. The values pass
+through the existing integration normalizer and project-secret boundary; raw
+signing material is never compiled into customer source or returned by capture.
+Checkout-only Stripe integrations remain compatible and do not falsely require
+an order webhook.
+
+When a new Stripe API credential is moved from customer Vault custody to its
+write-only Vercel destination, the same locked credential now invokes the
+existing read-only endpoint verifier before the source is erased. This binds the
+customer account, project, deployment origin, mode, pinned API version and exact
+order event set to the handoff attempt. Invalid, foreign or stale endpoint state
+stops the handoff before a ready Stripe receipt can be recorded.
+
+This does not yet deliver `STRIPE_WEBHOOK_SECRET` to Vercel, persist an
+independently revalidatable endpoint receipt, prove an actual Stripe delivery or
+enable Production order payments. Those remain blocked. No provider writes,
+customer credentials, paid service or Production activation were used.

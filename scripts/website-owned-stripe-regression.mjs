@@ -94,9 +94,16 @@ try{
     throw Error(name);
   }};
   const marker=`Tayar handoff ${ids.operationId}`;
+  const endpointId='we_fixture12345678',applicationOrigin='https://customer.example';
+  const endpointEvents=['checkout.session.completed','checkout.session.async_payment_succeeded',
+    'checkout.session.async_payment_failed','refund.created','refund.updated','charge.refunded'];
   const combinedFetch=async(url,init)=>{
     if(url==='https://api.stripe.com/v1/account'){stripeCalls++;assert.equal(init.headers.Authorization,`Bearer ${restricted}`);
       return new Response(JSON.stringify({id:'acct_fixture12345678',object:'account',charges_enabled:true}),{status:200});}
+    if(url===`https://api.stripe.com/v1/webhook_endpoints/${endpointId}`){assert.equal(init.headers.Authorization,`Bearer ${restricted}`);
+      assert.equal(init.headers['Stripe-Version'],'2026-08-26.dahlia');return Response.json({id:endpointId,object:'webhook_endpoint',
+        application:null,api_version:'2026-08-26.dahlia',url:`${applicationOrigin}/api/stripe-webhook`,livemode:true,
+        status:'enabled',enabled_events:endpointEvents,metadata:{tayar_project_id:ids.projectId,tayar_environment:'production'}});}
     if(String(url).includes('api.vercel.com')&&init.method==='POST'){vercelPosts++;const body=JSON.parse(init.body);
       assert.equal(body.key,'STRIPE_SECRET_KEY');assert.equal(body.value,restricted);assert.equal(body.type,'sensitive');return new Response('{}',{status:201});}
     if(String(url).includes('api.vercel.com')&&init.method==='GET')return new Response(JSON.stringify({envs:[{
@@ -105,8 +112,8 @@ try{
   };
   const runtime=await handoff({...ids,client:rpcClient,vercelConnectionVersion:7,expectedHandoffVersion:0,
     expectedStripeConnectionVersion:0,sourceConnectionId:'stripe-prod',sourceUpdatedAt:'2026-10-04T10:00:00.000Z',
-    publishableKey:publishable,environment:'production',isCurrent:()=>true,fetcher:combinedFetch});
-  assert.deepEqual(runtime,expectedReceipt);assert.equal(proofWrites,1);assert.equal(stripeCalls,1);assert.equal(vercelPosts,1);
+    publishableKey:publishable,webhookEndpointId:endpointId,applicationOrigin,environment:'production',isCurrent:()=>true,fetcher:combinedFetch});
+  assert.deepEqual(runtime,expectedReceipt);assert.equal(proofWrites,1);assert.equal(stripeCalls,2);assert.equal(vercelPosts,1);
   assert.ok(!JSON.stringify(runtime).includes(restricted));
   assert.deepEqual(await handoff({...ids,client:{async rpc(name){assert.equal(name,'website_reconcile_stripe_runtime_binding');
     return{data:{connectionVersion:1,handoffVersion:2,accountId:'acct_fixture12345678',keyType:'restricted',environmentId:'env_fixture123'},error:null};}},
