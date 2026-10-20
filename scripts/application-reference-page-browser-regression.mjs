@@ -19,7 +19,7 @@ const findChrome = () => {
 };
 const dir = await mkdtemp(join(tmpdir(), 'tayar-reference-page-browser-'));
 const referenceProjects = createApplicationReferenceProjects();
-let server, proxy, marker;
+let server, marker;
 const serverRequests = [];
 const sockets = new Set();
 const referencePages = new Map();
@@ -56,18 +56,6 @@ try {
   server.on('connection', socket => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)); });
   await new Promise(resolveListen => server.listen(0, '127.0.0.1', resolveListen));
   const url = 'https://' + projectId + '.apps.tayar.se';
-  const proxyScript = "require('net').createServer(socket=>{const upstream=require('net').connect(" + server.address().port + ",'127.0.0.1');socket.pipe(upstream);upstream.pipe(socket)}).listen(443,'127.0.0.1',()=>console.log('ready'))";
-  proxy = spawn('sudo', ['-n', process.execPath, '-e', proxyScript], { detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  let proxyOutput = '';
-  await Promise.race([
-    new Promise((resolveProxy, rejectProxy) => {
-      proxy.stdout.on('data', chunk => { proxyOutput += chunk; if (proxyOutput.includes('ready')) resolveProxy(); });
-      proxy.stderr.on('data', chunk => { proxyOutput += chunk; });
-      proxy.once('error', rejectProxy);
-      proxy.once('exit', code => rejectProxy(new Error('HTTPS loopback proxy exited (' + code + '): ' + proxyOutput)));
-    }),
-    new Promise((_, rejectProxy) => setTimeout(() => rejectProxy(new Error('HTTPS loopback proxy did not start: ' + proxyOutput)), 10_000)),
-  ]);
   const chrome = findChrome();
   const entry = join(dir, 'page-runtime.ts'), outfile = join(dir, 'page-runtime.cjs');
   await writeFile(entry, [
@@ -295,10 +283,10 @@ try {
   }
   html = html.replace('</head>', '<script src="/mock.js"></script></head>');
   html = html.replace('</body>', '<script src="/harness.js"></script></body>');
-  // Prove the privileged HTTPS loopback proxy before starting Chrome. A
-  // listening TCP process alone does not establish TLS/HTTP reachability.
+  // Prove TLS/HTTP reachability on the isolated fixture port before Chrome.
+  // DNS maps only the socket destination; the canonical HTTPS origin stays intact.
   await new Promise((resolveProbe, rejectProbe) => {
-    const request = get({ hostname: '127.0.0.1', port: 443, path: '/index.html',
+    const request = get({ hostname: '127.0.0.1', port: server.address().port, path: '/index.html',
       servername: projectId + '.apps.tayar.se', rejectUnauthorized: false, timeout: 3000 }, response => {
       response.resume();
       response.once('end', () => response.statusCode === 200 ? resolveProbe() : rejectProbe(new Error('HTTPS loopback fixture is unavailable')));
@@ -312,7 +300,7 @@ try {
   const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-proxy-server',
     '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-sync', '--password-store=basic', '--use-mock-keychain',
     '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0',
-    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + join(dir, 'chrome-profile'), 'about:blank'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
+    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1:' + server.address().port + ',EXCLUDE localhost', '--user-data-dir=' + join(dir, 'chrome-profile'), 'about:blank'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '', timer, debuggerSocket;
   // Navigate only after Chrome exposes DevTools. Command-line startup can leave
   // headless Chrome on an empty tab without ever requesting the fixture.
@@ -362,7 +350,6 @@ try {
   }
   if (!marker?.startsWith('PASS')) throw new Error(marker || 'Browser did not return a result');
 } finally {
-  if (proxy?.pid) { try { process.kill(-proxy.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') throw error; } }
   server?.closeAllConnections();
   for (const socket of sockets) socket.destroy();
   await new Promise(resolveClose => server ? server.close(resolveClose) : resolveClose());
