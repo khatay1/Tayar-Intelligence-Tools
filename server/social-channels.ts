@@ -21,6 +21,9 @@ export const SOCIAL_CHANNELS = Object.freeze({
 const id = /^[A-Za-z0-9_.:@-]{1,200}$/;
 const providerId = /^[A-Za-z0-9_.:@=-]{1,256}$/;
 const numeric = /^\d{1,30}$/;
+const metaAttachmentTypes: Readonly<Record<string, SocialAttachmentRef['type']>> = Object.freeze({
+  image: 'image', document: 'document', file: 'document', audio: 'audio', video: 'video', sticker: 'sticker',
+});
 function fail(): never { throw new Error('Social channel request rejected.'); }
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : fail();
 const array = (value: unknown): unknown[] => Array.isArray(value) && value.length <= 100 ? value : fail();
@@ -31,6 +34,29 @@ function bindingValid(binding: SocialConnectionBinding) {
 }
 function credentialActive(binding: SocialConnectionBinding, now: number) {
   return Number.isFinite(now) && (binding.expiresAt === null || (typeof binding.expiresAt === 'string' && Number.isFinite(Date.parse(binding.expiresAt)) && Date.parse(binding.expiresAt) > now));
+}
+function telegramAttachments(message: Record<string, unknown>): SocialAttachmentRef[] {
+  const candidates: Array<[string, SocialAttachmentRef['type']]> = [
+    ['document','document'],['audio','audio'],['voice','audio'],['video','video'],['video_note','video'],['animation','video'],['sticker','sticker'],
+  ];
+  const result: SocialAttachmentRef[] = [];
+  if (message.photo !== undefined) {
+    const photos=array(message.photo); if (!photos.length) fail();
+    result.push({type:'image',providerId:str(record(photos[photos.length-1]).file_id)});
+  }
+  for (const [key,type] of candidates) if (message[key] !== undefined) result.push({type,providerId:str(record(message[key]).file_id)});
+  // Telegram currently delivers one primary media kind per Message. Reject an
+  // impossible mixture instead of letting attacker-shaped signed fixtures grow.
+  if (result.length > 1) fail();
+  return result;
+}
+function metaAttachments(value: unknown): SocialAttachmentRef[] {
+  if (value === undefined) return [];
+  return array(value).flatMap(candidate => {
+    const type=record(candidate).type;
+    return typeof type === 'string' && Object.prototype.hasOwnProperty.call(metaAttachmentTypes,type)
+      ? [{type:metaAttachmentTypes[type]}] : [];
+  });
 }
 async function equalSecret(left: string, right: string) {
   const encoder = new TextEncoder();
@@ -90,9 +116,7 @@ export async function verifyAndNormalizeSocialWebhook(input: {
       // Private chats only: group identity / business delegation requires separate authorization.
       if (chat.type !== 'private') return [];
       const sender = record(message.from); if (sender.is_bot === true || String(sender.id) !== String(chat.id)) fail();
-      const photos = message.photo ? array(message.photo) : [];
-      const refs: SocialAttachmentRef[] = message.document ? [{type: 'document', providerId: str(record(message.document).file_id)}]
-        : message.photo ? [{type: 'image', providerId: str(record(photos[photos.length - 1]).file_id)}] : [];
+      const refs=telegramAttachments(message);
       if (message.text !== undefined || message.caption !== undefined || refs.length) add(`${root!.update_id}:${message.message_id}`, chat.id, message.text ?? message.caption ?? '', message.date, refs);
     }
     return events;
@@ -105,8 +129,12 @@ export async function verifyAndNormalizeSocialWebhook(input: {
         const change = record(rawChange); if (change.field !== 'messages') continue;
         const value = record(change.value); if (str(record(value.metadata).phone_number_id, numeric) !== binding.accountId) fail();
         for (const rawMessage of array(value.messages ?? [])) {
-          const message = record(rawMessage); if (message.type !== 'text') continue;
-          add(message.id, message.from, record(message.text).body, Number(message.timestamp));
+          const message = record(rawMessage);
+          if (message.type === 'text') add(message.id, message.from, record(message.text).body, Number(message.timestamp));
+          else if (typeof message.type === 'string' && Object.prototype.hasOwnProperty.call(metaAttachmentTypes,message.type)) {
+            const media=record(message[message.type]);
+            add(message.id,message.from,media.caption ?? '',Number(message.timestamp),[{type:metaAttachmentTypes[message.type],providerId:str(media.id)}]);
+          }
         }
       }
     } else {
@@ -115,7 +143,8 @@ export async function verifyAndNormalizeSocialWebhook(input: {
         const event = record(rawEvent); if (!event.message) continue;
         const message = record(event.message); if (message.is_echo === true) continue;
         if (String(record(event.recipient).id) !== binding.accountId) fail();
-        if (message.text !== undefined) add(message.mid, record(event.sender).id, message.text, Math.floor(Number(event.timestamp) / 1000));
+        const refs=metaAttachments(message.attachments);
+        if (message.text !== undefined || refs.length) add(message.mid, record(event.sender).id, message.text ?? '', Math.floor(Number(event.timestamp) / 1000),refs);
       }
     }
   }

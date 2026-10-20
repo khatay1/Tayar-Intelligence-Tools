@@ -20,6 +20,14 @@ try {
   const parseInput=(body=event,overrides={})=>({enabled:true,request:request(body),binding,secret,...overrides});
   const normalized=await parse(parseInput());
   assert.equal(normalized[0].externalMessageId,'7:9'); assert.equal(normalized[0].tenantId,'tenant-a'); assert.equal(normalized[0].text,'مرحبا');
+  for(const [field,type] of [['document','document'],['audio','audio'],['voice','audio'],['video','video'],['video_note','video'],['animation','video'],['sticker','sticker']]){
+    const media={...event,message:{...event.message,text:undefined,[field]:{file_id:`opaque_${field}`}}};
+    assert.deepEqual((await parse(parseInput(media)))[0].attachmentRefs,[{type,providerId:`opaque_${field}`}]);
+  }
+  const photo={...event,message:{...event.message,text:undefined,caption:'photo caption',photo:[{file_id:'small'},{file_id:'largest'}]}};
+  assert.deepEqual((await parse(parseInput(photo)))[0].attachmentRefs,[{type:'image',providerId:'largest'}]);
+  await assert.rejects(()=>parse(parseInput({...event,message:{...event.message,text:undefined,document:{file_id:'https://attacker.example/file'}}})));
+  await assert.rejects(()=>parse(parseInput({...event,message:{...event.message,text:undefined,document:{file_id:'doc'},audio:{file_id:'audio'}}})));
   await assert.rejects(()=>parse(parseInput(event,{enabled:undefined})));
   await assert.rejects(()=>parse(parseInput(event,{request:request(event,'telegram','wrong_secret_1234567')})));
   await assert.rejects(()=>parse(parseInput('{broken')));
@@ -30,12 +38,27 @@ try {
   const wa={object:'whatsapp_business_account',entry:[{id:'waba-id',changes:[{field:'messages',value:{metadata:{phone_number_id:'555'},messages:[{id:'wamid.ABC',from:'42',type:'text',text:{body:'hello'},timestamp:'1791892800'}]}}]}]};
   const waInput=(body=wa)=>({enabled:true,request:request(body,'whatsapp'),binding:waBinding,secret});
   assert.equal((await parse(waInput()))[0].externalMessageId,'wamid.ABC');
+  for(const type of ['image','document','audio','video','sticker']){
+    const media=structuredClone(wa),message=media.entry[0].changes[0].value.messages[0];
+    message.type=type;delete message.text;message[type]={id:`media_${type}`,...(['image','document','video'].includes(type)?{caption:`${type} caption`}:{})};
+    const result=(await parse(waInput(media)))[0];
+    assert.ok(result,`missing WhatsApp ${type} event`);
+    assert.deepEqual(result.attachmentRefs,[{type,providerId:`media_${type}`}]);
+    assert.equal(result.text,['image','document','video'].includes(type)?`${type} caption`:'' );
+  }
+  const badMedia=structuredClone(wa),badMessage=badMedia.entry[0].changes[0].value.messages[0];
+  badMessage.type='image';delete badMessage.text;badMessage.image={id:'https://attacker.example/file'};await assert.rejects(()=>parse(waInput(badMedia)));
   const tampered=waInput(); tampered.request=request(JSON.stringify(wa)+' ','whatsapp','different_secret_12345'); await assert.rejects(()=>parse(tampered));
   const missingId=structuredClone(wa); delete missingId.entry[0].changes[0].value.messages[0].id; await assert.rejects(()=>parse(waInput(missingId)));
   const wrongDestination=structuredClone(wa); wrongDestination.entry[0].changes[0].value.metadata.phone_number_id='777'; await assert.rejects(()=>parse(waInput(wrongDestination)));
   for(const channel of ['facebook','instagram']){
     const meta={object:channel==='facebook'?'page':'instagram',entry:[{id:'555',messaging:[{sender:{id:'42'},recipient:{id:'555'},timestamp:1791892800000,message:{mid:'mid.abc',text:'hello'}}]}]};
     assert.equal((await parse({enabled:true,request:request(meta,channel),binding:{...waBinding,channel},secret}))[0].senderId,'42');
+    const media=structuredClone(meta),message=media.entry[0].messaging[0].message;delete message.text;
+    message.attachments=[{type:'image',payload:{url:'https://provider.example/private'}},{type:'file',payload:{url:'http://127.0.0.1/private'}},{type:'unknown',payload:{url:'https://attacker.example'}}];
+    const normalizedMedia=(await parse({enabled:true,request:request(media,channel),binding:{...waBinding,channel},secret}))[0];
+    assert.deepEqual(normalizedMedia.attachmentRefs,[{type:'image'},{type:'document'}]);
+    assert.ok(!JSON.stringify(normalizedMedia).includes('provider.example'));assert.ok(!JSON.stringify(normalizedMedia).includes('127.0.0.1'));
     meta.entry[0].messaging[0].message.is_echo=true; assert.deepEqual(await parse({enabled:true,request:request(meta,channel),binding:{...waBinding,channel},secret}),[]);
   }
   assert.equal(await challenge({enabled:true,mode:'subscribe',token:secret,expectedToken:secret,challenge:'123'}),'123');
@@ -71,5 +94,5 @@ try {
     }
   }
   assert.deepEqual(Object.keys(SOCIAL_CHANNELS).sort(),['facebook','instagram','telegram','whatsapp']);
-  console.log('Social channel regression passed: four official mocked adapters, signatures, destination isolation, bounded parsing, policy, fixed endpoints, secret-safe ambiguous delivery.');
+  console.log('Social channel regression passed: four official mocked adapters, bounded attachment metadata, signatures, destination isolation, policy, fixed endpoints, secret-safe ambiguous delivery.');
 } finally { await rm(directory,{recursive:true,force:true}); }
