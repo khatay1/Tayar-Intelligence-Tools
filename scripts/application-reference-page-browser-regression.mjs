@@ -311,17 +311,46 @@ try {
   const detached = process.platform !== 'win32';
   const child = spawn(chrome, ['--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-proxy-server',
     '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--disable-sync', '--password-store=basic', '--use-mock-keychain',
-    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + dir, url + '/index.html'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
-  let stderr = '', timer;
-  child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
+    '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0',
+    '--disable-background-networking', '--ignore-certificate-errors', '--host-resolver-rules=MAP ' + projectId + '.apps.tayar.se 127.0.0.1,EXCLUDE localhost', '--user-data-dir=' + join(dir, 'chrome-profile'), 'about:blank'], { detached, stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '', timer, debuggerSocket;
+  // Navigate only after Chrome exposes DevTools. Command-line startup can leave
+  // headless Chrome on an empty tab without ever requesting the fixture.
+  const navigation = new Promise((resolveNavigation, rejectNavigation) => {
+    let started = false;
+    child.stderr.on('data', async chunk => {
+      stderr = (stderr + chunk).slice(-4000);
+      const endpoint = /DevTools listening on (ws:\/\/127\.0\.0\.1:\d+\/[^\s]+)/.exec(stderr)?.[1];
+      if (!endpoint || started) return;
+      started = true;
+      try {
+        const origin = new URL(endpoint); origin.protocol = 'http:';
+        const response = await fetch(origin.origin + '/json/new?about:blank', { method: 'PUT' });
+        if (!response.ok) throw new Error('Cannot create fixture browser target: ' + response.status);
+        const target = await response.json();
+        debuggerSocket = new WebSocket(target.webSocketDebuggerUrl);
+        debuggerSocket.addEventListener('error', () => rejectNavigation(new Error('Fixture DevTools connection failed')), { once: true });
+        debuggerSocket.addEventListener('open', () => {
+          debuggerSocket.send(JSON.stringify({ id: 1, method: 'Page.navigate', params: { url: url + '/index.html' } }));
+        }, { once: true });
+        debuggerSocket.addEventListener('message', event => {
+          const message = JSON.parse(String(event.data));
+          if (message.id !== 1) return;
+          if (message.error || message.result?.errorText) rejectNavigation(new Error('Fixture navigation failed: ' + JSON.stringify(message.error || message.result)));
+          else resolveNavigation();
+        });
+      } catch (error) { rejectNavigation(error); }
+    });
+  });
   try {
-    marker = await Promise.race([completion, new Promise((_, reject) => {
+    marker = await Promise.race([navigation.then(() => completion), new Promise((_, reject) => {
       timer = setTimeout(() => reject(new Error('Generated application page browser timed out: ' + stderr + '\\nRequests: ' + serverRequests.join(', '))), 30_000);
       child.once('error', reject);
       child.once('exit', code => reject(new Error('Browser exited before completing checks (' + code + '): ' + stderr)));
     })]);
   } finally {
     clearTimeout(timer);
+    debuggerSocket?.close();
     if (child.pid) {
       const exited = child.exitCode === null && child.signalCode === null
         ? new Promise(resolveExit => child.once('exit', resolveExit)) : Promise.resolve();
