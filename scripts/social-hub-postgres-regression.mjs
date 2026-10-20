@@ -30,7 +30,7 @@ try {
  create table vault.secrets(id uuid primary key default gen_random_uuid(),secret text);
  create view vault.decrypted_secrets as select id,secret as decrypted_secret from vault.secrets;
  create function vault.create_secret(p_secret text,p_name text,p_description text,p_key uuid)returns uuid language plpgsql as $$declare v uuid;begin insert into vault.secrets(secret)values(p_secret)returning id into v;return v;end$$;
- create table auth.users(id uuid primary key);create table public.profiles(id uuid primary key,role text,suspended boolean default false);
+ create table auth.users(id uuid primary key);create table public.profiles(id uuid primary key,full_name text not null default '',role text,suspended boolean default false);
  create table public.team_workspaces(id uuid primary key,owner_id uuid);
  create table public.team_workspace_members(workspace_id uuid,user_id uuid,role text,primary key(workspace_id,user_id));
  create table public.projects(id uuid primary key,user_id uuid,workspace_id uuid,deleted_at timestamptz);
@@ -63,7 +63,9 @@ try {
  await db.exec(await readFile(`supabase/migrations/${unreadFile}`,'utf8'));
  const attachmentsFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_safe_attachments.sql'));
  await db.exec(await readFile(`supabase/migrations/${attachmentsFile}`,'utf8'));
- await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,role)select id,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
+ const teamAssignmentFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_team_assignment.sql'));
+ await db.exec(await readFile(`supabase/migrations/${teamAssignmentFile}`,'utf8'));
+ await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,full_name,role)select id,case when id='${uid(1)}'then'Owner'when id='${uid(3)}'then'Editor'else''end,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');
  insert into projects values('${uid(21)}','${uid(1)}','${uid(20)}',null),('${uid(23)}','${uid(2)}',null,null);
  insert into website_leads(id,project_id,user_id,name,email)values('${uid(22)}','${uid(21)}','${uid(1)}','Alice lead','alice@example.test'),('${uid(24)}','${uid(23)}','${uid(2)}','Other lead','other@example.test');`);
@@ -170,6 +172,15 @@ try {
  await denied(`select public.link_social_hub_crm_lead('${conversation}','${uid(24)}')`);
  const followup=(await sql(`select public.create_social_hub_followup('${conversation}','Call customer')id`))[0].id;
  await db.exec(`select public.mutate_social_hub_followup('${followup}','done','${uid(3)}',true)`);
+ const assignees=(await sql(`select public.list_social_hub_assignees('${scope}')data`))[0].data;
+ assert.deepEqual(assignees.map(item=>item.id),[uid(3),uid(1)],'only eligible editor and owner are assignable, ordered by display name');
+ assert.equal(assignees.find(item=>item.id===uid(3)).name,'Editor');assert.ok(!assignees.some(item=>item.id===uid(4)));
+ await actor(null,'postgres');await db.exec(`update profiles set suspended=true where id='${uid(3)}'`);await actor(uid(1));
+ assert.ok(!(await sql(`select public.list_social_hub_assignees('${scope}')data`))[0].data.some(item=>item.id===uid(3)),'suspended editor is removed from candidates');
+ await denied(`select public.mutate_social_hub_conversation('${conversation}',p_assigned_to=>'${uid(3)}',p_set_assignment=>true)`);
+ await denied(`select public.mutate_social_hub_followup('${followup}',null,'${uid(3)}',true)`);
+ await actor(null,'postgres');await db.exec(`update profiles set suspended=false where id='${uid(3)}'`);await actor(uid(1));
+ await db.exec(`select public.mutate_social_hub_conversation('${conversation}',p_assigned_to=>'${uid(3)}',p_set_assignment=>true)`);
  await actor(uid(3));assert.equal((await sql(`select public.get_social_hub_inbox('${scope}')data`))[0].data.crmLeads,null,'CRM candidates require manager access');
  await denied(`select public.create_social_hub_scope('customer','${uid(20)}','${uid(21)}')`);
  const editorFollowup=(await sql(`select public.create_social_hub_followup('${conversation}','Editor follow-up')id`))[0].id;assert.ok(editorFollowup);
