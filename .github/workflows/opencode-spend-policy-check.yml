@@ -1,0 +1,35 @@
+name: OpenCode spend policy check
+
+on:
+  push:
+    branches:
+      - 'internal-opencode-cost-*'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'server/opencode-spend-gate.mjs'
+      - 'scripts/opencode-spend-gate-regression.mjs'
+      - '.github/workflows/opencode-spend-policy-check.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opencode-spend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-spend-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: node --check server/opencode-spend-gate.mjs
+      - run: node --check scripts/opencode-spend-gate-regression.mjs
+      - run: node scripts/opencode-spend-gate-regression.mjs
