@@ -76,6 +76,33 @@ https://github.com/anomalyco/opencode/tree/v1.19.3 .
    Reuse Tayar's existing Safe Apply, tenant authorization and Release Gate
    only after a separate sandboxed patch proposal and real E2E proof.
 
+## Artifact admission before extraction
+
+`server/opencode-offline-runtime-admission.mjs` pins the immutable upstream
+release archives supported by the pilot and hashes already-downloaded local
+files before extraction. The current pins are OpenCode v1.19.3 and Ollama
+v0.40.6 for baseline Linux amd64/x64 or Linux arm64. Paths must remain below
+the dedicated runtime/model roots, be regular non-symlink files, have no
+group/world write bits, and match exact byte length and SHA-256.
+
+The local Ollama model is separately operator-approved through a small
+`tayar-local-model/v1` manifest. The manifest's expected hash comes from trusted
+deployment policy; it binds the exact model ID, blob size, blob digest and
+content-addressed blob path. This prevents a matching friendly model name from
+silently selecting different bytes. Only a narrow runtime environment key set
+is accepted, including `OLLAMA_NO_CLOUD`; commercial provider keys and proxy
+variables are refused.
+
+Admission does not download or start anything and returns
+`inferenceExecuted:false`. Passing it proves file identity only. The supervisor
+must still extract safely, enforce the Docker/host confinement contract, start
+both loopback services, run the authenticated V2 request, compare the project
+tree before/after, terminate all processes and destroy the workspace.
+
+Release digest sources:
+- https://github.com/anomalyco/opencode/releases/tag/v1.19.3
+- https://github.com/ollama/ollama/releases/tag/v0.40.6
+
 ## Offline verification
 
 `node scripts/opencode-v2-local-planner-regression.mjs`
