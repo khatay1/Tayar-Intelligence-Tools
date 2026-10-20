@@ -12,6 +12,8 @@ on:
       - 'server/opencode-v2-local-planner.mjs'
       - 'scripts/opencode-local-planner-regression.mjs'
       - 'scripts/opencode-v2-local-planner-regression.mjs'
+      - 'server/opencode-offline-runtime-admission.mjs'
+      - 'scripts/opencode-offline-runtime-admission-regression.mjs'
       - 'scripts/opencode-sandbox-isolation-smoke.mjs'
       - '.github/workflows/opencode-local-pilot-check.yml'
 
@@ -40,6 +42,7 @@ jobs:
       - run: node --check server/opencode-v2-local-planner.mjs
       - run: node --check scripts/opencode-v2-local-planner-regression.mjs
       - run: node scripts/opencode-v2-local-planner-regression.mjs
+      - run: node scripts/opencode-offline-runtime-admission-regression.mjs
       - run: node scripts/opencode-sandbox-isolation-smoke.mjs
 
   docker-isolation:
