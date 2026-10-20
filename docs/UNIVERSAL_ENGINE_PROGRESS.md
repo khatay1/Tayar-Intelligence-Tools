@@ -1,5 +1,25 @@
 # Universal engineering platform — verified checkpoint
 
+## OpenCode continuation — 2026-10-20
+
+- Baseline main `0ca0366c5964602f5a8f96d0435c6b928ba97661` includes #305,
+  #308, #309, #311 and #312; post-merge Release Gate `39467113107` succeeded.
+- Found a real prerequisite missing from the V2 bridge: the pinned v1.19.3
+  CLI `serve` always obtains a private daemon password. The adapter now requires
+  a disposable worker credential and authenticates all requests, including
+  failure interruption, without using ambient host/provider credentials.
+- Focused V2 protocol regression and native loopback HTTP fixture passed:
+  authenticated success, wrong-password refusal before session creation,
+  no redirect following, sanitized failures, and authenticated interruption.
+  These are transport tests, not evidence of local model inference.
+- This session has no Docker, Ollama or OpenCode executable. Issue #310 remains
+  open: pinned binary/model provenance, actual offline read-only inference,
+  workspace teardown evidence and reviewable Safe Apply proposal linkage still
+  require an isolated runtime. Do not activate customer/production execution.
+- #306 remains an independent, reviewed credential-readiness correction;
+  #307 overlaps the already merged legacy/V2 foundations and must not be merged
+  blindly. Free-first spend policy from #312 is retained unchanged.
+
 ## Current continuation checkpoint — 2026-10-16
 
 - Verified merged baseline `main` is `55bc778ddea8e32ca1cbbe582443eb7c131d0cfa` (PR #251). Exact head `05bd3721947473946c3ac6f7cd63a0297569946e`, tree `253f6147b2fdbf06a52e3c929626509a19c5b20a`, passed Release Gate `38888520453`, including actual isolated PostgreSQL source/Production-receipt tests. Vercel Preview was READY and its authenticated root returned HTTP 200. Post-merge main gate must be checked separately. PRs #242–#251 are merged; do not repeat them. Customer/provider activation remains deferred.

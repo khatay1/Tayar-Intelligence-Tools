@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { checkV2Config, checkReadOnlyAgent, planWithOpenCodeV2 }
   from '../server/opencode-v2-local-planner.mjs';
 
@@ -13,6 +14,7 @@ const config = {
   runtimeVersion: 'v1.19.3', baseUrl: 'http://127.0.0.1:4096',
   providerID: 'ollama', modelID: 'qwen2.5-coder:7b',
   workspaceDirectory: '/workspace/test-tenant-123',
+  serverPassword: 'disposable-test-password-123',
 };
 assert.deepEqual(checkV2Config(config), {
   origin: 'http://127.0.0.1:4096', modelID: config.modelID,
@@ -47,6 +49,8 @@ for (const [override, code] of [
   [{baseUrl:'http://127.0.0.1:4096@malicious.test'},'invalid-endpoint'],
   [{workspaceDirectory:'/tmp/customer'},'invalid-workspace'],
   [{workspaceDirectory:'/workspace/../secret'},'invalid-workspace'],
+  ...[undefined, '', 'short', 'x'.repeat(257), 'line\nbreak-password', 'non-ascii-密碼-password']
+    .map(serverPassword => [{serverPassword}, 'invalid-server-credential']),
 ]) await rejectBeforeNetwork(override,code);
 await rejectBeforeNetwork({},'invalid-prompt','');
 await rejectBeforeNetwork({},'invalid-prompt','x'.repeat(11000));
@@ -63,6 +67,9 @@ const fetcher = async (url, opts) => {
   assert.equal(u.origin,config.baseUrl);
   assert.equal(opts.redirect,'error');
   assert.equal(opts.cache,'no-store');
+  assert.equal(opts.headers.authorization, 'Basic ' + btoa('opencode:' + config.serverPassword));
+  assert.equal(String(url).includes(config.serverPassword), false);
+  assert.equal((opts.body ?? '').includes(config.serverPassword), false);
   if (u.pathname === '/api/health') return Response.json({healthy:true});
   if (u.pathname === '/api/agent') {
     assert.equal(u.searchParams.get('location[directory]'),config.workspaceDirectory);
@@ -123,3 +130,76 @@ await assert.rejects(planWithOpenCodeV2(request),{code:'response-too-large'});
 assert.ok(calls.filter(x=>x.path.endsWith('/interrupt')).length>=4,
  'failed active sessions should best-effort interrupt');
 console.log('OpenCode V2 local protocol regression passed.');
+
+// Real HTTP transport against a local protocol fixture, NOT model inference.
+// Exercise native fetch so redirect/credential behavior isn't just mocked.
+let behavior = 'success';
+let admitted = 0;
+let interrupts = 0;
+let redirected = 0;
+const expectedAuthorization = 'Basic ' + btoa('opencode:' + config.serverPassword);
+const localServer = createServer(async (req, res) => {
+  if (req.url === '/credential-trap') {
+    redirected++;
+    res.writeHead(500).end();
+    return;
+  }
+  if (req.headers.authorization !== expectedAuthorization) {
+    res.writeHead(401, {'content-type':'application/json'}).end(
+      JSON.stringify({error:'untrusted response: ' + config.serverPassword}));
+    return;
+  }
+  if (behavior === 'redirect') {
+    res.writeHead(302, {location:'/credential-trap'}).end();
+    return;
+  }
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  assert.equal(raw.includes(config.serverPassword), false);
+  const path = new URL(req.url, 'http://127.0.0.1').pathname;
+  if (path === '/api/session' && req.method === 'POST') admitted++;
+  if (path.endsWith('/interrupt')) interrupts++;
+  if (behavior === 'prompt-failure' && path.endsWith('/prompt')) {
+    res.writeHead(503).end(config.serverPassword);
+    return;
+  }
+  const response = await fetcher('http://127.0.0.1:4096' + req.url, {
+    method:req.method,
+    headers:{authorization:req.headers.authorization},
+    body:raw || undefined, redirect:'error', cache:'no-store',
+  });
+  res.writeHead(response.status, {'content-type':'application/json'});
+  res.end(response.status === 204 ? undefined : await response.text());
+});
+try {
+  await new Promise((resolve, reject) => {
+    localServer.once('error', reject);
+    localServer.listen(0, '127.0.0.1', resolve);
+  });
+  outcome = 'success';
+  const liveConfig = {...config, baseUrl:'http://127.0.0.1:' + localServer.address().port};
+  const runLocal = override => planWithOpenCodeV2({
+    config:{...liveConfig,...override}, prompt:'Inspect project',
+  });
+  assert.equal((await runLocal()).plan, 'Reviewed architecture.');
+  assert.equal(admitted, 1);
+  await assert.rejects(runLocal({serverPassword:'wrong-disposable-password'}), error => {
+    assert.equal(String(error).includes(config.serverPassword), false);
+    return error.code === 'unavailable';
+  });
+  assert.equal(admitted, 1, 'HTTP 401 must stop before session creation');
+  behavior = 'redirect';
+  await assert.rejects(runLocal(), {code:'unavailable'});
+  assert.equal(redirected, 0, 'native fetch must never follow redirects with credentials');
+  assert.equal(admitted, 1);
+  behavior = 'prompt-failure';
+  await assert.rejects(runLocal(), error => {
+    assert.equal(String(error).includes(config.serverPassword), false);
+    return error.code === 'unavailable';
+  });
+  assert.equal(interrupts, 1, 'failure cleanup must authenticate too');
+  console.log('OpenCode V2 authenticated loopback HTTP fixture passed (no model inference).');
+} finally {
+  localServer.closeAllConnections();
+  await new Promise(resolve => localServer.close(resolve));
+}
