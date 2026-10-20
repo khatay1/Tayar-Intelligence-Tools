@@ -217,4 +217,10 @@ export async function planWithOpenCodeV2({ config, prompt, fetcher = fetch }) {
   } catch (error) {
     if (sessionId) {
       try {
-        await authenticatedRequest('POST', '/api
+        await authenticatedRequest('POST', '/api/session/' + sessionId + '/interrupt',
+          undefined, 3000, true);
+      } catch { /* The trusted caller must destroy the entire ephemeral worker. */ }
+    }
+    throw error;
+  }
+}
