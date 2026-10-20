@@ -7292,6 +7292,12 @@ function localizeUi(text3, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Business hours": "\u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644",
+  "Save business hours": "\u062D\u0641\u0638 \u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644",
+  "Business hours saved.": "\u062A\u0645 \u062D\u0641\u0638 \u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644.",
+  "Outside business hours": "\u062E\u0627\u0631\u062C \u0633\u0627\u0639\u0627\u062A \u0627\u0644\u0639\u0645\u0644",
+  "opens": "\u064A\u0641\u062A\u062D",
+  "closes": "\u064A\u063A\u0644\u0642",
   "Assigned team member": "\u0639\u0636\u0648 \u0627\u0644\u0641\u0631\u064A\u0642 \u0627\u0644\u0645\u0639\u064A\u0651\u0646",
   "Assignment saved.": "\u062D\u064F\u0641\u0638 \u0627\u0644\u062A\u0639\u064A\u064A\u0646.",
   "Unassigned": "\u063A\u064A\u0631 \u0645\u0639\u064A\u0651\u0646",
@@ -8065,6 +8071,12 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Business hours": "\xD6ppettider",
+  "Save business hours": "Spara \xF6ppettider",
+  "Business hours saved.": "\xD6ppettiderna har sparats.",
+  "Outside business hours": "Utanf\xF6r \xF6ppettider",
+  "opens": "\xF6ppnar",
+  "closes": "st\xE4nger",
   "Assigned team member": "Tilldelad teammedlem",
   "Assignment saved.": "Tilldelningen sparades.",
   "Unassigned": "Ej tilldelad",

@@ -17,8 +17,8 @@ export function createSocialAutomationWorker(client:Pick<SupabaseClient,'rpc'>,e
       const value=await rpc('claim_social_hub_automation',{});if(value===null)break;
       const row=object(value),eventId=id(row.id),claimToken=id(row.claimToken),scopeId=id(row.scopeId);
       const trigger=row.trigger??'message.received';
-      if(!['message.received','conversation.assigned','human.requested'].includes(String(trigger)))fail();
-      const messageId=trigger==='message.received'?id(row.messageId):undefined;
+      if(!['message.received','conversation.assigned','human.requested','outside.hours'].includes(String(trigger)))fail();
+      const messageId=['message.received','outside.hours'].includes(String(trigger))?id(row.messageId):undefined;
       if(typeof row.text!=='string'||row.text.length>16000||typeof row.humanAssigned!=='boolean'||!Array.isArray(row.rules)||row.rules.length>20||!Array.isArray(row.knowledge)||row.knowledge.length>20)fail();
       const rules:SocialAutomationRule[]=row.rules.map(value=>{
         const rule=object(value);if(rule.scopeId!==scopeId||typeof rule.enabled!=='boolean'||rule.trigger!==trigger

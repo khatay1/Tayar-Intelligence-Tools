@@ -65,6 +65,8 @@ try {
  await db.exec(await readFile(`supabase/migrations/${attachmentsFile}`,'utf8'));
  const teamAssignmentFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_team_assignment.sql'));
  await db.exec(await readFile(`supabase/migrations/${teamAssignmentFile}`,'utf8'));
+ const outsideHoursFile=(await readdir('supabase/migrations')).find(f=>f.endsWith('_social_hub_outside_hours.sql'));
+ await db.exec(await readFile(`supabase/migrations/${outsideHoursFile}`,'utf8'));
  await db.exec(`insert into auth.users values ${[1,2,3,4,5,6].map(n=>`('${uid(n)}')`).join(',')};insert into profiles(id,full_name,role)select id,case when id='${uid(1)}'then'Owner'when id='${uid(3)}'then'Editor'else''end,case when id='${uid(6)}' then 'admin' else 'user' end from auth.users;
  insert into team_workspaces values('${uid(20)}','${uid(1)}');insert into team_workspace_members values('${uid(20)}','${uid(1)}','owner'),('${uid(20)}','${uid(3)}','editor'),('${uid(20)}','${uid(4)}','viewer');
  insert into projects values('${uid(21)}','${uid(1)}','${uid(20)}',null),('${uid(23)}','${uid(2)}',null,null);
@@ -320,6 +322,28 @@ try {
  assert.equal((await sql(`select count(*)::int n from private.social_hub_notes where conversation_id='${conversation}'and text='Automation: human follow-up requested.'`))[0].n,1);
  await actor(uid(1));await db.exec(`select public.set_social_hub_automation('${scope}',false);select public.mutate_social_hub_conversation('${conversation}',p_assigned_to=>'${uid(1)}',p_set_assignment=>true)`);
  await actor(null,'service_role');assert.equal((await sql('select public.claim_social_hub_automation()data'))[0].data,null,'disabled scope automation captures no internal event');
+ // Outside-hours events use the stored tenant time zone and server-validated weekly schedule.
+ await actor(uid(3));await denied(`select public.configure_social_hub_business_hours('${scope}','UTC','[{"day":1,"openMinute":600,"closeMinute":660}]'::jsonb)`);
+ await actor(uid(1));await denied(`select public.configure_social_hub_business_hours('${scope}','Not/A_Time_Zone','[{"day":1,"openMinute":600,"closeMinute":660}]'::jsonb)`);
+ await denied(`select public.configure_social_hub_business_hours('${scope}','UTC',null)`);
+ await denied(`select public.configure_social_hub_business_hours('${scope}','UTC','[{"day":1,"openMinute":600,"closeMinute":660},{"day":1,"openMinute":700,"closeMinute":800}]'::jsonb)`);
+ await db.exec(`select public.configure_social_hub_business_hours('${scope}','UTC','[{"day":1,"openMinute":600,"closeMinute":660}]'::jsonb)`);
+ await denied(`select public.save_social_hub_event_rule('${personal}',null,true,'outside.hours','','notify')`);
+ const outsideRule=(await sql(`select public.save_social_hub_event_rule('${scope}',null,true,'outside.hours','','notify')id`))[0].id;
+ await denied(`select public.save_social_hub_event_rule('${scope}',null,true,'outside.hours','','reply','${knowledgeId}')`);
+ await actor(null,'postgres');assert.equal((await sql(`select private.social_hub_outside_business_hours('${scope}','2026-10-19T10:30:00Z')outside`))[0].outside,false);
+ assert.equal((await sql(`select private.social_hub_outside_business_hours('${scope}','2026-10-19T12:00:00Z')outside`))[0].outside,true);
+ await db.exec(`update private.social_hub_automation_rules set enabled=(id='${outsideRule}') where scope_id='${scope}'`);
+ await actor(uid(1));await db.exec(`select public.set_social_hub_automation('${scope}',true);select public.mutate_social_hub_conversation('${conversation}',p_status=>'open')`);
+ await actor(null,'service_role');await db.exec(`select public.ingest_social_hub_message('${scope}','${uid(30)}','inside-hours-event','12345','inside-hours-message','Alice','inside', '2026-10-19T10:30:00Z')`);
+ let hoursEvent=(await sql('select public.claim_social_hub_automation()data'))[0].data;assert.equal(hoursEvent.trigger,'message.received');assert.equal(hoursEvent.rules.length,0);
+ await db.exec(`select public.complete_social_hub_automation('${hoursEvent.id}','${hoursEvent.claimToken}','[]')`);assert.equal((await sql('select public.claim_social_hub_automation()data'))[0].data,null,'inside-hours message creates no outside-hours event');
+ await db.exec(`select public.ingest_social_hub_message('${scope}','${uid(30)}','outside-hours-event','12345','outside-hours-message','Alice','outside','2026-10-19T12:00:00Z')`);
+ hoursEvent=(await sql('select public.claim_social_hub_automation()data'))[0].data;assert.equal(hoursEvent.trigger,'message.received');await db.exec(`select public.complete_social_hub_automation('${hoursEvent.id}','${hoursEvent.claimToken}','[]')`);
+ hoursEvent=(await sql('select public.claim_social_hub_automation()data'))[0].data;assert.equal(hoursEvent.trigger,'outside.hours');assert.equal(hoursEvent.rules[0].id,outsideRule);
+ assert.equal((await sql(`select public.complete_social_hub_automation('${hoursEvent.id}','${hoursEvent.claimToken}','[{"ruleId":"${outsideRule}","action":"notify"}]')ok`))[0].ok,true);
+ await actor(null,'postgres');assert.equal((await sql(`select count(*)::int n from private.social_hub_notes where conversation_id='${conversation}'and text='Automation: message received outside business hours.'`))[0].n,1);
+ await actor(uid(1));await db.exec(`select public.set_social_hub_automation('${scope}',false)`);
  await actor(null,'service_role');
  await db.exec(`select public.social_hub_revoke_credential('${personal}','${uid(30)}','${stored}')`);
  assert.ok((await sql(`select public.read_social_hub_credential('${scope}','${uid(30)}','${stored}')token`))[0].token);
