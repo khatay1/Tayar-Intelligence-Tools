@@ -15,7 +15,8 @@ changes status, assigns eligible team members, tracks unread counts, pages histo
 links project CRM leads and manages follow-ups. It displays provider authorization,
 webhook verification, credential activity, queue state and provider delivery as
 separate facts. All channel bindings still require separate webhook verification
-before sending.
+before sending. Pending, disconnected and expired connections never display an active
+credential even when no expiry is stored.
 
 The local grounded assistant uses approved same-scope/language answers verbatim,
 requires human handoff for sensitive, ambiguous or unconfirmed questions, and

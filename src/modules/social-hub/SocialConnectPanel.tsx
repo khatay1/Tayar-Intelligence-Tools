@@ -4,7 +4,7 @@ import { socialConnectRequest } from './connect-client';
 import type { SocialConnection, SocialScope } from './client';
 type Channel = 'whatsapp' | 'telegram' | 'facebook' | 'instagram';
 function readiness(connection:SocialConnection){
-  const credentialActive=connection.expires_at===null||(typeof connection.expires_at==='string'&&Number.isFinite(Date.parse(connection.expires_at))&&Date.parse(connection.expires_at)>Date.now());
+  const credentialActive=connection.status==='connected'&&(connection.expires_at===null||(typeof connection.expires_at==='string'&&Number.isFinite(Date.parse(connection.expires_at))&&Date.parse(connection.expires_at)>Date.now()));
   return {credentialActive,ready:connection.status==='connected'&&connection.permissions_verified===true&&connection.webhook_verified===true&&credentialActive};
 }
 export default function SocialConnectPanel({ scope, connections, onChange }: {
