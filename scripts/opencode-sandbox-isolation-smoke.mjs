@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -49,6 +49,9 @@ async function main(){
   const data='immutable:'+name;
   try{
     await writeFile(join(dir,'input.txt'),data);
+    // mkdtemp defaults to 0700, so UID 10001 could not even read the fixture.
+    // Only dummy input is exposed; the Docker bind mount still blocks ALL writes.
+    await chmod(dir,0o755);
     assert.equal((await lstat(dir)).isDirectory(),true);
     assert.equal(await realpath(dir),dir);
     const dummy='sha256:'+'a'.repeat(64);
