@@ -39,8 +39,8 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
     if (!scopeId || !userId) return;
     const revision = ++generation.current;
     try {
-      const [result,unread] = await Promise.all([client.inbox(scopeId),client.unread(scopeId)]);
-      if (revision === generation.current) { setInbox({...result,unread}); setInboxIdentity(`${userId}:${scopeId}`); }
+      const [result,unread,assignees] = await Promise.all([client.inbox(scopeId),client.unread(scopeId),client.assignees(scopeId)]);
+      if (revision === generation.current) { setInbox({...result,unread,assignees}); setInboxIdentity(`${userId}:${scopeId}`); }
     } catch { if (revision === generation.current) setNotice(l('Inbox unavailable. Access or activation is required.')); }
   }, [l, scopeId, userId]);
   useEffect(() => {
@@ -146,8 +146,10 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
           <label>{l('Conversation status')} <select className="text-slate-900" disabled={busy} value={selected.status} onChange={e => void mutate(() => client.update(selected.id, { status:e.target.value }), l('Status saved.'))}>
             {['open','pending','resolved','human_required','archived'].map(value => <option key={value}>{l(value)}</option>)}
           </select></label>
-          <button disabled={busy} onClick={() => void mutate(() => client.update(selected.id,{assignedTo:userId}), l('Assigned to you.'))}>{l('Assign to me')}</button>
-          <button disabled={busy} onClick={() => void mutate(() => client.update(selected.id,{assignedTo:null}), l('Assignment cleared.'))}>{l('Unassign')}</button>
+          <label>{l('Assigned team member')} <select aria-label={l('Assigned team member')} className="text-slate-900" disabled={busy} value={selected.assigned_to??''}
+            onChange={e=>void mutate(()=>client.update(selected.id,{assignedTo:e.target.value||null}),l('Assignment saved.'))}>
+            <option value="">{l('Unassigned')}</option>{currentInbox.assignees.map(member=><option key={member.id} value={member.id}>{member.name}</option>)}
+          </select></label>
           {currentInbox.crmLeads && <label>{l('CRM lead')} <select aria-label={l('CRM lead')} className="text-slate-900" disabled={busy} value={selected.crm_lead_id ?? ''}
             onChange={e => void mutate(() => client.linkCrmLead(selected.id,e.target.value||null),l('CRM link saved.'))}>
             <option value="">{l('No CRM link')}</option>{currentInbox.crmLeads.map(lead=><option key={lead.id} value={lead.id}>{lead.name} · {lead.email} · {lead.stage}</option>)}
@@ -158,6 +160,10 @@ export default function SocialHubTool({ darkMode }: { darkMode: boolean }) {
             <button disabled={busy||!followupTitle.trim()} onClick={()=>void mutate(async()=>{await client.createFollowup(selected.id,followupTitle.trim());setFollowupTitle('');},l('Follow-up created.'))}>{l('Create follow-up')}</button>
             {currentInbox.followups.filter(item=>item.conversation_id===selected.id).map(item=><div key={item.id} className="rounded border p-2">
               <span>{item.title} · {l(item.status)}</span>
+              <label className="ms-2">{l('Follow-up assignee')} <select aria-label={`${l('Follow-up assignee')}: ${item.title}`} className="text-slate-900" disabled={busy} value={item.assigned_to??''}
+                onChange={e=>void mutate(()=>client.updateFollowup(item.id,{assignedTo:e.target.value||null}),l('Assignment saved.'))}>
+                <option value="">{l('Unassigned')}</option>{currentInbox.assignees.map(member=><option key={member.id} value={member.id}>{member.name}</option>)}
+              </select></label>
               {item.status==='open'&&<button className="ms-2" disabled={busy} onClick={()=>void mutate(()=>client.updateFollowup(item.id,{status:'done'}),l('Follow-up completed.'))}>{l('Mark done')}</button>}
             </div>)}
           </div>

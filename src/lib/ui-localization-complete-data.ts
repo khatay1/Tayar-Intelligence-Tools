@@ -4,6 +4,7 @@ import { localizeUi as localizeBaseUi } from './ui-localization-data';
 type PhraseMap = Record<string, string>;
 
 export const arSupplement: PhraseMap = {
+  'Assigned team member':'عضو الفريق المعيّن','Assignment saved.':'حُفظ التعيين.','Unassigned':'غير معيّن','Follow-up assignee':'مسؤول المتابعة',
   'Image attachment':'مرفق صورة','Document attachment':'مرفق مستند','Audio attachment':'مرفق صوتي','Video attachment':'مرفق فيديو','Sticker attachment':'مرفق ملصق',
   'unread message':'رسالة غير مقروءة','unread messages':'رسائل غير مقروءة','Unread messages':'الرسائل غير المقروءة','new':'جديدة','Read status could not be saved.':'تعذر حفظ حالة القراءة.',
   'API capabilities':'قدرات API','Discover reviewed capabilities without activating an external service.':'اكتشف القدرات المراجعة دون تفعيل خدمة خارجية.','reviewed':'مراجعة',
@@ -697,6 +698,7 @@ export const arSupplement: PhraseMap = {
 };
 
 export const svSupplement: PhraseMap = {
+  'Assigned team member':'Tilldelad teammedlem','Assignment saved.':'Tilldelningen sparades.','Unassigned':'Ej tilldelad','Follow-up assignee':'Ansvarig för uppföljning',
   'Image attachment':'Bildbilaga','Document attachment':'Dokumentbilaga','Audio attachment':'Ljudbilaga','Video attachment':'Videobilaga','Sticker attachment':'Dekalbilaga',
   'unread message':'oläst meddelande','unread messages':'olästa meddelanden','Unread messages':'Olästa meddelanden','new':'nya','Read status could not be saved.':'Lässtatusen kunde inte sparas.',
   'API capabilities':'API-funktioner','Discover reviewed capabilities without activating an external service.':'Upptäck granskade funktioner utan att aktivera en extern tjänst.','reviewed':'granskade',

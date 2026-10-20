@@ -10,10 +10,11 @@ export interface SocialConversation {
 export interface SocialMessage { id: string; conversation_id: string; direction: string; text: string; created_at: string; occurred_at:string; attachment_refs:unknown }
 export interface SocialMessagePage { messages:SocialMessage[]; nextBeforeId:string|null }
 export interface SocialUnreadCount { conversationId:string; unread:number }
+export interface SocialAssignee { id:string; name:string }
 export interface SocialNote { id: string; conversation_id: string; text: string; created_at: string }
 export interface SocialFollowup { id:string; conversation_id:string; title:string; body:string; status:'open'|'done'; source:'manual'|'handoff'; assigned_to:string|null; created_at:string }
 export interface SocialCrmLead { id:string; name:string; email:string; stage:string; priority:number }
-export interface SocialInbox { scope: SocialScope; connections: SocialConnection[]; conversations: SocialConversation[]; messages: SocialMessage[]; notes: SocialNote[]; outbox: Array<{id:string;conversation_id:string;text:string;status:string}>; followups:SocialFollowup[]; crmLeads:SocialCrmLead[]|null; unread:SocialUnreadCount[] }
+export interface SocialInbox { scope: SocialScope; connections: SocialConnection[]; conversations: SocialConversation[]; messages: SocialMessage[]; notes: SocialNote[]; outbox: Array<{id:string;conversation_id:string;text:string;status:string}>; followups:SocialFollowup[]; crmLeads:SocialCrmLead[]|null; unread:SocialUnreadCount[]; assignees:SocialAssignee[] }
 async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.rpc(name, args);
   if (error) throw new Error('Social Hub is unavailable. Check access and deployment readiness.');
@@ -32,6 +33,7 @@ export const socialHubClient = {
   }),
   inbox: (scopeId: string) => rpc<SocialInbox>('get_social_hub_inbox', { p_scope_id: scopeId }),
   unread: (scopeId:string) => rpc<SocialUnreadCount[]>('get_social_hub_unread_counts',{p_scope_id:scopeId}),
+  assignees: (scopeId:string) => rpc<SocialAssignee[]>('list_social_hub_assignees',{p_scope_id:scopeId}),
   markRead: (conversationId:string) => rpc('mark_social_hub_conversation_read',{p_conversation_id:conversationId}),
   history: (conversationId:string,beforeId:string|null=null) => rpc<SocialMessagePage>('get_social_hub_message_history',{
     p_conversation_id:conversationId,p_before_id:beforeId,p_limit:50,

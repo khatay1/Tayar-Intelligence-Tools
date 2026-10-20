@@ -7292,6 +7292,10 @@ function localizeUi(text3, language) {
 
 // src/lib/ui-localization-complete-data.ts
 var arSupplement = {
+  "Assigned team member": "\u0639\u0636\u0648 \u0627\u0644\u0641\u0631\u064A\u0642 \u0627\u0644\u0645\u0639\u064A\u0651\u0646",
+  "Assignment saved.": "\u062D\u064F\u0641\u0638 \u0627\u0644\u062A\u0639\u064A\u064A\u0646.",
+  "Unassigned": "\u063A\u064A\u0631 \u0645\u0639\u064A\u0651\u0646",
+  "Follow-up assignee": "\u0645\u0633\u0624\u0648\u0644 \u0627\u0644\u0645\u062A\u0627\u0628\u0639\u0629",
   "Image attachment": "\u0645\u0631\u0641\u0642 \u0635\u0648\u0631\u0629",
   "Document attachment": "\u0645\u0631\u0641\u0642 \u0645\u0633\u062A\u0646\u062F",
   "Audio attachment": "\u0645\u0631\u0641\u0642 \u0635\u0648\u062A\u064A",
@@ -8061,6 +8065,10 @@ var arSupplement = {
   "This PDF could not be rendered safely in the browser.": "\u062A\u0639\u0630\u0631 \u0639\u0631\u0636 \u0645\u0644\u0641 PDF \u0628\u0623\u0645\u0627\u0646 \u062F\u0627\u062E\u0644 \u0627\u0644\u0645\u062A\u0635\u0641\u062D."
 };
 var svSupplement = {
+  "Assigned team member": "Tilldelad teammedlem",
+  "Assignment saved.": "Tilldelningen sparades.",
+  "Unassigned": "Ej tilldelad",
+  "Follow-up assignee": "Ansvarig f\xF6r uppf\xF6ljning",
   "Image attachment": "Bildbilaga",
   "Document attachment": "Dokumentbilaga",
   "Audio attachment": "Ljudbilaga",
