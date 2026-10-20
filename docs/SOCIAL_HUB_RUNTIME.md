@@ -44,8 +44,12 @@ automation disable also blocks already queued automatic provider calls.
 
 Supported automation actions are follow-up/review notes, `human_required` status and
 approved reply queueing for incoming messages. Notes are visible in the inbox and
-do not send push notifications. Order/booking and outside-hours triggers
-and live channel verification remain separate unfinished work.
+do not send push notifications. Weekly business schedules can emit an
+`outside.hours` event. A service-role-only project bridge can idempotently schedule
+`order.status.changed` and scheduled/cancellable `booking.reminder` events after
+verifying the exact scope, project and conversation. Those project triggers are
+non-sending (`notify`, `suggest` or `handoff`) and require an enabled matching rule.
+Live channel verification remains an external activation requirement.
 
 Managers may also configure disabled-by-default rules for `conversation.assigned`
 and `human.requested`. Database triggers capture only real value changes while
@@ -99,3 +103,8 @@ authorized conversation and orders by occurrence time plus message UUID, preserv
 timestamp ties without offset pagination. Visible conversations refresh their latest
 page every 15 seconds; larger bursts reset pagination to avoid hiding a gap. Loaded
 history stays in component memory and is discarded on user/scope/conversation change.
+
+Connection rows expose four distinct facts: provider authorization, webhook
+verification, credential activity and combined messaging readiness. The combined
+state is true only for a connected, authorized, webhook-verified, unexpired binding.
+This display is operational metadata, not evidence of a completed provider delivery.
