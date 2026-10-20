@@ -43,10 +43,10 @@ export class LocalOpenCodeError extends Error {
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const MAX_TASK_CHARS = 6000;
 const REQUEST_TIMEOUT_MS = 120_000;
-const SAFE_MODEL = /^[a-zA-Z0-9][\\w./:-]{0,127}$/;
-const SAFE_WORKSPACE = /^\\/workspace\\/[a-zA-Z0-9_-]{3,80}$/;
+const SAFE_MODEL = /^[a-zA-Z0-9][\w./:-]{0,127}$/;
+const SAFE_WORKSPACE = /^\/workspace\/[a-zA-Z0-9_-]{3,80}$/;
 const SAFE_SESSION = /^[a-zA-Z0-9_-]{1,128}$/;
-const SAFE_FILE = /^(?!\\/)(?!.*(?:^|\\/)\\.\\.?\\/)(?!.*\\\\)[\\w@.\\-/ ]{1,240}$/;
+const SAFE_FILE = /^(?!\/)(?!.*(?:^|\/)\.\.?\/)(?!.*\\)[\w@.\-/ ]{1,240}$/;
 
 function loopbackUrl(input: string, expectedPath: string): URL | null {
   try {
@@ -78,7 +78,7 @@ function safeChangedPaths(diffs: unknown): string[] {
   for (const diff of diffs) {
     const name = object(diff)?.file;
     if (typeof name !== 'string' || !SAFE_FILE.test(name) ||
-        /(^|\\/)(\\.env(?:\\..*)?|\\.git|node_modules)(\\/|$)/i.test(name)) {
+        /(^|\/)(\.env(?:\..*)?|\.git|node_modules)(\/|$)/i.test(name)) {
       throw new LocalOpenCodeError('invalid-response');
     }
     files.add(name);
@@ -99,7 +99,7 @@ export function createLocalOpenCodeAgent(config: LocalOpenCodeAgentConfig) {
   function validate() {
     if (!enabled) throw new LocalOpenCodeError('disabled');
     if (!isolated || !endpointUrl || !password || password.length < 16 ||
-        !directory || !SAFE_WORKSPACE.test(directory) || !/^[\\x21-\\x7e]{16,256}$/.test(password) || !modelId || !SAFE_MODEL.test(modelId)) {
+        !directory || !SAFE_WORKSPACE.test(directory) || !/^[\x21-\x7e]{16,256}$/.test(password) || !modelId || !SAFE_MODEL.test(modelId)) {
       throw new LocalOpenCodeError('invalid-configuration');
     }
   }
@@ -195,7 +195,7 @@ export function createLocalOpenCodeAgent(config: LocalOpenCodeAgentConfig) {
       }
       const diff = await request('GET', `${route}/diff`);
       const parts = message.parts.filter((p: unknown) => object(p)?.type === 'text');
-      const summary = parts.map((p: unknown) => object(p)?.text).filter((t: unknown): t is string => typeof t === 'string').join('\\n').slice(0, 4000);
+      const summary = parts.map((p: unknown) => object(p)?.text).filter((t: unknown): t is string => typeof t === 'string').join('\n').slice(0, 4000);
       const result = { summary, changedFiles: safeChangedPaths(diff) };
       finished = true;
       return result;
