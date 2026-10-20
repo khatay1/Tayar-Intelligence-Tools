@@ -12,6 +12,7 @@ on:
       - 'server/opencode-v2-local-planner.mjs'
       - 'scripts/opencode-local-planner-regression.mjs'
       - 'scripts/opencode-v2-local-planner-regression.mjs'
+      - 'scripts/opencode-sandbox-isolation-smoke.mjs'
       - '.github/workflows/opencode-local-pilot-check.yml'
 
 permissions:
@@ -32,10 +33,30 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-          package-manager-cache: false
+
       - run: node --check server/opencode-local-planner.mjs
       - run: node --check scripts/opencode-local-planner-regression.mjs
       - run: node scripts/opencode-local-planner-regression.mjs
       - run: node --check server/opencode-v2-local-planner.mjs
       - run: node --check scripts/opencode-v2-local-planner-regression.mjs
       - run: node scripts/opencode-v2-local-planner-regression.mjs
+      - run: node scripts/opencode-sandbox-isolation-smoke.mjs
+
+  docker-isolation:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: Fetch CI-only Node fixture image on host
+        run: docker pull node:22-alpine
+      - name: Verify Docker isolation with local image digest
+        run: |
+          IMAGE_ID="$(docker image inspect node:22-alpine --format '{{.Id}}')"
+          node scripts/opencode-sandbox-isolation-smoke.mjs --docker-image "$IMAGE_ID"
