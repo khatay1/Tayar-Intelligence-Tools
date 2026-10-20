@@ -3,6 +3,10 @@ import { useLocalizer } from '@/lib/ui-localization';
 import { socialConnectRequest } from './connect-client';
 import type { SocialConnection, SocialScope } from './client';
 type Channel = 'whatsapp' | 'telegram' | 'facebook' | 'instagram';
+function readiness(connection:SocialConnection){
+  const credentialActive=connection.expires_at===null||(typeof connection.expires_at==='string'&&Number.isFinite(Date.parse(connection.expires_at))&&Date.parse(connection.expires_at)>Date.now());
+  return {credentialActive,ready:connection.status==='connected'&&connection.permissions_verified===true&&connection.webhook_verified===true&&credentialActive};
+}
 export default function SocialConnectPanel({ scope, connections, onChange }: {
   scope: SocialScope; connections: SocialConnection[]; onChange: () => Promise<void>;
 }) {
@@ -69,11 +73,13 @@ export default function SocialConnectPanel({ scope, connections, onChange }: {
     <button disabled={busy||!scope.enabled||(channel==='telegram'?!botToken.trim():!accountId.trim())} onClick={()=>void connect()}>{l('Connect')} {channel}</button>
     {busy&&pending.current&&<button onClick={()=>{const current=pending.current;if(current){window.clearTimeout(current.timer);current.popup.close();pending.current=null;}setBusy(false);setNotice(l('Connect cancelled.'));}}>{l('Cancel Connect')}</button>}
     {notice&&<p role="status">{notice}</p>}
-    {connections.map(connection=><div key={connection.id}>{connection.channel} · {connection.status}
+    {connections.map(connection=>{const state=readiness(connection);return <div key={connection.id} className="rounded border p-2">
+      <p>{connection.channel} · {connection.status} · {l(state.ready?'Messaging ready':'Messaging not ready')}</p>
+      <p>{l(connection.permissions_verified?'Authorization verified':'Authorization required')} · {l(connection.webhook_verified?'Webhook verified':'Webhook verification required')} · {l(state.credentialActive?'Credential active':'Credential renewal required')}</p>
       <button disabled={busy||connection.status==='disconnected'} onClick={()=>{
         setBusy(true);const tenantId=scope.id;
         void socialConnectRequest('disconnect',{tenantId,connectionId:connection.id}).then(async()=>{if(identity.current===tenantId)await onChange();})
           .catch(()=>{if(identity.current===tenantId)setNotice(l('Disconnection could not be confirmed. Refresh connection status.'));}).finally(()=>{if(identity.current===tenantId)setBusy(false);});
-      }}>{l('Disconnect')}</button></div>)}
+      }}>{l('Disconnect')}</button></div>})}
   </details>;
 }
