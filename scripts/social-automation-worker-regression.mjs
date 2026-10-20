@@ -23,8 +23,8 @@ try{
  claims=0;event.knowledge[0].scopeId=id(99);await assert.rejects(worker,/unavailable/);event.knowledge[0].scopeId=id(3);
  claims=0;enabled=false;assert.deepEqual(await worker(),{processed:0});assert.equal(claims,0);
  enabled=true;const always={async rpc(name){return {data:name==='claim_social_hub_automation'?event:true,error:null};}};assert.deepEqual(await createSocialAutomationWorker(always,()=>true)(),{processed:3});
- for(const trigger of ['conversation.assigned','human.requested']){
-  const internal={...event,trigger,messageId:null,text:'',humanAssigned:true,knowledge:[],rules:[{...event.rules[0],trigger,action:'notify',approvedAnswerId:null}]};
+ for(const trigger of ['conversation.assigned','human.requested','outside.hours']){
+  const internal={...event,trigger,messageId:trigger==='outside.hours'?event.messageId:null,text:'',humanAssigned:true,knowledge:[],rules:[{...event.rules[0],trigger,action:'notify',approvedAnswerId:null}]};
   let claimed=false,effects;
   const localClient={async rpc(name,args){if(name==='claim_social_hub_automation'){if(claimed)return {data:null};claimed=true;return {data:internal};}effects=args.p_decisions;return {data:true};}};
   assert.deepEqual(await createSocialAutomationWorker(localClient,()=>true)(),{processed:1});assert.deepEqual(effects,[{ruleId:id(5),action:'notify'}]);

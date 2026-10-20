@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-export interface SocialScope { id: string; kind: 'customer' | 'official'; enabled: boolean; automation_enabled: boolean }
+export interface SocialScope { id: string; kind: 'customer' | 'official'; enabled: boolean; automation_enabled: boolean; business_time_zone:string; business_hours:Array<{day:number;openMinute:number;closeMinute:number}> }
 export interface SocialProject { id:string; title:string; workspace_id:string|null }
 export interface SocialConnection { id: string; channel: string; external_account_id: string; status: string }
 export interface SocialConversation {
