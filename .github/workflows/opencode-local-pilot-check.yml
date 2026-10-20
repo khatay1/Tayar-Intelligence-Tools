@@ -9,7 +9,9 @@ on:
       - main
     paths:
       - 'server/opencode-local-planner.mjs'
+      - 'server/opencode-v2-local-planner.mjs'
       - 'scripts/opencode-local-planner-regression.mjs'
+      - 'scripts/opencode-v2-local-planner-regression.mjs'
       - '.github/workflows/opencode-local-pilot-check.yml'
 
 permissions:
@@ -34,3 +36,6 @@ jobs:
       - run: node --check server/opencode-local-planner.mjs
       - run: node --check scripts/opencode-local-planner-regression.mjs
       - run: node scripts/opencode-local-planner-regression.mjs
+      - run: node --check server/opencode-v2-local-planner.mjs
+      - run: node --check scripts/opencode-v2-local-planner-regression.mjs
+      - run: node scripts/opencode-v2-local-planner-regression.mjs
