@@ -1362,7 +1362,7 @@ function createSocialAutomationWorker(client, enabled) {
       if (value === null) break;
       const row3 = object(value), eventId = id5(row3.id), claimToken = id5(row3.claimToken), scopeId = id5(row3.scopeId);
       const trigger = row3.trigger ?? "message.received";
-      if (!["message.received", "conversation.assigned", "human.requested", "outside.hours"].includes(String(trigger))) fail5();
+      if (!["message.received", "conversation.assigned", "human.requested", "outside.hours", "order.status.changed", "booking.reminder"].includes(String(trigger))) fail5();
       const messageId = ["message.received", "outside.hours"].includes(String(trigger)) ? id5(row3.messageId) : void 0;
       if (typeof row3.text !== "string" || row3.text.length > 16e3 || typeof row3.humanAssigned !== "boolean" || !Array.isArray(row3.rules) || row3.rules.length > 20 || !Array.isArray(row3.knowledge) || row3.knowledge.length > 20) fail5();
       const rules = row3.rules.map((value2) => {
