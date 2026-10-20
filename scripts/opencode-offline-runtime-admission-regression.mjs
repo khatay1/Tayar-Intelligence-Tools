@@ -61,15 +61,18 @@ try {
     opencodeArchivePath:good, ollamaArchivePath:good, modelManifestPath:good,
     expectedModelManifestSha256:sha(modelManifest), modelID,
     runtimeRoot:root, modelRoot:root,
-    forwardedEnvironmentKeys:['HOME','PATH','OPENCODE_SERVER_PASSWORD','OLLAMA_HOST',
-      'OLLAMA_MODELS','OLLAMA_NO_CLOUD'],
+    forwardedEnvironment:{HOME:'/tmp',PATH:'/usr/local/bin:/usr/bin:/bin',
+      OPENCODE_SERVER_PASSWORD:'fixture-password-123',OLLAMA_HOST:'127.0.0.1:11434',
+      OLLAMA_MODELS:root,OLLAMA_NO_CLOUD:'1',NO_PROXY:'127.0.0.1,localhost'},
   };
   for (const [change, code] of [
     [{platform:'linux-x64'},'unsupported-runtime-platform'],
     [{workspaceDirectory:'/workspace/../customer'},'invalid-workspace'],
-    [{forwardedEnvironmentKeys:[...base.forwardedEnvironmentKeys,'OPENAI_API_KEY']},
+    [{forwardedEnvironment:{...base.forwardedEnvironment,OPENAI_API_KEY:'forbidden'}},
       'unsafe-runtime-environment'],
-    [{forwardedEnvironmentKeys:base.forwardedEnvironmentKeys.filter(x=>x!=='OLLAMA_NO_CLOUD')},
+    [{forwardedEnvironment:{...base.forwardedEnvironment,OLLAMA_NO_CLOUD:undefined}},
+      'unsafe-runtime-environment'],
+    [{forwardedEnvironment:{...base.forwardedEnvironment,OLLAMA_HOST:'0.0.0.0:11434'}},
       'unsafe-runtime-environment'],
   ]) await assert.rejects(admitOpenCodeOfflineRuntime({...base,...change}),
     error => error instanceof OfflineRuntimeAdmissionError && error.code===code);

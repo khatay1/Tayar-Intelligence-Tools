@@ -107,14 +107,23 @@ function releaseAsset(product, platform) {
   return { release, asset };
 }
 
-function verifyEnvironmentKeys(keys) {
-  if (!Array.isArray(keys) || keys.length !== new Set(keys).size ||
-      keys.some(key => typeof key !== 'string' || !ALLOWED_ENVIRONMENT_KEYS.has(key))) {
+function verifyEnvironment(environment, modelRoot) {
+  if (!environment || typeof environment !== 'object' || Array.isArray(environment)) {
     fail('unsafe-runtime-environment');
   }
+  const keys=Object.keys(environment);
+  if (keys.some(key => !ALLOWED_ENVIRONMENT_KEYS.has(key))) fail('unsafe-runtime-environment');
   for (const required of ['HOME', 'PATH', 'OPENCODE_SERVER_PASSWORD', 'OLLAMA_HOST',
     'OLLAMA_MODELS', 'OLLAMA_NO_CLOUD']) {
     if (!keys.includes(required)) fail('unsafe-runtime-environment');
+  }
+  if (environment.HOME!=='/tmp' || environment.PATH!=='/usr/local/bin:/usr/bin:/bin' ||
+      environment.OLLAMA_HOST!=='127.0.0.1:11434' ||
+      environment.OLLAMA_MODELS!==modelRoot || environment.OLLAMA_NO_CLOUD!=='1' ||
+      (environment.NO_PROXY!==undefined && environment.NO_PROXY!=='127.0.0.1,localhost') ||
+      typeof environment.OPENCODE_SERVER_PASSWORD!=='string' ||
+      !/^[\x21-\x7e]{16,256}$/.test(environment.OPENCODE_SERVER_PASSWORD)) {
+    fail('unsafe-runtime-environment');
   }
 }
 
@@ -155,10 +164,10 @@ export async function verifyOfflineModel({ manifestPath, expectedManifestSha256,
 export async function admitOpenCodeOfflineRuntime({
   platform, opencodeArchivePath, ollamaArchivePath, modelManifestPath,
   expectedModelManifestSha256, modelID, workspaceDirectory,
-  forwardedEnvironmentKeys, runtimeRoot = RUNTIME_ROOT, modelRoot = MODEL_ROOT,
+  forwardedEnvironment, runtimeRoot = RUNTIME_ROOT, modelRoot = MODEL_ROOT,
 }) {
   if (!WORKSPACE.test(workspaceDirectory ?? '')) fail('invalid-workspace');
-  verifyEnvironmentKeys(forwardedEnvironmentKeys);
+  verifyEnvironment(forwardedEnvironment, modelRoot);
   const opencodePin = releaseAsset('opencode', platform);
   const ollamaPlatform = platform === 'linux-x64-baseline' ? 'linux-amd64' : platform;
   const ollamaPin = releaseAsset('ollama', ollamaPlatform);

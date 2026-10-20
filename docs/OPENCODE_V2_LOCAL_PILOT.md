@@ -89,9 +89,12 @@ The local Ollama model is separately operator-approved through a small
 `tayar-local-model/v1` manifest. The manifest's expected hash comes from trusted
 deployment policy; it binds the exact model ID, blob size, blob digest and
 content-addressed blob path. This prevents a matching friendly model name from
-silently selecting different bytes. Only a narrow runtime environment key set
-is accepted, including `OLLAMA_NO_CLOUD`; commercial provider keys and proxy
-variables are refused.
+silently selecting different bytes. Only a narrow runtime environment map is
+accepted: fixed loopback Ollama, `/tmp` home, bounded PATH, the exact model root,
+`OLLAMA_NO_CLOUD=1`, optional loopback-only `NO_PROXY`, and a validated disposable
+OpenCode password. Commercial provider keys, proxy variables, extra keys and
+non-loopback Ollama listeners are refused. Secret values are absent from the
+returned admission receipt.
 
 Admission does not download or start anything and returns
 `inferenceExecuted:false`. Passing it proves file identity only. The supervisor
