@@ -58,7 +58,8 @@ async function main(){
     assert.equal(cmd.args.filter(x=>x.startsWith('--env=')).length,1);
     assert.equal(cmd.args.filter(x=>x==='--mount').length,1);
     assert.ok(cmd.args.includes('type=bind,src='+dir+',dst='+WORKSPACE+',readonly'));
-    assert.ok(!cmd.args.some(x=>x.includes('docker.sock')));
+    assert.deepEqual(cmd.args.filter(x=>x.startsWith('type=bind,')),
+      ['type=bind,src='+dir+',dst='+WORKSPACE+',readonly']);
     for(const image of ['node:22-alpine','sha256:bad','sha256:'+'G'.repeat(64),'http://external'])
       assert.throws(()=>createIsolationCommand({image,source:dir,name}));
     for(const source of ['/','/workspace/demo','/tmp/../etc','/tmp/tayar-opencode-proof-X,other'])
