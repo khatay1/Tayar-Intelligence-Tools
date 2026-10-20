@@ -125,6 +125,8 @@ export async function runWebsiteOwnedByoPublish(input:{
       vercelConnectionVersion:capturedSource.vercel.version,expectedHandoffVersion,
       expectedStripeConnectionVersion:state.stripeConnectionVersion,sourceConnectionId:stripe.sourceConnectionId,
       sourceUpdatedAt:stripe.sourceUpdatedAt,publishableKey:stripe.publishableKey,environment:'preview',
+      ...(stripe.webhookEndpointId?{webhookEndpointId:stripe.webhookEndpointId,
+        applicationOrigin:capturedSource.binding.applicationOrigin}:{}),
       operationId:input.operationId,handoffCommitId:await deterministicUuid({kind:'stripe-handoff-commit',
         operationId:input.operationId,handoffId,sourceUpdatedAt:stripe.sourceUpdatedAt}),
       stripeCommitId:await deterministicUuid({kind:'stripe-runtime-commit',operationId:input.operationId,

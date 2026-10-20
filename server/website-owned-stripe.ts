@@ -183,6 +183,8 @@ export async function handoffOwnedStripeRuntime(input: {
   sourceConnectionId: string;
   sourceUpdatedAt: string;
   publishableKey: string;
+  webhookEndpointId?: string;
+  applicationOrigin?: string;
   environment: 'preview' | 'production';
   operationId: string;
   handoffCommitId: string;
@@ -199,6 +201,7 @@ export async function handoffOwnedStripeRuntime(input: {
       || !Number.isSafeInteger(input.expectedHandoffVersion) || input.expectedHandoffVersion < 0
       || !Number.isSafeInteger(input.expectedStripeConnectionVersion) || input.expectedStripeConnectionVersion < 0
       || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !input.isCurrent()) throw new Error();
+    if ((input.webhookEndpointId===undefined)!==(input.applicationOrigin===undefined)) throw new Error();
     const publicMatch=publishable.exec(input.publishableKey);
     const expectedMode=input.environment==='production'?'live':'test';
     if(!publicMatch||publicMatch[1]!==expectedMode)throw new Error();
@@ -225,6 +228,14 @@ export async function handoffOwnedStripeRuntime(input: {
       verifySecret:async(secretKey,{handoffVersion})=>{
         const proof=await verifyOwnedStripeAccount({secretKey,publishableKey:input.publishableKey,
           environment:input.environment,isCurrent:input.isCurrent,fetcher:input.fetcher});
+        if(input.webhookEndpointId&&input.applicationOrigin){
+          const{verifyOwnedStripeWebhookEndpoint}=await import('./website-owned-stripe-webhook-endpoint');
+          const endpoint=await verifyOwnedStripeWebhookEndpoint({projectId:input.projectId,secretKey,
+            publishableKey:input.publishableKey,environment:input.environment,expectedAccountId:proof.accountId,
+            endpointId:input.webhookEndpointId,applicationOrigin:input.applicationOrigin,
+            isCurrent:input.isCurrent,fetcher:input.fetcher});
+          if(endpoint.accountId!==proof.accountId)throw new Error();
+        }
         const recorded=await input.client.rpc('website_record_stripe_secret_proof',{
           p_handoff_id:input.handoffId,p_project_id:input.projectId,p_owner_id:input.ownerId,
           p_handoff_version:handoffVersion,p_account_id:proof.accountId,p_key_type:proof.keyType,

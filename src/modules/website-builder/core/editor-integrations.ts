@@ -59,7 +59,7 @@ export interface EditorIntegrationValidationIssue {
 export const EDITOR_INTEGRATION_PROVIDERS: EditorIntegrationProviderDefinition[] = [
   { id: 'google-analytics', name: 'Google Analytics', category: 'analytics', description: 'Measure traffic and page events.', capabilities: ['pageviews', 'events'], fields: [{ key: 'measurementId', label: 'Measurement ID', type: 'text', required: true, placeholder: 'G-XXXXXXXXXX' }] },
   { id: 'plausible', name: 'Plausible', category: 'analytics', description: 'Privacy-focused website analytics.', capabilities: ['pageviews', 'events'], fields: [{ key: 'domain', label: 'Site domain', type: 'text', required: true }] },
-  { id: 'stripe', name: 'Stripe', category: 'payments', description: 'Payments and checkout events.', capabilities: ['checkout', 'payment-events'], fields: [{ key: 'publishableKey', label: 'Publishable key', type: 'text', required: true }, { key: 'secretKey', label: 'Secret key', type: 'secret', required: true, secret: true }], supportedEvents: ['commerce.checkout', 'commerce.paid'] },
+  { id: 'stripe', name: 'Stripe', category: 'payments', description: 'Payments and checkout events.', capabilities: ['checkout', 'payment-events'], fields: [{ key: 'publishableKey', label: 'Publishable key', type: 'text', required: true }, { key: 'webhookEndpointId', label: 'Webhook endpoint ID', type: 'text' }, { key: 'secretKey', label: 'Restricted or secret key', type: 'secret', required: true, secret: true }, { key: 'webhookSigningSecret', label: 'Webhook signing secret', type: 'secret', secret: true }], supportedEvents: ['commerce.checkout', 'commerce.paid'] },
   { id: 'resend', name: 'Resend', category: 'email', description: 'Transactional email delivery.', capabilities: ['transactional-email'], fields: [{ key: 'from', label: 'From address', type: 'text', required: true }, { key: 'apiKey', label: 'API key', type: 'secret', required: true, secret: true }], supportedEvents: ['form.submitted', 'contact.created'] },
   { id: 'hubspot', name: 'HubSpot', category: 'crm', description: 'Send leads and contacts to CRM.', capabilities: ['contacts'], fields: [{ key: 'accessToken', label: 'Private app token', type: 'secret', required: true, secret: true }], supportedEvents: ['form.submitted', 'contact.created'] },
   { id: 'http-api', name: 'HTTP API', category: 'api', description: 'Call a custom HTTP endpoint.', capabilities: ['http-request'], fields: [{ key: 'url', label: 'Endpoint URL', type: 'url', required: true }, { key: 'authorization', label: 'Authorization', type: 'secret', secret: true }], supportedEvents: ['form.submitted', 'site.published', 'site.unpublished', 'commerce.checkout', 'commerce.paid', 'contact.created', 'custom'] },
@@ -98,7 +98,10 @@ export function normalizeEditorIntegrationsConfig(value: unknown): EditorIntegra
     for (const field of provider.fields) {
       if (field.type === 'url' && typeof config[field.key] === 'string' && hasEmbeddedIntegrationCredentials(String(config[field.key]))) delete config[field.key];
     }
-    if (providerId === 'stripe' && config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
+    if (providerId === 'stripe') {
+      if (config.publishableKey && !/^pk_(test|live)_[a-zA-Z0-9]+$/.test(String(config.publishableKey))) delete config.publishableKey;
+      if (config.webhookEndpointId && !/^we_[a-zA-Z0-9]{8,128}$/.test(String(config.webhookEndpointId))) delete config.webhookEndpointId;
+    }
     const secrets = Object.fromEntries(Object.entries(source.secrets ?? {}).filter(([key, item]) => secretFields.has(key) && !!item && typeof item === 'object' && isEditorSecretReference((item as EditorIntegrationSecretRef).ref)).map(([key, item]) => [key, { ref: (item as EditorIntegrationSecretRef).ref, updatedAt: cleanString((item as EditorIntegrationSecretRef).updatedAt, 80) || undefined }]));
     const environments = Array.from(new Set((Array.isArray(source.environments) ? source.environments : ['production']).filter((item): item is EditorIntegrationEnvironment => item === 'preview' || item === 'staging' || item === 'production')));
     normalized.push({ id, providerId, name: cleanString(source.name, 160) || provider.name, enabled: source.enabled !== false, status: source.status === 'active' || source.status === 'error' || source.status === 'disabled' || source.status === 'configured' ? source.status : 'disconnected', environments, config, secrets, events: Array.from(new Set((Array.isArray(source.events) ? source.events : []).filter((event): event is EditorIntegrationEvent => typeof event === 'string'))) as EditorIntegrationEvent[], createdAt: cleanString(source.createdAt, 80) || new Date().toISOString(), updatedAt: cleanString(source.updatedAt, 80) || new Date().toISOString() });
@@ -129,6 +132,11 @@ export function validateEditorIntegrations(config: EditorIntegrationsConfig): Ed
       const publishable = typeof connection.config.publishableKey === 'string'
         ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection.config.publishableKey) : null;
       if (connection.config.publishableKey && !publishable) issues.push({ connectionId: connection.id, field: 'publishableKey', code: 'invalid-config', message: 'Stripe requires a publishable key; private keys belong in secure server storage.' });
+      if (connection.config.webhookEndpointId !== undefined
+        && (typeof connection.config.webhookEndpointId !== 'string'
+          || !/^we_[a-zA-Z0-9]{8,128}$/.test(connection.config.webhookEndpointId))) {
+        issues.push({ connectionId: connection.id, field: 'webhookEndpointId', code: 'invalid-config', message: 'Stripe webhook endpoint ID is invalid.' });
+      }
       if (connection.environments.length !== 1) issues.push({ connectionId: connection.id, code: 'invalid-config', message: 'Stripe credentials must target exactly one environment.' });
       if (publishable && connection.environments.length === 1) {
         const expectedMode = connection.environments[0] === 'production' ? 'live' : 'test';

@@ -26,11 +26,12 @@ export interface OwnedSourceReader extends SourceReader {
 }
 type Verification = (binding: OwnedRuntimeBinding, supabase: InfrastructureConnection,
   vercel: InfrastructureConnection, capabilities: ByoSourceCapabilities) => Promise<boolean>;
-export interface OwnedStripeRuntimeSource { sourceConnectionId:string;sourceUpdatedAt:string;publishableKey:string; }
+export interface OwnedStripeRuntimeSource { sourceConnectionId:string;sourceUpdatedAt:string;publishableKey:string;
+  webhookEndpointId?:string;webhookSigningSecretUpdatedAt?:string; }
 export interface OwnedEmailRuntimeSource { connections: Array<{ sourceConnectionId:string;sourceUpdatedAt:string;
   connectionUpdatedAt:string;from:string;environmentKey:string }> }
 const stripePublishable=/^pk_(test|live)_[A-Za-z0-9]+$/;
-function stripeRuntimeSource(snapshot:Record<string,unknown>,projectId:string,environment:Environment,
+export function captureOwnedStripeRuntimeSource(snapshot:Record<string,unknown>,projectId:string,environment:Environment,
   capabilities:ByoSourceCapabilities):OwnedStripeRuntimeSource|null{
   if(!capabilities.integrationProviders.includes('stripe')&&!capabilities.stripeCheckouts.length)return null;
   const active=readEditorIntegrationsFromProject(snapshot).connections.filter(item=>item.enabled&&item.status!=='disabled'
@@ -38,13 +39,22 @@ function stripeRuntimeSource(snapshot:Record<string,unknown>,projectId:string,en
   if(active.length!==1)throw new Error('Customer Stripe runtime source is unavailable.');
   const selected=active[0],secret=selected.secrets.secretKey;
   const publishableKey=typeof selected.config.publishableKey==='string'?selected.config.publishableKey:'';
+  const orderPayments=capabilities.definition.tables.some(table=>Boolean(table.payment));
+  const webhookEndpointId=typeof selected.config.webhookEndpointId==='string'?selected.config.webhookEndpointId:'';
+  const webhookSecret=selected.secrets.webhookSigningSecret;
   const match=stripePublishable.exec(publishableKey),mode=environment==='production'?'live':'test';
   if(selected.environments.length!==1||selected.environments[0]!==environment||!match||match[1]!==mode||!secret
     ||!isEditorProjectSecretReferenceFor(secret.ref,selected.id,'secretKey',environment)
     ||!secret.ref.startsWith(`secret://website/${projectId}/`)
     ||typeof secret.updatedAt!=='string'||!Number.isFinite(Date.parse(secret.updatedAt)))
     throw new Error('Customer Stripe runtime source is unavailable.');
-  return{sourceConnectionId:selected.id,sourceUpdatedAt:secret.updatedAt,publishableKey};
+  if(orderPayments&&(!/^we_[A-Za-z0-9]{8,128}$/.test(webhookEndpointId)||!webhookSecret
+    ||!isEditorProjectSecretReferenceFor(webhookSecret.ref,selected.id,'webhookSigningSecret',environment)
+    ||!webhookSecret.ref.startsWith(`secret://website/${projectId}/`)
+    ||typeof webhookSecret.updatedAt!=='string'||!Number.isFinite(Date.parse(webhookSecret.updatedAt))))
+    throw new Error('Customer Stripe webhook source is unavailable.');
+  return{sourceConnectionId:selected.id,sourceUpdatedAt:secret.updatedAt,publishableKey,
+    ...(orderPayments?{webhookEndpointId,webhookSigningSecretUpdatedAt:webhookSecret!.updatedAt}: {})};
 }
 
 export function captureOwnedEmailRuntimeSource(snapshot:Record<string,unknown>,projectId:string,environment:Environment,
@@ -119,7 +129,7 @@ export async function captureWebsiteOwnedApplicationSource(input: {
     projectId: input.projectId, ownerId: input.ownerId, connectionId: input.githubConnectionId, reader: input.reader,
     async compile(snapshot) {
       state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
-      state.stripeRuntime=stripeRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
+      state.stripeRuntime=captureOwnedStripeRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
       state.emailRuntime=captureOwnedEmailRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
       captured.value = await current();
       return compileWebsiteOwnedApplicationSource(snapshot, { projectId: input.projectId,

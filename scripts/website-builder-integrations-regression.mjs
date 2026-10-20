@@ -95,12 +95,20 @@ try {
   const invalidId = structuredClone(config); invalidId.connections[0].id = 'hook\r\nAuthorization: bad';
   assert.ok(integrations.validateEditorIntegrations(invalidId).some(issue => issue.code === 'invalid-config'), 'Invalid connection IDs block publishing');
   const stripeRef = `secret://website/${projectId}/stripe-prod/secretKey/production`;
+  const stripeWebhookRef = `secret://website/${projectId}/stripe-prod/webhookSigningSecret/production`;
   const validStripe = integrations.normalizeEditorIntegrationsConfig({ connections: [{
     id: 'stripe-prod', providerId: 'stripe', name: 'Stripe', enabled: true, status: 'configured',
-    environments: ['production'], config: { publishableKey: 'pk_live_fixture123456789' },
-    secrets: { secretKey: { ref: stripeRef } }, events: ['commerce.checkout', 'commerce.paid'],
+    environments: ['production'], config: { publishableKey: 'pk_live_fixture123456789', webhookEndpointId: 'we_fixture12345678' },
+    secrets: { secretKey: { ref: stripeRef }, webhookSigningSecret: { ref: stripeWebhookRef } }, events: ['commerce.checkout', 'commerce.paid'],
   }] });
   assert.deepEqual(integrations.validateEditorIntegrations(validStripe), []);
+  assert.equal(validStripe.connections[0].config.webhookEndpointId, 'we_fixture12345678');
+  assert.equal(validStripe.connections[0].secrets.webhookSigningSecret.ref, stripeWebhookRef);
+  const invalidWebhook=structuredClone(validStripe);invalidWebhook.connections[0].config.webhookEndpointId='../account';
+  assert.ok(integrations.validateEditorIntegrations(invalidWebhook).some(issue=>issue.field==='webhookEndpointId'));
+  const foreignWebhook=structuredClone(validStripe);
+  foreignWebhook.connections[0].secrets.webhookSigningSecret.ref=`secret://website/${projectId}/other/webhookSigningSecret/production`;
+  assert.ok(integrations.validateEditorIntegrations(foreignWebhook).some(issue=>issue.field==='webhookSigningSecret'));
   assert.ok(projectHost.editorIntegrationPublishBlockers(validStripe).some(message => /not deployed/.test(message)),
     'Stripe event automation stays blocked until a verified event adapter exists');
   const checkoutOnlyStripe=structuredClone(validStripe);checkoutOnlyStripe.connections[0].events=[];

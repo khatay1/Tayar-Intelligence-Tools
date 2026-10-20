@@ -12,7 +12,7 @@ try {
     plugins: [{ name: 'local-esbuild', setup(plugin) {
       plugin.onResolve({ filter: /^esbuild$/ }, () => ({ path: import.meta.resolve('esbuild').replace(/^file:\/\//, ''), external: true }));
     } }], platform: 'node', format: 'cjs', outfile });
-  const { captureWebsiteOwnedApplicationSource: capture } = (await import(pathToFileURL(outfile))).default;
+  const { captureWebsiteOwnedApplicationSource: capture, captureOwnedStripeRuntimeSource: captureStripe } = (await import(pathToFileURL(outfile))).default;
   const defaultsFile = join(dir, 'defaults.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/defaults.ts'], bundle: true,
     platform: 'node', format: 'cjs', outfile: defaultsFile });
@@ -62,6 +62,26 @@ try {
   assert(source.files.every(file => !file.content.includes('PLATFORM_SECRET_NEVER_EXPORT')));
   assert.equal(await source.isCurrent(), true);
   assert(checks >= 3);
+  const stripeBase={version:1,connections:[{id:'stripe-prod',providerId:'stripe',name:'Stripe',enabled:true,status:'configured',
+    environments:['production'],config:{publishableKey:'pk_live_fixture123456789',webhookEndpointId:'we_fixture12345678'},
+    secrets:{secretKey:{ref:`secret://website/${projectId}/stripe-prod/secretKey/production`,updatedAt:'2026-10-20T00:00:00.000Z'},
+      webhookSigningSecret:{ref:`secret://website/${projectId}/stripe-prod/webhookSigningSecret/production`,updatedAt:'2026-10-20T00:01:00.000Z'}},
+    events:[],createdAt:'2026-10-20T00:00:00.000Z',updatedAt:'2026-10-20T00:00:00.000Z'}]};
+  const paidCapabilities={...source.capabilities,integrationProviders:['stripe'],stripeCheckouts:[],
+    definition:{...source.capabilities.definition,tables:[{id:'orders',key:'orders',name:'Orders',fields:[],permissions:[],payment:{provider:'stripe'}}]}};
+  const stripeProof=captureStripe({integrationsMax:stripeBase},projectId,'production',paidCapabilities);
+  assert.deepEqual(stripeProof,{sourceConnectionId:'stripe-prod',sourceUpdatedAt:'2026-10-20T00:00:00.000Z',
+    publishableKey:'pk_live_fixture123456789',webhookEndpointId:'we_fixture12345678',
+    webhookSigningSecretUpdatedAt:'2026-10-20T00:01:00.000Z'});
+  for(const change of [connection=>delete connection.config.webhookEndpointId,
+    connection=>delete connection.secrets.webhookSigningSecret,
+    connection=>connection.secrets.webhookSigningSecret.ref=`secret://website/${projectId}/other/webhookSigningSecret/production`]){
+    const bad=structuredClone(stripeBase);change(bad.connections[0]);
+    assert.throws(()=>captureStripe({integrationsMax:bad},projectId,'production',paidCapabilities),/webhook source is unavailable/);
+  }
+  const checkoutOnly={...paidCapabilities,definition:{...paidCapabilities.definition,tables:[]},stripeCheckouts:[{id:'buy'}]};
+  const legacy=structuredClone(stripeBase);delete legacy.connections[0].config.webhookEndpointId;delete legacy.connections[0].secrets.webhookSigningSecret;
+  assert.equal(captureStripe({integrationsMax:legacy},projectId,'production',checkoutOnly).webhookEndpointId,undefined);
   source.binding.applicationOrigin = 'https://evil.example';
   assert.equal(await source.isCurrent(), true, 'Returned binding cannot mutate captured identity');
   const original = structuredClone(binding);
