@@ -118,9 +118,24 @@ try {
  await actor(uid(1));await denied(`select public.resolve_social_hub_webhook_challenge('${metaHash}')`);await actor(null,'service_role');
  assert.equal((await sql(`select public.get_social_hub_actor_access('${scope}','${uid(1)}')data`))[0].data.canManage,true);
  assert.equal((await sql(`select public.get_social_hub_actor_access('${scope}','${uid(4)}')data`))[0].data.canManage,false);
- for(let i=0;i<20;i++)assert.equal((await sql(`select public.consume_social_hub_connect_rate_limit('${scope}','${uid(1)}','begin')ok`))[0].ok,true);
- assert.equal((await sql(`select public.consume_social_hub_connect_rate_limit('${scope}','${uid(1)}','begin')ok`))[0].ok,false);
- assert.equal((await sql(`select public.consume_social_hub_connect_rate_limit('${scope}','${uid(4)}','begin')ok`))[0].ok,false);
+ // Native mode starts a new psql transaction for every query. Twenty separate
+ // calls can cross a minute boundary and legitimately reset the rate bucket.
+ // A single DO statement keeps now() fixed for all quota assertions, without
+ // replacing the real function, sleeping, or weakening the 20/minute limit.
+ // https://www.postgresql.org/docs/17/functions-datetime.html#FUNCTIONS-DATETIME-CURRENT
+ await db.exec(`do $$begin
+  for i in 1..20 loop
+   if public.consume_social_hub_connect_rate_limit('${scope}','${uid(1)}','begin')is distinct from true then
+    raise exception 'Authorized connect request % must fit the minute quota',i;
+   end if;
+  end loop;
+  if public.consume_social_hub_connect_rate_limit('${scope}','${uid(1)}','begin')is distinct from false then
+   raise exception 'Connect request 21 must exceed the minute quota';
+  end if;
+  if public.consume_social_hub_connect_rate_limit('${scope}','${uid(4)}','begin')is distinct from false then
+   raise exception 'Nonmember connect request must be refused';
+  end if;
+ end$$;`);
  assert.equal((await sql(`select public.read_social_hub_credential('${scope}','${uid(30)}','${stored}')token`))[0].token,null);
  const ingest=`select public.ingest_social_hub_message('${scope}','${uid(30)}','event-1','12345','message-1','Alice','hello',now())id`;
  const message=(await sql(ingest))[0].id;assert.ok(message);assert.equal((await sql(ingest))[0].id,null);
