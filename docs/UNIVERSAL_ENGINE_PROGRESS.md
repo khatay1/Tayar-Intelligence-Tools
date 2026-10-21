@@ -5,9 +5,8 @@
 - The builder now exposes Preview publishing only. Production is rendered as a
   static blocked state with the separate-candidate requirement; there is no
   Production button, restoration poll, browser operation ID, session read or
-  authenticated request. The retained browser service entry point also refuses
-  locally after scope/ready-Preview validation for compatibility and defense in
-  depth.
+  authenticated request. The browser service is Preview-only: it exports no
+  Production starter, storage namespace, polling environment or response path.
 - The trusted runner composition exposes the readiness proof only as an
   internal method. Its existing public `production` action now returns the
   stable candidate-required refusal before target selection, RPC access or any
