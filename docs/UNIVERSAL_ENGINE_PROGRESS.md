@@ -54,6 +54,22 @@
   Production deployment was activated. Live reference-app/service evidence,
   final approved activation and isolated OpenCode inference (#310) remain open.
 
+## OpenCode proof supervisor continuation — 2026-10-21
+
+- Verified baseline `main` is `e4dbc69ae0d25fd7caa4ebeddd2deab2cb9b4519`
+  (#325), whose exact PR head passed Release Gate and the Vercel check.
+- The trusted offline proof supervisor now binds artifact/model admission,
+  non-root/no-egress/read-only confinement evidence, authenticated V2 planning,
+  byte-level workspace comparison after runtime shutdown and mandatory sandbox
+  destruction. The operator sandbox adapter is construction-time only and
+  cannot be replaced by a proof request.
+- Focused lifecycle, V2 protocol, artifact-admission, isolation, TypeScript and
+  lint checks pass. The lifecycle test is a fixture: this editing host still has
+  no Docker, OpenCode or Ollama executable, so real inference remains unproven.
+- Next checkpoint for #310 is an operator adapter on a qualifying isolated host,
+  followed by one real admitted local-model run and retention of its bounded
+  proof receipt. No customer endpoint or paid fallback may be enabled.
+
 ## OpenCode continuation — 2026-10-20
 
 - Baseline main `0ca0366c5964602f5a8f96d0435c6b928ba97661` includes #305,

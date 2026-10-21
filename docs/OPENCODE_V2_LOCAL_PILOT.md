@@ -102,6 +102,23 @@ must still extract safely, enforce the Docker/host confinement contract, start
 both loopback services, run the authenticated V2 request, compare the project
 tree before/after, terminate all processes and destroy the workspace.
 
+`server/opencode-offline-proof-supervisor.mjs` now owns that bounded lifecycle.
+It admits the pinned artifacts before creating a sandbox, verifies a non-root,
+no-network, read-only, credential-free confinement receipt, starts only the
+operator adapter's fixed local runtime, calls the authenticated V2 planner and
+hashes every regular project file before admission and after the runtime has
+stopped. Runtime stop and sandbox destruction run on both success and failure; passwords and process
+handles are excluded from the returned proof receipt. The adapter remains an
+operator-only dependency bound when the supervisor is constructed: proof
+requests cannot provide commands, images, paths, environment variables or a
+replacement sandbox adapter.
+
+The regression uses a lifecycle fixture and therefore still does **not** claim
+real model inference. A qualifying isolated host must supply the adapter and
+the already-admitted archives/model, then retain the returned
+`tayar-opencode-offline-proof/v1` receipt. Only that real run may set and report
+`inferenceExecuted:true`.
+
 Release digest sources:
 - https://github.com/anomalyco/opencode/releases/tag/v1.19.3
 - https://github.com/ollama/ollama/releases/tag/v0.40.6
