@@ -64,13 +64,9 @@ export async function startWebsiteByoPreview(input:{scope:WebsiteByoPublishBrows
 }
 export async function startWebsiteByoProduction(input:{scope:WebsiteByoPublishBrowserScope;transport:WebsiteByoPublishBrowserTransport;
   storage:StorageLike;newOperation?:boolean}){
+  assertScope(input.scope);
   const preview=readOperation(input.scope,'preview',input.storage);if(!preview||preview.status!=='ready')throw new Error('Create and verify a preview first.');
-  const saved=readOperation(input.scope,'production',input.storage);const operationId=!input.newOperation&&saved?saved.operationId:newOperation(input.scope,'production',input.storage);
-  let result:WebsiteByoPublishResult;
-  try{result=await request({scope:input.scope,transport:input.transport,environment:'production',body:{action:'production',projectId:input.scope.projectId,operationId,previewOperationId:preview.operationId}});}
-  catch(error){if(error instanceof ProductionCandidateRequiredError&&input.scope.isCurrent())
-    input.storage.setItem(storageKey(input.scope,'production'),JSON.stringify({operationId,status:'blocked'}));throw error;}
-  if(result.operationId!==operationId)throw new Error('Publish status is unavailable. Refresh and try again.');writeOperation(input.scope,'production',input.storage,result);return result;
+  throw new ProductionCandidateRequiredError();
 }
 export async function pollWebsiteByoPublish(input:{scope:WebsiteByoPublishBrowserScope;transport:WebsiteByoPublishBrowserTransport;
   storage:StorageLike;environment:WebsiteByoPublishEnvironment;includeSettled?:boolean}){

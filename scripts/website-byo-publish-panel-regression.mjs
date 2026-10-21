@@ -4,9 +4,9 @@ try{const out=join(dir,'panel.cjs');await build({entryPoints:['src/modules/websi
 const{BuilderByoPublishPanel:Panel}=require(out),controller={start:async()=>{},poll:async()=>null};const render=props=>renderToStaticMarkup(React.createElement(Panel,{projectSaved:true,...props}));
 const unavailable=render({});assert.match(unavailable,/Publishing endpoint is not available yet/);assert.match(unavailable,/button type="button" disabled/);
 const preview={status:'ready',operationId:'11111111-1111-4111-8111-111111111111',environment:'preview',stage:'ready',version:4,liveUrl:'https://preview.vercel.app'};
-const ready=render({controller,initialPreview:preview});assert.match(ready,/Publish verified preview/);assert.doesNotMatch(ready,/Create and verify a preview first/);assert.match(ready,/https:\/\/preview.vercel.app/);
-const pending=render({controller,initialPreview:{...preview,status:'pending',stage:'observing',liveUrl:null}});assert.match(pending,/pending/);assert.match(pending,/Create and verify a preview first/);
+const ready=render({controller,initialPreview:preview});assert.doesNotMatch(ready,/Publish verified preview|Create and verify a preview first/);assert.match(ready,/Production publishing requires a separately staged and verified Production release/);assert.match(ready,/https:\/\/preview.vercel.app/);
+const pending=render({controller,initialPreview:{...preview,status:'pending',stage:'observing',liveUrl:null}});assert.match(pending,/pending/);assert.match(pending,/Production publishing requires a separately staged and verified Production release/);
 assert.match(render({controller,projectSaved:false}),/button type="button" disabled/);
-const source=await import('node:fs/promises').then(fs=>fs.readFile('src/modules/website-builder/v2-ui/BuilderByoPublishPanel.tsx','utf8'));assert.match(source,/preview[?][.]status==='pending'&&failed!=='preview'/);assert.match(source,/window[.]clearTimeout/);
-console.log('PASS BYO publish panel: unavailable disabled, explicit states, preview-before-production and pending-only polling cleanup');
+const source=await import('node:fs/promises').then(fs=>fs.readFile('src/modules/website-builder/v2-ui/BuilderByoPublishPanel.tsx','utf8'));assert.match(source,/preview[?][.]status!=='pending'/);assert.doesNotMatch(source,/start\(['"]production|poll\(['"]production|Publish verified preview/);assert.match(source,/window[.]clearTimeout/);
+console.log('PASS BYO publish panel: unavailable disabled, explicit Preview states, static Production refusal and pending-only polling cleanup');
 }finally{await rm(dir,{recursive:true,force:true});}

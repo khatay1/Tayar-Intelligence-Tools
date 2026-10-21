@@ -10,7 +10,14 @@ The published Apex Dental example exposed three distinct gaps: AI generation dro
 - Appointment requests cannot be applied as auth-only descriptive pages without a bound form. Brochure sites remain supported.
 - Known root-relative AI routes become `page:<slug>` references. Missing project pages/anchors and routes escaping the project block publishing and independent source export. Page links preserve fragments.
 - Infrastructure readiness no longer treats connected, outdated-schema or deployment-failed records as ready.
-- Settings includes the independent Preview/Production publisher. Connection availability remains explicit. `VITE_WEBSITE_BYO_PUBLISH_ENABLED=true` is required in addition to all three valid connection endpoints; it defaults to false. Unsaved projects cannot start independent publishing. Persisted ready/blocked operations are reread from the server on reopening rather than being inferred from browser storage.
+- Settings includes the independent Preview publisher and an explicit static
+  Production-blocked state. The browser offers no Production action and sends
+  no Production restoration/status request; activation requires a separately
+  staged and verified release. Connection availability remains explicit.
+  `VITE_WEBSITE_BYO_PUBLISH_ENABLED=true` is required in addition to all three
+  valid connection endpoints; it defaults to false. Unsaved projects cannot
+  start independent Preview publishing. Persisted Preview operations are reread
+  from the server on reopening rather than being inferred from browser storage.
 - Application generation reports that the backend has not yet been provisioned. The Tayar page publisher remains blocked for application definitions and points users toward their own infrastructure.
 - Independent export includes the application runtime, application-definition.json, initial database schema with access policies, and HANDOVER.md. No runtime rows, provider secrets, or platform endpoint are exported.
 
