@@ -9,7 +9,7 @@ import { readOwnedReleaseIdentity } from './website-owned-release-identity';
 import { verifyOwnedDeployedRuntime } from './website-owned-runtime-verification';
 import { recordWebsiteProductionRuntimeAttestation } from './website-production-runtime-attestation';
 import { verifyOwnedDeployedBehavior } from './website-owned-behavior-verification';
-import { verifyWebsiteOwnedProductionBackend } from './website-owned-production-backend-verification';
+import { verifyWebsiteOwnedProductionBackend,verifyWebsiteOwnedProductionStripeDelivery } from './website-owned-production-backend-verification';
 import { verifyWebsiteOwnedProductionServices } from './website-owned-production-services-verification';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -111,7 +111,8 @@ export async function stageWebsiteProductionCandidate(input: {
       || typeof custody.repositoryName !== 'string' || typeof custody.productionBranch !== 'string') throw new Error();
     const verifyServices = () => verifyWebsiteOwnedProductionServices({ client: input.client,
       projectId: input.projectId, ownerId: input.ownerId, vercelConnectionId: target.vercelConnectionId,
-      vercelConnectionVersion: target.vercelConnectionVersion, capabilities: source.capabilities,
+      vercelConnectionVersion: target.vercelConnectionVersion,applicationOrigin:source.binding.applicationOrigin,
+      capabilities: source.capabilities,
       stripeRuntime: source.stripeRuntime, emailRuntime: source.emailRuntime,
       vercel: { accessToken: custody.accessToken as string, userId: custody.userId as string,
         accountId: custody.accountId as string, vercelProjectId: custody.vercelProjectId as string },
@@ -133,6 +134,13 @@ export async function stageWebsiteProductionCandidate(input: {
     await verifyOwnedDeployedBehavior({ projectId: input.projectId, liveUrl: staged.liveUrl,
       files: source.files, isCurrent: current, fetcher: input.fetcher });
     if (!await current()) throw new Error();
+    if(source.capabilities.definition.tables.some(table=>table.payment)){
+      await verifyWebsiteOwnedProductionStripeDelivery({client:input.client,projectId:input.projectId,
+        ownerId:input.ownerId,connectionId:source.supabase.id,connectionVersion:source.supabase.version,
+        expectedProjectRef:source.binding.backend.projectRef,runtimeDigest:identity.runtimeDigest,
+        isCurrent:current,fetcher:input.fetcher});
+      if(!await current())throw new Error();
+    }
     if (canonical((await verifyServices()).environmentIds) !== serviceDestinations) throw new Error();
     if (!await current()) throw new Error();
     await verifyBackend();

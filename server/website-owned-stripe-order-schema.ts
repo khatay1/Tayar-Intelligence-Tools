@@ -9,7 +9,7 @@ export function compileOwnedStripeOrderSchema(projectId: string): string {
     ['app_stripe_order_bind_session', 'uuid,uuid,text'],
     ['app_stripe_order_reserve_refund', 'uuid,uuid,text,bigint,uuid'],
     ['app_stripe_order_bind_refund', 'uuid,uuid,text,text'],
-    ['app_stripe_order_apply_event', 'text,text,timestamptz,uuid,uuid,boolean,text,text,bigint,text,text'],
+    ['app_stripe_order_apply_event', 'text,text,timestamptz,uuid,text,uuid,boolean,text,text,bigint,text,text'],
   ];
   return `
 begin;
@@ -40,6 +40,7 @@ create table private.app_stripe_order_events (
  event_type text not null check(event_type in ('checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','refund.created','refund.updated','charge.refunded')),
  event_created_at timestamptz not null,
  project_id uuid not null check(project_id='${projectId}'::uuid),
+ runtime_digest text not null check(runtime_digest ~ '^[a-f0-9]{64}$'),
  order_id uuid not null references private.app_stripe_order_payments(order_id) on delete restrict,
  livemode boolean not null,
  provider_object_id text not null check(provider_object_id ~ '^(cs_(test|live)|ch|re)_[A-Za-z0-9]{8,200}$'),
@@ -155,19 +156,21 @@ begin
  return true;
 end $payment$;
 
-create function private.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_order_id uuid,
+create function private.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_runtime_digest text,p_order_id uuid,
  p_livemode boolean,p_provider_object_id text,p_provider_payment_id text,p_amount bigint,p_currency text,p_status text)
 returns text language plpgsql security definer set search_path='' as $payment$
 declare existing private.app_stripe_order_events; payment private.app_stripe_order_payments; refund_status text; successful bigint; pending_count integer;
 begin
  select * into existing from private.app_stripe_order_events where event_id=p_event_id;
  if found then
-  if existing.event_type=p_event_type and existing.event_created_at=p_event_created_at and existing.project_id=p_project_id and existing.order_id=p_order_id
+  if existing.event_type=p_event_type and existing.event_created_at=p_event_created_at and existing.project_id=p_project_id
+   and existing.runtime_digest=p_runtime_digest and existing.order_id=p_order_id
    and existing.livemode=p_livemode and existing.provider_object_id=p_provider_object_id
    and existing.provider_payment_id is not distinct from p_provider_payment_id and existing.amount=p_amount and existing.currency=p_currency and existing.status=p_status
   then return 'duplicate'; else return 'conflict'; end if;
  end if;
- if p_project_id is distinct from '${projectId}'::uuid or p_event_id !~ '^evt_[A-Za-z0-9]{8,200}$' or p_event_created_at is null
+ if p_project_id is distinct from '${projectId}'::uuid or p_runtime_digest !~ '^[a-f0-9]{64}$'
+  or p_event_id !~ '^evt_[A-Za-z0-9]{8,200}$' or p_event_created_at is null
   or p_currency !~ '^[a-z]{3}$' or p_amount not between 0 and 99999999999 then return 'conflict'; end if;
  select * into payment from private.app_stripe_order_payments where order_id=p_order_id for update;
  if not found or payment.project_id<>p_project_id or payment.livemode<>p_livemode or payment.currency<>p_currency then return 'conflict'; end if;
@@ -210,8 +213,8 @@ begin
     when pending_count>0 then 'refund-pending' when greatest(amount_refunded,successful)>0 then 'partially-refunded'
     when p_status='refund-failed' then 'refund-failed' else status end,updated_at=clock_timestamp() where order_id=p_order_id;
  end if;
- insert into private.app_stripe_order_events(event_id,event_type,event_created_at,project_id,order_id,livemode,provider_object_id,provider_payment_id,amount,currency,status)
- values(p_event_id,p_event_type,p_event_created_at,p_project_id,p_order_id,p_livemode,p_provider_object_id,p_provider_payment_id,p_amount,p_currency,p_status);
+ insert into private.app_stripe_order_events(event_id,event_type,event_created_at,project_id,runtime_digest,order_id,livemode,provider_object_id,provider_payment_id,amount,currency,status)
+ values(p_event_id,p_event_type,p_event_created_at,p_project_id,p_runtime_digest,p_order_id,p_livemode,p_provider_object_id,p_provider_payment_id,p_amount,p_currency,p_status);
  return 'applied';
 exception when unique_violation then return 'conflict';
 end $payment$;
@@ -228,10 +231,10 @@ returns jsonb language sql security invoker set search_path='' as $wrapper$
 create function public.app_stripe_order_bind_refund(p_order_id uuid,p_operation_id uuid,p_provider_refund_id text,p_provider_status text)
 returns boolean language sql security invoker set search_path='' as $wrapper$
  select private.app_stripe_order_bind_refund(p_order_id,p_operation_id,p_provider_refund_id,p_provider_status); $wrapper$;
-create function public.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_order_id uuid,
+create function public.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_runtime_digest text,p_order_id uuid,
  p_livemode boolean,p_provider_object_id text,p_provider_payment_id text,p_amount bigint,p_currency text,p_status text)
 returns text language sql security invoker set search_path='' as $wrapper$
- select private.app_stripe_order_apply_event(p_event_id,p_event_type,p_event_created_at,p_project_id,p_order_id,p_livemode,
+ select private.app_stripe_order_apply_event(p_event_id,p_event_type,p_event_created_at,p_project_id,p_runtime_digest,p_order_id,p_livemode,
   p_provider_object_id,p_provider_payment_id,p_amount,p_currency,p_status); $wrapper$;
 grant usage on schema private to service_role;
 ${functions.map(([name,args]) => `revoke all on function private.${name}(${args}),public.${name}(${args}) from public,anon,authenticated;\ngrant execute on function private.${name}(${args}),public.${name}(${args}) to service_role;`).join('\n')}

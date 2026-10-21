@@ -19,7 +19,8 @@ try {
     outfile: out, bundle: true, platform: 'node', format: 'cjs', plugins: [{ name: 'backend-proof-fixture', setup(build) {
       build.onResolve({ filter: /website-owned-production-backend-verification$/ }, () => ({ path: 'backend-proof', namespace: 'fixture' }));
       build.onLoad({ filter: /^backend-proof$/, namespace: 'fixture' }, () => ({ contents:
-        `export async function verifyWebsiteOwnedProductionBackend(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale backend proof')}` }));
+        `export async function verifyWebsiteOwnedProductionBackend(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale backend proof')}
+         export async function verifyWebsiteOwnedProductionStripeDelivery(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale Stripe delivery proof')}` }));
       build.onResolve({ filter: /website-owned-production-services-verification$/ }, () => ({ path: 'service-proof', namespace: 'fixture' }));
       build.onLoad({ filter: /^service-proof$/, namespace: 'fixture' }, () => ({ contents:
         `export async function verifyWebsiteOwnedProductionServices(value){globalThis.__tayarServiceProofs.push(value);if(!await value.isCurrent())throw Error('stale service proof');return{environmentIds:globalThis.__tayarServiceDestinations?.shift()??{}}}` }));

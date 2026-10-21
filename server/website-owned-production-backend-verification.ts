@@ -50,3 +50,34 @@ export async function verifyWebsiteOwnedProductionBackend(input: {
     if (!await input.isCurrent()) throw new Error();
   } catch { throw new Error('Customer Production backend verification is unavailable.'); }
 }
+
+/** Admits a payment release only after its exact generated Production runtime
+ * has processed a live Stripe event. The private row is written only after the
+ * generated webhook verifies Stripe's signature and the order identity. */
+export async function verifyWebsiteOwnedProductionStripeDelivery(input: {
+  client: Pick<SupabaseClient, 'rpc'>; projectId: string; ownerId: string;
+  connectionId: string; connectionVersion: number; expectedProjectRef:string;runtimeDigest: string;
+  isCurrent(): Promise<boolean>; fetcher?: typeof fetch;
+}): Promise<void> {
+  try {
+    if (typeof window !== 'undefined' || ![input.projectId,input.ownerId,input.connectionId].every(value=>uuid.test(value))
+      || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion<1
+      || !/^[a-z]{20}$/.test(input.expectedProjectRef)
+      || !/^[a-f0-9]{64}$/.test(input.runtimeDigest) || !await input.isCurrent()) throw new Error();
+    const result=await input.client.rpc('website_read_supabase_oauth_custody',{p_connection_id:input.connectionId,
+      p_project_id:input.projectId,p_owner_id:input.ownerId,p_expected_connection_version:input.connectionVersion});
+    if(result.error||!await input.isCurrent())throw new Error();
+    const custody=parseOwnedSupabaseCustody(result.data,'production',{projectRef:input.expectedProjectRef});
+    const query=createOwnedSupabaseReadOnlyQuery({...custody,fetcher:input.fetcher});
+    const rows=await query(`select event_id,event_type,received_at from private.app_stripe_order_events
+where project_id='${input.projectId}'::uuid and runtime_digest='${input.runtimeDigest}' and livemode=true
+order by received_at desc,event_id desc limit 1`);
+    if(!Array.isArray(rows)||rows.length!==1||!await input.isCurrent())throw new Error();
+    const row=object(rows[0]);
+    if(!row||!exact(row,['event_id','event_type','received_at'])
+      ||typeof row.event_id!=='string'||!/^evt_[A-Za-z0-9]{8,200}$/.test(row.event_id)
+      ||typeof row.event_type!=='string'||!['checkout.session.completed','checkout.session.async_payment_succeeded',
+        'checkout.session.async_payment_failed','refund.created','refund.updated','charge.refunded'].includes(row.event_type)
+      ||typeof row.received_at!=='string'||!Number.isFinite(Date.parse(row.received_at)))throw new Error();
+  } catch { throw new Error('Customer Production Stripe delivery verification is unavailable.'); }
+}

@@ -22,7 +22,8 @@ try {
         export async function verifyOwnedSupabaseApplicationRuntime(value){globalThis.__tayarProductionBackendProof.runtimes.push(value);const definition=await value.reader.readDeployedDefinition();const revision=await value.reader.readFormRequestRevision();if(JSON.stringify(definition)!==JSON.stringify(value.definition)||revision!==1||!await value.reader.verifyLiveSecurity(value.definition))throw Error('invalid runtime')}
       ` }));
     } }] });
-  const { verifyWebsiteOwnedProductionBackend: verify } = await import(`${pathToFileURL(out)}?v=${Date.now()}`);
+  const { verifyWebsiteOwnedProductionBackend: verify,
+    verifyWebsiteOwnedProductionStripeDelivery: verifyStripeDelivery } = await import(`${pathToFileURL(out)}?v=${Date.now()}`);
   const ownerId = '11111111-1111-4111-8111-111111111111';
   const projectId = '22222222-2222-4222-8222-222222222222';
   const connectionId = '33333333-3333-4333-8333-333333333333';
@@ -71,6 +72,21 @@ try {
   assert.equal(ownership.projectRef, projectRef); assert.equal(ownership.organizationId, custody.organizationId);
   assert.equal(ownership.accountUserId, custody.accountId); assert.equal(ownership.platformOrganizationId, 'platform_supabase');
   assert.equal(globalThis.__tayarProductionBackendProof.runtimes[0].formsRequired, definition.tables.length > 0);
+
+  const runtimeDigest='a'.repeat(64);
+  const deliveryFetcher=async(resource,init)=>{
+    const url=new URL(resource);assert.equal(url.pathname,`/v1/projects/${projectRef}/database/query/read-only`);
+    assert.equal(new Headers(init.headers).get('authorization'),`Bearer ${accessToken}`);
+    const{query}=JSON.parse(init.body);assert.match(query,new RegExp(`runtime_digest='${runtimeDigest}'`));
+    assert.match(query,new RegExp(`project_id='${projectId}'::uuid`));assert.match(query,/livemode=true/);
+    return Response.json([{event_id:'evt_customer1234',event_type:'checkout.session.completed',
+      received_at:'2026-10-21T12:00:00.000Z'}],{status:201});
+  };
+  await verifyStripeDelivery({client,projectId,ownerId,connectionId,connectionVersion:3,expectedProjectRef:projectRef,runtimeDigest,
+    isCurrent:async()=>current,fetcher:deliveryFetcher});
+  await assert.rejects(verifyStripeDelivery({client,projectId,ownerId,connectionId,connectionVersion:3,expectedProjectRef:projectRef,
+    runtimeDigest:'0'.repeat(64),isCurrent:async()=>true,fetcher:async()=>Response.json([],{status:201})}),
+  /Customer Production Stripe delivery verification is unavailable/);
 
   current = false; const staleCalls = rpcCalls;
   await assert.rejects(verify(input), /Customer Production backend verification is unavailable/);

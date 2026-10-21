@@ -8,7 +8,7 @@ import { serveOwnedStripeWebhook } from './website-owned-stripe-webhook';
 /** Mounted owned server routes. Routing and return paths come from saved data
  * views, never from request amounts, role IDs or external redirect parameters. */
 export async function serveOwnedPaymentRoute(request:Request,input:{manifest:OwnedApplicationRouteManifest;
- route:string;environment:Record<string,string>;fetcher?:typeof fetch}){
+ route:string;runtimeDigest:string;environment:Record<string,string>;fetcher?:typeof fetch}){
  try{
   const {manifest,environment}=input;
   if(!manifest.definition.tables.some(table=>table.payment))return new Response('Not found',{status:404});
@@ -19,7 +19,7 @@ export async function serveOwnedPaymentRoute(request:Request,input:{manifest:Own
    url.pathname='/api/stripe-webhook';
    return await serveOwnedStripeWebhook(new Request(url,request),{projectId:manifest.projectId,
     applicationOrigin:manifest.applicationOrigin,endpointSecret:environment.STRIPE_WEBHOOK_SECRET,
-    store:createOwnedStripeOrderEventStore(client)});
+    store:createOwnedStripeOrderEventStore(client,input.runtimeDigest)});
   }
   const match=/^stripe-order-(checkout|refund|status):([A-Za-z0-9][A-Za-z0-9_-]{0,119})$/.exec(input.route);
   if(!match)return new Response('Not found',{status:404});

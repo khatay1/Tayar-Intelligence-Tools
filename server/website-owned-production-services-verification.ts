@@ -3,6 +3,7 @@ import type { ByoSourceCapabilities } from '../src/modules/website-builder/core/
 import type { OwnedEmailRuntimeSource, OwnedStripeRuntimeSource } from './website-owned-source-capture';
 import { createOwnedRuntimeSecretPlan } from './website-owned-runtime-secret-plan';
 import { inspectOwnedStripeRuntimeForPublish, verifyOwnedStripeRuntimeDestination } from './website-owned-stripe';
+import { inspectOwnedStripeWebhookRuntimeForPublish, verifyOwnedStripeWebhookRuntimeDestination } from './website-owned-stripe-webhook-runtime';
 import { inspectOwnedEmailRuntimeForPublish, verifyOwnedEmailRuntimeDestination } from './website-owned-email-runtime';
 import { inspectOwnedRuntimeSecretState, type OwnedGeneratedRuntimeSecret } from './website-owned-runtime-secret-staging';
 import { verifyOwnedSecretInVercel } from './website-owned-vercel-environment';
@@ -19,6 +20,7 @@ const generated:OwnedGeneratedRuntimeSecret[]=[
 export async function verifyWebsiteOwnedProductionServices(input:{
   client:Pick<SupabaseClient,'rpc'>;projectId:string;ownerId:string;
   vercelConnectionId:string;vercelConnectionVersion:number;
+  applicationOrigin:string;
   capabilities:ByoSourceCapabilities;stripeRuntime:OwnedStripeRuntimeSource|null;
   emailRuntime:OwnedEmailRuntimeSource|null;
   vercel:{accessToken:string;userId:string;accountId:string;vercelProjectId:string};
@@ -52,6 +54,21 @@ export async function verifyWebsiteOwnedProductionServices(input:{
       await verifyOwnedStripeRuntimeDestination({...input.vercel,environmentId:state.environmentId,projectId:input.projectId,
         environment:'production',handoffOperationId:state.handoffOperationId,isCurrent:current,fetcher:input.fetcher});
       environmentIds.STRIPE_SECRET_KEY=state.environmentId;
+      if(requirements.delete('STRIPE_WEBHOOK_SECRET')){
+        if(!input.stripeRuntime.webhookEndpointId||!input.stripeRuntime.webhookSigningSecretUpdatedAt)throw new Error();
+        const webhook=await inspectOwnedStripeWebhookRuntimeForPublish({client:input.client,projectId:input.projectId,
+          ownerId:input.ownerId,vercelConnectionId:input.vercelConnectionId,
+          vercelConnectionVersion:input.vercelConnectionVersion,sourceConnectionId:input.stripeRuntime.sourceConnectionId,
+          stripeSourceUpdatedAt:input.stripeRuntime.sourceUpdatedAt,
+          webhookSourceUpdatedAt:input.stripeRuntime.webhookSigningSecretUpdatedAt,
+          endpointId:input.stripeRuntime.webhookEndpointId,applicationOrigin:input.applicationOrigin,
+          environment:'production'});
+        if(!webhook.ready||!webhook.environmentId||!webhook.handoffOperationId||!await current())throw new Error();
+        await verifyOwnedStripeWebhookRuntimeDestination({...input.vercel,environmentId:webhook.environmentId,
+          projectId:input.projectId,environment:'production',handoffOperationId:webhook.handoffOperationId,
+          isCurrent:current,fetcher:input.fetcher});
+        environmentIds.STRIPE_WEBHOOK_SECRET=webhook.environmentId;
+      }
     }else if(requirements.has('STRIPE_SECRET_KEY'))throw new Error();
     if(input.emailRuntime){
       for(const connection of input.emailRuntime.connections){
@@ -66,21 +83,20 @@ export async function verifyWebsiteOwnedProductionServices(input:{
           handoffOperationId:state.handoffOperationId,isCurrent:current,fetcher:input.fetcher});
         environmentIds[connection.environmentKey]=state.environmentId;
       }
-      for(const secret of generated){
-        if(!requirements.delete(secret.environmentKey))throw new Error();
-        const state=await inspectOwnedRuntimeSecretState({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
-          vercelConnectionId:input.vercelConnectionId,vercelConnectionVersion:input.vercelConnectionVersion,
-          secret,environment:'production'});
-        if(!state.ready||!state.environmentId||!state.handoffOperationId||!await current())throw new Error();
-        await verifyOwnedSecretInVercel({...input.vercel,environmentId:state.environmentId,
-          environmentKey:secret.environmentKey,target:'production',gitBranch:'',operationId:state.handoffOperationId,
-          isCurrent:current,fetcher:input.fetcher});
-        environmentIds[secret.environmentKey]=state.environmentId;
-      }
-    }else if(generated.some(secret=>requirements.has(secret.environmentKey))
-      ||[...requirements].some(key=>key.startsWith('TAYAR_RESEND_')))throw new Error();
-    // STRIPE_WEBHOOK_SECRET and any future service key require a dedicated,
-    // independently verified receipt before Production staging can support them.
+    }else if([...requirements].some(key=>key.startsWith('TAYAR_RESEND_')))throw new Error();
+    for(const secret of generated){
+      if(!requirements.delete(secret.environmentKey))continue;
+      const state=await inspectOwnedRuntimeSecretState({client:input.client,projectId:input.projectId,ownerId:input.ownerId,
+        vercelConnectionId:input.vercelConnectionId,vercelConnectionVersion:input.vercelConnectionVersion,
+        secret,environment:'production'});
+      if(!state.ready||!state.environmentId||!state.handoffOperationId||!await current())throw new Error();
+      await verifyOwnedSecretInVercel({...input.vercel,environmentId:state.environmentId,
+        environmentKey:secret.environmentKey,target:'production',gitBranch:'',operationId:state.handoffOperationId,
+        isCurrent:current,fetcher:input.fetcher});
+      environmentIds[secret.environmentKey]=state.environmentId;
+    }
+    // Any future service key requires a dedicated, independently verified
+    // receipt before Production staging can support it.
     const ids=Object.values(environmentIds);
     if(requirements.size||ids.some(id=>!provider.test(id))||new Set(ids).size!==ids.length||!await current())throw new Error();
     return{environmentIds:Object.fromEntries(Object.entries(environmentIds).sort(([left],[right])=>left.localeCompare(right)))};

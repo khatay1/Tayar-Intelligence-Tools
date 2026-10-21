@@ -26,7 +26,7 @@ export default async function handler(request: Request) {
   if (route === 'release-behavior-proof') return serveOwnedReleaseBehavior(request, { identity: __TAYAR_RELEASE_IDENTITY__,
     manifest, loadPage: async pageId => new Response(__TAYAR_PAGES__.get(pageId), { headers: { 'content-type': 'text/html; charset=utf-8' } }) });
   if(route==='stripe-webhook'||route?.startsWith('stripe-order-')){
-    try{return await serveOwnedPaymentRoute(request,{manifest,route,
+    try{return await serveOwnedPaymentRoute(request,{manifest,route,runtimeDigest:__TAYAR_RELEASE_IDENTITY__.runtimeDigest,
       environment:readOwnedRuntimeEnvironment(__TAYAR_SECRET_PLAN__)});}
     catch{return Response.json({error:'Payment runtime unavailable.'},{status:503,headers:{'cache-control':'private, no-store'}});}
   }
