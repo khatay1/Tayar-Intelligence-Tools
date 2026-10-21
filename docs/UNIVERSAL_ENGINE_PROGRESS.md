@@ -2,6 +2,12 @@
 
 ## Read-only Production activation readiness — 2026-10-21
 
+- The trusted runner composition exposes the readiness proof only as an
+  internal method. Its existing public `production` action now returns the
+  stable candidate-required refusal before target selection, RPC access or any
+  provider request. The regenerated deployed bundle no longer contains the
+  legacy promotion transport/RPC chain. Staging and readiness remain separate
+  internal operations.
 - A server-only precondition now binds the current private Production source
   target and runtime attestation to two stable reads of the exact Vercel
   deployment and its verified Production domains. It rejects changed target
