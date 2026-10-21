@@ -64,7 +64,7 @@ function BuilderActiveInfrastructureSettings({ projectId, ownerId, loadSequence,
           const input = { scope, transport, storage: window.sessionStorage, newOperation };
           return startWebsiteByoPreview(input);
         },
-        poll: () => pollWebsiteByoPublish({ scope, transport, storage: window.sessionStorage, environment: 'preview', includeSettled: true }),
+        poll: () => pollWebsiteByoPublish({ scope, transport, storage: window.sessionStorage, includeSettled: true }),
       } : undefined;
       return { controller, scope, publishController };
     } catch { return null; }
