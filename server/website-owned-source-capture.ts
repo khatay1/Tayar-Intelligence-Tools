@@ -128,7 +128,10 @@ export async function captureWebsiteOwnedApplicationSource(input: {
   const source = await captureWebsiteGitHubExportSource({
     projectId: input.projectId, ownerId: input.ownerId, connectionId: input.githubConnectionId, reader: input.reader,
     async compile(snapshot) {
-      state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
+      // This path always compiles the owned order runtime below. Keep its
+      // capabilities aligned with that compiler; independent backend, secret
+      // and delivery verification still gates publishing and attestation.
+      state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment, { stripeOrderRuntimeCompiled: true });
       state.stripeRuntime=captureOwnedStripeRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
       state.emailRuntime=captureOwnedEmailRuntimeSource(snapshot,input.projectId,input.environment,state.capabilities);
       captured.value = await current();
