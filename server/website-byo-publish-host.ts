@@ -16,5 +16,6 @@ export function createWebsiteByoPublishHost(input:{platform:Platform;allowedOrig
  const policy=createWebsiteByoPublishRuntimePolicy(reader,{client:input.platform,
   platformOrganizationId:input.runner.platformSupabaseOrganizationId,fetcher:input.runner.fetcher});
  const runners=createWebsiteByoPublishRunners({client:input.platform,reader,...input.runner,...policy});
- return createWebsiteByoPublishEdgeHandler({platform:input.platform,allowedOrigin:input.allowedOrigin,runners});
+ return createWebsiteByoPublishEdgeHandler({platform:input.platform,allowedOrigin:input.allowedOrigin,
+  runners:{runPreview:runners.runPreview,readStatus:runners.readStatus}});
 }

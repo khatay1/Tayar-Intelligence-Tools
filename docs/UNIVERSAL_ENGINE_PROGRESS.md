@@ -8,6 +8,11 @@
   authenticated request. The retained browser service entry point also refuses
   locally after scope/ready-Preview validation for compatibility and defense in
   depth.
+- The authenticated Edge endpoint now returns the same fixed candidate-required
+  response itself after owner/project validation. Its public runner contract and
+  deployed host wiring contain only Preview execution and status reads; no
+  injectable Production callback reaches HTTP dispatch. Internal staging and
+  activation-readiness methods remain separate and unmounted.
 - The trusted runner composition exposes the readiness proof only as an
   internal method. Its existing public `production` action now returns the
   stable candidate-required refusal before target selection, RPC access or any
