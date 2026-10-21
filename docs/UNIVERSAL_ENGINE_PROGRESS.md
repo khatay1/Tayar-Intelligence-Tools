@@ -7,6 +7,11 @@
   Production button, restoration poll, browser operation ID, session read or
   authenticated request. The browser service is Preview-only: it exports no
   Production starter, storage namespace, polling environment or response path.
+- The authenticated Edge endpoint now returns the same fixed candidate-required
+  response itself after owner/project validation. Its public runner contract and
+  deployed host wiring contain only Preview execution and status reads; no
+  injectable Production callback reaches HTTP dispatch. Internal staging and
+  activation-readiness methods remain separate and unmounted.
 - The trusted runner composition exposes the readiness proof only as an
   internal method. Its existing public `production` action now returns the
   stable candidate-required refusal before target selection, RPC access or any

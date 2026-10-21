@@ -31,7 +31,6 @@ function safe(result:Result,scope:Scope,environment:'preview'|'production'){
 export async function handleWebsiteByoPublish(request:Request,context:{
   platform:Pick<SupabaseClient,'auth'|'from'>;
   runPreview(scope:Scope):Promise<Result>;
-  runProduction(scope:Scope&{previewOperationId:string}):Promise<Result>;
   readStatus(scope:Scope&{environment:'preview'|'production'}):Promise<Result>;
 }):Promise<Response>{
   if(request.method!=='POST')return json(405,{error:'Method not allowed.'});
@@ -55,15 +54,14 @@ export async function handleWebsiteByoPublish(request:Request,context:{
   const owns=async()=>{const{data,error}=await context.platform.from('projects').select('id').eq('id',projectId).eq('user_id',ownerId)
     .eq('type','website-builder').is('deleted_at',null).maybeSingle();if(error)throw new Error();return!!data;};
   try{
-    if(!await owns())return json(404,{error:'Project not found.'});const scope={ownerId,projectId,operationId};
-    const environment=action==='production'?'production':action==='preview'?'preview':input.environment as 'preview'|'production';
-    const result=action==='preview'?await context.runPreview(scope):action==='production'
-      ?await context.runProduction({...scope,previewOperationId:input.previewOperationId as string})
-      :await context.readStatus({...scope,environment});
+    if(!await owns())return json(404,{error:'Project not found.'});
+    if(action==='production'){const error=new ProductionCandidateRequiredError();return json(409,{error:error.message,code:error.code});}
+    const scope={ownerId,projectId,operationId};
+    const environment=action==='preview'?'preview':input.environment as 'preview'|'production';
+    const result=action==='preview'?await context.runPreview(scope):await context.readStatus({...scope,environment});
     if(!await owns())throw new Error();const body=safe(result,scope,environment);
     return json(body.status==='ready'?200:body.status==='blocked'?409:202,body);
-  }catch(error){
-    if(action==='production'&&error instanceof ProductionCandidateRequiredError)return json(409,{error:error.message,code:error.code});
+  }catch{
     return json(409,{error:'Publish could not be reconciled. Refresh and try again.'});
   }
 }
