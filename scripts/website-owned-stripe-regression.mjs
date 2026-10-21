@@ -78,7 +78,7 @@ try{
     stripeCommitId:'88888888-8888-4888-8888-888888888888'};
   const expectedReceipt={connectionVersion:1,handoffVersion:2,accountId:'acct_fixture12345678',
     keyType:'restricted',environmentId:'env_fixture123',status:'ready'};
-  let active=false,proofWrites=0,stripeCalls=0,vercelPosts=0;
+  let active=false,proofWrites=0,endpointProofWrites=0,stripeCalls=0,vercelPosts=0;
   const rpcClient={async rpc(name,args){
     if(name==='website_reconcile_stripe_runtime_binding')return{data:active?{
       connectionVersion:1,handoffVersion:2,accountId:'acct_fixture12345678',keyType:'restricted',environmentId:'env_fixture123'}:null,error:null};
@@ -87,6 +87,10 @@ try{
       secretValue:restricted,userId:'user_fixture123',accountId:'team_fixture123',vercelProjectId:'prj_fixture123'},error:null};
     if(name==='website_record_stripe_secret_proof'){proofWrites++;assert.equal(args.p_handoff_version,1);
       assert.equal(args.p_account_id,'acct_fixture12345678');assert.equal(args.p_key_type,'restricted');return{data:true,error:null};}
+    if(name==='website_record_stripe_webhook_endpoint_proof'){endpointProofWrites++;
+      assert.equal(args.p_handoff_version,1);assert.equal(args.p_endpoint_id,'we_fixture12345678');
+      assert.equal(args.p_endpoint_url,'https://customer.example/api/stripe-webhook');
+      assert.equal(args.p_api_version,'2026-08-26.dahlia');return{data:true,error:null};}
     if(name==='website_reconcile_vercel_secret_handoff')return{data:null,error:null};
     if(name==='website_commit_vercel_secret_handoff')return{data:2,error:null};
     if(name==='website_activate_stripe_runtime'){active=true;assert.equal(args.p_expected_connection_version,0);
@@ -113,7 +117,8 @@ try{
   const runtime=await handoff({...ids,client:rpcClient,vercelConnectionVersion:7,expectedHandoffVersion:0,
     expectedStripeConnectionVersion:0,sourceConnectionId:'stripe-prod',sourceUpdatedAt:'2026-10-04T10:00:00.000Z',
     publishableKey:publishable,webhookEndpointId:endpointId,applicationOrigin,environment:'production',isCurrent:()=>true,fetcher:combinedFetch});
-  assert.deepEqual(runtime,expectedReceipt);assert.equal(proofWrites,1);assert.equal(stripeCalls,2);assert.equal(vercelPosts,1);
+  assert.deepEqual(runtime,expectedReceipt);assert.equal(proofWrites,1);assert.equal(endpointProofWrites,1);
+  assert.equal(stripeCalls,2);assert.equal(vercelPosts,1);
   assert.ok(!JSON.stringify(runtime).includes(restricted));
   assert.deepEqual(await handoff({...ids,client:{async rpc(name){assert.equal(name,'website_reconcile_stripe_runtime_binding');
     return{data:{connectionVersion:1,handoffVersion:2,accountId:'acct_fixture12345678',keyType:'restricted',environmentId:'env_fixture123'},error:null};}},

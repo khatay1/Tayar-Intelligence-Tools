@@ -235,6 +235,12 @@ export async function handoffOwnedStripeRuntime(input: {
             endpointId:input.webhookEndpointId,applicationOrigin:input.applicationOrigin,
             isCurrent:input.isCurrent,fetcher:input.fetcher});
           if(endpoint.accountId!==proof.accountId)throw new Error();
+          const endpointRecorded=await input.client.rpc('website_record_stripe_webhook_endpoint_proof',{
+            p_handoff_id:input.handoffId,p_project_id:input.projectId,p_owner_id:input.ownerId,
+            p_handoff_version:handoffVersion,p_account_id:endpoint.accountId,p_endpoint_id:endpoint.endpointId,
+            p_endpoint_url:endpoint.url,p_api_version:endpoint.apiVersion,p_enabled_events:endpoint.events,
+            p_operation_id:input.operationId});
+          if(endpointRecorded.error||endpointRecorded.data!==true||!input.isCurrent())throw new Error();
         }
         const recorded=await input.client.rpc('website_record_stripe_secret_proof',{
           p_handoff_id:input.handoffId,p_project_id:input.projectId,p_owner_id:input.ownerId,

@@ -241,9 +241,9 @@ async function verifyOwnedStripeWebhookEndpoint(input) {
         "Stripe-Version": ownedStripeWebhookApiVersion
       }
     });
-    const endpoint2 = await readEndpoint(response, input.isCurrent);
-    const metadata = endpoint2.metadata;
-    if (endpoint2.object !== "webhook_endpoint" || endpoint2.id !== input.endpointId || endpoint2.url !== url || endpoint2.status !== "enabled" || endpoint2.livemode !== (input.environment === "production") || endpoint2.application !== null || endpoint2.api_version !== ownedStripeWebhookApiVersion || !metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.tayar_project_id !== input.projectId || metadata.tayar_environment !== input.environment || !Array.isArray(endpoint2.enabled_events) || endpoint2.enabled_events.length !== ownedStripeWebhookEvents.length || new Set(endpoint2.enabled_events).size !== ownedStripeWebhookEvents.length || ownedStripeWebhookEvents.some((event) => !endpoint2.enabled_events.includes(event)) || !await input.isCurrent()) throw new Error();
+    const endpoint3 = await readEndpoint(response, input.isCurrent);
+    const metadata = endpoint3.metadata;
+    if (endpoint3.object !== "webhook_endpoint" || endpoint3.id !== input.endpointId || endpoint3.url !== url || endpoint3.status !== "enabled" || endpoint3.livemode !== (input.environment === "production") || endpoint3.application !== null || endpoint3.api_version !== ownedStripeWebhookApiVersion || !metadata || typeof metadata !== "object" || Array.isArray(metadata) || metadata.tayar_project_id !== input.projectId || metadata.tayar_environment !== input.environment || !Array.isArray(endpoint3.enabled_events) || endpoint3.enabled_events.length !== ownedStripeWebhookEvents.length || new Set(endpoint3.enabled_events).size !== ownedStripeWebhookEvents.length || ownedStripeWebhookEvents.some((event) => !endpoint3.enabled_events.includes(event)) || !await input.isCurrent()) throw new Error();
     return {
       status: "endpoint-verified",
       accountId: account2.accountId,
@@ -442,7 +442,7 @@ async function handoffOwnedStripeRuntime(input) {
         });
         if (input.webhookEndpointId && input.applicationOrigin) {
           const { verifyOwnedStripeWebhookEndpoint: verifyOwnedStripeWebhookEndpoint2 } = await Promise.resolve().then(() => (init_website_owned_stripe_webhook_endpoint(), website_owned_stripe_webhook_endpoint_exports));
-          const endpoint2 = await verifyOwnedStripeWebhookEndpoint2({
+          const endpoint3 = await verifyOwnedStripeWebhookEndpoint2({
             projectId: input.projectId,
             secretKey: secretKey2,
             publishableKey: input.publishableKey,
@@ -453,7 +453,20 @@ async function handoffOwnedStripeRuntime(input) {
             isCurrent: input.isCurrent,
             fetcher: input.fetcher
           });
-          if (endpoint2.accountId !== proof.accountId) throw new Error();
+          if (endpoint3.accountId !== proof.accountId) throw new Error();
+          const endpointRecorded = await input.client.rpc("website_record_stripe_webhook_endpoint_proof", {
+            p_handoff_id: input.handoffId,
+            p_project_id: input.projectId,
+            p_owner_id: input.ownerId,
+            p_handoff_version: handoffVersion,
+            p_account_id: endpoint3.accountId,
+            p_endpoint_id: endpoint3.endpointId,
+            p_endpoint_url: endpoint3.url,
+            p_api_version: endpoint3.apiVersion,
+            p_enabled_events: endpoint3.events,
+            p_operation_id: input.operationId
+          });
+          if (endpointRecorded.error || endpointRecorded.data !== true || !input.isCurrent()) throw new Error();
         }
         const recorded = await input.client.rpc("website_record_stripe_secret_proof", {
           p_handoff_id: input.handoffId,
@@ -553,9 +566,9 @@ async function handleWebsiteByoPublish(request2, context) {
   if (!bearer || bearer.length > 16384) return json(401, { error: "Sign in required." });
   let ownerId, input, action, projectId, operationId;
   try {
-    const identity6 = await context.platform.auth.getUser(bearer);
-    if (identity6.error || !identity6.data.user || identity6.data.user.is_anonymous || !uuid.test(identity6.data.user.id)) throw new Error();
-    ownerId = identity6.data.user.id;
+    const identity7 = await context.platform.auth.getUser(bearer);
+    if (identity7.error || !identity7.data.user || identity7.data.user.is_anonymous || !uuid.test(identity7.data.user.id)) throw new Error();
+    ownerId = identity7.data.user.id;
   } catch {
     return json(401, { error: "Sign in required." });
   }
@@ -653,15 +666,15 @@ var sha = /^[0-9a-f]{40}$/i;
 var digest = /^[0-9a-f]{64}$/i;
 var branchName = /^[a-zA-Z0-9_./-]{1,200}$/;
 var fullName = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
-function verifyGitHubTarget(connection3, observed) {
-  if (connection3.provider !== "github" || !["connected", "ready"].includes(connection3.status) || !connection3.verifiedAt || !connection3.permissions.includes("contents:write") || connection3.accountId !== observed.installationAccountId || connection3.accountId !== observed.repositoryOwnerId || connection3.targetId !== observed.repositoryId || !observed.selectedByInstallation || !observed.writable || observed.archived || !fullName.test(observed.repositoryFullName) || !branchName.test(observed.branch) || observed.branch.startsWith("-") || observed.branch.startsWith(".") || observed.branch.endsWith("/") || observed.branch.endsWith(".") || observed.branch.includes("..") || observed.branch.includes("//") || observed.branch.split("/").some((part) => part.startsWith(".") || part.endsWith(".lock")) || observed.headSha !== null && !sha.test(observed.headSha)) {
+function verifyGitHubTarget(connection4, observed) {
+  if (connection4.provider !== "github" || !["connected", "ready"].includes(connection4.status) || !connection4.verifiedAt || !connection4.permissions.includes("contents:write") || connection4.accountId !== observed.installationAccountId || connection4.accountId !== observed.repositoryOwnerId || connection4.targetId !== observed.repositoryId || !observed.selectedByInstallation || !observed.writable || observed.archived || !fullName.test(observed.repositoryFullName) || !branchName.test(observed.branch) || observed.branch.startsWith("-") || observed.branch.startsWith(".") || observed.branch.endsWith("/") || observed.branch.endsWith(".") || observed.branch.includes("..") || observed.branch.includes("//") || observed.branch.split("/").some((part) => part.startsWith(".") || part.endsWith(".lock")) || observed.headSha !== null && !sha.test(observed.headSha)) {
     throw new Error("GitHub repository access is not verified.");
   }
 }
 function planGitHubExport(input) {
   verifyGitHubTarget(input.connection, input.observed);
-  const { cursor, connection: connection3, observed, sourceDigest } = input;
-  if (cursor.projectId !== connection3.projectId || cursor.connectionVersion !== connection3.version || cursor.repositoryId !== observed.repositoryId || cursor.branch !== observed.branch || cursor.lastHeadSha !== null && !sha.test(cursor.lastHeadSha) || cursor.lastSourceDigest !== null && !digest.test(cursor.lastSourceDigest) || !digest.test(sourceDigest)) {
+  const { cursor, connection: connection4, observed, sourceDigest } = input;
+  if (cursor.projectId !== connection4.projectId || cursor.connectionVersion !== connection4.version || cursor.repositoryId !== observed.repositoryId || cursor.branch !== observed.branch || cursor.lastHeadSha !== null && !sha.test(cursor.lastHeadSha) || cursor.lastSourceDigest !== null && !digest.test(cursor.lastSourceDigest) || !digest.test(sourceDigest)) {
     throw new Error("GitHub export target changed.");
   }
   if (cursor.lastHeadSha !== observed.headSha) throw new Error("GitHub branch changed since the last verified export.");
@@ -861,28 +874,28 @@ async function hash(value) {
 async function captureWebsiteGitHubExportSource(input) {
   if (typeof window !== "undefined") throw new Error("GitHub export requires a trusted server.");
   const { projectId, ownerId, connectionId, reader } = input;
-  const [saved, connection3] = await Promise.all([
+  const [saved, connection4] = await Promise.all([
     reader.readSavedProject(projectId, ownerId),
     reader.readConnection(connectionId, projectId, ownerId)
   ]);
-  if (!saved || saved.projectId !== projectId || saved.ownerId !== ownerId || !connection3 || connection3.id !== connectionId || connection3.ownerId !== ownerId || connection3.projectId !== projectId || connection3.provider !== "github" || !["connected", "ready"].includes(connection3.status)) {
+  if (!saved || saved.projectId !== projectId || saved.ownerId !== ownerId || !connection4 || connection4.id !== connectionId || connection4.ownerId !== ownerId || connection4.projectId !== projectId || connection4.provider !== "github" || !["connected", "ready"].includes(connection4.status)) {
     throw new Error("GitHub export source changed.");
   }
-  assertInfrastructureConnection(connection3);
+  assertInfrastructureConnection(connection4);
   const snapshotDigest = await websiteProjectReleaseDigest(saved.snapshot);
   const files = await input.compile(structuredClone(saved.snapshot));
   validateGitHubSourceManifest(files);
   const captured = files.map((file) => ({ path: file.path, content: file.content })).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   const manifestDigest = await hash(JSON.stringify(captured));
   const sourceDigest = await hash(`${snapshotDigest}:${manifestDigest}`);
-  const capturedConnection = structuredClone(connection3);
-  const identity6 = {
-    version: connection3.version,
-    accountId: connection3.accountId,
-    targetId: connection3.targetId,
-    environment: connection3.environment,
-    permissions: JSON.stringify([...connection3.permissions].sort()),
-    verifiedAt: connection3.verifiedAt
+  const capturedConnection = structuredClone(connection4);
+  const identity7 = {
+    version: connection4.version,
+    accountId: connection4.accountId,
+    targetId: connection4.targetId,
+    environment: connection4.environment,
+    permissions: JSON.stringify([...connection4.permissions].sort()),
+    verifiedAt: connection4.verifiedAt
   };
   async function isCurrent() {
     try {
@@ -890,7 +903,7 @@ async function captureWebsiteGitHubExportSource(input) {
         reader.readSavedProject(projectId, ownerId),
         reader.readConnection(connectionId, projectId, ownerId)
       ]);
-      return !!latest && latest.projectId === projectId && latest.ownerId === ownerId && !!active && active.id === connectionId && active.ownerId === ownerId && active.projectId === projectId && ["connected", "ready"].includes(active.status) && active.provider === "github" && active.version === identity6.version && active.accountId === identity6.accountId && active.targetId === identity6.targetId && active.environment === identity6.environment && active.verifiedAt === identity6.verifiedAt && JSON.stringify([...active.permissions].sort()) === identity6.permissions && await hash(JSON.stringify(captured)) === manifestDigest && await websiteProjectReleaseDigest(latest.snapshot) === snapshotDigest;
+      return !!latest && latest.projectId === projectId && latest.ownerId === ownerId && !!active && active.id === connectionId && active.ownerId === ownerId && active.projectId === projectId && ["connected", "ready"].includes(active.status) && active.provider === "github" && active.version === identity7.version && active.accountId === identity7.accountId && active.targetId === identity7.targetId && active.environment === identity7.environment && active.verifiedAt === identity7.verifiedAt && JSON.stringify([...active.permissions].sort()) === identity7.permissions && await hash(JSON.stringify(captured)) === manifestDigest && await websiteProjectReleaseDigest(latest.snapshot) === snapshotDigest;
     } catch {
       return false;
     }
@@ -1330,7 +1343,7 @@ function validateApplicationDefinition(value, pageIds) {
   const roleIds = /* @__PURE__ */ new Set();
   const allIds = /* @__PURE__ */ new Set();
   const tableKeys = /* @__PURE__ */ new Set();
-  function identity6(candidate, path, bucket) {
+  function identity7(candidate, path, bucket) {
     if (!id(candidate) || allIds.has(candidate)) {
       issue(path, "invalid-id", "IDs must be valid and globally unique within the application definition.");
       return;
@@ -1341,7 +1354,7 @@ function validateApplicationDefinition(value, pageIds) {
   roles.forEach((role, index) => {
     const path = `application.roles[${index}]`;
     if (!shape(role, ["id", "name"], path)) return;
-    identity6(role.id, `${path}.id`, roleIds);
+    identity7(role.id, `${path}.id`, roleIds);
     if (!name(role.name)) issue(`${path}.name`, "invalid-name", "A role requires a display name.");
   });
   const auth = value.auth;
@@ -1353,7 +1366,7 @@ function validateApplicationDefinition(value, pageIds) {
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
     if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "stockReservations", "stockLocations", "stockValuation", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
-    identity6(table.id, `${path}.id`, tableIds);
+    identity7(table.id, `${path}.id`, tableIds);
     if (!identifier3(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
     if (!name(table.name)) issue(`${path}.name`, "invalid-name", "A table requires a display name.");
@@ -1372,7 +1385,7 @@ function validateApplicationDefinition(value, pageIds) {
     list(table.fields, APPLICATION_LIMITS.fields, `${path}.fields`).forEach((field2, fieldIndex2) => {
       const fieldPath = `${path}.fields[${fieldIndex2}]`;
       if (!shape(field2, ["id", "key", "name", "type", "required", "unique", "indexed", "defaultValue", "options", "referenceTableId", "formula"], fieldPath)) return;
-      identity6(field2.id, `${fieldPath}.id`);
+      identity7(field2.id, `${fieldPath}.id`);
       if (!identifier3(field2.key) || keys2.has(field2.key)) issue(`${fieldPath}.key`, "invalid-key", "Field keys must be unique lower-case identifiers and cannot replace system fields.");
       else keys2.add(field2.key);
       if (!name(field2.name)) issue(`${fieldPath}.name`, "invalid-name", "A field requires a display name.");
@@ -1697,7 +1710,7 @@ function validateApplicationDefinition(value, pageIds) {
     const validTable = !issues.some((item) => item.path === path || item.path.startsWith(`${path}.`));
     rules.forEach((rule, ruleIndex) => {
       const itemPath = `${rulePath}[${ruleIndex}]`;
-      if (object5(rule)) identity6(rule.id, `${itemPath}.id`);
+      if (object5(rule)) identity7(rule.id, `${itemPath}.id`);
       if (validTable) {
         const error = validateApplicationEmailNotification(rule, table);
         if (error) issue(itemPath, "invalid-email-notification", error);
@@ -11305,37 +11318,37 @@ function validateEditorIntegrations(config) {
   const issues = [];
   const ids2 = /* @__PURE__ */ new Set();
   const stripeEnvironments = /* @__PURE__ */ new Set();
-  for (const connection3 of config.connections) {
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection3.id)) issues.push({ connectionId: connection3.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
-    if (ids2.has(connection3.id)) issues.push({ connectionId: connection3.id, code: "duplicate-id", message: `Duplicate integration id: ${connection3.id}` });
-    ids2.add(connection3.id);
-    const provider14 = getEditorIntegrationProvider(connection3.providerId);
+  for (const connection4 of config.connections) {
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(connection4.id)) issues.push({ connectionId: connection4.id, code: "invalid-config", message: "Integration ID must use letters, numbers, underscores or hyphens." });
+    if (ids2.has(connection4.id)) issues.push({ connectionId: connection4.id, code: "duplicate-id", message: `Duplicate integration id: ${connection4.id}` });
+    ids2.add(connection4.id);
+    const provider14 = getEditorIntegrationProvider(connection4.providerId);
     if (!provider14) {
-      issues.push({ connectionId: connection3.id, code: "unknown-provider", message: `Unknown integration provider: ${connection3.providerId}` });
+      issues.push({ connectionId: connection4.id, code: "unknown-provider", message: `Unknown integration provider: ${connection4.providerId}` });
       continue;
     }
-    for (const key2 of Object.keys(connection3.config)) {
-      if (!provider14.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
+    for (const key2 of Object.keys(connection4.config)) {
+      if (!provider14.fields.some((field2) => field2.key === key2 && !field2.secret)) issues.push({ connectionId: connection4.id, field: key2, code: "invalid-config", message: "Public integration configuration contains an unsupported or private field." });
     }
-    for (const [key2, secret] of Object.entries(connection3.secrets)) {
-      if (!provider14.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
-      else if (secret.ref.startsWith("secret://website/") && (connection3.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection3.id, key2, connection3.environments[0]))) {
-        issues.push({ connectionId: connection3.id, field: key2, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
+    for (const [key2, secret] of Object.entries(connection4.secrets)) {
+      if (!provider14.fields.some((field2) => field2.key === key2 && field2.secret) || !isEditorSecretReference(secret.ref)) issues.push({ connectionId: connection4.id, field: key2, code: "invalid-secret-ref", message: "A private credential must use a valid server-managed reference." });
+      else if (secret.ref.startsWith("secret://website/") && (connection4.environments.length !== 1 || !isEditorProjectSecretReferenceFor(secret.ref, connection4.id, key2, connection4.environments[0]))) {
+        issues.push({ connectionId: connection4.id, field: key2, code: "invalid-secret-ref", message: "The private credential belongs to another integration environment. Store it again for the selected environment." });
       }
     }
-    if (connection3.providerId === "stripe") {
-      const publishable2 = typeof connection3.config.publishableKey === "string" ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection3.config.publishableKey) : null;
-      if (connection3.config.publishableKey && !publishable2) issues.push({ connectionId: connection3.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
-      if (connection3.config.webhookEndpointId !== void 0 && (typeof connection3.config.webhookEndpointId !== "string" || !/^we_[a-zA-Z0-9]{8,128}$/.test(connection3.config.webhookEndpointId))) {
-        issues.push({ connectionId: connection3.id, field: "webhookEndpointId", code: "invalid-config", message: "Stripe webhook endpoint ID is invalid." });
+    if (connection4.providerId === "stripe") {
+      const publishable2 = typeof connection4.config.publishableKey === "string" ? /^pk_(test|live)_[a-zA-Z0-9]+$/.exec(connection4.config.publishableKey) : null;
+      if (connection4.config.publishableKey && !publishable2) issues.push({ connectionId: connection4.id, field: "publishableKey", code: "invalid-config", message: "Stripe requires a publishable key; private keys belong in secure server storage." });
+      if (connection4.config.webhookEndpointId !== void 0 && (typeof connection4.config.webhookEndpointId !== "string" || !/^we_[a-zA-Z0-9]{8,128}$/.test(connection4.config.webhookEndpointId))) {
+        issues.push({ connectionId: connection4.id, field: "webhookEndpointId", code: "invalid-config", message: "Stripe webhook endpoint ID is invalid." });
       }
-      if (connection3.environments.length !== 1) issues.push({ connectionId: connection3.id, code: "invalid-config", message: "Stripe credentials must target exactly one environment." });
-      if (publishable2 && connection3.environments.length === 1) {
-        const expectedMode = connection3.environments[0] === "production" ? "live" : "test";
-        if (publishable2[1] !== expectedMode) issues.push({ connectionId: connection3.id, field: "publishableKey", code: "invalid-config", message: `Stripe ${connection3.environments[0]} requires a ${expectedMode}-mode publishable key.` });
-        if (connection3.enabled) {
-          const environment = connection3.environments[0];
-          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection3.id, code: "invalid-config", message: `Only one enabled Stripe account can target ${environment}.` });
+      if (connection4.environments.length !== 1) issues.push({ connectionId: connection4.id, code: "invalid-config", message: "Stripe credentials must target exactly one environment." });
+      if (publishable2 && connection4.environments.length === 1) {
+        const expectedMode = connection4.environments[0] === "production" ? "live" : "test";
+        if (publishable2[1] !== expectedMode) issues.push({ connectionId: connection4.id, field: "publishableKey", code: "invalid-config", message: `Stripe ${connection4.environments[0]} requires a ${expectedMode}-mode publishable key.` });
+        if (connection4.enabled) {
+          const environment = connection4.environments[0];
+          if (stripeEnvironments.has(environment)) issues.push({ connectionId: connection4.id, code: "invalid-config", message: `Only one enabled Stripe account can target ${environment}.` });
           stripeEnvironments.add(environment);
         }
       }
@@ -11343,15 +11356,15 @@ function validateEditorIntegrations(config) {
     for (const field2 of provider14.fields) {
       if (!field2.required) continue;
       if (field2.secret) {
-        if (!connection3.secrets[field2.key]?.ref) issues.push({ connectionId: connection3.id, field: field2.key, code: "missing-secret", message: `${field2.label} is required.` });
-      } else if (connection3.config[field2.key] === void 0 || connection3.config[field2.key] === "") issues.push({ connectionId: connection3.id, field: field2.key, code: "missing-field", message: `${field2.label} is required.` });
+        if (!connection4.secrets[field2.key]?.ref) issues.push({ connectionId: connection4.id, field: field2.key, code: "missing-secret", message: `${field2.label} is required.` });
+      } else if (connection4.config[field2.key] === void 0 || connection4.config[field2.key] === "") issues.push({ connectionId: connection4.id, field: field2.key, code: "missing-field", message: `${field2.label} is required.` });
     }
     for (const field2 of provider14.fields.filter((item) => item.type === "url")) {
-      const value = connection3.config[field2.key];
-      if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection3.id, field: field2.key, code: "invalid-url", message: `${field2.label} must use a public HTTPS URL without embedded credentials.` });
+      const value = connection4.config[field2.key];
+      if (value && !isPublicIntegrationEndpoint(value)) issues.push({ connectionId: connection4.id, field: field2.key, code: "invalid-url", message: `${field2.label} must use a public HTTPS URL without embedded credentials.` });
     }
     if (provider14.supportedEvents) {
-      for (const event of connection3.events ?? []) if (!provider14.supportedEvents.includes(event)) issues.push({ connectionId: connection3.id, code: "unsupported-event", message: `${provider14.name} does not support ${event}.` });
+      for (const event of connection4.events ?? []) if (!provider14.supportedEvents.includes(event)) issues.push({ connectionId: connection4.id, code: "unsupported-event", message: `${provider14.name} does not support ${event}.` });
     }
   }
   return issues;
@@ -11389,11 +11402,11 @@ function writeEditorIntegrationsToProject(projectData, config) {
   };
 }
 function editorIntegrationPublishBlockers(config) {
-  const production = config.connections.filter((connection3) => connection3.enabled && connection3.environments.includes("production"));
-  const productionIds = new Set(production.map((connection3) => connection3.id));
+  const production = config.connections.filter((connection4) => connection4.enabled && connection4.environments.includes("production"));
+  const productionIds = new Set(production.map((connection4) => connection4.id));
   return [
     ...validateEditorIntegrations(config).filter((issue) => typeof issue.connectionId === "string" && productionIds.has(issue.connectionId)).map((issue) => issue.message),
-    ...production.filter((connection3) => connection3.providerId !== "stripe" || (connection3.events?.length ?? 0) > 0).map((connection3) => `${connection3.name}: integration execution is not deployed for published sites.`)
+    ...production.filter((connection4) => connection4.providerId !== "stripe" || (connection4.events?.length ?? 0) > 0).map((connection4) => `${connection4.name}: integration execution is not deployed for published sites.`)
   ];
 }
 
@@ -11505,20 +11518,20 @@ function analyzeByoSourceCapabilities(snapshot, environment, sourceOptions) {
   const cms = !!(snapshot.cms && typeof snapshot.cms === "object" && Array.isArray(snapshot.cms.collections) && snapshot.cms.collections.length);
   if (cms) blockers.push("CMS collections need an asset and data export adapter.");
   const integrationConfig = readEditorIntegrationsFromProject(snapshot);
-  const active = integrationConfig.connections.filter((connection3) => connection3.enabled && connection3.status !== "disabled" && connection3.environments.includes(environment));
-  const integrationProviders = [...new Set(active.map((connection3) => connection3.providerId))].sort();
+  const active = integrationConfig.connections.filter((connection4) => connection4.enabled && connection4.status !== "disabled" && connection4.environments.includes(environment));
+  const integrationProviders = [...new Set(active.map((connection4) => connection4.providerId))].sort();
   const issues = validateEditorIntegrations({ version: 1, connections: active });
   if (issues.length) blockers.push("Active integrations contain invalid configuration or credential references.");
-  if (active.some((connection3) => connection3.providerId !== "stripe" && !(hasEmailNotifications && connection3.providerId === "resend")))
+  if (active.some((connection4) => connection4.providerId !== "stripe" && !(hasEmailNotifications && connection4.providerId === "resend")))
     blockers.push("External integrations other than Stripe checkout still need a customer-owned runtime adapter.");
-  const resend = active.filter((connection3) => connection3.providerId === "resend");
+  const resend = active.filter((connection4) => connection4.providerId === "resend");
   if (hasEmailNotifications && resend.length < 1)
     blockers.push("Saved email notifications require an enabled Resend connection and scheduled worker for this environment.");
-  if (resend.some((connection3) => (connection3.events?.length ?? 0) > 0))
+  if (resend.some((connection4) => (connection4.events?.length ?? 0) > 0))
     blockers.push("Saved email notifications use database rules and cannot also use generic Resend events.");
-  const stripe = active.filter((connection3) => connection3.providerId === "stripe");
+  const stripe = active.filter((connection4) => connection4.providerId === "stripe");
   if (hasOrderPayments && stripe.length !== 1) blockers.push("Order payments require exactly one enabled Stripe connection for this environment.");
-  if (stripe.some((connection3) => (connection3.events?.length ?? 0) > 0))
+  if (stripe.some((connection4) => (connection4.events?.length ?? 0) > 0))
     blockers.push("Stripe event automation is not deployed yet; checkout buttons are supported without integration events.");
   if (stripeCheckouts.length && stripe.length !== 1)
     blockers.push("Stripe checkout requires exactly one enabled Stripe connection for this environment.");
@@ -13460,18 +13473,18 @@ function isOwnedEmailAddress(value) {
 // server/website-owned-email-rules.ts
 function bindSavedOwnedEmailNotifications(input) {
   const definition = readApplicationDefinition(input.definition);
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(input.projectId) || !["preview", "staging", "production"].includes(input.environment) || input.integrations.version !== 1 || !Array.isArray(input.integrations.connections) || new Set(input.integrations.connections.map((connection3) => connection3.id)).size !== input.integrations.connections.length) throw new Error("Email connection identity unavailable.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(input.projectId) || !["preview", "staging", "production"].includes(input.environment) || input.integrations.version !== 1 || !Array.isArray(input.integrations.connections) || new Set(input.integrations.connections.map((connection4) => connection4.id)).size !== input.integrations.connections.length) throw new Error("Email connection identity unavailable.");
   const rules = [];
   const connections = /* @__PURE__ */ new Map();
   for (const table of definition.tables) for (const rule of table.notifications ?? []) {
-    const connection3 = input.integrations.connections.find((item) => item.id === rule.connectionId);
-    if (!connection3 || connection3.providerId !== "resend") throw new Error("Email connection unavailable.");
-    if (!connection3.environments.includes(input.environment)) continue;
-    const secret = connection3.secrets.apiKey;
-    const from = connection3.config.from;
-    if (!connection3.enabled || !["configured", "active"].includes(connection3.status) || connection3.events?.length || validateEditorIntegrations({ version: 1, connections: [connection3] }).length || typeof from !== "string" || !isOwnedEmailAddress(from) || secret?.ref !== `secret://website/${input.projectId}/${connection3.id}/apiKey/${input.environment}` || !secret.updatedAt || !Number.isFinite(Date.parse(secret.updatedAt)) || !Number.isFinite(Date.parse(connection3.updatedAt))) throw new Error("Email connection requires a verified customer credential binding without generic event automation.");
+    const connection4 = input.integrations.connections.find((item) => item.id === rule.connectionId);
+    if (!connection4 || connection4.providerId !== "resend") throw new Error("Email connection unavailable.");
+    if (!connection4.environments.includes(input.environment)) continue;
+    const secret = connection4.secrets.apiKey;
+    const from = connection4.config.from;
+    if (!connection4.enabled || !["configured", "active"].includes(connection4.status) || connection4.events?.length || validateEditorIntegrations({ version: 1, connections: [connection4] }).length || typeof from !== "string" || !isOwnedEmailAddress(from) || secret?.ref !== `secret://website/${input.projectId}/${connection4.id}/apiKey/${input.environment}` || !secret.updatedAt || !Number.isFinite(Date.parse(secret.updatedAt)) || !Number.isFinite(Date.parse(connection4.updatedAt))) throw new Error("Email connection requires a verified customer credential binding without generic event automation.");
     rules.push({ ...applicationEmailRuleWithoutRuntime(rule), tableId: table.id, from });
-    connections.set(connection3.id, { id: connection3.id, from, secretRef: secret.ref, secretUpdatedAt: secret.updatedAt, connectionUpdatedAt: connection3.updatedAt });
+    connections.set(connection4.id, { id: connection4.id, from, secretRef: secret.ref, secretUpdatedAt: secret.updatedAt, connectionUpdatedAt: connection4.updatedAt });
   }
   if (connections.size > 10) throw new Error("Email worker supports at most 10 connections.");
   return { rules, connections: [...connections.values()] };
@@ -13702,8 +13715,8 @@ function createOwnedRuntimeSecretPlan(input) {
   if (!["preview", "production"].includes(input.environment)) throw new Error("Runtime secret plan unavailable.");
   const connections = [...input.emailConnections ?? []].sort((left, right) => left.id.localeCompare(right.id));
   if (new Set(connections.map((item) => item.id)).size !== connections.length || connections.length > 10 || connections.some((item) => !/^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/.test(item.id) || typeof item.from !== "string" || item.from.length > 254)) throw new Error("Runtime secret plan unavailable.");
-  const emailConnections = connections.map((connection3, index) => ({
-    ...connection3,
+  const emailConnections = connections.map((connection4, index) => ({
+    ...connection4,
     environmentKey: `TAYAR_RESEND_${String(index + 1).padStart(2, "0")}_API_KEY`
   }));
   const requirements = [
@@ -13723,12 +13736,12 @@ function createOwnedRuntimeSecretPlan(input) {
   if (emailConnections.length) {
     requirements.push(
       { key: "CRON_SECRET", service: "vercel", exposure: "server-secret", purpose: "Authenticates the scheduled email worker." },
-      ...emailConnections.map((connection3) => ({
-        key: connection3.environmentKey,
+      ...emailConnections.map((connection4) => ({
+        key: connection4.environmentKey,
         service: "resend",
         exposure: "server-secret",
-        purpose: `Sends saved notifications for ${connection3.id}.`,
-        sourceConnectionId: connection3.id
+        purpose: `Sends saved notifications for ${connection4.id}.`,
+        sourceConnectionId: connection4.id
       }))
     );
   }
@@ -14079,9 +14092,9 @@ async function runtimeDigest(runtime) {
   return Array.from(new Uint8Array(result), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 async function bindOwnedReleaseIdentity(runtime, projectId, environment) {
-  const identity6 = { version: 1, projectId, environment, runtimeDigest: await runtimeDigest(runtime) };
-  if (!valid(identity6)) throw new Error("Customer runtime identity is unavailable.");
-  return `${prefix}${JSON.stringify(identity6)};
+  const identity7 = { version: 1, projectId, environment, runtimeDigest: await runtimeDigest(runtime) };
+  if (!valid(identity7)) throw new Error("Customer runtime identity is unavailable.");
+  return `${prefix}${JSON.stringify(identity7)};
 ${runtime}`;
 }
 async function readOwnedReleaseIdentity(files) {
@@ -14089,9 +14102,9 @@ async function readOwnedReleaseIdentity(files) {
   if (matches.length !== 1) throw new Error("Customer runtime identity is unavailable.");
   const source = matches[0].content, end = source.indexOf("\n");
   if (!source.startsWith(prefix) || end < 0 || end > 512 || source[end - 1] !== ";") throw new Error("Customer runtime identity is unavailable.");
-  const identity6 = JSON.parse(source.slice(prefix.length, end - 1));
-  if (!valid(identity6) || await runtimeDigest(source.slice(end + 1)) !== identity6.runtimeDigest) throw new Error("Customer runtime identity is unavailable.");
-  return { ...identity6 };
+  const identity7 = JSON.parse(source.slice(prefix.length, end - 1));
+  if (!valid(identity7) || await runtimeDigest(source.slice(end + 1)) !== identity7.runtimeDigest) throw new Error("Customer runtime identity is unavailable.");
+  return { ...identity7 };
 }
 
 // server/website-owned-source-compiler.ts
@@ -14119,13 +14132,13 @@ async function compileWebsiteOwnedApplicationSource(snapshot, input) {
   }) : { rules: [], connections: [] };
   const renderSnapshot = email2.connections.length ? writeEditorIntegrationsToProject(snapshot, {
     version: 1,
-    connections: readEditorIntegrationsFromProject(snapshot).connections.filter((connection3) => connection3.providerId === "stripe")
+    connections: readEditorIntegrationsFromProject(snapshot).connections.filter((connection4) => connection4.providerId === "stripe")
   }) : snapshot;
   const rendered = await renderWebsiteApplicationSnapshot(renderSnapshot);
   const secretPlan = createOwnedRuntimeSecretPlan({
     environment: input.environment,
     capabilities,
-    emailConnections: email2.connections.map((connection3) => ({ id: connection3.id, from: connection3.from }))
+    emailConnections: email2.connections.map((connection4) => ({ id: connection4.id, from: connection4.from }))
   });
   const again = await renderWebsiteApplicationSnapshot(renderSnapshot);
   if (JSON.stringify(rendered) !== JSON.stringify(again) || rendered.length !== capabilities.pageIds.length) {
@@ -14236,17 +14249,17 @@ function captureOwnedStripeRuntimeSource(snapshot, projectId, environment, capab
   const publishableKey = typeof selected.config.publishableKey === "string" ? selected.config.publishableKey : "";
   const orderPayments = capabilities.definition.tables.some((table) => Boolean(table.payment));
   const webhookEndpointId = typeof selected.config.webhookEndpointId === "string" ? selected.config.webhookEndpointId : "";
-  const webhookSecret = selected.secrets.webhookSigningSecret;
+  const webhookSecret2 = selected.secrets.webhookSigningSecret;
   const match = stripePublishable.exec(publishableKey), mode = environment === "production" ? "live" : "test";
   if (selected.environments.length !== 1 || selected.environments[0] !== environment || !match || match[1] !== mode || !secret || !isEditorProjectSecretReferenceFor(secret.ref, selected.id, "secretKey", environment) || !secret.ref.startsWith(`secret://website/${projectId}/`) || typeof secret.updatedAt !== "string" || !Number.isFinite(Date.parse(secret.updatedAt)))
     throw new Error("Customer Stripe runtime source is unavailable.");
-  if (orderPayments && (!/^we_[A-Za-z0-9]{8,128}$/.test(webhookEndpointId) || !webhookSecret || !isEditorProjectSecretReferenceFor(webhookSecret.ref, selected.id, "webhookSigningSecret", environment) || !webhookSecret.ref.startsWith(`secret://website/${projectId}/`) || typeof webhookSecret.updatedAt !== "string" || !Number.isFinite(Date.parse(webhookSecret.updatedAt))))
+  if (orderPayments && (!/^we_[A-Za-z0-9]{8,128}$/.test(webhookEndpointId) || !webhookSecret2 || !isEditorProjectSecretReferenceFor(webhookSecret2.ref, selected.id, "webhookSigningSecret", environment) || !webhookSecret2.ref.startsWith(`secret://website/${projectId}/`) || typeof webhookSecret2.updatedAt !== "string" || !Number.isFinite(Date.parse(webhookSecret2.updatedAt))))
     throw new Error("Customer Stripe webhook source is unavailable.");
   return {
     sourceConnectionId: selected.id,
     sourceUpdatedAt: secret.updatedAt,
     publishableKey,
-    ...orderPayments ? { webhookEndpointId, webhookSigningSecretUpdatedAt: webhookSecret.updatedAt } : {}
+    ...orderPayments ? { webhookEndpointId, webhookSigningSecretUpdatedAt: webhookSecret2.updatedAt } : {}
   };
 }
 function captureOwnedEmailRuntimeSource(snapshot, projectId, environment, capabilities) {
@@ -14261,17 +14274,17 @@ function captureOwnedEmailRuntimeSource(snapshot, projectId, environment, capabi
   const plan = createOwnedRuntimeSecretPlan({
     environment,
     capabilities,
-    emailConnections: bound.connections.map((connection3) => ({ id: connection3.id, from: connection3.from }))
+    emailConnections: bound.connections.map((connection4) => ({ id: connection4.id, from: connection4.from }))
   });
-  return { connections: plan.emailConnections.map((connection3) => {
-    const source = bound.connections.find((item) => item.id === connection3.id);
+  return { connections: plan.emailConnections.map((connection4) => {
+    const source = bound.connections.find((item) => item.id === connection4.id);
     if (!source) throw new Error("Customer email runtime source is unavailable.");
     return {
       sourceConnectionId: source.id,
       sourceUpdatedAt: source.secretUpdatedAt,
       connectionUpdatedAt: source.connectionUpdatedAt,
       from: source.from,
-      environmentKey: connection3.environmentKey
+      environmentKey: connection4.environmentKey
     };
   }) };
 }
@@ -14281,19 +14294,19 @@ async function captureWebsiteOwnedApplicationSource(input) {
   }
   const captured = {};
   const state = {};
-  const identity6 = (connection3) => JSON.stringify({
-    id: connection3.id,
-    ownerId: connection3.ownerId,
-    projectId: connection3.projectId,
-    provider: connection3.provider,
-    environment: connection3.environment,
-    accountId: connection3.accountId,
-    targetId: connection3.targetId,
-    permissions: [...connection3.permissions].sort(),
-    status: connection3.status,
-    version: connection3.version,
-    operationId: connection3.operationId,
-    verifiedAt: connection3.verifiedAt
+  const identity7 = (connection4) => JSON.stringify({
+    id: connection4.id,
+    ownerId: connection4.ownerId,
+    projectId: connection4.projectId,
+    provider: connection4.provider,
+    environment: connection4.environment,
+    accountId: connection4.accountId,
+    targetId: connection4.targetId,
+    permissions: [...connection4.permissions].sort(),
+    status: connection4.status,
+    version: connection4.version,
+    operationId: connection4.operationId,
+    verifiedAt: connection4.verifiedAt
   });
   async function current() {
     const binding = await input.reader.readOwnedRuntimeBinding(input.projectId, input.ownerId, input.environment);
@@ -14342,11 +14355,11 @@ async function captureWebsiteOwnedApplicationSource(input) {
   if (source.connection.environment !== input.environment) throw new Error("Customer source environment changed.");
   const initial = captured.value;
   const boundIdentity = JSON.stringify(initial.binding);
-  const supabaseIdentity = identity6(initial.supabase), vercelIdentity2 = identity6(initial.vercel);
+  const supabaseIdentity = identity7(initial.supabase), vercelIdentity2 = identity7(initial.vercel);
   async function isCurrent() {
     try {
       const latest = await current();
-      return JSON.stringify(latest.binding) === boundIdentity && identity6(latest.supabase) === supabaseIdentity && identity6(latest.vercel) === vercelIdentity2 && await source.isCurrent();
+      return JSON.stringify(latest.binding) === boundIdentity && identity7(latest.supabase) === supabaseIdentity && identity7(latest.vercel) === vercelIdentity2 && await source.isCurrent();
     } catch {
       return false;
     }
@@ -15550,21 +15563,123 @@ async function prepareOwnedVercelProductionRuntimeEnvironment(input) {
 // server/website-byo-publish-adapters.ts
 init_website_owned_stripe();
 
-// server/website-owned-email-runtime.ts
+// server/website-owned-stripe-webhook-runtime.ts
 init_website_owned_vercel_environment();
 var uuid17 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var identity3 = /^[A-Za-z0-9_-]{3,128}$/;
-var project8 = /^prj_[A-Za-z0-9]{8,128}$/;
 var connection2 = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
+var endpoint = /^we_[A-Za-z0-9]{8,128}$/;
+var identity3 = /^[A-Za-z0-9_-]{3,128}$/;
+var webhookSecret = /^whsec_[A-Za-z0-9+/=_-]{16,300}$/;
+function object9(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
+  return value;
+}
+function exactOrigin(value) {
+  const url = new URL(value);
+  return url.protocol === "https:" && url.origin === value && !url.username && !url.password && !url.port && url.hostname.includes(".") && url.hostname !== "localhost" && !url.hostname.endsWith(".localhost") && !/^[0-9]+(?:\.[0-9]+){3}$/.test(url.hostname) && !url.hostname.includes(":");
+}
+async function inspectOwnedStripeWebhookRuntimeForPublish(input) {
+  try {
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid17.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !connection2.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.stripeSourceUpdatedAt)) || !Number.isFinite(Date.parse(input.webhookSourceUpdatedAt)) || !endpoint.test(input.endpointId) || !exactOrigin(input.applicationOrigin)) throw new Error();
+    const { data, error } = await input.client.rpc("website_stripe_webhook_runtime_state_for_worker", {
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_vercel_connection_id: input.vercelConnectionId,
+      p_vercel_connection_version: input.vercelConnectionVersion,
+      p_source_connection_id: input.sourceConnectionId,
+      p_stripe_source_updated_at: input.stripeSourceUpdatedAt,
+      p_webhook_source_updated_at: input.webhookSourceUpdatedAt,
+      p_endpoint_id: input.endpointId,
+      p_application_origin: input.applicationOrigin,
+      p_environment: input.environment
+    });
+    if (error) throw new Error();
+    const row2 = object9(data);
+    const keys2 = [
+      "endpointProofVerified",
+      "environmentId",
+      "handoffId",
+      "handoffOperationId",
+      "handoffStatus",
+      "handoffVersion",
+      "ready",
+      "sourceAvailable"
+    ];
+    if (Object.keys(row2).sort().join(",") !== keys2.sort().join(",")) throw new Error();
+    const handoffId = row2.handoffId, status2 = row2.handoffStatus, operationId = row2.handoffOperationId, environmentId = row2.environmentId;
+    if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.endpointProofVerified !== "boolean" || row2.endpointProofVerified !== true || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid17.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid17.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity3.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
+    return structuredClone(row2);
+  } catch {
+    throw new Error("Stripe webhook runtime state unavailable.");
+  }
+}
+async function verifyOwnedStripeWebhookRuntimeDestination(input) {
+  try {
+    if (!uuid17.test(input.projectId) || !identity3.test(input.environmentId)) throw new Error();
+    await verifyOwnedSecretInVercel({
+      accessToken: input.accessToken,
+      userId: input.userId,
+      accountId: input.accountId,
+      vercelProjectId: input.vercelProjectId,
+      environmentId: input.environmentId,
+      environmentKey: "STRIPE_WEBHOOK_SECRET",
+      target: input.environment,
+      gitBranch: input.environment === "preview" ? `tayar/${input.projectId}/preview` : "",
+      operationId: input.handoffOperationId,
+      isCurrent: input.isCurrent,
+      fetcher: input.fetcher
+    });
+  } catch {
+    throw new Error("Stripe webhook runtime destination unavailable.");
+  }
+}
+async function handoffOwnedStripeWebhookRuntime(input) {
+  try {
+    const receipt = await handoffOwnedSecretToVercel({
+      client: input.client,
+      handoffId: input.handoffId,
+      connectionId: input.vercelConnectionId,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      connectionVersion: input.vercelConnectionVersion,
+      expectedHandoffVersion: input.expectedHandoffVersion,
+      sourceConnectionId: input.sourceConnectionId,
+      sourceField: "webhookSigningSecret",
+      sourceEnvironment: input.environment,
+      sourceUpdatedAt: input.sourceUpdatedAt,
+      environmentKey: "STRIPE_WEBHOOK_SECRET",
+      target: input.environment,
+      gitBranch: input.environment === "preview" ? `tayar/${input.projectId}/preview` : "",
+      operationId: input.operationId,
+      commitId: input.commitId,
+      isCurrent: input.isCurrent,
+      fetcher: input.fetcher,
+      verifySecret: async (value) => {
+        if (!webhookSecret.test(value) || !input.isCurrent()) throw new Error();
+      }
+    });
+    if (!input.isCurrent()) throw new Error();
+    return receipt;
+  } catch {
+    throw new Error("Stripe webhook runtime handoff unavailable.");
+  }
+}
+
+// server/website-owned-email-runtime.ts
+init_website_owned_vercel_environment();
+var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var identity4 = /^[A-Za-z0-9_-]{3,128}$/;
+var project8 = /^prj_[A-Za-z0-9]{8,128}$/;
+var connection3 = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 var environmentKey = /^TAYAR_RESEND_(0[1-9]|[1-9][0-9])_API_KEY$/;
 var resendKey = /^re_[A-Za-z0-9_-]{8,509}$/;
-function object9(value) {
+function object10(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   return value;
 }
 async function inspectOwnedEmailRuntimeForPublish(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid17.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !connection2.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !environmentKey.test(input.environmentKey)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid18.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !connection3.test(input.sourceConnectionId) || !Number.isFinite(Date.parse(input.sourceUpdatedAt)) || !environmentKey.test(input.environmentKey)) throw new Error();
     const { data, error } = await input.client.rpc("website_email_runtime_state_for_worker", {
       p_project_id: input.projectId,
       p_owner_id: input.ownerId,
@@ -15576,11 +15691,11 @@ async function inspectOwnedEmailRuntimeForPublish(input) {
       p_environment: input.environment
     });
     if (error) throw new Error();
-    const row2 = object9(data);
+    const row2 = object10(data);
     const keys2 = ["environmentId", "handoffId", "handoffOperationId", "handoffStatus", "handoffVersion", "ready", "sourceAvailable"];
     if (Object.keys(row2).sort().join(",") !== keys2.sort().join(",")) throw new Error();
     const handoffId = row2.handoffId, status2 = row2.handoffStatus, operationId = row2.handoffOperationId, environmentId = row2.environmentId;
-    if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid17.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid17.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity3.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
+    if (!Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || operationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid18.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof operationId !== "string" || !uuid18.test(operationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity4.test(environmentId)) || status2 === "verified" && environmentId === null || row2.ready === true && (status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
     return structuredClone(row2);
   } catch {
     throw new Error("Email runtime state unavailable.");
@@ -15588,7 +15703,7 @@ async function inspectOwnedEmailRuntimeForPublish(input) {
 }
 async function verifyOwnedEmailRuntimeDestination(input) {
   try {
-    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !identity3.test(input.userId) || !identity3.test(input.accountId) || !project8.test(input.vercelProjectId) || !identity3.test(input.environmentId) || !environmentKey.test(input.environmentKey) || !uuid17.test(input.projectId) || !uuid17.test(input.handoffOperationId) || !await input.isCurrent()) throw new Error();
+    if (typeof window !== "undefined" || !input.accessToken || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || !identity4.test(input.userId) || !identity4.test(input.accountId) || !project8.test(input.vercelProjectId) || !identity4.test(input.environmentId) || !environmentKey.test(input.environmentKey) || !uuid18.test(input.projectId) || !uuid18.test(input.handoffOperationId) || !await input.isCurrent()) throw new Error();
     const team3 = input.accountId !== input.userId ? `&teamId=${encodeURIComponent(input.accountId)}` : "";
     const response = await (input.fetcher ?? fetch)(`https://api.vercel.com/v10/projects/${input.vercelProjectId}/env?decrypt=false${team3}`, {
       method: "GET",
@@ -15600,7 +15715,7 @@ async function verifyOwnedEmailRuntimeDestination(input) {
     if (response.status !== 200 || Number(response.headers.get("content-length") ?? 0) > 262144 || !await input.isCurrent()) throw new Error();
     const raw = await response.text();
     if (raw.length > 262144) throw new Error();
-    const payload = object9(JSON.parse(raw));
+    const payload = object10(JSON.parse(raw));
     if (!Array.isArray(payload.envs) || payload.envs.length > 1e3) throw new Error();
     const branch10 = input.environment === "preview" ? `tayar/${input.projectId}/preview` : "";
     const matches = payload.envs.filter((value) => {
@@ -15732,7 +15847,7 @@ var numeric2 = /^[1-9][0-9]{0,19}$/;
 var repoName = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
 var branch6 = /^[a-zA-Z0-9_./-]{1,200}$/;
 var api2 = "https://api.github.com";
-function object10(value) {
+function object11(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("GitHub account could not be verified.");
   return value;
 }
@@ -15747,7 +15862,7 @@ async function githubGet(fetcher, token4, path) {
   const body = await response.text();
   if (body.length > 3e6) throw new Error("GitHub account could not be verified.");
   try {
-    return object10(JSON.parse(body));
+    return object11(JSON.parse(body));
   } catch {
     throw new Error("GitHub account could not be verified.");
   }
@@ -15764,21 +15879,21 @@ async function verifyGitHubInstallationRepository(input) {
     for (let page = 1; page <= 10 && !installation; page++) {
       const result = await githubGet(fetcher, userToken, `/user/installations?per_page=100&page=${page}`);
       if (!Array.isArray(result.installations) || result.installations.length > 100) throw new Error();
-      installation = result.installations.map(object10).find((item) => String(item.id) === installationId);
+      installation = result.installations.map(object11).find((item) => String(item.id) === installationId);
       if (result.installations.length < 100) break;
     }
-    if (!installation || installation.suspended_at || object10(installation.permissions).contents !== "write") throw new Error();
-    const account2 = object10(installation.account);
+    if (!installation || installation.suspended_at || object11(installation.permissions).contents !== "write") throw new Error();
+    const account2 = object11(installation.account);
     const accountId = String(account2.id);
     if (!numeric2.test(accountId) || typeof account2.login !== "string" || !/^[a-zA-Z0-9-]{1,100}$/.test(account2.login)) throw new Error();
     let repository;
     for (let page = 1; page <= 10 && !repository; page++) {
       const result = await githubGet(fetcher, userToken, `/user/installations/${installationId}/repositories?per_page=100&page=${page}`);
       if (!Array.isArray(result.repositories) || result.repositories.length > 100) throw new Error();
-      repository = result.repositories.map(object10).find((item) => String(item.id) === repositoryId);
+      repository = result.repositories.map(object11).find((item) => String(item.id) === repositoryId);
       if (result.repositories.length < 100) break;
     }
-    if (!repository || repository.archived || repository.disabled || object10(repository.owner).id !== account2.id || typeof repository.full_name !== "string" || !repoName.test(repository.full_name) || typeof repository.default_branch !== "string" || !branch6.test(repository.default_branch) || object10(repository.permissions).push !== true) throw new Error();
+    if (!repository || repository.archived || repository.disabled || object11(repository.owner).id !== account2.id || typeof repository.full_name !== "string" || !repoName.test(repository.full_name) || typeof repository.default_branch !== "string" || !branch6.test(repository.default_branch) || object11(repository.permissions).push !== true) throw new Error();
     return {
       installationId,
       accountId,
@@ -15793,7 +15908,7 @@ async function verifyGitHubInstallationRepository(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubOAuthCustodyService.ts
-var uuid18 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var numeric3 = /^[1-9][0-9]{0,19}$/;
 var repoName2 = /^[a-zA-Z0-9_.-]{1,39}\/[a-zA-Z0-9_.-]{1,100}$/;
 var branch7 = /^[a-zA-Z0-9_./-]{1,200}$/;
@@ -15808,23 +15923,23 @@ function optionalTime(value) {
 }
 function assertConnection(value) {
   if (typeof window !== "undefined") throw new Error("GitHub OAuth custody scope changed.");
-  const connection3 = assertInfrastructureConnection(value);
-  if (connection3.provider !== "github" || !connection3.targetId || !numeric3.test(connection3.accountId) || !numeric3.test(connection3.targetId) || !["connected", "setup-incomplete", "deployment-failed", "ready"].includes(connection3.status)) {
+  const connection4 = assertInfrastructureConnection(value);
+  if (connection4.provider !== "github" || !connection4.targetId || !numeric3.test(connection4.accountId) || !numeric3.test(connection4.targetId) || !["connected", "setup-incomplete", "deployment-failed", "ready"].includes(connection4.status)) {
     throw new Error("GitHub OAuth custody scope changed.");
   }
-  return connection3;
+  return connection4;
 }
 async function readWebsiteGitHubOAuthCustody(input) {
-  const connection3 = assertConnection(input.connection);
+  const connection4 = assertConnection(input.connection);
   if (!await input.isCurrentOwner()) throw new Error("GitHub OAuth custody scope changed.");
   const { data, error } = await input.client.rpc("website_read_github_oauth_custody", {
-    p_connection_id: connection3.id,
-    p_project_id: connection3.projectId,
-    p_owner_id: connection3.ownerId,
-    p_expected_connection_version: connection3.version
+    p_connection_id: connection4.id,
+    p_project_id: connection4.projectId,
+    p_owner_id: connection4.ownerId,
+    p_expected_connection_version: connection4.version
   });
   try {
-    if (error || !data || !await input.isCurrentOwner() || !Number.isSafeInteger(data.version) || data.version < 1 || data.accountId !== connection3.accountId || data.repositoryId !== connection3.targetId || data.environment !== connection3.environment || !numeric3.test(data.installationId) || !repoName2.test(data.repositoryFullName) || !branch7.test(data.defaultBranch) || data.defaultBranch.includes("..") || data.defaultBranch.startsWith("/") || data.defaultBranch.endsWith("/") || !token2(data.grant?.accessToken) || !(data.grant?.refreshToken === null || token2(data.grant?.refreshToken))) throw new Error();
+    if (error || !data || !await input.isCurrentOwner() || !Number.isSafeInteger(data.version) || data.version < 1 || data.accountId !== connection4.accountId || data.repositoryId !== connection4.targetId || data.environment !== connection4.environment || !numeric3.test(data.installationId) || !repoName2.test(data.repositoryFullName) || !branch7.test(data.defaultBranch) || data.defaultBranch.includes("..") || data.defaultBranch.startsWith("/") || data.defaultBranch.endsWith("/") || !token2(data.grant?.accessToken) || !(data.grant?.refreshToken === null || token2(data.grant?.refreshToken))) throw new Error();
     const accessExpiresAt = optionalTime(data.accessExpiresAt);
     const refreshExpiresAt = optionalTime(data.refreshExpiresAt);
     if (accessExpiresAt === null !== (data.grant.refreshToken === null) || refreshExpiresAt === null !== (data.grant.refreshToken === null) || typeof data.custodyExpiresAt !== "string" || !Number.isFinite(Date.parse(data.custodyExpiresAt)) || Date.parse(data.custodyExpiresAt) <= Date.now() || refreshExpiresAt !== null && Date.parse(refreshExpiresAt) <= Date.parse(accessExpiresAt)) throw new Error();
@@ -15845,9 +15960,9 @@ async function readWebsiteGitHubOAuthCustody(input) {
   }
 }
 async function resolveWebsiteGitHubRepositoryGrant(input) {
-  const connection3 = assertConnection(input.connection);
+  const connection4 = assertConnection(input.connection);
   if (!await input.isCurrentOwner()) throw new Error("GitHub repository access is unavailable.");
-  const custody = await readWebsiteGitHubOAuthCustody({ client: input.client, connection: connection3, isCurrentOwner: input.isCurrentOwner });
+  const custody = await readWebsiteGitHubOAuthCustody({ client: input.client, connection: connection4, isCurrentOwner: input.isCurrentOwner });
   const now = (input.now ?? Date.now)();
   if (!Number.isFinite(now) || !await input.isCurrentOwner()) throw new Error("GitHub repository access is unavailable.");
   if (custody.accessExpiresAt === null || Date.parse(custody.accessExpiresAt) > now + 12e4) {
@@ -15876,14 +15991,14 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
       repositoryId: custody.repositoryId,
       fetcher: input.fetcher
     });
-    if (!await input.isCurrentOwner() || observed.accountId !== connection3.accountId || observed.repositoryId !== connection3.targetId || observed.repositoryFullName !== custody.repositoryFullName || observed.defaultBranch !== custody.defaultBranch) throw new Error();
+    if (!await input.isCurrentOwner() || observed.accountId !== connection4.accountId || observed.repositoryId !== connection4.targetId || observed.repositoryFullName !== custody.repositoryFullName || observed.defaultBranch !== custody.defaultBranch) throw new Error();
     const operationId = crypto.randomUUID();
-    if (!uuid18.test(operationId)) throw new Error();
+    if (!uuid19.test(operationId)) throw new Error();
     const base = {
-      p_connection_id: connection3.id,
-      p_project_id: connection3.projectId,
-      p_owner_id: connection3.ownerId,
-      p_expected_connection_version: connection3.version,
+      p_connection_id: connection4.id,
+      p_project_id: connection4.projectId,
+      p_owner_id: connection4.ownerId,
+      p_expected_connection_version: connection4.version,
       p_expected_version: custody.version,
       p_operation_id: operationId
     };
@@ -15913,12 +16028,12 @@ async function resolveWebsiteGitHubRepositoryGrant(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportCursorService.ts
-var uuid19 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var sha11 = /^[0-9a-f]{40}$/i;
 var digest7 = /^[0-9a-f]{64}$/i;
 var numeric4 = /^[1-9][0-9]{0,19}$/;
 function assertScope2(input) {
-  if (typeof window !== "undefined" || !uuid19.test(input.connectionId) || !uuid19.test(input.projectId) || !uuid19.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid20.test(input.connectionId) || !uuid20.test(input.projectId) || !uuid20.test(input.ownerId) || !input.isCurrentOwner()) throw new Error("GitHub export scope changed.");
 }
 async function readWebsiteGitHubExportCursor(input) {
   assertScope2(input);
@@ -15969,7 +16084,7 @@ async function initializeWebsiteGitHubExportCursor(input) {
 }
 async function commitWebsiteGitHubExportCursor(input) {
   assertScope2(input);
-  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha11.test(input.cursor.lastHeadSha) || !sha11.test(input.newHeadSha) || !digest7.test(input.sourceDigest) || !uuid19.test(input.operationId)) {
+  if (input.cursor.projectId !== input.projectId || !["preview", "production"].includes(input.cursor.environment) || input.cursor.branch !== `tayar/${input.projectId}/${input.cursor.environment}` || !numeric4.test(input.cursor.repositoryId) || !Number.isSafeInteger(input.cursor.version) || input.cursor.version < 1 || !Number.isSafeInteger(input.cursor.connectionVersion) || input.cursor.connectionVersion < 1 || input.cursor.lastHeadSha !== null && !sha11.test(input.cursor.lastHeadSha) || !sha11.test(input.newHeadSha) || !digest7.test(input.sourceDigest) || !uuid20.test(input.operationId)) {
     throw new Error("GitHub export cursor changed.");
   }
   const args = {
@@ -16010,20 +16125,20 @@ async function commitWebsiteGitHubExportCursor(input) {
 }
 
 // src/modules/website-builder/services/websiteGithubExportWorker.ts
-var uuid20 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function exportWebsiteProjectToOwnedGitHub(input) {
-  if (typeof window !== "undefined" || !uuid20.test(input.projectId) || !uuid20.test(input.ownerId) || !uuid20.test(input.connectionId) || !uuid20.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
+  if (typeof window !== "undefined" || !uuid21.test(input.projectId) || !uuid21.test(input.ownerId) || !uuid21.test(input.connectionId) || !uuid21.test(input.operationId) || !["preview", "production"].includes(input.environment)) throw new Error("GitHub export scope changed.");
   const source = await captureWebsiteGitHubExportSource(input);
   if (input.expectedSourceDigest !== void 0 && source.sourceDigest !== input.expectedSourceDigest) {
     throw new Error("GitHub export source changed.");
   }
-  const connection3 = source.connection;
-  if (connection3.environment !== input.environment || !connection3.targetId || !await source.isCurrent()) {
+  const connection4 = source.connection;
+  if (connection4.environment !== input.environment || !connection4.targetId || !await source.isCurrent()) {
     throw new Error("GitHub export scope changed.");
   }
   const token4 = await resolveWebsiteGitHubRepositoryGrant({
     client: input.client,
-    connection: connection3,
+    connection: connection4,
     clientId: input.githubClientId,
     clientSecret: input.githubClientSecret,
     isCurrentOwner: source.isCurrent,
@@ -16040,14 +16155,14 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
   let currentOwner = true;
   const cursorCandidate = {
     projectId: input.projectId,
-    connectionVersion: connection3.version,
-    repositoryId: connection3.targetId,
+    connectionVersion: connection4.version,
+    repositoryId: connection4.targetId,
     branch: `tayar/${input.projectId}/${input.environment}`,
     lastHeadSha: null,
     lastSourceDigest: null
   };
   const observedHead = await observeWebsiteGitHubExportBranch({
-    connection: connection3,
+    connection: connection4,
     repositoryFullName: token4.repositoryFullName,
     token: token4.accessToken,
     cursor: cursorCandidate,
@@ -16059,18 +16174,18 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
     if (observedHead !== null) throw new Error("GitHub branch exists without a verified export cursor.");
     cursor = await initializeWebsiteGitHubExportCursor({
       ...scope,
-      connectionVersion: connection3.version,
-      repositoryId: connection3.targetId,
+      connectionVersion: connection4.version,
+      repositoryId: connection4.targetId,
       environment: input.environment,
       branchIsAbsent: true
     });
   }
-  if (cursor.environment !== input.environment || cursor.connectionVersion !== connection3.version || cursor.repositoryId !== connection3.targetId || cursor.branch !== cursorCandidate.branch || !await source.isCurrent()) {
+  if (cursor.environment !== input.environment || cursor.connectionVersion !== connection4.version || cursor.repositoryId !== connection4.targetId || cursor.branch !== cursorCandidate.branch || !await source.isCurrent()) {
     throw new Error("GitHub export target changed.");
   }
   if (cursor.lastHeadSha !== observedHead) {
     if (!observedHead || !await verifyWebsiteGitHubExportRecovery({
-      connection: connection3,
+      connection: connection4,
       cursor,
       repositoryFullName: token4.repositoryFullName,
       token: token4.accessToken,
@@ -16099,7 +16214,7 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
     }
   }
   const result = await writeWebsiteGitHubExport({
-    connection: connection3,
+    connection: connection4,
     cursor,
     repositoryFullName: token4.repositoryFullName,
     token: token4.accessToken,
@@ -16127,7 +16242,7 @@ async function exportWebsiteProjectToOwnedGitHub(input) {
 }
 
 // src/modules/website-builder/services/websiteVercelDeploymentAttemptService.ts
-var uuid21 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var providerProject = /^prj_[A-Za-z0-9]{8,128}$/;
 var providerDeployment = /^dpl_[A-Za-z0-9]{8,128}$/;
 var sha12 = /^[0-9a-f]{40}$/;
@@ -16148,7 +16263,7 @@ function validateReport(report) {
 async function beginWebsiteVercelDeploymentAttempt(input) {
   const required2 = [...input.requiredEnvironment].sort();
   const ids2 = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid21.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha12.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key2) => !env3.test(key2)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid22.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0 || !providerProject.test(input.vercelProjectId) || !/^\d+$/.test(input.repositoryId) || !sha12.test(input.sourceCommitSha) || input.target !== "preview" || required2.length > 64 || required2.some((key2) => !env3.test(key2)) || new Set(required2).size !== required2.length || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || Object.keys(ids2).join(",") !== required2.join(",") || Object.values(ids2).some((value) => !providerEnvironment.test(value)) || new Set(Object.values(ids2)).size !== required2.length || !input.isCurrent()) throw new Error("Vercel deployment attempt unavailable.");
   const { data, error } = await input.client.rpc("website_begin_vercel_deployment_attempt", {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -16169,7 +16284,7 @@ async function beginWebsiteVercelDeploymentAttempt(input) {
 }
 async function commitWebsiteVercelDeploymentObservation(input) {
   const missingEnvironment = validateReport(input.report);
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid21.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId, input.commitId].every((value) => uuid22.test(value)) || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 1 || !input.isCurrent()) throw new Error("Vercel deployment observation unavailable.");
   const args = {
     p_connection_id: input.connectionId,
     p_project_id: input.projectId,
@@ -16216,7 +16331,7 @@ async function commitWebsiteVercelDeploymentObservation(input) {
 }
 
 // server/website-byo-publish-adapters.ts
-var uuid22 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid23 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider5 = /^[A-Za-z0-9_-]{3,128}$/;
 var gitName2 = /^[A-Za-z0-9_.-]{1,100}$/;
 var project9 = /^prj_[A-Za-z0-9]{8,128}$/;
@@ -16244,7 +16359,7 @@ function parseCustody(value, environment) {
   return v;
 }
 async function runWebsiteOwnedByoPublish(input) {
-  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid22.test(v)) || input.environment !== "preview" || !provider5.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
+  if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId, input.githubConnectionId, input.vercelConnectionId].every((v) => uuid23.test(v)) || input.environment !== "preview" || !provider5.test(input.platformVercelAccountId) || !await input.ownerCurrent()) throw new Error("BYO publish adapters unavailable.");
   const scope = {
     client: input.client,
     operationId: input.operationId,
@@ -16430,16 +16545,104 @@ async function runWebsiteOwnedByoPublish(input) {
       fetcher: input.fetcher
     });
   };
+  const stripeWebhookRuntime = async () => {
+    const capturedSource = await source(), stripe = capturedSource.stripeRuntime;
+    if (!stripe?.webhookEndpointId || !stripe.webhookSigningSecretUpdatedAt) return;
+    const vercel2 = await grant();
+    const webhookOperationId = await deterministicUuid({
+      kind: "stripe-webhook-secret-handoff-operation",
+      operationId: input.operationId,
+      sourceConnectionId: stripe.sourceConnectionId,
+      endpointId: stripe.webhookEndpointId
+    });
+    const state = await inspectOwnedStripeWebhookRuntimeForPublish({
+      client: input.client,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      vercelConnectionId: input.vercelConnectionId,
+      vercelConnectionVersion: capturedSource.vercel.version,
+      sourceConnectionId: stripe.sourceConnectionId,
+      stripeSourceUpdatedAt: stripe.sourceUpdatedAt,
+      webhookSourceUpdatedAt: stripe.webhookSigningSecretUpdatedAt,
+      endpointId: stripe.webhookEndpointId,
+      applicationOrigin: capturedSource.binding.applicationOrigin,
+      environment: "preview"
+    });
+    const exactCurrent = async () => await capturedSource.isCurrent() && await owner();
+    if (state.ready) {
+      if (!state.environmentId || !state.handoffOperationId) throw new Error();
+      await verifyOwnedStripeWebhookRuntimeDestination({
+        accessToken: vercel2.accessToken,
+        userId: vercel2.userId,
+        accountId: vercel2.accountId,
+        vercelProjectId: vercel2.vercelProjectId,
+        environmentId: state.environmentId,
+        projectId: input.projectId,
+        environment: "preview",
+        handoffOperationId: state.handoffOperationId,
+        isCurrent: exactCurrent,
+        fetcher: input.fetcher
+      });
+      return;
+    }
+    const sameOperation = state.handoffOperationId === webhookOperationId;
+    if (state.handoffStatus === "removed" || state.handoffStatus === "preparing" && !sameOperation || !state.sourceAvailable && !(state.handoffStatus === "verified" && sameOperation)) throw new Error();
+    const handoffId = state.handoffId ?? await deterministicUuid({
+      kind: "stripe-webhook-secret-handoff",
+      projectId: input.projectId,
+      environment: "preview",
+      vercelConnectionId: input.vercelConnectionId,
+      sourceConnectionId: stripe.sourceConnectionId
+    });
+    let expectedHandoffVersion = state.handoffVersion;
+    if (sameOperation && state.handoffStatus === "preparing") expectedHandoffVersion = state.handoffVersion - 1;
+    if (sameOperation && state.handoffStatus === "verified") expectedHandoffVersion = state.handoffVersion - 2;
+    if (expectedHandoffVersion < 0 || !await exactCurrent()) throw new Error();
+    const receipt = await handoffOwnedStripeWebhookRuntime({
+      client: input.client,
+      handoffId,
+      vercelConnectionId: input.vercelConnectionId,
+      projectId: input.projectId,
+      ownerId: input.ownerId,
+      vercelConnectionVersion: capturedSource.vercel.version,
+      expectedHandoffVersion,
+      sourceConnectionId: stripe.sourceConnectionId,
+      sourceUpdatedAt: stripe.webhookSigningSecretUpdatedAt,
+      environment: "preview",
+      operationId: webhookOperationId,
+      commitId: await deterministicUuid({
+        kind: "stripe-webhook-handoff-commit",
+        operationId: webhookOperationId,
+        handoffId,
+        sourceUpdatedAt: stripe.webhookSigningSecretUpdatedAt
+      }),
+      isCurrent: () => current,
+      fetcher: input.fetcher
+    });
+    if (receipt.status !== "verified" || !await exactCurrent()) throw new Error();
+    await verifyOwnedStripeWebhookRuntimeDestination({
+      accessToken: vercel2.accessToken,
+      userId: vercel2.userId,
+      accountId: vercel2.accountId,
+      vercelProjectId: vercel2.vercelProjectId,
+      environmentId: receipt.environmentId,
+      projectId: input.projectId,
+      environment: "preview",
+      handoffOperationId: webhookOperationId,
+      isCurrent: exactCurrent,
+      fetcher: input.fetcher
+    });
+  };
   const emailRuntime = async () => {
     const capturedSource = await source(), email2 = capturedSource.emailRuntime;
     if (!email2) return;
     const vercel2 = await grant();
-    for (const connection3 of email2.connections) {
+    for (const connection4 of email2.connections) {
       const emailOperationId = await deterministicUuid({
         kind: "email-secret-handoff-operation",
         operationId: input.operationId,
-        sourceConnectionId: connection3.sourceConnectionId,
-        environmentKey: connection3.environmentKey
+        sourceConnectionId: connection4.sourceConnectionId,
+        environmentKey: connection4.environmentKey
       });
       const state = await inspectOwnedEmailRuntimeForPublish({
         client: input.client,
@@ -16447,9 +16650,9 @@ async function runWebsiteOwnedByoPublish(input) {
         ownerId: input.ownerId,
         vercelConnectionId: input.vercelConnectionId,
         vercelConnectionVersion: capturedSource.vercel.version,
-        sourceConnectionId: connection3.sourceConnectionId,
-        sourceUpdatedAt: connection3.sourceUpdatedAt,
-        environmentKey: connection3.environmentKey,
+        sourceConnectionId: connection4.sourceConnectionId,
+        sourceUpdatedAt: connection4.sourceUpdatedAt,
+        environmentKey: connection4.environmentKey,
         environment: "preview"
       });
       const exactCurrent = async () => await capturedSource.isCurrent() && await owner();
@@ -16461,7 +16664,7 @@ async function runWebsiteOwnedByoPublish(input) {
           accountId: vercel2.accountId,
           vercelProjectId: vercel2.vercelProjectId,
           environmentId: state.environmentId,
-          environmentKey: connection3.environmentKey,
+          environmentKey: connection4.environmentKey,
           projectId: input.projectId,
           environment: "preview",
           handoffOperationId: state.handoffOperationId,
@@ -16477,8 +16680,8 @@ async function runWebsiteOwnedByoPublish(input) {
         projectId: input.projectId,
         environment: "preview",
         vercelConnectionId: input.vercelConnectionId,
-        sourceConnectionId: connection3.sourceConnectionId,
-        environmentKey: connection3.environmentKey
+        sourceConnectionId: connection4.sourceConnectionId,
+        environmentKey: connection4.environmentKey
       });
       let expectedHandoffVersion = state.handoffVersion;
       if (sameOperation && state.handoffStatus === "preparing") expectedHandoffVersion = state.handoffVersion - 1;
@@ -16492,16 +16695,16 @@ async function runWebsiteOwnedByoPublish(input) {
         ownerId: input.ownerId,
         vercelConnectionVersion: capturedSource.vercel.version,
         expectedHandoffVersion,
-        sourceConnectionId: connection3.sourceConnectionId,
-        sourceUpdatedAt: connection3.sourceUpdatedAt,
-        environmentKey: connection3.environmentKey,
+        sourceConnectionId: connection4.sourceConnectionId,
+        sourceUpdatedAt: connection4.sourceUpdatedAt,
+        environmentKey: connection4.environmentKey,
         environment: "preview",
         operationId: emailOperationId,
         commitId: await deterministicUuid({
           kind: "email-handoff-commit",
           operationId: emailOperationId,
           handoffId,
-          sourceUpdatedAt: connection3.sourceUpdatedAt
+          sourceUpdatedAt: connection4.sourceUpdatedAt
         }),
         isCurrent: () => current,
         fetcher: input.fetcher
@@ -16513,7 +16716,7 @@ async function runWebsiteOwnedByoPublish(input) {
         accountId: vercel2.accountId,
         vercelProjectId: vercel2.vercelProjectId,
         environmentId: receipt.environmentId,
-        environmentKey: connection3.environmentKey,
+        environmentKey: connection4.environmentKey,
         projectId: input.projectId,
         environment: "preview",
         handoffOperationId: emailOperationId,
@@ -16525,6 +16728,7 @@ async function runWebsiteOwnedByoPublish(input) {
   const runtime = async () => {
     await environment();
     await stripeRuntime();
+    await stripeWebhookRuntime();
     await emailRuntime();
   };
   try {
@@ -16667,7 +16871,7 @@ async function runWebsiteOwnedByoProductionPublish(input) {
     input.ownerId,
     input.previewVercelConnectionId,
     input.productionVercelConnectionId
-  ].every((v) => uuid22.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
+  ].every((v) => uuid23.test(v)) || input.operationId === input.previewOperationId || input.previewVercelConnectionId === input.productionVercelConnectionId || ![input.previewConnectionVersion, input.productionConnectionVersion].every((v) => Number.isSafeInteger(v) && v > 0) || !await input.ownerCurrent()) throw new Error("BYO production publish adapters unavailable.");
   let current = true;
   const owner = async () => {
     if (!current) return false;
@@ -16834,9 +17038,9 @@ async function verifyOwnedBookingAvailabilityCatalog(app, query) {
     const seen = /* @__PURE__ */ new Set();
     for (const row2 of rows) {
       const expected = manifest.find((item) => item.name === row2?.name && item.schema === row2.schema);
-      const identity6 = `${row2?.schema}.${row2?.name}`;
-      if (!expected || seen.has(identity6) || row2.source !== expected.source || row2.security_definer !== expected.definer || row2.volatility !== "s" || row2.kind !== "f" || row2.result !== "boolean" || row2.arguments !== "resources uuid[], starts_at timestamp with time zone, ends_at timestamp with time zone" || row2.language !== expected.language || row2.owner !== "postgres" || row2.anon_execute !== false || row2.authenticated_execute !== true || row2.service_execute !== false || !Array.isArray(row2.configuration) || row2.configuration.length !== 1 || !["search_path=", 'search_path=""'].includes(row2.configuration[0])) return false;
-      seen.add(identity6);
+      const identity7 = `${row2?.schema}.${row2?.name}`;
+      if (!expected || seen.has(identity7) || row2.source !== expected.source || row2.security_definer !== expected.definer || row2.volatility !== "s" || row2.kind !== "f" || row2.result !== "boolean" || row2.arguments !== "resources uuid[], starts_at timestamp with time zone, ends_at timestamp with time zone" || row2.language !== expected.language || row2.owner !== "postgres" || row2.anon_execute !== false || row2.authenticated_execute !== true || row2.service_execute !== false || !Array.isArray(row2.configuration) || row2.configuration.length !== 1 || !["search_path=", 'search_path=""'].includes(row2.configuration[0])) return false;
+      seen.add(identity7);
     }
     return true;
   } catch {
@@ -16967,7 +17171,7 @@ from pg_class t join pg_namespace n on n.oid=t.relnamespace join pg_trigger g on
 join pg_proc p on p.oid=g.tgfoid join pg_namespace pn on pn.oid=p.pronamespace
 left join pg_constraint c on c.conrelid=t.oid and left(c.conname,19)='app_counter_bounds_'
 where n.nspname='public' and g.tgname='app_counter_guard' and not g.tgisinternal`;
-var object11 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object12 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var literal11 = (value) => `'${value.replace(/'/g, "''")}'`;
 var numeric6 = (value) => Number.isInteger(value) ? value >= -2147483648 && value <= 2147483647 ? `(${value})::numeric` : `(${literal11(String(value))}::bigint)::numeric` : value.toLocaleString("en-US", { useGrouping: false, maximumFractionDigits: 20 });
 async function verifyOwnedCounterCatalog(input, query) {
@@ -16990,10 +17194,10 @@ async function verifyOwnedCounterCatalog(input, query) {
     const privateSeen = /* @__PURE__ */ new Set();
     for (const row2 of tables) {
       const fields = definitions[String(row2?.name)];
-      if (!fields || privateSeen.has(String(row2.name)) || row2.kind !== "r" || row2.rls !== true || row2.anon_all !== false || row2.authenticated_all !== false || row2.anon_columns !== false || row2.authenticated_columns !== false || !object11(row2.fields) || Object.keys(row2.fields).length !== Object.keys(fields).length || row2.primary_key !== (row2.name === "app_counter_requests" ? "PRIMARY KEY (actor_id, request_id)" : "PRIMARY KEY (transaction_id)")) return false;
+      if (!fields || privateSeen.has(String(row2.name)) || row2.kind !== "r" || row2.rls !== true || row2.anon_all !== false || row2.authenticated_all !== false || row2.anon_columns !== false || row2.authenticated_columns !== false || !object12(row2.fields) || Object.keys(row2.fields).length !== Object.keys(fields).length || row2.primary_key !== (row2.name === "app_counter_requests" ? "PRIMARY KEY (actor_id, request_id)" : "PRIMARY KEY (transaction_id)")) return false;
       for (const [key2, type2] of Object.entries(fields)) {
         const field2 = row2.fields[key2];
-        if (!object11(field2) || field2.required !== true || field2.type !== type2) return false;
+        if (!object12(field2) || field2.required !== true || field2.type !== type2) return false;
       }
       privateSeen.add(String(row2.name));
     }
@@ -17008,8 +17212,8 @@ async function verifyOwnedCounterCatalog(input, query) {
         (token4, offset, source) => token4 === field2.key && !source.slice(offset + token4.length).startsWith("(") && !source.slice(0, offset).endsWith("::") ? name2 : token4
       ) : "";
       const args = `\\x${BufferlessHex(`${field2.key}\0${rule.minimum}\0`)}`;
-      const actualField = object11(row2.fields) ? row2.fields[field2.key] : void 0;
-      if (row2.enabled !== "O" || row2.type !== 23 || row2.function_schema !== "private" || row2.function_name !== "app_counter_write_guard" || row2.arguments !== args || row2.validated !== true || bounds !== expectedBounds || !object11(actualField) || actualField.required !== true || actualField.type !== "numeric") return false;
+      const actualField = object12(row2.fields) ? row2.fields[field2.key] : void 0;
+      if (row2.enabled !== "O" || row2.type !== 23 || row2.function_schema !== "private" || row2.function_name !== "app_counter_write_guard" || row2.arguments !== args || row2.validated !== true || bounds !== expectedBounds || !object12(actualField) || actualField.required !== true || actualField.type !== "numeric") return false;
     }
     return true;
   } catch {
@@ -17021,7 +17225,7 @@ function BufferlessHex(value) {
 }
 
 // server/website-owned-stock-transfers-catalog.ts
-var object12 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object13 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 async function verifyOwnedStockTransfersCatalog(app, tableId, query) {
   const index = app.tables.findIndex((table2) => table2.id === tableId);
   const table = app.tables[index];
@@ -17042,14 +17246,14 @@ async function verifyOwnedStockTransfersCatalog(app, tableId, query) {
         from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace
         left join pg_index i on i.indexrelid=c.conindid where n.nspname='private' and t.relname='${name2}'`)
     ]);
-    if (!Array.isArray(rows) || rows.length !== 1 || !object12(rows[0])) return false;
+    if (!Array.isArray(rows) || rows.length !== 1 || !object13(rows[0])) return false;
     const row2 = rows[0];
-    if (row2.kind !== "r" || row2.rls !== true || !["anon_all", "authenticated_all", "anon_columns", "authenticated_columns"].every((key2) => row2[key2] === false) || !object12(row2.fields) || Object.keys(row2.fields).length !== 5) return false;
+    if (row2.kind !== "r" || row2.rls !== true || !["anon_all", "authenticated_all", "anon_columns", "authenticated_columns"].every((key2) => row2[key2] === false) || !object13(row2.fields) || Object.keys(row2.fields).length !== 5) return false;
     for (const [key2, type2] of Object.entries({ actor_id: "uuid", request_id: "uuid", source_id: "uuid", destination_id: "uuid", quantity: "numeric" })) {
       const field2 = row2.fields[key2];
-      if (!object12(field2) || field2.type !== type2 || field2.required !== true) return false;
+      if (!object13(field2) || field2.type !== type2 || field2.required !== true) return false;
     }
-    if (!Array.isArray(constraints) || constraints.length !== 5 || constraints.some((c) => !object12(c) || c.validated !== true || c.deferrable !== false || c.valid !== true)) return false;
+    if (!Array.isArray(constraints) || constraints.length !== 5 || constraints.some((c) => !object13(c) || c.validated !== true || c.deferrable !== false || c.valid !== true)) return false;
     const expected = [
       ["p", "PRIMARY KEY (actor_id, request_id)"],
       ["f", `FOREIGN KEY (source_id) REFERENCES app_${table.key}(id) ON DELETE RESTRICT`],
@@ -17065,7 +17269,7 @@ async function verifyOwnedStockTransfersCatalog(app, tableId, query) {
 
 // server/website-owned-stock-locations-catalog.ts
 var literal12 = (value) => "'" + value.replace(/'/g, "''") + "'";
-var object13 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object14 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 async function verifyOwnedStockLocationsCatalog(input, itemTableId, query) {
   const index = input.tables.findIndex((table2) => table2.id === itemTableId);
   const table = input.tables[index], rule = table?.stockLocations;
@@ -17094,11 +17298,11 @@ async function verifyOwnedStockLocationsCatalog(input, itemTableId, query) {
         where g.tgrelid=${literal12(target2)}::regclass and not g.tgisinternal
           and g.tgname=${literal12("app_stock_location_guard_" + index)}`)
     ]);
-    if (!Array.isArray(columns) || columns.length !== 2 || columns.some((row2) => !object13(row2) || row2.required !== true || row2.type !== "uuid" || !fields.some((field2) => field2.key === row2.name))) return false;
-    if (!Array.isArray(triggers) || triggers.length !== 1 || !object13(triggers[0])) return false;
+    if (!Array.isArray(columns) || columns.length !== 2 || columns.some((row2) => !object14(row2) || row2.required !== true || row2.type !== "uuid" || !fields.some((field2) => field2.key === row2.name))) return false;
+    if (!Array.isArray(triggers) || triggers.length !== 1 || !object14(triggers[0])) return false;
     const trigger = triggers[0];
     if (trigger.type !== 23 || trigger.enabled !== "O" || trigger.arguments !== 0 || trigger.unconditional !== true || trigger.columns !== "" || trigger.schema !== "private" || trigger.function !== "app_stock_location_guard_" + index) return false;
-    if (!Array.isArray(constraints) || constraints.length !== 3 || constraints.some((row2) => !object13(row2) || row2.validated !== true || row2.deferrable !== false)) return false;
+    if (!Array.isArray(constraints) || constraints.length !== 3 || constraints.some((row2) => !object14(row2) || row2.validated !== true || row2.deferrable !== false)) return false;
     const unique = constraints.filter((row2) => row2.type === "u");
     if (unique.length !== 1 || JSON.stringify(unique[0].columns) !== JSON.stringify(["owner_id", ...fields.map((field2) => field2.key)]) || !["unique", "valid", "ready", "immediate", "unfiltered", "plain"].every((key2) => unique[0][key2] === true) || unique[0].key_count !== 3) return false;
     return fields.every((field2) => constraints.some((row2) => row2.type === "f" && JSON.stringify(row2.columns) === JSON.stringify([field2.key, "owner_id"]) && row2.target === "app_" + input.tables.find((t) => t.id === field2.referenceTableId).key && JSON.stringify(row2.target_columns) === '["id","owner_id"]' && row2.delete_action === "r" && row2.update_action === "a" && ["unique", "valid", "ready", "immediate", "unfiltered", "plain"].every((key2) => row2[key2] === true) && row2.key_count === 2));
@@ -17108,7 +17312,7 @@ async function verifyOwnedStockLocationsCatalog(input, itemTableId, query) {
 }
 
 // server/website-owned-stock-reservation-catalog.ts
-var object14 = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+var object15 = (x) => !!x && typeof x === "object" && !Array.isArray(x);
 var literal13 = (x) => "'" + x.replace(/'/g, "''") + "'";
 async function verifyOwnedStockReservationCatalog(input, itemTableId, query) {
   try {
@@ -17171,7 +17375,7 @@ async function verifyOwnedStockReservationCatalog(input, itemTableId, query) {
     if (!Array.isArray(functions) || functions.length !== manifest.size || !Array.isArray(tables) || tables.length !== 1 || !Array.isArray(triggers) || triggers.length !== 1 || !Array.isArray(constraints) || constraints.length !== 4) return false;
     const seen = /* @__PURE__ */ new Set();
     for (const item of functions) {
-      if (!object14(item)) return false;
+      if (!object15(item)) return false;
       const key2 = item.schema_name + "." + item.function_name;
       const expected = manifest.get(key2);
       if (!expected || seen.has(key2) || item.arguments !== expected.args || item.result !== expected.result || item.language !== expected.lang || item.kind !== "f" || item.security_definer !== expected.definer || item.volatility !== "v" || item.source !== expected.source || item.owner_name !== "postgres" || !Array.isArray(item.configuration) || item.configuration.length !== 1 || !["search_path=", 'search_path=""'].includes(item.configuration[0]) || item.anon_execute !== false || item.authenticated_execute !== !["app_stock_floor_" + index, "app_stock_location_guard_" + index].includes(String(item.function_name))) return false;
@@ -17188,16 +17392,16 @@ async function verifyOwnedStockReservationCatalog(input, itemTableId, query) {
       status: "text",
       expires_at: "timestamp with time zone"
     };
-    if (table.kind !== "r" || table.rls !== true || table.anon_all !== false || table.authenticated_all !== false || table.anon_columns !== false || table.authenticated_columns !== false || table.primary_key !== "PRIMARY KEY (actor_id, reservation_id)" || !object14(fields) || Object.keys(fields).length !== Object.keys(expectedFields).length) return false;
+    if (table.kind !== "r" || table.rls !== true || table.anon_all !== false || table.authenticated_all !== false || table.anon_columns !== false || table.authenticated_columns !== false || table.primary_key !== "PRIMARY KEY (actor_id, reservation_id)" || !object15(fields) || Object.keys(fields).length !== Object.keys(expectedFields).length) return false;
     for (const [key2, type2] of Object.entries(expectedFields)) {
       const value = fields[key2];
-      if (!object14(value) || value.type !== type2 || value.required !== true) return false;
+      if (!object15(value) || value.type !== type2 || value.required !== true) return false;
     }
     const trigger = triggers[0];
     if (trigger.enabled !== "O" || trigger.type !== 19 || trigger.schema_name !== "private" || trigger.function_name !== "app_stock_floor_" + index || trigger.item_table !== "app_" + input.tables[index].key) return false;
     const constraintsByType = /* @__PURE__ */ new Map();
     for (const row2 of constraints) {
-      if (!object14(row2) || typeof row2.type !== "string" || typeof row2.definition !== "string") return false;
+      if (!object15(row2) || typeof row2.type !== "string" || typeof row2.definition !== "string") return false;
       constraintsByType.set(row2.type, [...constraintsByType.get(row2.type) ?? [], row2.definition]);
     }
     if ((constraintsByType.get("p")?.length ?? 0) !== 1 || (constraintsByType.get("f")?.length ?? 0) !== 1 || (constraintsByType.get("c")?.length ?? 0) !== 2) return false;
@@ -17231,7 +17435,7 @@ var constraintsSql = `select t.relname as table_name,c.conname as name,c.convali
   (select jsonb_object_agg(a.attname,jsonb_build_object('required',a.attnotnull,'type',a.atttypid::regtype::text)) from pg_attribute a where a.attrelid=t.oid and a.attnum>0 and not a.attisdropped) as fields
 from pg_constraint c join pg_class t on t.oid=c.conrelid join pg_namespace n on n.oid=t.relnamespace
 where n.nspname='public' and left(c.conname,25)='app_transaction_quantity_'`;
-var object15 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object16 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 async function verifyOwnedTransactionCatalog(input, query) {
   try {
     const app = readApplicationDefinition(input), transactions = app.tables.filter((table) => table.transaction);
@@ -17246,10 +17450,10 @@ async function verifyOwnedTransactionCatalog(input, query) {
       seen.add(key2);
     }
     const ledger = ledgers[0], expectedFields = { actor_id: "uuid", request_id: "uuid", table_name: "text", record_id: "uuid", attributes: "jsonb", items: "jsonb" };
-    if (ledger.kind !== "r" || ledger.rls !== true || ledger.anon_all !== false || ledger.authenticated_all !== false || ledger.anon_columns !== false || ledger.authenticated_columns !== false || ledger.primary_key !== "PRIMARY KEY (actor_id, request_id)" || !object15(ledger.fields) || Object.keys(ledger.fields).length !== Object.keys(expectedFields).length) return false;
+    if (ledger.kind !== "r" || ledger.rls !== true || ledger.anon_all !== false || ledger.authenticated_all !== false || ledger.anon_columns !== false || ledger.authenticated_columns !== false || ledger.primary_key !== "PRIMARY KEY (actor_id, request_id)" || !object16(ledger.fields) || Object.keys(ledger.fields).length !== Object.keys(expectedFields).length) return false;
     for (const [key2, type2] of Object.entries(expectedFields)) {
       const field2 = ledger.fields[key2];
-      if (!object15(field2) || field2.required !== true || field2.type !== type2) return false;
+      if (!object16(field2) || field2.required !== true || field2.type !== type2) return false;
     }
     for (const [index, table] of app.tables.entries()) {
       if (!table.transaction) continue;
@@ -17257,9 +17461,9 @@ async function verifyOwnedTransactionCatalog(input, query) {
       const quantity = line.fields.find((field3) => field3.id === table.transaction.lineQuantityFieldId);
       const item = app.tables.find((candidate) => candidate.id === table.transaction.itemTableId);
       const rows = constraints.filter((row2) => row2.table_name === `app_${line.key}` && row2.name === `app_transaction_quantity_${index}`);
-      if (rows.length !== 1 || rows[0].validated !== true || !object15(rows[0].fields)) return false;
+      if (rows.length !== 1 || rows[0].validated !== true || !object16(rows[0].fields)) return false;
       const field2 = rows[0].fields[quantity.key];
-      if (!object15(field2) || field2.required !== true || field2.type !== "numeric" || typeof rows[0].definition !== "string") return false;
+      if (!object16(field2) || field2.required !== true || field2.type !== "numeric" || typeof rows[0].definition !== "string") return false;
       const definition = rows[0].definition;
       const normalized = definition.replace(/::(?:bigint|numeric)/g, "").replace(/["'()\s]/g, "");
       if (!normalized.includes(`${quantity.key}>0`) || !normalized.includes(`${quantity.key}<=1000000000000`) || !normalized.includes("NaN") || !normalized.includes("Infinity") || !normalized.includes("-Infinity") || item.counter.integer && !normalized.includes(`trunc${quantity.key}`)) return false;
@@ -17271,7 +17475,7 @@ async function verifyOwnedTransactionCatalog(input, query) {
 }
 
 // server/website-owned-workflow-catalog.ts
-var object16 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+var object17 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var functionsSql4 = `select n.nspname as schema_name,p.proname as function_name,pg_get_function_identity_arguments(p.oid) as arguments,
   pg_get_function_result(p.oid) as result,l.lanname as language,p.prokind as kind,p.prosecdef as security_definer,p.provolatile as volatility,
   p.prosrc as source,p.proconfig as configuration,r.rolname as owner_name,has_function_privilege('anon',p.oid,'EXECUTE') as anon_execute,
@@ -17302,7 +17506,7 @@ async function verifyOwnedWorkflowCatalog(input, query) {
     if (!Array.isArray(functions) || functions.length !== manifest.length || !Array.isArray(tables) || tables.length !== 2 || !Array.isArray(guards) || guards.length !== workflows.length + 1) return false;
     const seen = /* @__PURE__ */ new Set();
     for (const row2 of functions) {
-      if (!object16(row2)) return false;
+      if (!object17(row2)) return false;
       const key2 = `${row2.schema_name}.${row2.function_name}`, expected = manifest.find((item) => `${item.schema}.${item.name}` === key2);
       if (!expected || seen.has(key2) || row2.arguments !== expected.arguments || row2.result !== expected.result || row2.language !== expected.language || row2.kind !== "f" || row2.security_definer !== expected.securityDefiner || row2.volatility !== "v" || row2.source !== expected.source || row2.owner_name !== "postgres" || !Array.isArray(row2.configuration) || row2.configuration.length !== 1 || !["search_path=", 'search_path=""'].includes(row2.configuration[0]) || row2.anon_execute !== false || row2.authenticated_execute !== (expected.schema === "public")) return false;
       seen.add(key2);
@@ -17313,25 +17517,25 @@ async function verifyOwnedWorkflowCatalog(input, query) {
     };
     const privateSeen = /* @__PURE__ */ new Set();
     for (const row2 of tables) {
-      if (!object16(row2)) return false;
+      if (!object17(row2)) return false;
       const fields = definitions[String(row2.name)];
-      if (!fields || privateSeen.has(String(row2.name)) || row2.kind !== "r" || row2.rls !== true || row2.anon_all !== false || row2.authenticated_all !== false || row2.anon_columns !== false || row2.authenticated_columns !== false || !object16(row2.fields) || Object.keys(row2.fields).length !== Object.keys(fields).length || row2.name === "app_workflow_requests" && row2.audit_index !== true || row2.primary_key !== (row2.name === "app_workflow_requests" ? "PRIMARY KEY (actor_id, request_id)" : "PRIMARY KEY (transaction_id)")) return false;
+      if (!fields || privateSeen.has(String(row2.name)) || row2.kind !== "r" || row2.rls !== true || row2.anon_all !== false || row2.authenticated_all !== false || row2.anon_columns !== false || row2.authenticated_columns !== false || !object17(row2.fields) || Object.keys(row2.fields).length !== Object.keys(fields).length || row2.name === "app_workflow_requests" && row2.audit_index !== true || row2.primary_key !== (row2.name === "app_workflow_requests" ? "PRIMARY KEY (actor_id, request_id)" : "PRIMARY KEY (transaction_id)")) return false;
       for (const [key2, type2] of Object.entries(fields)) {
         const field2 = row2.fields[key2];
-        if (!object16(field2) || field2.required !== true || field2.type !== type2) return false;
+        if (!object17(field2) || field2.required !== true || field2.type !== type2) return false;
       }
       privateSeen.add(String(row2.name));
     }
     for (const table of workflows) {
       const field2 = table.fields.find((item) => item.id === table.workflow.fieldId);
-      const rows = guards.filter((row3) => object16(row3) && row3.table_schema === "public" && row3.name === `app_${table.key}`);
-      if (rows.length !== 1 || !object16(rows[0])) return false;
+      const rows = guards.filter((row3) => object17(row3) && row3.table_schema === "public" && row3.name === `app_${table.key}`);
+      if (rows.length !== 1 || !object17(rows[0])) return false;
       const row2 = rows[0];
       const hex = Array.from(new TextEncoder().encode(`${field2.key}\0${field2.defaultValue}\0`), (byte) => byte.toString(16).padStart(2, "0")).join("");
       if (row2.enabled !== "O" || row2.type !== 23 || row2.function_schema !== "private" || row2.function_name !== "app_workflow_write_guard" || row2.arguments !== `\\x${hex}`) return false;
     }
-    const immutable = guards.filter((row2) => object16(row2) && row2.table_schema === "private" && row2.name === "app_workflow_requests");
-    if (immutable.length !== 1 || !object16(immutable[0]) || immutable[0].enabled !== "O" || immutable[0].type !== 27 || immutable[0].function_schema !== "private" || immutable[0].function_name !== "app_workflow_request_immutable" || immutable[0].arguments !== "\\x") return false;
+    const immutable = guards.filter((row2) => object17(row2) && row2.table_schema === "private" && row2.name === "app_workflow_requests");
+    if (immutable.length !== 1 || !object17(immutable[0]) || immutable[0].enabled !== "O" || immutable[0].type !== 27 || immutable[0].function_schema !== "private" || immutable[0].function_name !== "app_workflow_request_immutable" || immutable[0].arguments !== "\\x") return false;
     return true;
   } catch {
     return false;
@@ -17568,11 +17772,11 @@ var slug = /^[a-z0-9][a-z0-9-]{0,199}$/;
 var ref = /^[a-z]{20}$/;
 var providerTokenMaxBytes2 = 65536;
 var token3 = (value) => typeof value === "string" && value.length >= 20 && new TextEncoder().encode(value).length <= providerTokenMaxBytes2 && !/[\r\n]/.test(value);
-var object17 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object18 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact2 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 var currentDate = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseOwnedSupabaseCustody(value, environment, target2) {
-  const row2 = object17(value), grant = object17(row2?.grant);
+  const row2 = object18(value), grant = object18(row2?.grant);
   if (!row2 || !grant || !exact2(row2, [
     "version",
     "accountId",
@@ -17608,7 +17812,7 @@ async function readOwnedSupabasePublicBackend(input) {
   const value = JSON.parse(text3);
   if (!Array.isArray(value) || value.length > 32) throw new Error();
   const keys2 = value.map((item) => {
-    const row2 = object17(item);
+    const row2 = object18(item);
     if (!row2 || typeof row2.type !== "string" || typeof row2.api_key !== "string" || row2.name != null && typeof row2.name !== "string") throw new Error();
     return row2;
   });
@@ -17725,7 +17929,7 @@ async function verifyOwnedSupabaseApplicationRuntime(input) {
 
 // server/website-owned-supabase-migration.ts
 var ref2 = /^[a-z]{20}$/;
-var uuid23 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid24 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var digest8 = /^[0-9a-f]{64}$/;
 var sha13 = async (value) => Array.from(
   new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))),
@@ -17772,7 +17976,7 @@ async function commitId3(operationId, attemptVersion, plan) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 async function migrateOwnedSupabaseApplication(input) {
-  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid23.test(input.operationId) || !await input.isCurrent())
+  if (typeof window !== "undefined" || !ref2.test(input.projectRef) || !uuid24.test(input.operationId) || !await input.isCurrent())
     throw new Error("Customer Supabase migration unavailable.");
   const plan = await planOwnedSupabaseAdditiveMigration(input.previous, input.next);
   const verify = async () => await input.isCurrent() && await input.verifyDeployed(structuredClone(plan.next)) && await input.isCurrent();
@@ -17824,16 +18028,16 @@ function assertOwnedSupabaseMigrationMetadata(value) {
 }
 
 // server/website-owned-supabase-migration-store.ts
-var uuid24 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid25 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref3 = /^[a-z]{20}$/;
-var object18 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object19 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function committed(value) {
-  const row2 = object18(value);
+  const row2 = object19(value);
   if (!row2 || Object.keys(row2).some((key2) => !["attemptVersion", "connectionVersion"].includes(key2)) || !Number.isSafeInteger(row2.attemptVersion) || row2.attemptVersion < 1 || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1) throw new Error();
   return { attemptVersion: row2.attemptVersion, connectionVersion: row2.connectionVersion };
 }
 function createOwnedSupabaseMigrationStore(input) {
-  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid24.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
+  if (typeof window !== "undefined" || ![input.connectionId, input.projectId, input.ownerId, input.operationId].every((value) => uuid25.test(value)) || !["preview", "production"].includes(input.environment) || !ref3.test(input.projectRef) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !Number.isSafeInteger(input.expectedAttemptVersion) || input.expectedAttemptVersion < 0)
     throw new Error("Customer Supabase migration store unavailable.");
   const scope = { p_connection_id: input.connectionId, p_project_id: input.projectId, p_owner_id: input.ownerId };
   const metadata = (plan) => {
@@ -17872,7 +18076,7 @@ function createOwnedSupabaseMigrationStore(input) {
           p_expected_attempt_version: attemptVersion,
           p_operation_id: input.operationId
         });
-        const row2 = object18(data);
+        const row2 = object19(data);
         if (error || !row2 || Object.keys(row2).some((key2) => !["attemptVersion", "issueMutation", "accessToken"].includes(key2)) || !Number.isSafeInteger(row2.attemptVersion) || row2.attemptVersion < attemptVersion || typeof row2.issueMutation !== "boolean" || typeof row2.accessToken !== "string" || row2.accessToken.length < 20 || row2.accessToken.length > 4096 || /[\r\n]/.test(row2.accessToken) || !await input.isCurrent()) throw new Error();
         return { attemptVersion: row2.attemptVersion, issueMutation: row2.issueMutation, accessToken: row2.accessToken };
       } catch {
@@ -17882,7 +18086,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async commit(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid24.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid25.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_commit_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -17899,7 +18103,7 @@ function createOwnedSupabaseMigrationStore(input) {
     async reconcile(attemptVersion, plan, commitId4) {
       try {
         const meta = metadata(plan);
-        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid24.test(commitId4) || !await input.isCurrent()) throw new Error();
+        if (!Number.isSafeInteger(attemptVersion) || attemptVersion < 1 || !uuid25.test(commitId4) || !await input.isCurrent()) throw new Error();
         const { data, error } = await input.client.rpc("website_reconcile_supabase_migration", {
           ...scope,
           p_expected_attempt_version: attemptVersion,
@@ -17917,16 +18121,16 @@ function createOwnedSupabaseMigrationStore(input) {
 }
 
 // server/website-owned-supabase-migration-worker.ts
-var uuid25 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid26 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref4 = /^[a-z]{20}$/;
 var provider7 = /^[A-Za-z0-9_-]{1,200}$/;
 var slug2 = /^[a-z0-9][a-z0-9-]{0,199}$/;
 var digest9 = /^[0-9a-f]{64}$/;
-var object19 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object20 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact3 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 function parseAttempt(value) {
   if (value === null) return null;
-  const row2 = object19(value);
+  const row2 = object20(value);
   if (!row2 || !exact3(row2, [
     "version",
     "status",
@@ -17938,7 +18142,7 @@ function parseAttempt(value) {
     "nextDigest",
     "queryDigest",
     "statementCount"
-  ]) || !Number.isSafeInteger(row2.version) || row2.version < 1 || !["prepared", "claimed", "ready"].includes(String(row2.status)) || typeof row2.operationId !== "string" || !uuid25.test(row2.operationId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || ![row2.previousDigest, row2.nextDigest, row2.queryDigest].every((value2) => typeof value2 === "string" && digest9.test(value2)) || row2.previousDigest === row2.nextDigest || !Number.isSafeInteger(row2.statementCount) || row2.statementCount < 1 || row2.statementCount > 512) throw new Error();
+  ]) || !Number.isSafeInteger(row2.version) || row2.version < 1 || !["prepared", "claimed", "ready"].includes(String(row2.status)) || typeof row2.operationId !== "string" || !uuid26.test(row2.operationId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || ![row2.previousDigest, row2.nextDigest, row2.queryDigest].every((value2) => typeof value2 === "string" && digest9.test(value2)) || row2.previousDigest === row2.nextDigest || !Number.isSafeInteger(row2.statementCount) || row2.statementCount < 1 || row2.statementCount > 512) throw new Error();
   return {
     version: row2.version,
     status: row2.status,
@@ -17953,7 +18157,7 @@ function parseAttempt(value) {
   };
 }
 function parseTarget2(value) {
-  const row2 = object19(value);
+  const row2 = object20(value);
   if (!row2 || !exact3(row2, [
     "connectionId",
     "connectionVersion",
@@ -17964,7 +18168,7 @@ function parseTarget2(value) {
     "organizationSlug",
     "definition",
     "attempt"
-  ]) || typeof row2.connectionId !== "string" || !uuid25.test(row2.connectionId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || !Number.isSafeInteger(row2.custodyVersion) || row2.custodyVersion < 1 || typeof row2.projectRef !== "string" || !ref4.test(row2.projectRef) || typeof row2.accountId !== "string" || !provider7.test(row2.accountId) || typeof row2.organizationId !== "string" || !provider7.test(row2.organizationId) || typeof row2.organizationSlug !== "string" || !slug2.test(row2.organizationSlug)) throw new Error();
+  ]) || typeof row2.connectionId !== "string" || !uuid26.test(row2.connectionId) || !Number.isSafeInteger(row2.connectionVersion) || row2.connectionVersion < 1 || !Number.isSafeInteger(row2.custodyVersion) || row2.custodyVersion < 1 || typeof row2.projectRef !== "string" || !ref4.test(row2.projectRef) || typeof row2.accountId !== "string" || !provider7.test(row2.accountId) || typeof row2.organizationId !== "string" || !provider7.test(row2.organizationId) || typeof row2.organizationSlug !== "string" || !slug2.test(row2.organizationSlug)) throw new Error();
   return {
     connectionId: row2.connectionId,
     connectionVersion: row2.connectionVersion,
@@ -17978,7 +18182,7 @@ function parseTarget2(value) {
   };
 }
 async function migrateWebsiteOwnedSupabaseFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid25.test(value)) || !["preview", "production"].includes(input.environment) || !provider7.test(input.platformSupabaseOrganizationId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid26.test(value)) || !["preview", "production"].includes(input.environment) || !provider7.test(input.platformSupabaseOrganizationId))
     throw new Error("Customer Supabase migration worker unavailable.");
   const fetcher = input.fetcher ?? fetch;
   const readTarget2 = async () => {
@@ -18021,7 +18225,7 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
       if (!Array.isArray(value) || value.length !== 1) {
         throw new Error();
       }
-      const row2 = object19(value[0]);
+      const row2 = object20(value[0]);
       if (!row2 || !exact3(row2, ["definition"])) throw new Error();
       return readApplicationDefinition(row2.definition);
     };
@@ -18037,7 +18241,7 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
         if (!Array.isArray(value) || value.length !== 1) {
           throw new Error();
         }
-        const row2 = object19(value[0]);
+        const row2 = object20(value[0]);
         if (!row2 || !exact3(row2, ["form_request_version"])) throw new Error();
         return row2.form_request_version;
       },
@@ -18108,26 +18312,26 @@ async function migrateWebsiteOwnedSupabaseFromCustody(input) {
 }
 
 // server/website-owned-runtime-binding.ts
-var uuid26 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid27 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var ref5 = /^[a-z]{20}$/;
 var vercel = /^prj_[A-Za-z0-9]{8,128}$/;
-var object20 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object21 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function target(value, kind) {
-  const row2 = object20(value), identity6 = kind === "supabase" ? row2?.projectRef : row2?.projectId;
-  if (!row2 || Object.keys(row2).some((key2) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid26.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1 || typeof identity6 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity6)) throw new Error();
-  return { connectionId: row2.connectionId, version: row2.version, [kind === "supabase" ? "projectRef" : "projectId"]: identity6 };
+  const row2 = object21(value), identity7 = kind === "supabase" ? row2?.projectRef : row2?.projectId;
+  if (!row2 || Object.keys(row2).some((key2) => !["connectionId", "version", kind === "supabase" ? "projectRef" : "projectId"].includes(key2)) || typeof row2.connectionId !== "string" || !uuid27.test(row2.connectionId) || !Number.isSafeInteger(row2.version) || row2.version < 1 || typeof identity7 !== "string" || !(kind === "supabase" ? ref5 : vercel).test(identity7)) throw new Error();
+  return { connectionId: row2.connectionId, version: row2.version, [kind === "supabase" ? "projectRef" : "projectId"]: identity7 };
 }
 function parse2(value) {
-  const row2 = object20(value);
+  const row2 = object21(value);
   if (!row2 || Object.keys(row2).some((key2) => !["supabase", "vercel"].includes(key2))) throw new Error();
   const supabase = target(row2.supabase, "supabase");
   const vercelTarget = target(row2.vercel, "vercel");
   if (supabase.connectionId === vercelTarget.connectionId) throw new Error();
   return { supabase, vercel: vercelTarget };
 }
-var identity4 = (value) => JSON.stringify(value);
+var identity5 = (value) => JSON.stringify(value);
 async function setupWebsiteOwnedRuntimeBinding(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid26.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid27.test(value)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.expectedBindingVersion) || input.expectedBindingVersion < 0) throw new Error("BYO runtime setup unavailable.");
   const readTargets = async () => {
     const { data, error } = await input.client.rpc("website_byo_runtime_setup_targets", {
       p_project_id: input.projectId,
@@ -18138,14 +18342,14 @@ async function setupWebsiteOwnedRuntimeBinding(input) {
     return parse2(data);
   };
   try {
-    const targets = await readTargets(), captured = identity4(targets), saved = await input.reader.readSavedProject(input.projectId, input.ownerId);
-    if (!saved || saved.projectId !== input.projectId || saved.ownerId !== input.ownerId || !object20(saved.snapshot.application)) throw new Error();
+    const targets = await readTargets(), captured = identity5(targets), saved = await input.reader.readSavedProject(input.projectId, input.ownerId);
+    if (!saved || saved.projectId !== input.projectId || saved.ownerId !== input.ownerId || !object21(saved.snapshot.application)) throw new Error();
     const snapshotDigest = await websiteProjectReleaseDigest(saved.snapshot), application = structuredClone(saved.snapshot.application);
     const definition = readApplicationDefinition(application);
     const isCurrent = async () => {
       try {
         const latest = await input.reader.readSavedProject(input.projectId, input.ownerId);
-        return identity4(await readTargets()) === captured && !!latest && latest.projectId === input.projectId && latest.ownerId === input.ownerId && await websiteProjectReleaseDigest(latest.snapshot) === snapshotDigest;
+        return identity5(await readTargets()) === captured && !!latest && latest.projectId === input.projectId && latest.ownerId === input.ownerId && await websiteProjectReleaseDigest(latest.snapshot) === snapshotDigest;
       } catch {
         return false;
       }
@@ -18153,7 +18357,7 @@ async function setupWebsiteOwnedRuntimeBinding(input) {
     if (!await isCurrent()) throw new Error();
     const supabase = await input.verifySupabase({ definition: structuredClone(definition), targets: structuredClone(targets), isCurrent });
     if (!supabase || supabase.verified !== true || !await isCurrent()) throw new Error();
-    const backendRow = object20(supabase.backend);
+    const backendRow = object21(supabase.backend);
     if (!backendRow || Object.keys(backendRow).some((key2) => !["url", "projectRef", "publishableKey"].includes(key2)) || typeof backendRow.url !== "string" || typeof backendRow.projectRef !== "string" || typeof backendRow.publishableKey !== "string") throw new Error();
     const backend = { url: backendRow.url, projectRef: backendRow.projectRef, publishableKey: backendRow.publishableKey };
     validateOwnedApplicationPublicBackend(backend, targets.supabase.projectRef);
@@ -18232,16 +18436,16 @@ async function verifyOwnedVercelProject(input) {
 }
 
 // server/website-owned-runtime-setup-adapters.ts
-var uuid27 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid28 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider8 = /^[A-Za-z0-9_-]{1,200}$/;
 var project10 = /^prj_[A-Za-z0-9]{8,128}$/;
 var gitName3 = /^[A-Za-z0-9_.-]{1,100}$/;
 var branch9 = /^[A-Za-z0-9_./-]{1,200}$/;
-var object21 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object22 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact4 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 var currentDate2 = (value) => typeof value === "string" && Number.isFinite(Date.parse(value)) && Date.parse(value) > Date.now();
 function parseVercelCustody(value, environment, target2) {
-  const row2 = object21(value);
+  const row2 = object22(value);
   if (!row2 || !exact4(row2, [
     "userId",
     "accountId",
@@ -18263,7 +18467,7 @@ function runtimeReader(custody, isCurrent, fetcher) {
     if (!await isCurrent()) throw new Error();
     const value = await query(sql4);
     if (!Array.isArray(value) || value.length !== 1) throw new Error();
-    const row2 = object21(value[0]);
+    const row2 = object22(value[0]);
     if (!row2 || !exact4(row2, [key2]) || !await isCurrent()) throw new Error();
     return row2[key2];
   };
@@ -18275,7 +18479,7 @@ function runtimeReader(custody, isCurrent, fetcher) {
   };
 }
 async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
-  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid27.test(value)) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId))
+  if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid28.test(value)) || !provider8.test(input.platformSupabaseOrganizationId) || !provider8.test(input.platformVercelAccountId))
     throw new Error("BYO runtime setup adapters unavailable.");
   const fetcher = input.fetcher ?? fetch;
   try {
@@ -18335,11 +18539,11 @@ async function setupWebsiteOwnedRuntimeBindingFromCustody(input) {
 }
 
 // server/website-owned-backend-preparation-worker.ts
-var uuid28 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid29 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider9 = /^[A-Za-z0-9_-]{1,200}$/;
-var object22 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object23 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 function parseState(value) {
-  const row2 = object22(value);
+  const row2 = object23(value);
   if (!row2 || Object.keys(row2).some((key2) => !["bindingVersion", "expectedBindingVersion", "operationCommitted"].includes(key2)) || !Number.isSafeInteger(row2.bindingVersion) || row2.bindingVersion < 0 || !Number.isSafeInteger(row2.expectedBindingVersion) || row2.expectedBindingVersion < 0 || typeof row2.operationCommitted !== "boolean") throw new Error();
   const bindingVersion = row2.bindingVersion, expectedBindingVersion = row2.expectedBindingVersion;
   if (row2.operationCommitted ? bindingVersion !== expectedBindingVersion + 1 : bindingVersion !== expectedBindingVersion) throw new Error();
@@ -18347,7 +18551,7 @@ function parseState(value) {
 }
 function createWebsiteOwnedBackendPreparationWorker(dependencies) {
   return async function prepareWebsiteOwnedBackend2(input) {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid28.test(value)) || !["preview", "production"].includes(input.environment) || !provider9.test(input.platformSupabaseOrganizationId) || !provider9.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.operationId].every((value) => uuid29.test(value)) || !["preview", "production"].includes(input.environment) || !provider9.test(input.platformSupabaseOrganizationId) || !provider9.test(input.platformVercelAccountId)) throw new Error("Customer backend preparation unavailable.");
     try {
       const migration = await dependencies.migrate({
         client: input.client,
@@ -18398,8 +18602,8 @@ var prepareWebsiteOwnedBackend = createWebsiteOwnedBackendPreparationWorker({
 });
 
 // server/website-owned-source-reader.ts
-var uuid29 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var object23 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var uuid30 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var object24 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 async function rpc(client, name2, args) {
   const { data, error } = await client.rpc(name2, args);
   if (error) return null;
@@ -18408,15 +18612,15 @@ async function rpc(client, name2, args) {
 function createWebsiteOwnedSourceReader(client) {
   return {
     async readSavedProject(projectId, ownerId) {
-      if (!uuid29.test(projectId) || !uuid29.test(ownerId)) return null;
-      const row2 = object23(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
-      const snapshot = object23(row2?.snapshot);
+      if (!uuid30.test(projectId) || !uuid30.test(ownerId)) return null;
+      const row2 = object24(await rpc(client, "website_byo_saved_project", { p_project_id: projectId, p_owner_id: ownerId }));
+      const snapshot = object24(row2?.snapshot);
       if (!row2 || row2.projectId !== projectId || row2.ownerId !== ownerId || !snapshot) return null;
       return { projectId, ownerId, snapshot: structuredClone(snapshot) };
     },
     async readConnection(connectionId, projectId, ownerId) {
-      if (![connectionId, projectId, ownerId].every((value) => uuid29.test(value))) return null;
-      const row2 = object23(await rpc(client, "website_byo_connection_for_worker", {
+      if (![connectionId, projectId, ownerId].every((value) => uuid30.test(value))) return null;
+      const row2 = object24(await rpc(client, "website_byo_connection_for_worker", {
         p_connection_id: connectionId,
         p_project_id: projectId,
         p_owner_id: ownerId
@@ -18432,13 +18636,13 @@ function createWebsiteOwnedSourceReader(client) {
       }
     },
     async readOwnedRuntimeBinding(projectId, ownerId, environment) {
-      if (!uuid29.test(projectId) || !uuid29.test(ownerId) || !["preview", "production"].includes(environment)) return null;
-      const row2 = object23(await rpc(client, "website_byo_runtime_binding_for_worker", {
+      if (!uuid30.test(projectId) || !uuid30.test(ownerId) || !["preview", "production"].includes(environment)) return null;
+      const row2 = object24(await rpc(client, "website_byo_runtime_binding_for_worker", {
         p_project_id: projectId,
         p_owner_id: ownerId,
         p_environment: environment
-      })), backend = object23(row2?.backend);
-      if (!row2 || !backend || row2.projectId !== projectId || row2.ownerId !== ownerId || row2.environment !== environment || !Number.isSafeInteger(row2.bindingVersion) || row2.bindingVersion < 1 || typeof row2.supabaseConnectionId !== "string" || !uuid29.test(row2.supabaseConnectionId) || !Number.isSafeInteger(row2.supabaseConnectionVersion) || row2.supabaseConnectionVersion < 1 || typeof row2.vercelConnectionId !== "string" || !uuid29.test(row2.vercelConnectionId) || !Number.isSafeInteger(row2.vercelConnectionVersion) || row2.vercelConnectionVersion < 1 || row2.supabaseConnectionId === row2.vercelConnectionId || typeof row2.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
+      })), backend = object24(row2?.backend);
+      if (!row2 || !backend || row2.projectId !== projectId || row2.ownerId !== ownerId || row2.environment !== environment || !Number.isSafeInteger(row2.bindingVersion) || row2.bindingVersion < 1 || typeof row2.supabaseConnectionId !== "string" || !uuid30.test(row2.supabaseConnectionId) || !Number.isSafeInteger(row2.supabaseConnectionVersion) || row2.supabaseConnectionVersion < 1 || typeof row2.vercelConnectionId !== "string" || !uuid30.test(row2.vercelConnectionId) || !Number.isSafeInteger(row2.vercelConnectionVersion) || row2.vercelConnectionVersion < 1 || row2.supabaseConnectionId === row2.vercelConnectionId || typeof row2.applicationOrigin !== "string" || typeof backend.url !== "string" || typeof backend.projectRef !== "string" || typeof backend.publishableKey !== "string") return null;
       try {
         const origin = new URL(row2.applicationOrigin);
         if (origin.protocol !== "https:" || origin.origin !== row2.applicationOrigin || origin.username || origin.password || origin.port || origin.hostname.endsWith(".supabase.co")) return null;
@@ -18503,7 +18707,7 @@ function createWebsiteProductionStagingStore(input) {
 }
 
 // server/website-owned-vercel-staging.ts
-var uuid30 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid31 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var deployment7 = /^dpl_[A-Za-z0-9]{8,128}$/;
 var providerId2 = /^[A-Za-z0-9_-]{3,128}$/;
 var environmentName2 = /^[A-Z][A-Z0-9_]{1,99}$/;
@@ -18511,7 +18715,7 @@ async function stageOwnedVercelProductionDeployment(input) {
   try {
     const candidate = structuredClone(readProductionSourceCandidate(input.candidate));
     const ids2 = Object.fromEntries(Object.entries(input.runtimeEnvironmentIds).sort(([a], [b]) => a.localeCompare(b)));
-    if (typeof window !== "undefined" || !uuid30.test(candidate.operationId) || candidate.sourceDigest === candidate.previewSourceDigest || input.accessToken.length > 4096 || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || !Object.keys(ids2).length || Object.keys(ids2).length > 64 || Object.entries(ids2).some(([key2, value]) => !environmentName2.test(key2) || !providerId2.test(value)) || new Set(Object.values(ids2)).size !== Object.keys(ids2).length) throw new Error();
+    if (typeof window !== "undefined" || !uuid31.test(candidate.operationId) || candidate.sourceDigest === candidate.previewSourceDigest || input.accessToken.length > 4096 || !Number.isSafeInteger(input.runtimeEnvironmentReceiptVersion) || input.runtimeEnvironmentReceiptVersion < 1 || !Object.keys(ids2).length || Object.keys(ids2).length > 64 || Object.entries(ids2).some(([key2, value]) => !environmentName2.test(key2) || !providerId2.test(value)) || new Set(Object.values(ids2)).size !== Object.keys(ids2).length) throw new Error();
     const scope = {
       candidate,
       accountId: input.accountId,
@@ -18663,13 +18867,13 @@ async function stageOwnedVercelProductionDeployment(input) {
 }
 
 // server/website-production-runtime-attestation.ts
-var uuid31 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid32 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var deployment8 = /^dpl_[A-Za-z0-9]{8,128}$/;
 var digest10 = /^[a-f0-9]{64}$/;
 var read = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   const item = value;
-  if (Object.keys(item).sort().join(",") !== "deploymentId,liveUrl,operationId,runtimeDigest,sourceDigest,status" || item.status !== "runtime-verified" || typeof item.operationId !== "string" || !uuid31.test(item.operationId) || typeof item.deploymentId !== "string" || !deployment8.test(item.deploymentId) || typeof item.liveUrl !== "string" || !/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(item.liveUrl) || typeof item.sourceDigest !== "string" || !digest10.test(item.sourceDigest) || typeof item.runtimeDigest !== "string" || !digest10.test(item.runtimeDigest)) throw new Error();
+  if (Object.keys(item).sort().join(",") !== "deploymentId,liveUrl,operationId,runtimeDigest,sourceDigest,status" || item.status !== "runtime-verified" || typeof item.operationId !== "string" || !uuid32.test(item.operationId) || typeof item.deploymentId !== "string" || !deployment8.test(item.deploymentId) || typeof item.liveUrl !== "string" || !/^https:\/\/[a-z0-9-]+\.vercel\.app$/.test(item.liveUrl) || typeof item.sourceDigest !== "string" || !digest10.test(item.sourceDigest) || typeof item.runtimeDigest !== "string" || !digest10.test(item.runtimeDigest)) throw new Error();
   return item;
 };
 async function recordWebsiteProductionRuntimeAttestation(input) {
@@ -18769,13 +18973,13 @@ async function verifyOwnedDeployedBehavior(input) {
 }
 
 // server/website-owned-production-backend-verification.ts
-var uuid32 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid33 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider10 = /^[A-Za-z0-9_-]{1,200}$/;
-var object24 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
+var object25 = (value) => value && typeof value === "object" && !Array.isArray(value) ? value : null;
 var exact5 = (row2, keys2) => Object.keys(row2).every((key2) => keys2.includes(key2));
 async function verifyWebsiteOwnedProductionBackend(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.connectionId].every((value) => uuid32.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !provider10.test(input.platformSupabaseOrganizationId) || !await input.isCurrent()) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.connectionId].every((value) => uuid33.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !provider10.test(input.platformSupabaseOrganizationId) || !await input.isCurrent()) throw new Error();
     const result = await input.client.rpc("website_read_supabase_oauth_custody", {
       p_connection_id: input.connectionId,
       p_project_id: input.projectId,
@@ -18799,7 +19003,7 @@ async function verifyWebsiteOwnedProductionBackend(input) {
       if (!await input.isCurrent()) throw new Error();
       const value = await query(sql4);
       if (!Array.isArray(value) || value.length !== 1) throw new Error();
-      const row2 = object24(value[0]);
+      const row2 = object25(value[0]);
       if (!row2 || !exact5(row2, [key2]) || !await input.isCurrent()) throw new Error();
       return row2[key2];
     };
@@ -18826,18 +19030,18 @@ async function verifyWebsiteOwnedProductionBackend(input) {
 init_website_owned_stripe();
 
 // server/website-owned-runtime-secret-staging.ts
-var uuid33 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-var identity5 = /^[A-Za-z0-9_-]{3,128}$/;
+var uuid34 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var identity6 = /^[A-Za-z0-9_-]{3,128}$/;
 function exactSecret(value) {
   return value.sourceConnectionId === "runtime-supabase" && value.sourceField === "apiKey" && value.environmentKey === "SUPABASE_SECRET_KEY" || value.sourceConnectionId === "runtime-cron" && value.sourceField === "secret" && value.environmentKey === "CRON_SECRET";
 }
-function object25(value) {
+function object26(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   return value;
 }
 async function inspectOwnedRuntimeSecretState(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid33.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !exactSecret(input.secret)) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((v) => uuid34.test(v)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !exactSecret(input.secret)) throw new Error();
     const { data, error } = await input.client.rpc("website_owned_runtime_secret_state_for_worker", {
       p_project_id: input.projectId,
       p_owner_id: input.ownerId,
@@ -18849,7 +19053,7 @@ async function inspectOwnedRuntimeSecretState(input) {
       p_environment: input.environment
     });
     if (error) throw new Error();
-    const row2 = object25(data), keys2 = [
+    const row2 = object26(data), keys2 = [
       "environmentId",
       "handoffId",
       "handoffOperationId",
@@ -18864,7 +19068,7 @@ async function inspectOwnedRuntimeSecretState(input) {
     ];
     if (Object.keys(row2).sort().join(",") !== keys2.sort().join(",")) throw new Error();
     const stageId = row2.stageId, handoffId = row2.handoffId, status2 = row2.handoffStatus, environmentId = row2.environmentId;
-    if (!Number.isSafeInteger(row2.stageVersion) || row2.stageVersion < 0 || !Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || stageId === null !== (row2.stageVersion === 0) || stageId === null && (row2.stageOperationId !== null || row2.sourceUpdatedAt !== null) || stageId !== null && (typeof stageId !== "string" || !uuid33.test(stageId) || typeof row2.stageOperationId !== "string" || !uuid33.test(row2.stageOperationId) || typeof row2.sourceUpdatedAt !== "string" || !Number.isFinite(Date.parse(row2.sourceUpdatedAt))) || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || row2.handoffOperationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid33.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof row2.handoffOperationId !== "string" || !uuid33.test(row2.handoffOperationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity5.test(environmentId)) || row2.ready === true && (stageId === null || status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
+    if (!Number.isSafeInteger(row2.stageVersion) || row2.stageVersion < 0 || !Number.isSafeInteger(row2.handoffVersion) || row2.handoffVersion < 0 || typeof row2.sourceAvailable !== "boolean" || typeof row2.ready !== "boolean" || stageId === null !== (row2.stageVersion === 0) || stageId === null && (row2.stageOperationId !== null || row2.sourceUpdatedAt !== null) || stageId !== null && (typeof stageId !== "string" || !uuid34.test(stageId) || typeof row2.stageOperationId !== "string" || !uuid34.test(row2.stageOperationId) || typeof row2.sourceUpdatedAt !== "string" || !Number.isFinite(Date.parse(row2.sourceUpdatedAt))) || handoffId === null !== (row2.handoffVersion === 0) || handoffId === null && (status2 !== null || row2.handoffOperationId !== null || environmentId !== null) || handoffId !== null && (typeof handoffId !== "string" || !uuid34.test(handoffId) || !["preparing", "verified", "removed"].includes(String(status2)) || typeof row2.handoffOperationId !== "string" || !uuid34.test(row2.handoffOperationId)) || environmentId !== null && (typeof environmentId !== "string" || !identity6.test(environmentId)) || row2.ready === true && (stageId === null || status2 !== "verified" || environmentId === null || row2.sourceAvailable !== false)) throw new Error();
     return structuredClone(row2);
   } catch {
     throw new Error("Runtime secret state unavailable.");
@@ -18873,7 +19077,7 @@ async function inspectOwnedRuntimeSecretState(input) {
 
 // server/website-owned-production-services-verification.ts
 init_website_owned_vercel_environment();
-var uuid34 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid35 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider11 = /^[A-Za-z0-9_-]{3,128}$/;
 var project11 = /^prj_[A-Za-z0-9]{8,128}$/;
 var generated = [
@@ -18882,13 +19086,13 @@ var generated = [
 ];
 async function verifyWebsiteOwnedProductionServices(input) {
   try {
-    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((value) => uuid34.test(value)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !input.vercel.accessToken || input.vercel.accessToken.length > 4096 || /[\r\n]/.test(input.vercel.accessToken) || !provider11.test(input.vercel.userId) || !provider11.test(input.vercel.accountId) || !project11.test(input.vercel.vercelProjectId) || input.capabilities.blockers.length || input.capabilities.needs.cms || !await input.isCurrent()) throw new Error();
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.vercelConnectionId].every((value) => uuid35.test(value)) || !Number.isSafeInteger(input.vercelConnectionVersion) || input.vercelConnectionVersion < 1 || !input.vercel.accessToken || input.vercel.accessToken.length > 4096 || /[\r\n]/.test(input.vercel.accessToken) || !provider11.test(input.vercel.userId) || !provider11.test(input.vercel.accountId) || !project11.test(input.vercel.vercelProjectId) || input.capabilities.blockers.length || input.capabilities.needs.cms || !await input.isCurrent()) throw new Error();
     const providers2 = new Set(input.capabilities.integrationProviders);
     if (providers2.size !== input.capabilities.integrationProviders.length || [...providers2].some((value) => !["stripe", "resend"].includes(value)) || providers2.has("stripe") !== Boolean(input.stripeRuntime) || providers2.has("resend") !== Boolean(input.emailRuntime)) throw new Error();
     const plan = createOwnedRuntimeSecretPlan({
       environment: "production",
       capabilities: input.capabilities,
-      emailConnections: input.emailRuntime?.connections.map((connection3) => ({ id: connection3.sourceConnectionId, from: connection3.from }))
+      emailConnections: input.emailRuntime?.connections.map((connection4) => ({ id: connection4.sourceConnectionId, from: connection4.from }))
     });
     const requirements = new Set(plan.requirements.map((requirement) => requirement.key));
     for (const key2 of ["SUPABASE_URL", "SUPABASE_ANON_KEY"]) requirements.delete(key2);
@@ -18919,31 +19123,31 @@ async function verifyWebsiteOwnedProductionServices(input) {
       environmentIds.STRIPE_SECRET_KEY = state.environmentId;
     } else if (requirements.has("STRIPE_SECRET_KEY")) throw new Error();
     if (input.emailRuntime) {
-      for (const connection3 of input.emailRuntime.connections) {
-        if (!requirements.delete(connection3.environmentKey)) throw new Error();
+      for (const connection4 of input.emailRuntime.connections) {
+        if (!requirements.delete(connection4.environmentKey)) throw new Error();
         const state = await inspectOwnedEmailRuntimeForPublish({
           client: input.client,
           projectId: input.projectId,
           ownerId: input.ownerId,
           vercelConnectionId: input.vercelConnectionId,
           vercelConnectionVersion: input.vercelConnectionVersion,
-          sourceConnectionId: connection3.sourceConnectionId,
-          sourceUpdatedAt: connection3.sourceUpdatedAt,
-          environmentKey: connection3.environmentKey,
+          sourceConnectionId: connection4.sourceConnectionId,
+          sourceUpdatedAt: connection4.sourceUpdatedAt,
+          environmentKey: connection4.environmentKey,
           environment: "production"
         });
         if (!state.ready || !state.environmentId || !state.handoffOperationId || !await current()) throw new Error();
         await verifyOwnedEmailRuntimeDestination({
           ...input.vercel,
           environmentId: state.environmentId,
-          environmentKey: connection3.environmentKey,
+          environmentKey: connection4.environmentKey,
           projectId: input.projectId,
           environment: "production",
           handoffOperationId: state.handoffOperationId,
           isCurrent: current,
           fetcher: input.fetcher
         });
-        environmentIds[connection3.environmentKey] = state.environmentId;
+        environmentIds[connection4.environmentKey] = state.environmentId;
       }
       for (const secret of generated) {
         if (!requirements.delete(secret.environmentKey)) throw new Error();
@@ -18979,17 +19183,17 @@ async function verifyWebsiteOwnedProductionServices(input) {
 }
 
 // server/website-production-staging-worker.ts
-var uuid35 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid36 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var provider12 = /^[A-Za-z0-9_-]{3,128}$/;
-var object26 = (value) => {
+var object27 = (value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error();
   return value;
 };
 var canonical3 = (value) => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 function readTarget(value, input) {
-  const target2 = object26(value), raw = object26(target2.scope), candidate = readProductionSourceCandidate(raw.candidate);
-  if (Object.keys(target2).sort().join(",") !== "scope,vercelConnectionId,vercelConnectionVersion" || Object.keys(raw).sort().join(",") !== "accountId,candidate,projectId,repositoryId,runtimeEnvironmentIds,runtimeEnvironmentReceiptVersion,sourceBranch" || candidate.operationId !== input.operationId || candidate.projectId !== input.projectId || candidate.ownerId !== input.ownerId || candidate.sourceDigest === candidate.previewSourceDigest || typeof target2.vercelConnectionId !== "string" || !uuid35.test(target2.vercelConnectionId) || !Number.isSafeInteger(target2.vercelConnectionVersion) || Number(target2.vercelConnectionVersion) < 1 || typeof raw.accountId !== "string" || !provider12.test(raw.accountId) || typeof raw.projectId !== "string" || !/^prj_[A-Za-z0-9]{8,128}$/.test(raw.projectId) || typeof raw.repositoryId !== "string" || !/^\d+$/.test(raw.repositoryId) || raw.sourceBranch !== `tayar/${input.projectId}/production` || !Number.isSafeInteger(raw.runtimeEnvironmentReceiptVersion) || Number(raw.runtimeEnvironmentReceiptVersion) < 1) throw new Error();
-  const ids2 = object26(raw.runtimeEnvironmentIds);
+  const target2 = object27(value), raw = object27(target2.scope), candidate = readProductionSourceCandidate(raw.candidate);
+  if (Object.keys(target2).sort().join(",") !== "scope,vercelConnectionId,vercelConnectionVersion" || Object.keys(raw).sort().join(",") !== "accountId,candidate,projectId,repositoryId,runtimeEnvironmentIds,runtimeEnvironmentReceiptVersion,sourceBranch" || candidate.operationId !== input.operationId || candidate.projectId !== input.projectId || candidate.ownerId !== input.ownerId || candidate.sourceDigest === candidate.previewSourceDigest || typeof target2.vercelConnectionId !== "string" || !uuid36.test(target2.vercelConnectionId) || !Number.isSafeInteger(target2.vercelConnectionVersion) || Number(target2.vercelConnectionVersion) < 1 || typeof raw.accountId !== "string" || !provider12.test(raw.accountId) || typeof raw.projectId !== "string" || !/^prj_[A-Za-z0-9]{8,128}$/.test(raw.projectId) || typeof raw.repositoryId !== "string" || !/^\d+$/.test(raw.repositoryId) || raw.sourceBranch !== `tayar/${input.projectId}/production` || !Number.isSafeInteger(raw.runtimeEnvironmentReceiptVersion) || Number(raw.runtimeEnvironmentReceiptVersion) < 1) throw new Error();
+  const ids2 = object27(raw.runtimeEnvironmentIds);
   if (Object.keys(ids2).sort().join(",") !== "SUPABASE_ANON_KEY,SUPABASE_URL" || Object.values(ids2).some((value2) => typeof value2 !== "string" || !provider12.test(value2)) || new Set(Object.values(ids2)).size !== 2) throw new Error();
   return {
     scope: structuredClone(raw),
@@ -18999,7 +19203,7 @@ function readTarget(value, input) {
 }
 async function stageWebsiteProductionCandidate(input) {
   try {
-    if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((value) => uuid35.test(value)) || !provider12.test(input.platformVercelAccountId) || !await input.isCurrent()) throw new Error();
+    if (typeof window !== "undefined" || ![input.operationId, input.projectId, input.ownerId].every((value) => uuid36.test(value)) || !provider12.test(input.platformVercelAccountId) || !await input.isCurrent()) throw new Error();
     const read2 = async () => {
       if (!await input.isCurrent()) throw new Error();
       const result2 = await input.client.rpc("website_production_staging_target", {
@@ -19030,8 +19234,8 @@ async function stageWebsiteProductionCandidate(input) {
       productionGithubConnectionId: github.connectionId,
       expectedPreviewSourceDigest: target2.scope.candidate.previewSourceDigest
     });
-    const identity6 = await readOwnedReleaseIdentity(source.files);
-    if (source.sourceDigest !== target2.scope.candidate.sourceDigest || source.snapshotDigest !== target2.scope.candidate.snapshotDigest || identity6.projectId !== input.projectId || identity6.environment !== "production" || identity6.runtimeDigest !== target2.scope.candidate.runtimeDigest || source.connection.version !== github.version || source.connection.targetId !== target2.scope.repositoryId || source.vercel.id !== vercel2.connectionId || source.vercel.version !== vercel2.version || source.vercel.accountId !== target2.scope.accountId || source.vercel.targetId !== target2.scope.projectId || source.capabilities.blockers.length || source.capabilities.needs.cms) throw new Error();
+    const identity7 = await readOwnedReleaseIdentity(source.files);
+    if (source.sourceDigest !== target2.scope.candidate.sourceDigest || source.snapshotDigest !== target2.scope.candidate.snapshotDigest || identity7.projectId !== input.projectId || identity7.environment !== "production" || identity7.runtimeDigest !== target2.scope.candidate.runtimeDigest || source.connection.version !== github.version || source.connection.targetId !== target2.scope.repositoryId || source.vercel.id !== vercel2.connectionId || source.vercel.version !== vercel2.version || source.vercel.accountId !== target2.scope.accountId || source.vercel.targetId !== target2.scope.projectId || source.capabilities.blockers.length || source.capabilities.needs.cms) throw new Error();
     let active = true;
     const current = async () => {
       if (!active) return false;
@@ -19064,7 +19268,7 @@ async function stageWebsiteProductionCandidate(input) {
       p_expected_connection_version: target2.vercelConnectionVersion
     });
     if (result.error || !await current()) throw new Error();
-    const custody = object26(result.data);
+    const custody = object27(result.data);
     if (typeof custody.accessToken !== "string" || !custody.accessToken || custody.accessToken.length > 4096 || /[\r\n]/.test(custody.accessToken) || typeof custody.userId !== "string" || !provider12.test(custody.userId) || custody.environment !== "production" || custody.accountId !== target2.scope.accountId || custody.vercelProjectId !== target2.scope.projectId || custody.repositoryId !== target2.scope.repositoryId || typeof custody.repositoryOwner !== "string" || typeof custody.repositoryName !== "string" || typeof custody.productionBranch !== "string") throw new Error();
     const verifyServices = () => verifyWebsiteOwnedProductionServices({
       client: input.client,
@@ -19133,7 +19337,7 @@ async function stageWebsiteProductionCandidate(input) {
       deploymentId: staged.deploymentId,
       liveUrl: staged.liveUrl,
       sourceDigest: source.sourceDigest,
-      runtimeDigest: identity6.runtimeDigest
+      runtimeDigest: identity7.runtimeDigest
     });
   } catch {
     throw new Error("Production candidate staging unavailable.");
@@ -19220,12 +19424,12 @@ function createWebsiteByoPublishRunners(input) {
 }
 
 // server/website-owned-stock-reservation-catalog-transport.ts
-var endpoint = /^https:\/\/api\.supabase\.com\/v1\/projects\/[a-z]{20}\/database\/query\/read-only$/;
+var endpoint2 = /^https:\/\/api\.supabase\.com\/v1\/projects\/[a-z]{20}\/database\/query\/read-only$/;
 var maxBytes = 1048576;
 var maxRequestBytes = 65536;
 function createBoundedOwnedStockCatalogFetcher(fetcher = fetch) {
   return async (input, init) => {
-    if (typeof input !== "string" || !endpoint.test(input) || init?.method !== "POST" || init.redirect !== "error" || init.cache !== "no-store" || typeof init.body !== "string" || init.body.length < 1 || init.body.length > maxRequestBytes) {
+    if (typeof input !== "string" || !endpoint2.test(input) || init?.method !== "POST" || init.redirect !== "error" || init.cache !== "no-store" || typeof init.body !== "string" || init.body.length < 1 || init.body.length > maxRequestBytes) {
       throw new Error("Customer stock catalog request unavailable.");
     }
     const controller = new AbortController();
@@ -19270,19 +19474,19 @@ function createBoundedOwnedStockCatalogFetcher(fetcher = fetch) {
 }
 
 // server/website-owned-stock-reservation-installation.ts
-var uuid36 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid37 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var projectRef2 = /^[a-z]{20}$/;
 async function verifyOwnedStockReservationInstallationFromCustody(input) {
   try {
-    if (typeof window !== "undefined" || ![input.ownerId, input.projectId, input.connectionId].every((id4) => uuid36.test(id4)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !input.platformOrganizationId || !await input.isCurrent()) return false;
+    if (typeof window !== "undefined" || ![input.ownerId, input.projectId, input.connectionId].every((id4) => uuid37.test(id4)) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !input.platformOrganizationId || !await input.isCurrent()) return false;
     const definition = readApplicationDefinition(input.definition);
     const stockTables = definition.tables.filter((table) => table.stockReservations);
     if (!stockTables.length) return false;
     const readConnection = () => input.reader.readConnection(input.connectionId, input.projectId, input.ownerId);
-    const connection3 = await readConnection();
-    if (!connection3) return false;
-    assertInfrastructureConnection(connection3);
-    if (connection3.id !== input.connectionId || connection3.version !== input.connectionVersion || connection3.ownerId !== input.ownerId || connection3.projectId !== input.projectId || connection3.environment !== input.environment || connection3.provider !== "supabase" || connection3.status !== "ready" || connection3.operationId !== null || !connection3.targetId || !projectRef2.test(connection3.targetId) || !connection3.permissions.includes("database:read")) return false;
+    const connection4 = await readConnection();
+    if (!connection4) return false;
+    assertInfrastructureConnection(connection4);
+    if (connection4.id !== input.connectionId || connection4.version !== input.connectionVersion || connection4.ownerId !== input.ownerId || connection4.projectId !== input.projectId || connection4.environment !== input.environment || connection4.provider !== "supabase" || connection4.status !== "ready" || connection4.operationId !== null || !connection4.targetId || !projectRef2.test(connection4.targetId) || !connection4.permissions.includes("database:read")) return false;
     const result = await input.client.rpc("website_read_supabase_oauth_custody", {
       p_connection_id: input.connectionId,
       p_project_id: input.projectId,
@@ -19290,7 +19494,7 @@ async function verifyOwnedStockReservationInstallationFromCustody(input) {
       p_expected_connection_version: input.connectionVersion
     });
     if (result.error || !await input.isCurrent()) return false;
-    const custody = parseOwnedSupabaseCustody(result.data, input.environment, { projectRef: connection3.targetId });
+    const custody = parseOwnedSupabaseCustody(result.data, input.environment, { projectRef: connection4.targetId });
     const ownership = {
       ...custody,
       accountUserId: custody.accountId,
@@ -19312,7 +19516,7 @@ async function verifyOwnedStockReservationInstallationFromCustody(input) {
 }
 async function verifyOwnedStockReservationInstallation(input) {
   try {
-    if (typeof window !== "undefined" || !uuid36.test(input.ownerId) || !uuid36.test(input.projectId) || !uuid36.test(input.connectionId) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || typeof input.accessToken !== "string" || input.accessToken.length < 1 || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || typeof input.itemTableId !== "string" || !input.itemTableId || !await input.isCurrent()) return false;
+    if (typeof window !== "undefined" || !uuid37.test(input.ownerId) || !uuid37.test(input.projectId) || !uuid37.test(input.connectionId) || !["preview", "production"].includes(input.environment) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || typeof input.accessToken !== "string" || input.accessToken.length < 1 || input.accessToken.length > 4096 || /[\r\n]/.test(input.accessToken) || typeof input.itemTableId !== "string" || !input.itemTableId || !await input.isCurrent()) return false;
     if (!compileApplicationInventoryReservationSchema(input.definition, input.itemTableId).length) return false;
     const first = await input.readConnection();
     if (!first) return false;
