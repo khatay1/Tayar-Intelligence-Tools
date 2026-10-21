@@ -19,6 +19,10 @@ try {
   await assert.rejects(snapshotOfflineWorkspace({workspaceDirectory:workspace,workspaceRoot:root}),
     error=>error instanceof OfflineProofError&&error.code==='unsafe-workspace-entry');
   await rm(join(workspace,'escape'));
+  const workspaceLink=join(root,'linked-workspace');await symlink(workspace,workspaceLink);
+  await assert.rejects(snapshotOfflineWorkspace({workspaceDirectory:workspaceLink,workspaceRoot:root}),
+    error=>error instanceof OfflineProofError&&error.code==='invalid-workspace');
+  await rm(workspaceLink);
 
   const taskId='tenant-task-123',workspaceDirectory='/workspace/'+taskId,modelID='qwen2.5-coder:7b';
   const admission={schema:'tayar-opencode-offline-admission/v1',workspaceDirectory,

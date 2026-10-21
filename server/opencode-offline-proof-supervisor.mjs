@@ -38,10 +38,15 @@ export async function snapshotOfflineWorkspace({
       resolve(workspaceDirectory) !== workspaceDirectory || resolve(workspaceRoot) !== workspaceRoot) {
     fail('invalid-workspace');
   }
-  let rootPath, workspacePath;
-  try { [rootPath, workspacePath] = await Promise.all([realpath(workspaceRoot), realpath(workspaceDirectory)]); }
+  let rootPath, workspacePath, rootStat, workspaceStat;
+  try {
+    [rootPath, workspacePath, rootStat, workspaceStat] = await Promise.all([
+      realpath(workspaceRoot), realpath(workspaceDirectory), lstat(workspaceRoot), lstat(workspaceDirectory),
+    ]);
+  }
   catch { fail('workspace-unreadable'); }
-  if (!inside(rootPath, workspacePath)) fail('invalid-workspace');
+  if (!inside(rootPath, workspacePath) || rootStat.isSymbolicLink() || workspaceStat.isSymbolicLink() ||
+      !rootStat.isDirectory() || !workspaceStat.isDirectory()) fail('invalid-workspace');
 
   const entries = [];
   async function visit(directory) {
