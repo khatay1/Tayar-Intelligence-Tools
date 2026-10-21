@@ -2,6 +2,12 @@
 
 ## Read-only Production activation readiness — 2026-10-21
 
+- The builder now exposes Preview publishing only. Production is rendered as a
+  static blocked state with the separate-candidate requirement; there is no
+  Production button, restoration poll, browser operation ID, session read or
+  authenticated request. The retained browser service entry point also refuses
+  locally after scope/ready-Preview validation for compatibility and defense in
+  depth.
 - The trusted runner composition exposes the readiness proof only as an
   internal method. Its existing public `production` action now returns the
   stable candidate-required refusal before target selection, RPC access or any

@@ -6,7 +6,7 @@ import { createWebsiteInfrastructureController } from '../services/websiteInfras
 import { BuilderInfrastructureConnectionContainer } from './BuilderInfrastructureConnectionContainer';
 import { BuilderInfrastructurePanel } from './BuilderInfrastructurePanel';
 import { BuilderByoPublishPanel } from './BuilderByoPublishPanel';
-import { pollWebsiteByoPublish, startWebsiteByoPreview, startWebsiteByoProduction, type WebsiteByoPublishResult } from '../services/websiteByoPublishBrowserService';
+import { pollWebsiteByoPublish, startWebsiteByoPreview, type WebsiteByoPublishResult } from '../services/websiteByoPublishBrowserService';
 import { useLocalizer } from '@/lib/ui-localization-cms';
 
 interface Props {
@@ -26,7 +26,6 @@ function BuilderActiveInfrastructureSettings({ projectId, ownerId, loadSequence,
   saved.current = !hasUnsavedChanges;
   const [restoring, setRestoring] = useState(true);
   const [initialPreview, setInitialPreview] = useState<WebsiteByoPublishResult | null>(null);
-  const [initialProduction, setInitialProduction] = useState<WebsiteByoPublishResult | null>(null);
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   const target = useRef({ projectId, ownerId, loadSequence });
@@ -60,12 +59,12 @@ function BuilderActiveInfrastructureSettings({ projectId, ownerId, loadSequence,
       const transport = catalog.transportFor('github');
       // Deployment availability is explicit; never infer it from an endpoint URL.
       const publishController = env.websiteByoPublishEnabled && catalog.availableProviders.length === 3 && transport ? {
-        start: async (environment: 'preview' | 'production', newOperation: boolean) => {
+        start: async (newOperation: boolean) => {
           if (!saved.current) throw new Error('Save the current project before publishing.');
           const input = { scope, transport, storage: window.sessionStorage, newOperation };
-          return environment === 'preview' ? startWebsiteByoPreview(input) : startWebsiteByoProduction(input);
+          return startWebsiteByoPreview(input);
         },
-        poll: (environment: 'preview' | 'production') => pollWebsiteByoPublish({ scope, transport, storage: window.sessionStorage, environment, includeSettled: true }),
+        poll: () => pollWebsiteByoPublish({ scope, transport, storage: window.sessionStorage, environment: 'preview', includeSettled: true }),
       } : undefined;
       return { controller, scope, publishController };
     } catch { return null; }
@@ -73,14 +72,13 @@ function BuilderActiveInfrastructureSettings({ projectId, ownerId, loadSequence,
 
   useEffect(() => {
     let active = true;
-    setInitialPreview(null); setInitialProduction(null);
+    setInitialPreview(null);
     setRestoring(true);
     if (composition?.publishController) {
-      void Promise.all(['preview', 'production'].map(async environment => {
-        const result = await composition.publishController!.poll(environment as 'preview' | 'production');
+      void composition.publishController.poll().then(result => {
         if (!active || !composition.scope.isCurrent()) return;
-        if (environment === 'preview') setInitialPreview(result); else setInitialProduction(result);
-      })).catch(() => { /* Restoration grants no readiness on failure. */ }).finally(() => { if (active) setRestoring(false); });
+        setInitialPreview(result);
+      }).catch(() => { /* Restoration grants no readiness on failure. */ }).finally(() => { if (active) setRestoring(false); });
     } else setRestoring(false);
     return () => { active = false; };
   }, [composition]);
@@ -90,7 +88,7 @@ function BuilderActiveInfrastructureSettings({ projectId, ownerId, loadSequence,
     <BuilderInfrastructureConnectionContainer controller={composition.controller} scope={composition.scope} projectSaved />
     {hasUnsavedChanges && <p role="status">{l('Save the current project before publishing on your accounts.')}</p>}
     <BuilderByoPublishPanel key={`${projectId}:${ownerId}:${loadSequence}`} projectSaved={!hasUnsavedChanges && !restoring}
-      controller={composition.publishController} initialPreview={initialPreview} initialProduction={initialProduction} />
+      controller={composition.publishController} initialPreview={initialPreview} />
   </>;
 }
 
