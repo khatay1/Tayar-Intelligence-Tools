@@ -1,5 +1,28 @@
 # Universal engineering platform — verified checkpoint
 
+## Paid Production source capability continuity — 2026-10-21
+
+- PR #318 merged as `b27043a87c597543cb6320612cf64a0fed2d881a` after
+  exact-head Release Gate `39576137036` and Vercel succeeded. Post-merge main
+  Release Gate `39576586955` also succeeded. Its PostgreSQL fixture now supplies
+  the runtime digest and verifies persisted identity and cross-runtime replay
+  conflict; the original gate failure is fixed.
+- A generated retail staging scenario exposed a second real blocker: owned
+  source capture returned the generic missing-order-runtime capability even
+  though its compiler had successfully emitted that runtime. Capture now uses
+  the compiler's capability option. Generic publishing readiness is unchanged;
+  backend, secret custody, destination continuity and signed delivery checks
+  still apply independently.
+- The coordinator regression compiles distinct Preview/Production retail
+  packages and checks the exact Production Supabase connection and runtime
+  digest passed to delivery verification. Missing or stale delivery prevents
+  runtime attestation; a later successful retry observes the existing deployment
+  without another create request. Delivery and provider transport are mocked:
+  this is composition evidence, not live Stripe delivery or customer activation.
+- No customer key, migration, charge, email, domain assignment or customer
+  Production deployment was activated. Live reference-app/service evidence,
+  final approved activation and isolated OpenCode inference (#310) remain open.
+
 ## OpenCode continuation — 2026-10-20
 
 - Baseline main `0ca0366c5964602f5a8f96d0435c6b928ba97661` includes #305,

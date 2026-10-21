@@ -10,6 +10,7 @@ const dir = await mkdtemp(join(tmpdir(), 'tayar-staging-worker-'));
 try {
   globalThis.__tayarBackendProofs = [];
   globalThis.__tayarServiceProofs = [];
+  globalThis.__tayarStripeDeliveryProofs = [];
   const out = join(dir, 'worker.cjs');
   await build({ stdin: { contents: `export * from './server/website-production-staging-worker';
     export {captureWebsiteOwnedApplicationSource,captureWebsiteOwnedProductionSource} from './server/website-owned-source-capture';
@@ -20,7 +21,7 @@ try {
       build.onResolve({ filter: /website-owned-production-backend-verification$/ }, () => ({ path: 'backend-proof', namespace: 'fixture' }));
       build.onLoad({ filter: /^backend-proof$/, namespace: 'fixture' }, () => ({ contents:
         `export async function verifyWebsiteOwnedProductionBackend(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale backend proof')}
-         export async function verifyWebsiteOwnedProductionStripeDelivery(value){globalThis.__tayarBackendProofs.push(value);if(!await value.isCurrent())throw Error('stale Stripe delivery proof')}` }));
+         export async function verifyWebsiteOwnedProductionStripeDelivery(value){globalThis.__tayarStripeDeliveryProofs.push(value);await globalThis.__tayarStripeDeliveryCheck?.();if(globalThis.__tayarStripeDeliveryReady===false||!await value.isCurrent())throw Error('unavailable Stripe delivery proof')}` }));
       build.onResolve({ filter: /website-owned-production-services-verification$/ }, () => ({ path: 'service-proof', namespace: 'fixture' }));
       build.onLoad({ filter: /^service-proof$/, namespace: 'fixture' }, () => ({ contents:
         `export async function verifyWebsiteOwnedProductionServices(value){globalThis.__tayarServiceProofs.push(value);if(!await value.isCurrent())throw Error('stale service proof');return{environmentIds:globalThis.__tayarServiceDestinations?.shift()??{}}}` }));
@@ -147,7 +148,7 @@ try {
     };
     return { input: { client, operationId, projectId, ownerId, platformOrigin: common.platformOrigin, platformUrl: common.platformUrl,
       platformSupabaseOrganizationId: 'tayar_supabase',
-      platformVercelAccountId: 'team_platform1234', verifyRuntime: common.verifyRuntime, isCurrent: async () => true, fetcher },
+      platformVercelAccountId: 'team_platform1234', verifyRuntime: common.verifyRuntime, isCurrent: async () => options.isCurrent?.() ?? true, fetcher },
       stats: () => ({ posts, identityProofs, behaviorProofs, claims, attestations }) };
   }
   for (const options of [{}, { loseCreate: true }, { loseRecord: true }, { loseAttestationRecord: true }]) {
@@ -201,6 +202,47 @@ try {
   snapshot = structuredClone(initialSnapshot);
   const changed = fixture({ changeAfterPost: true }); await assert.rejects(stage(changed.input), /staging unavailable/);
   assert.equal(changed.stats().posts, 1); assert.equal(changed.stats().identityProofs, 0); assert.equal(changed.stats().behaviorProofs, 0);
+  assert.equal(globalThis.__tayarStripeDeliveryProofs.length,0,'Non-payment applications need no Stripe delivery');
+
+  // Exercise the actual paid source compiler and staging coordinator, rather
+  // than inferring payment admission from the clinic-only path above.
+  const retail=createApplicationReferenceProjects().find(item=>item.domain==='retail').definition;
+  retail.tables[0].fields.push({id:'unit-price',key:'unit_price',name:'Unit price',type:'number',required:true,defaultValue:100});
+  retail.tables[1].payment={provider:'stripe',currency:'sek',itemUnitAmountFieldId:'unit-price',refundRoleId:'reviewer'};
+  const updatedAt='2026-10-21T00:00:00.000Z';
+  snapshot={...structuredClone(initialSnapshot),application:retail,integrationsMax:{version:1,
+    connections:['preview','production'].map(environment=>({id:`stripe-${environment}`,providerId:'stripe',name:'Stripe',
+      enabled:true,status:'configured',environments:[environment],events:[],createdAt:updatedAt,updatedAt,
+      config:{publishableKey:`pk_${environment==='production'?'live':'test'}_fixture123456789`,webhookEndpointId:'we_fixture12345678'},
+      secrets:Object.fromEntries(['secretKey','webhookSigningSecret'].map(key=>[key,{
+        ref:`secret://website/${projectId}/stripe-${environment}/${key}/${environment}`,updatedAt}]))}))}};
+  const paidPreview=await capture({...common,environment:'preview',githubConnectionId:pg});
+  const paidSource=await prepare({...common,previewGithubConnectionId:pg,productionGithubConnectionId:g,
+    expectedPreviewSourceDigest:paidPreview.sourceDigest});
+  Object.assign(runtime,await identity(paidSource.files));
+  Object.assign(candidate,{previewSourceDigest:paidPreview.sourceDigest,snapshotDigest:paidSource.snapshotDigest,
+    sourceDigest:paidSource.sourceDigest,runtimeDigest:runtime.runtimeDigest});
+  deployment.meta.tayarSourceDigest=candidate.sourceDigest;
+  target={scope,vercelConnectionId:v,vercelConnectionVersion:1};
+  globalThis.__tayarStripeDeliveryReady=false;
+  const unpaid=fixture();await assert.rejects(stage(unpaid.input),/staging unavailable/);
+  assert.equal(unpaid.stats().behaviorProofs,1);assert.equal(unpaid.stats().attestations,0);
+  const delivery=globalThis.__tayarStripeDeliveryProofs.at(-1);
+  assert.equal(delivery.projectId,projectId);assert.equal(delivery.ownerId,ownerId);
+  assert.equal(delivery.connectionId,s);assert.equal(delivery.connectionVersion,1);
+  assert.equal(delivery.expectedProjectRef,bindings.production.backend.projectRef);
+  assert.equal(delivery.runtimeDigest,runtime.runtimeDigest);
+  globalThis.__tayarStripeDeliveryReady=true;
+  assert.equal((await stage(unpaid.input)).status,'runtime-verified');
+  assert.equal(unpaid.stats().posts,1,'Delivery retry observes the existing deployment');
+  assert.equal(unpaid.stats().attestations,1);
+  let paymentScopeCurrent=true;
+  globalThis.__tayarStripeDeliveryCheck=()=>{paymentScopeCurrent=false;};
+  const stalePayment=fixture({isCurrent:()=>paymentScopeCurrent});
+  await assert.rejects(stage(stalePayment.input),/staging unavailable/);
+  assert.equal(stalePayment.stats().behaviorProofs,1);assert.equal(stalePayment.stats().attestations,0);
   console.log('PASS staged Production coordinator: actual source compiler/reader/store/transport/runtime handshake, private target selection, exact source scope, response-loss retry and stale identity refusal (RPC/provider mocked)');
+  console.log('PASS paid Production staging: exact runtime delivery scope, missing/stale proof denial and observation-only retry (delivery/provider mocked)');
 } finally { delete globalThis.__tayarServiceDestinations; delete globalThis.__tayarBackendProofs; delete globalThis.__tayarServiceProofs;
+  delete globalThis.__tayarStripeDeliveryProofs;delete globalThis.__tayarStripeDeliveryReady;delete globalThis.__tayarStripeDeliveryCheck;
   await rm(dir, { recursive: true, force: true }); }

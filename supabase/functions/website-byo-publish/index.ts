@@ -14339,7 +14339,7 @@ async function captureWebsiteOwnedApplicationSource(input) {
     connectionId: input.githubConnectionId,
     reader: input.reader,
     async compile(snapshot) {
-      state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment);
+      state.capabilities = analyzeByoSourceCapabilities(snapshot, input.environment, { stripeOrderRuntimeCompiled: true });
       state.stripeRuntime = captureOwnedStripeRuntimeSource(snapshot, input.projectId, input.environment, state.capabilities);
       state.emailRuntime = captureOwnedEmailRuntimeSource(snapshot, input.projectId, input.environment, state.capabilities);
       captured.value = await current();
