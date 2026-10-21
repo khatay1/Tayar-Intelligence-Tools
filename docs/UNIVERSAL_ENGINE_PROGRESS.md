@@ -1,5 +1,20 @@
 # Universal engineering platform — verified checkpoint
 
+## Read-only Production activation readiness — 2026-10-21
+
+- A server-only precondition now binds the current private Production source
+  target and runtime attestation to two stable reads of the exact Vercel
+  deployment and its verified Production domains. It rejects changed target
+  scope, source/runtime digests, provider ownership, branch, deployment URL,
+  unverified/redirected domains and staleness at every boundary.
+- The result contains only release identity and domain names. The path issues
+  only provider GET requests and performs no promotion, alias assignment,
+  deployment creation, database write or credential return. It remains an
+  internal, unmounted gate for the later explicitly approved activation step.
+- The focused regression uses mocked RPC/provider transport and is included in
+  Release Gate. It is composition evidence, not a live customer activation or
+  proof that production aliases have been assigned to this deployment.
+
 ## Paid Production source capability continuity — 2026-10-21
 
 - PR #318 merged as `b27043a87c597543cb6320612cf64a0fed2d881a` after
@@ -157,195 +172,7 @@
 
 - Adds the closed `booking-schedule` test kind against the existing published booking schedule policy, linked only to `booking:<table-id>` evidence. Fixtures contain a table ID, two canonical UTC instants and expected `withinSchedule` boolean; malformed or normalized dates are rejected.
 - Checks current weekly hours, maximum elapsed duration, reversed intervals, closing boundaries, date closures/special windows and time-zone behavior across a DST change. Missing/invalid schedules fail even when the expected result is negative; editing the schedule invalidates stale expectations.
-- This is interval-policy evidence only. It does not authenticate actors, inspect resource availability, reserve resources, prove conflict prevention or persist a booking. Those criteria remain unverified by this test kind.
-- The existing AI generation path accepts and preserves the new contract and rejects malformed fixtures atomically. Cross-capability and cross-table relinking remain blocked. Seven reference projects are reused, not recreated.
-- Application-generation smoke, existing booking regression, published-runtime and owned-source regressions, TypeScript, scoped ESLint, all affected generated runtime/Edge consistency checks and whitespace validation passed locally. Generated dependencies were rebuilt from their trusted generators with the locked esbuild version.
-
-
-## Record payload acceptance and generated target resolution — PR #240 merged
-
-- Adds closed `record-values` tests for the existing data-view create/update parser. Tests name a page, section and operation, use bounded synthetic string fixtures, and compare the exact converted payload or require input rejection. Coverage is restricted to `records` and `view:<bound-table-id>:<operation>`; it cannot satisfy read, another table/operation, authentication or formula requirements.
-- The current view must compile and expose the tested action before parsing. Missing/invalid targets fail even for negative expectations. Existing fixture limits, closed shapes, unique field names and credential-like input rejection apply. Reports omit fixture values.
-- Covers numeric/boolean/date/JSON conversion, required/default behavior, unknown fields, and refusal to directly write workflow states or generated formula fields. This proves only payload validation, not server authorization, persistence, generated database results or effects.
-- Fixes a discovered generation gap: page-based acceptance fixtures previously retained model-supplied IDs while generation assigned new page/section IDs. Generated page slugs and explicit unique section anchors now resolve atomically to saved IDs for record, form and page-policy tests. Missing/ambiguous targets and unavailable record actions reject generation without editor mutations. Existing manifests without tests remain unchanged.
-- The existing generation-handler regression verifies persisted normalized fixtures, real coverage results, response immutability and atomic malformed/missing/ambiguous-target rejection. Seven reference projects are reused. Focused specification, coverage, booking/record acceptance, reference-project and real generation-handler checks passed; TypeScript, scoped ESLint, affected generated-source consistency, data-view/AI/published-runtime/owned-source regressions and whitespace checks passed locally. The uploaded tree matched the tested local tree; PR Release Gate `38816790364` (#1849) and Vercel Preview passed before merge.
-- Remaining work includes broader executable requirement evidence, live actor/data isolation and persistence checks, safe repair/rollback and external-service verification. Customer/provider activation remains the final phase; Social Hub stays deferred. No production promotion, credential, live database or migration-history changes were made.
-
-
-## Safe AI application repair — PR #241 merged
-
-- The existing AI page-edit/repair path now validates application page access, bound forms and data views before advisory model review or candidate preview. Unbound contact forms, invalid bindings and removed protected pages fail closed.
-- Current requirement coverage is recomputed for the baseline and candidate. Every previously passing contract/acceptance check must still pass; existing untested criteria can stay untested so unrelated safe repairs remain possible. This does not claim live database/provider behavior or authorize schema/requirement changes.
-- The controller supplies the current application to the existing lazy AI change handler. Validation failures never mutate editor pages, replace undo snapshots or create project checkpoints. Safe accepted changes retain the existing before/after checkpoints and undo path; rejected previews remain inert.
-- The behavioral regression drives the real AI handler with synthetic model responses and an advisory model that would claim safety. Removing a required form or renaming a bound field is rejected before the advisory request, preview or mutation. A safe title edit applies and checkpoints; a declined preview applies nothing. Direct checks cover broken data views, page access, unbound forms, pre-existing untested criteria and unchanged baselines.
-- TypeScript, scoped ESLint, the real repair regression, existing candidate-audit/undo regressions and whitespace validation passed locally. Release Gate now runs the new repair regression beside the existing undo regression; no generated runtime bundle changed. The first PR gate exposed a legacy source-order assertion requiring validation after advisory review. Its expectation now matches the earlier fail-closed boundary; the real handler regression confirms failure prevents that model request.
-- Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred. Full automatic repair planning, schema repair and live rollback verification remain future work.
-
-
-## Safe AI application configuration repair — PR #242 merged
-
-- PR #242 merged as `24b89ef626e698eac6f8db97a08e98d21f24f78b` after Release Gate `38819005690` (#1854) and Vercel Preview passed. Post-merge verification is tracked on main Release Gate `38819363300` (#1855).
-
-- The shared application command now applies the existing repair guard to AI schema/auth/role/page-policy plans. It validates current form/data-view bindings against the candidate application and compares requirement coverage before/after, preserving every previously passing check. Schema validity alone cannot authorize breaking existing behavior. Manual configuration changes retain their existing reviewed editing path.
-- The existing planner dry run and actual editor application use the same command, so unsafe plans fail before review and again before application. A failure in a multi-operation plan discards the entire draft and adds no history entry. Safe plans use the existing full-project history/undo/redo boundary.
-- Review fingerprints now include native page/section/form/data-view/custom-action configuration instead of page IDs alone. Editing a bound form name/validation/mapping or a data-view action invalidates an outstanding plan with unchanged page IDs. Unrelated title/color edits do not invalidate schema review. Stored runtime rows and credentials are not introduced into the fingerprint.
-- Extends the existing application-AI regression through the actual planning service and shared command with synthetic data. Covers still-valid schemas that change numeric payloads or anonymous page policy, removed create permission, field changes, atomic rollback, stale page configuration, safe indexing, undo/redo and pre-existing untested criteria. Existing page-only repair/foundation/coverage regressions remain passing.
-- TypeScript, scoped ESLint, affected regressions, all application/browser/owned/Edge generated-source consistency checks and whitespace validation passed locally. Generated artifacts remain unchanged because the shared runtime page types changed only at the type level.
-- This is a configuration repair boundary, not automatic schema repair planning, database migration application, persistence or live-provider evidence. Customer keys/accounts, Production promotion, migration-history reconciliation and Social Hub remain deferred.
-
-
-## Complete bounded application planning context — PR #243 merged
-
-- The existing application planning request now includes the current native form/data-view mappings, field types/validation, custom-operation targets and requirement-test IDs/results. It reuses the same page projection as approval fingerprints, with an outbound projection that omits automation configuration, custom input literals, placeholders and unrelated visual content.
-- The AI instruction explicitly preserves native mappings and passing checks; diagnostic results remain local contract evidence. The existing shared command remains authoritative for validating both the model's proposed plan and the user's later application of it.
-- Removes silent string slicing of the user's instruction and serialized application context. Instructions over 4,000 characters and complete contexts outside the existing 32,000 context / 40,000 message / 60,000 serialized-body character budgets fail before the AI request. JSON within the budget is complete; no schema, mapping, criterion or instruction is silently omitted.
-- Extends the existing real planning-service regression to inspect complete schema/native mappings and diagnostic results, omission of synthetic private automation/input values and visual content, and pre-provider rejection of oversized instructions/projects. Existing schema repair, atomic rollback, stale review and undo/redo checks are reused.
-- TypeScript, scoped ESLint, the real planning-service/command regression, existing foundation checks and whitespace validation passed locally; no provider call or live database was used.
-- This does not add large-project context partitioning: an oversized project receives an explicit limit and requires a narrower scope. It does not claim automatic repair loops, live provider/database behavior or production activation. Customer keys/accounts, migrations, Production promotion and Social Hub remain deferred.
-
-
-## Live repository check — 2026-10-14
-
-- `main` is `6612bb8dbbe572d23568b988acd8b079dcfa39a3`; PR #217 is merged
-  after PR Release Gate `38595436276`, Vercel Preview, and main Release Gate
-  `38595967134` all passed. PR #146 is merged as
-  `ab55075ea6f8ebd09b71994a0e631efe12e96024`; its stale-runtime and browser
-  regression failures are resolved and are not current blockers. PR #213 also
-  merged as `7e8c258c`; the latest main Release Gate passed.
-- Production deployment `dpl_BhDGCqhxhDMBZBm6MhjSmKZGUuJo` is READY at
-  `ab55075e`, behind `main`. Promotion remains deferred until the outstanding
-  platform work passes its release gate; previews are not production delivery.
-- Supabase advisor snapshot on the active project (2026-10-14): no uncovered
-  foreign-key notices are recorded in the phase-zero migration checkpoint.
-  Remaining SECURITY DEFINER and private-table RLS notices were reviewed as
-  intentional server/API boundaries; do not blanket-revoke grants or add RLS
-  policies. Newly added indexes can still appear unused before representative
-  workload. Leaked-password protection remains disabled on the Free plan and
-  requires an owner plan decision; no billing or auth setting was changed.
-- The merged custom-operation batch stores bounded custom operation source in the
-  immutable private release snapshot and resolves it only by matching owner,
-  project, release and operation IDs. It remains inert and cannot pass delivery
-  coverage; the custom-operation route remains unmounted pending end-user
-  authorization and runtime integration. Focused regressions, type checks and
-  both release gates passed.
-  Regenerated Vercel, BYO publish, application release and runtime artifacts
-  match their sources. Production has not been promoted.
-
-## Durable rules
-
-Extend the existing application engine; do not create sector-specific engines.
-Customer credentials and live provider activation stay last. Social Hub remains
-deferred on `deferred/social-hub-foundation-20261011` and must be preserved.
-Generated code, a successful build, passing tests, deployment and verified live
-services are distinct delivery states.
-
-## Phase zero — complete on 2026-10-11
-
-- PR #146 merged to `main` as
-  `ab55075ea6f8ebd09b71994a0e631efe12e96024` after Release Gate
-  38165046959 passed. The subsequent main Release Gate 38165264856 also passed.
-- The stale owned runtime and dependent BYO Edge bundle were regenerated from
-  their trusted source. The application data-view browser regression now waits
-  for an explicit terminal result, detects crashes/timeouts and cleans up the
-  Chromium process group safely. Real CI Chrome passed the en/ar/sv assertions.
-- Source migration `20261011183711_phase_zero_advisor_hardening.sql` added the
-  16 verified foreign-key indexes and converted the constant scheduler readiness
-  function to SECURITY INVOKER while preserving ACL, RLS and disabled scheduling.
-  The live Supabase migration record is version `20261011184736` with the same
-  logical migration name. Embedded and native PostgreSQL regressions passed.
-- After the migration, the uncovered-FK advisor notice count is zero. Remaining
-  SECURITY DEFINER notices were reviewed rather than blanket-revoked: their
-  exposed callers have explicit grants, fixed search paths and application
-  authorization/published-site guards. RLS-without-policy tables remain private
-  server-only tables. Newly created indexes can appear as unused until workload.
-- Supabase leaked-password protection remains disabled because the organization
-  is on the Free plan and the supported feature requires an owner plan decision.
-  No billing, Auth configuration, customer credential or secret change occurred.
-- Vercel production deployment `dpl_BhDGCqhxhDMBZBm6MhjSmKZGUuJo` is READY from
-  the exact merged SHA above. `https://www.tayar.se/` and its manifest returned
-  200; an invalid published-site API path returned the expected 400. These probes
-  do not claim that unconfigured customer services are live.
-
-## Phase one — structured specification merged
-
-PR #147 merged to `main` as
-`f30ad8e37c3b1c547b212f14a3e8f5ae93f891e3`. PR Release Gate
-38168336221 and main Release Gate 38168604276 both passed.
-
-Implemented a domain-neutral `ProjectSpecification` attached to the existing
-`ApplicationRequirementManifest`. It references the existing generated schema,
-roles and requirement IDs rather than creating a parallel generator. The closed,
-bounded contract records actors, entity scope/sensitivity, explicit or inferred
-requirements, observable acceptance criteria, operations and dependencies,
-business rules, tenancy, deferred integration scopes, privacy/retention and
-unresolved decisions.
-
-The validator rejects unknown fields/IDs, duplicates, missing table
-classifications or requirement coverage, dependency cycles, missing sensitive
-data plans, contradictory tenancy and unresolved conflicts. Custom execution and
-organization/branch isolation fail closed until their isolated executor and
-membership policies exist. Descriptive rules and acceptance criteria are never
-treated as implementation or test evidence.
-
-Agent-mode application generation now requires this specification and validates
-it before mutating editor state. Legacy/manual projects and ordinary brochure
-generation remain backward compatible. The AI request performs the analysis in
-the existing single generation call and is explicitly forbidden from inventing
-credentials, sector assumptions or unsupported native behavior.
-
-Verified locally after this change:
-
-- TypeScript and focused ESLint passed.
-- Domain-neutral specification regression passed across retail, restaurant,
-  school, clinic, government, factory and a custom research record model.
-- Real generation-handler regression passed: a valid specification persisted;
-  a missing specification and claimed custom execution were rejected atomically.
-- Application foundation, release upload/endpoint, backend link, published
-  runtime, owned source/runtime binding and BYO Edge regressions passed.
-- Application runtime, backend-link, release, owned runtime and BYO publish
-  generated artifacts were regenerated from source and passed consistency checks.
-
-## Autonomous QA — coverage matrix merged
-
-PR #148 merged to `main` as
-`c59444be414f383f9f9786257ad7e02822539aad`. PR Release Gate
-38219553289 and main Release Gate 38219830834 passed.
-
-The existing requirement verifier now builds explicit coverage rows:
-Requirement → Implementation → Contract Test → Result → Delivery Status. It
-recomputes evidence from the current project and executes the existing form/data
-view compilers; saved AI claims cannot create a passing row. Specification
-operation IDs are included as traceability metadata, while test results come
-only from current executable contracts.
-
-Removed pages, invalid bindings and missing native actions produce failed tests
-and block approval. Delivery reports include the matrix and use
-`contract-verified`, which intentionally does not claim deployment or live
-service verification. Applications cannot be marked delivered while unpublished
-or while a launch-readiness check fails. Brochure compatibility is unchanged.
-
-Focused TypeScript, ESLint, coverage-matrix and real generation/delivery
-regressions passed, followed by both full gates.
-
-## Business logic — active declarative workflow batch
-
-PR #149 merged to `main` as `09e5406891d9af32b68cbed19352888d9f1ba524`.
-PR Release Gate 38244010970 and main Release Gate 38244295671 both passed.
-
-The existing atomic workflow engine now supports optional bounded same-record
-effects on each transition: a typed literal assignment, a bounded numeric
-increment, or a server transaction timestamp. Effects run in the same locked
-PostgreSQL transaction as the guarded state change and the existing idempotency
-receipt. They cannot target the state field, formulas, protected counters,
-duplicate fields, unknown fields or arbitrary expressions/code.
-
-Validation enforces closed shapes, field/type compatibility and a maximum of 20
-effects. Existing workflows remain compatible. The AI generation contract may
-use only these declared primitives and must report cross-record logic as
-unsupported rather than inventing execution. TypeScript, ESLint, workflow,
-schema, backend verification, release endpoint, owned source, BYO Edge,
-generation/coverage and all generated-artifact consistency checks passed
-locally. The PostgreSQL concurrency/effect assertion runs in Release Gate.
+- This is interval-policy evidence only. It does not authenticate actors, inspect resource availability, reserve resources, prove conflict prevention or persist a booking. Those criteria…4523 tokens truncated…. The PostgreSQL concurrency/effect assertion runs in Release Gate.
 
 ## Business logic — workflow audit history merged
 

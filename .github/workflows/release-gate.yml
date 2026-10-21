@@ -85,6 +85,7 @@ jobs:
           node scripts/website-production-source-candidate-regression.mjs
           node scripts/website-owned-vercel-staging-regression.mjs
           node scripts/website-production-staging-worker-regression.mjs
+          node scripts/website-production-activation-readiness-regression.mjs
           node scripts/website-owned-production-backend-verification-regression.mjs
           node scripts/website-owned-production-services-verification-regression.mjs
 
