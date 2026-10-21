@@ -1,5 +1,20 @@
 # Universal engineering platform — verified checkpoint
 
+## Read-only Production activation readiness — 2026-10-21
+
+- A server-only precondition now binds the current private Production source
+  target and runtime attestation to two stable reads of the exact Vercel
+  deployment and its verified Production domains. It rejects changed target
+  scope, source/runtime digests, provider ownership, branch, deployment URL,
+  unverified/redirected domains and staleness at every boundary.
+- The result contains only release identity and domain names. The path issues
+  only provider GET requests and performs no promotion, alias assignment,
+  deployment creation, database write or credential return. It remains an
+  internal, unmounted gate for the later explicitly approved activation step.
+- The focused regression uses mocked RPC/provider transport and is included in
+  Release Gate. It is composition evidence, not a live customer activation or
+  proof that production aliases have been assigned to this deployment.
+
 ## Paid Production source capability continuity — 2026-10-21
 
 - PR #318 merged as `b27043a87c597543cb6320612cf64a0fed2d881a` after
