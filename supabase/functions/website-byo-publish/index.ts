@@ -13758,7 +13758,7 @@ function compileOwnedStripeOrderSchema(projectId) {
     ["app_stripe_order_bind_session", "uuid,uuid,text"],
     ["app_stripe_order_reserve_refund", "uuid,uuid,text,bigint,uuid"],
     ["app_stripe_order_bind_refund", "uuid,uuid,text,text"],
-    ["app_stripe_order_apply_event", "text,text,timestamptz,uuid,uuid,boolean,text,text,bigint,text,text"]
+    ["app_stripe_order_apply_event", "text,text,timestamptz,uuid,text,uuid,boolean,text,text,bigint,text,text"]
   ];
   return `
 begin;
@@ -13789,6 +13789,7 @@ create table private.app_stripe_order_events (
  event_type text not null check(event_type in ('checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','refund.created','refund.updated','charge.refunded')),
  event_created_at timestamptz not null,
  project_id uuid not null check(project_id='${projectId}'::uuid),
+ runtime_digest text not null check(runtime_digest ~ '^[a-f0-9]{64}$'),
  order_id uuid not null references private.app_stripe_order_payments(order_id) on delete restrict,
  livemode boolean not null,
  provider_object_id text not null check(provider_object_id ~ '^(cs_(test|live)|ch|re)_[A-Za-z0-9]{8,200}$'),
@@ -13904,19 +13905,21 @@ begin
  return true;
 end $payment$;
 
-create function private.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_order_id uuid,
+create function private.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_runtime_digest text,p_order_id uuid,
  p_livemode boolean,p_provider_object_id text,p_provider_payment_id text,p_amount bigint,p_currency text,p_status text)
 returns text language plpgsql security definer set search_path='' as $payment$
 declare existing private.app_stripe_order_events; payment private.app_stripe_order_payments; refund_status text; successful bigint; pending_count integer;
 begin
  select * into existing from private.app_stripe_order_events where event_id=p_event_id;
  if found then
-  if existing.event_type=p_event_type and existing.event_created_at=p_event_created_at and existing.project_id=p_project_id and existing.order_id=p_order_id
+  if existing.event_type=p_event_type and existing.event_created_at=p_event_created_at and existing.project_id=p_project_id
+   and existing.runtime_digest=p_runtime_digest and existing.order_id=p_order_id
    and existing.livemode=p_livemode and existing.provider_object_id=p_provider_object_id
    and existing.provider_payment_id is not distinct from p_provider_payment_id and existing.amount=p_amount and existing.currency=p_currency and existing.status=p_status
   then return 'duplicate'; else return 'conflict'; end if;
  end if;
- if p_project_id is distinct from '${projectId}'::uuid or p_event_id !~ '^evt_[A-Za-z0-9]{8,200}$' or p_event_created_at is null
+ if p_project_id is distinct from '${projectId}'::uuid or p_runtime_digest !~ '^[a-f0-9]{64}$'
+  or p_event_id !~ '^evt_[A-Za-z0-9]{8,200}$' or p_event_created_at is null
   or p_currency !~ '^[a-z]{3}$' or p_amount not between 0 and 99999999999 then return 'conflict'; end if;
  select * into payment from private.app_stripe_order_payments where order_id=p_order_id for update;
  if not found or payment.project_id<>p_project_id or payment.livemode<>p_livemode or payment.currency<>p_currency then return 'conflict'; end if;
@@ -13959,8 +13962,8 @@ begin
     when pending_count>0 then 'refund-pending' when greatest(amount_refunded,successful)>0 then 'partially-refunded'
     when p_status='refund-failed' then 'refund-failed' else status end,updated_at=clock_timestamp() where order_id=p_order_id;
  end if;
- insert into private.app_stripe_order_events(event_id,event_type,event_created_at,project_id,order_id,livemode,provider_object_id,provider_payment_id,amount,currency,status)
- values(p_event_id,p_event_type,p_event_created_at,p_project_id,p_order_id,p_livemode,p_provider_object_id,p_provider_payment_id,p_amount,p_currency,p_status);
+ insert into private.app_stripe_order_events(event_id,event_type,event_created_at,project_id,runtime_digest,order_id,livemode,provider_object_id,provider_payment_id,amount,currency,status)
+ values(p_event_id,p_event_type,p_event_created_at,p_project_id,p_runtime_digest,p_order_id,p_livemode,p_provider_object_id,p_provider_payment_id,p_amount,p_currency,p_status);
  return 'applied';
 exception when unique_violation then return 'conflict';
 end $payment$;
@@ -13977,10 +13980,10 @@ returns jsonb language sql security invoker set search_path='' as $wrapper$
 create function public.app_stripe_order_bind_refund(p_order_id uuid,p_operation_id uuid,p_provider_refund_id text,p_provider_status text)
 returns boolean language sql security invoker set search_path='' as $wrapper$
  select private.app_stripe_order_bind_refund(p_order_id,p_operation_id,p_provider_refund_id,p_provider_status); $wrapper$;
-create function public.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_order_id uuid,
+create function public.app_stripe_order_apply_event(p_event_id text,p_event_type text,p_event_created_at timestamptz,p_project_id uuid,p_runtime_digest text,p_order_id uuid,
  p_livemode boolean,p_provider_object_id text,p_provider_payment_id text,p_amount bigint,p_currency text,p_status text)
 returns text language sql security invoker set search_path='' as $wrapper$
- select private.app_stripe_order_apply_event(p_event_id,p_event_type,p_event_created_at,p_project_id,p_order_id,p_livemode,
+ select private.app_stripe_order_apply_event(p_event_id,p_event_type,p_event_created_at,p_project_id,p_runtime_digest,p_order_id,p_livemode,
   p_provider_object_id,p_provider_payment_id,p_amount,p_currency,p_status); $wrapper$;
 grant usage on schema private to service_role;
 ${functions.map(([name2, args]) => `revoke all on function private.${name2}(${args}),public.${name2}(${args}) from public,anon,authenticated;
@@ -19025,6 +19028,35 @@ async function verifyWebsiteOwnedProductionBackend(input) {
     throw new Error("Customer Production backend verification is unavailable.");
   }
 }
+async function verifyWebsiteOwnedProductionStripeDelivery(input) {
+  try {
+    if (typeof window !== "undefined" || ![input.projectId, input.ownerId, input.connectionId].every((value) => uuid33.test(value)) || !Number.isSafeInteger(input.connectionVersion) || input.connectionVersion < 1 || !/^[a-z]{20}$/.test(input.expectedProjectRef) || !/^[a-f0-9]{64}$/.test(input.runtimeDigest) || !await input.isCurrent()) throw new Error();
+    const result = await input.client.rpc("website_read_supabase_oauth_custody", {
+      p_connection_id: input.connectionId,
+      p_project_id: input.projectId,
+      p_owner_id: input.ownerId,
+      p_expected_connection_version: input.connectionVersion
+    });
+    if (result.error || !await input.isCurrent()) throw new Error();
+    const custody = parseOwnedSupabaseCustody(result.data, "production", { projectRef: input.expectedProjectRef });
+    const query = createOwnedSupabaseReadOnlyQuery({ ...custody, fetcher: input.fetcher });
+    const rows = await query(`select event_id,event_type,received_at from private.app_stripe_order_events
+where project_id='${input.projectId}'::uuid and runtime_digest='${input.runtimeDigest}' and livemode=true
+order by received_at desc,event_id desc limit 1`);
+    if (!Array.isArray(rows) || rows.length !== 1 || !await input.isCurrent()) throw new Error();
+    const row2 = object25(rows[0]);
+    if (!row2 || !exact5(row2, ["event_id", "event_type", "received_at"]) || typeof row2.event_id !== "string" || !/^evt_[A-Za-z0-9]{8,200}$/.test(row2.event_id) || typeof row2.event_type !== "string" || ![
+      "checkout.session.completed",
+      "checkout.session.async_payment_succeeded",
+      "checkout.session.async_payment_failed",
+      "refund.created",
+      "refund.updated",
+      "charge.refunded"
+    ].includes(row2.event_type) || typeof row2.received_at !== "string" || !Number.isFinite(Date.parse(row2.received_at))) throw new Error();
+  } catch {
+    throw new Error("Customer Production Stripe delivery verification is unavailable.");
+  }
+}
 
 // server/website-owned-production-services-verification.ts
 init_website_owned_stripe();
@@ -19121,6 +19153,33 @@ async function verifyWebsiteOwnedProductionServices(input) {
         fetcher: input.fetcher
       });
       environmentIds.STRIPE_SECRET_KEY = state.environmentId;
+      if (requirements.delete("STRIPE_WEBHOOK_SECRET")) {
+        if (!input.stripeRuntime.webhookEndpointId || !input.stripeRuntime.webhookSigningSecretUpdatedAt) throw new Error();
+        const webhook = await inspectOwnedStripeWebhookRuntimeForPublish({
+          client: input.client,
+          projectId: input.projectId,
+          ownerId: input.ownerId,
+          vercelConnectionId: input.vercelConnectionId,
+          vercelConnectionVersion: input.vercelConnectionVersion,
+          sourceConnectionId: input.stripeRuntime.sourceConnectionId,
+          stripeSourceUpdatedAt: input.stripeRuntime.sourceUpdatedAt,
+          webhookSourceUpdatedAt: input.stripeRuntime.webhookSigningSecretUpdatedAt,
+          endpointId: input.stripeRuntime.webhookEndpointId,
+          applicationOrigin: input.applicationOrigin,
+          environment: "production"
+        });
+        if (!webhook.ready || !webhook.environmentId || !webhook.handoffOperationId || !await current()) throw new Error();
+        await verifyOwnedStripeWebhookRuntimeDestination({
+          ...input.vercel,
+          environmentId: webhook.environmentId,
+          projectId: input.projectId,
+          environment: "production",
+          handoffOperationId: webhook.handoffOperationId,
+          isCurrent: current,
+          fetcher: input.fetcher
+        });
+        environmentIds.STRIPE_WEBHOOK_SECRET = webhook.environmentId;
+      }
     } else if (requirements.has("STRIPE_SECRET_KEY")) throw new Error();
     if (input.emailRuntime) {
       for (const connection4 of input.emailRuntime.connections) {
@@ -19149,31 +19208,31 @@ async function verifyWebsiteOwnedProductionServices(input) {
         });
         environmentIds[connection4.environmentKey] = state.environmentId;
       }
-      for (const secret of generated) {
-        if (!requirements.delete(secret.environmentKey)) throw new Error();
-        const state = await inspectOwnedRuntimeSecretState({
-          client: input.client,
-          projectId: input.projectId,
-          ownerId: input.ownerId,
-          vercelConnectionId: input.vercelConnectionId,
-          vercelConnectionVersion: input.vercelConnectionVersion,
-          secret,
-          environment: "production"
-        });
-        if (!state.ready || !state.environmentId || !state.handoffOperationId || !await current()) throw new Error();
-        await verifyOwnedSecretInVercel({
-          ...input.vercel,
-          environmentId: state.environmentId,
-          environmentKey: secret.environmentKey,
-          target: "production",
-          gitBranch: "",
-          operationId: state.handoffOperationId,
-          isCurrent: current,
-          fetcher: input.fetcher
-        });
-        environmentIds[secret.environmentKey] = state.environmentId;
-      }
-    } else if (generated.some((secret) => requirements.has(secret.environmentKey)) || [...requirements].some((key2) => key2.startsWith("TAYAR_RESEND_"))) throw new Error();
+    } else if ([...requirements].some((key2) => key2.startsWith("TAYAR_RESEND_"))) throw new Error();
+    for (const secret of generated) {
+      if (!requirements.delete(secret.environmentKey)) continue;
+      const state = await inspectOwnedRuntimeSecretState({
+        client: input.client,
+        projectId: input.projectId,
+        ownerId: input.ownerId,
+        vercelConnectionId: input.vercelConnectionId,
+        vercelConnectionVersion: input.vercelConnectionVersion,
+        secret,
+        environment: "production"
+      });
+      if (!state.ready || !state.environmentId || !state.handoffOperationId || !await current()) throw new Error();
+      await verifyOwnedSecretInVercel({
+        ...input.vercel,
+        environmentId: state.environmentId,
+        environmentKey: secret.environmentKey,
+        target: "production",
+        gitBranch: "",
+        operationId: state.handoffOperationId,
+        isCurrent: current,
+        fetcher: input.fetcher
+      });
+      environmentIds[secret.environmentKey] = state.environmentId;
+    }
     const ids2 = Object.values(environmentIds);
     if (requirements.size || ids2.some((id4) => !provider11.test(id4)) || new Set(ids2).size !== ids2.length || !await current()) throw new Error();
     return { environmentIds: Object.fromEntries(Object.entries(environmentIds).sort(([left], [right]) => left.localeCompare(right))) };
@@ -19276,6 +19335,7 @@ async function stageWebsiteProductionCandidate(input) {
       ownerId: input.ownerId,
       vercelConnectionId: target2.vercelConnectionId,
       vercelConnectionVersion: target2.vercelConnectionVersion,
+      applicationOrigin: source.binding.applicationOrigin,
       capabilities: source.capabilities,
       stripeRuntime: source.stripeRuntime,
       emailRuntime: source.emailRuntime,
@@ -19326,6 +19386,20 @@ async function stageWebsiteProductionCandidate(input) {
       fetcher: input.fetcher
     });
     if (!await current()) throw new Error();
+    if (source.capabilities.definition.tables.some((table) => table.payment)) {
+      await verifyWebsiteOwnedProductionStripeDelivery({
+        client: input.client,
+        projectId: input.projectId,
+        ownerId: input.ownerId,
+        connectionId: source.supabase.id,
+        connectionVersion: source.supabase.version,
+        expectedProjectRef: source.binding.backend.projectRef,
+        runtimeDigest: identity7.runtimeDigest,
+        isCurrent: current,
+        fetcher: input.fetcher
+      });
+      if (!await current()) throw new Error();
+    }
     if (canonical3((await verifyServices()).environmentIds) !== serviceDestinations) throw new Error();
     if (!await current()) throw new Error();
     await verifyBackend();

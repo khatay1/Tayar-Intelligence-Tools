@@ -93,7 +93,10 @@ try {
     amount:500,operationId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc'});
   assert.equal(refundReservation.providerRefundId,null);await bindRefund(mockClient,{orderId,
     operationId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',providerRefundId:'re_fixture123456789',providerStatus:'pending'});
-  assert.equal(await rpcStore(mockClient).apply(normalize(event(), { projectId, livemode: true })), 'applied');
+  const runtimeDigest='a'.repeat(64);
+  assert.throws(()=>rpcStore(mockClient,'invalid-runtime-digest'),/event store unavailable/);
+  assert.equal(await rpcStore(mockClient,runtimeDigest).apply(normalize(event(), { projectId, livemode: true })), 'applied');
+  assert.equal(rpcCalls.at(-1)[1].p_runtime_digest,runtimeDigest);
   assert.deepEqual(rpcCalls.map(call => call[0]), ['app_stripe_order_reserve','app_stripe_order_bind_session',
     'app_stripe_order_reserve_refund','app_stripe_order_bind_refund','app_stripe_order_apply_event']);
   const token = 'header.payload.signature.fixture', operationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', actions = [];

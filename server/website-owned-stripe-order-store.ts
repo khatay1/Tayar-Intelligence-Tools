@@ -6,11 +6,12 @@ export interface OwnedStripeOrderRpcClient {
     PromiseLike<{ data: unknown; error: unknown }>;
 }
 
-export function createOwnedStripeOrderEventStore(client: OwnedStripeOrderRpcClient): OwnedStripeOrderEventStore {
+export function createOwnedStripeOrderEventStore(client: OwnedStripeOrderRpcClient, runtimeDigest: string): OwnedStripeOrderEventStore {
+  if (!/^[a-f0-9]{64}$/.test(runtimeDigest)) throw new Error('Stripe order event store unavailable.');
   return { async apply(event: OwnedStripeOrderEvent) {
     const { data, error } = await client.rpc('app_stripe_order_apply_event', {
       p_event_id: event.eventId, p_event_type: event.eventType, p_event_created_at: event.eventCreatedAt,
-      p_project_id: event.projectId, p_order_id: event.orderId, p_livemode: event.livemode,
+      p_project_id: event.projectId, p_runtime_digest: runtimeDigest, p_order_id: event.orderId, p_livemode: event.livemode,
       p_provider_object_id: event.providerObjectId, p_provider_payment_id: event.providerPaymentId ?? null,
       p_amount: event.amount, p_currency: event.currency, p_status: event.status,
     });

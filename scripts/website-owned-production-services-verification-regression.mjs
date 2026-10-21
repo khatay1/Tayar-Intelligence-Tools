@@ -16,6 +16,11 @@ try{
         export async function inspectOwnedStripeRuntimeForPublish(value){globalThis.__tayarServiceProof.calls.push(['stripe-state',value]);return{ready:globalThis.__tayarServiceProof.ready,environmentId:'env_stripe123',handoffOperationId:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'}}
         export async function verifyOwnedStripeRuntimeDestination(value){globalThis.__tayarServiceProof.calls.push(['stripe-destination',value])}
       `}));
+      builder.onResolve({filter:/website-owned-stripe-webhook-runtime$/},()=>({path:'stripe-webhook',namespace:'fixture'}));
+      builder.onLoad({filter:/^stripe-webhook$/,namespace:'fixture'},()=>({contents:`
+        export async function inspectOwnedStripeWebhookRuntimeForPublish(value){globalThis.__tayarServiceProof.calls.push(['webhook-state',value]);return{ready:globalThis.__tayarServiceProof.ready,environmentId:'env_webhook123',handoffOperationId:'dddddddd-dddd-4ddd-8ddd-dddddddddddd'}}
+        export async function verifyOwnedStripeWebhookRuntimeDestination(value){globalThis.__tayarServiceProof.calls.push(['webhook-destination',value])}
+      `}));
       builder.onResolve({filter:/website-owned-email-runtime$/},()=>({path:'email',namespace:'fixture'}));
       builder.onLoad({filter:/^email$/,namespace:'fixture'},()=>({contents:`
         export async function inspectOwnedEmailRuntimeForPublish(value){globalThis.__tayarServiceProof.calls.push(['email-state',value]);return{ready:globalThis.__tayarServiceProof.ready,environmentId:'env_resend123',handoffOperationId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'}}
@@ -37,6 +42,7 @@ try{
   const capabilities={definition,pageIds:['home'],needs:{auth:true,database:true,privatePages:false,forms:false,integrations:false,cms:false},integrationProviders:[],stripeCheckouts:[],blockers:[]};
   let current=true;
   const input={client:{rpc:async()=>({data:null,error:null})},projectId,ownerId,vercelConnectionId,vercelConnectionVersion:4,
+    applicationOrigin:'https://customer.example',
     capabilities,stripeRuntime:null,emailRuntime:null,vercel:{accessToken:'customer-vercel-access-token',userId:'user_customer',
       accountId:'team_customer',vercelProjectId:'prj_customer1234'},isCurrent:async()=>current,fetcher:async()=>Response.json({})};
   assert.deepEqual(await verify(input),{environmentIds:{}});assert.deepEqual(globalThis.__tayarServiceProof.calls,[]);
@@ -70,11 +76,18 @@ try{
   await assert.rejects(verify({...input,capabilities:stripeCapabilities,stripeRuntime}),/Customer Production service verification is unavailable/);
   globalThis.__tayarServiceProof.ready=true;
   const paid={...stripeCapabilities,definition:{...definition,tables:[{id:'orders',key:'orders',name:'Orders',fields:[],permissions:[],payment:{}}]}};
+  const webhookRuntime={...stripeRuntime,webhookEndpointId:'we_customer1234',
+    webhookSigningSecretUpdatedAt:'2026-10-18T00:01:00.000Z'};
+  assert.deepEqual(await verify({...input,capabilities:paid,stripeRuntime:webhookRuntime}),{environmentIds:{
+    STRIPE_SECRET_KEY:'env_stripe123',STRIPE_WEBHOOK_SECRET:'env_webhook123',SUPABASE_SECRET_KEY:'env_supabase_secret_key'}});
+  assert.deepEqual(globalThis.__tayarServiceProof.calls.slice(-6).map(call=>call[0]),
+    ['stripe-state','stripe-destination','webhook-state','webhook-destination','generated-state','generated-destination']);
+  assert.equal(globalThis.__tayarServiceProof.calls.at(-4)[1].environment,'production');
   await assert.rejects(verify({...input,capabilities:paid,stripeRuntime}),/Customer Production service verification is unavailable/);
   await assert.rejects(verify({...input,capabilities:{...capabilities,needs:{...capabilities.needs,cms:true}}}),
     /Customer Production service verification is unavailable/);
   await assert.rejects(verify({...input,capabilities:{...capabilities,integrationProviders:['webhook']}}),
     /Customer Production service verification is unavailable/);
   current=false;await assert.rejects(verify(input),/Customer Production service verification is unavailable/);
-  console.log('PASS Production service proof: baseline, Stripe and email receipts are revalidated read-only; webhook, CMS, missing and stale services fail closed');
+  console.log('PASS Production service proof: baseline, Stripe, webhook and email receipts are revalidated read-only; CMS, missing and stale services fail closed');
 }finally{delete globalThis.__tayarServiceProof;await rm(dir,{recursive:true,force:true});}
