@@ -16,6 +16,8 @@ import { prepareOwnedVercelProductionRuntimeEnvironment,
   prepareOwnedVercelRuntimeEnvironment } from './website-owned-vercel-runtime-environment';
 import { handoffOwnedStripeRuntime,inspectOwnedStripeRuntimeForPublish,
   verifyOwnedStripeRuntimeDestination } from './website-owned-stripe';
+import { handoffOwnedStripeWebhookRuntime,inspectOwnedStripeWebhookRuntimeForPublish,
+  verifyOwnedStripeWebhookRuntimeDestination } from './website-owned-stripe-webhook-runtime';
 import { handoffOwnedEmailRuntime,inspectOwnedEmailRuntimeForPublish,
   verifyOwnedEmailRuntimeDestination } from './website-owned-email-runtime';
 import { exportWebsiteProjectToOwnedGitHub } from '../src/modules/website-builder/services/websiteGithubExportWorker';
@@ -135,6 +137,43 @@ export async function runWebsiteOwnedByoPublish(input:{
     await verifyOwnedStripeRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,accountId:vercel.accountId,
       vercelProjectId:vercel.vercelProjectId,environmentId:receipt.environmentId,projectId:input.projectId,
       environment:'preview',handoffOperationId:input.operationId,isCurrent:exactCurrent,fetcher:input.fetcher});};
+  const stripeWebhookRuntime=async()=>{const capturedSource=await source(),stripe=capturedSource.stripeRuntime;
+    if(!stripe?.webhookEndpointId||!stripe.webhookSigningSecretUpdatedAt)return;const vercel=await grant();
+    const webhookOperationId=await deterministicUuid({kind:'stripe-webhook-secret-handoff-operation',
+      operationId:input.operationId,sourceConnectionId:stripe.sourceConnectionId,endpointId:stripe.webhookEndpointId});
+    const state=await inspectOwnedStripeWebhookRuntimeForPublish({client:input.client,projectId:input.projectId,
+      ownerId:input.ownerId,vercelConnectionId:input.vercelConnectionId,
+      vercelConnectionVersion:capturedSource.vercel.version,sourceConnectionId:stripe.sourceConnectionId,
+      stripeSourceUpdatedAt:stripe.sourceUpdatedAt,webhookSourceUpdatedAt:stripe.webhookSigningSecretUpdatedAt,
+      endpointId:stripe.webhookEndpointId,applicationOrigin:capturedSource.binding.applicationOrigin,environment:'preview'});
+    const exactCurrent=async()=>await capturedSource.isCurrent()&&await owner();
+    if(state.ready){if(!state.environmentId||!state.handoffOperationId)throw new Error();
+      await verifyOwnedStripeWebhookRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,
+        accountId:vercel.accountId,vercelProjectId:vercel.vercelProjectId,environmentId:state.environmentId,
+        projectId:input.projectId,environment:'preview',handoffOperationId:state.handoffOperationId,
+        isCurrent:exactCurrent,fetcher:input.fetcher});return;}
+    const sameOperation=state.handoffOperationId===webhookOperationId;
+    if(state.handoffStatus==='removed'||state.handoffStatus==='preparing'&&!sameOperation
+      ||(!state.sourceAvailable&&!(state.handoffStatus==='verified'&&sameOperation)))throw new Error();
+    const handoffId=state.handoffId??await deterministicUuid({kind:'stripe-webhook-secret-handoff',
+      projectId:input.projectId,environment:'preview',vercelConnectionId:input.vercelConnectionId,
+      sourceConnectionId:stripe.sourceConnectionId});
+    let expectedHandoffVersion=state.handoffVersion;
+    if(sameOperation&&state.handoffStatus==='preparing')expectedHandoffVersion=state.handoffVersion-1;
+    if(sameOperation&&state.handoffStatus==='verified')expectedHandoffVersion=state.handoffVersion-2;
+    if(expectedHandoffVersion<0||!await exactCurrent())throw new Error();
+    const receipt=await handoffOwnedStripeWebhookRuntime({client:input.client,handoffId,
+      vercelConnectionId:input.vercelConnectionId,projectId:input.projectId,ownerId:input.ownerId,
+      vercelConnectionVersion:capturedSource.vercel.version,expectedHandoffVersion,
+      sourceConnectionId:stripe.sourceConnectionId,sourceUpdatedAt:stripe.webhookSigningSecretUpdatedAt,
+      environment:'preview',operationId:webhookOperationId,commitId:await deterministicUuid({
+        kind:'stripe-webhook-handoff-commit',operationId:webhookOperationId,handoffId,
+        sourceUpdatedAt:stripe.webhookSigningSecretUpdatedAt}),isCurrent:()=>current,fetcher:input.fetcher});
+    if(receipt.status!=='verified'||!await exactCurrent())throw new Error();
+    await verifyOwnedStripeWebhookRuntimeDestination({accessToken:vercel.accessToken,userId:vercel.userId,
+      accountId:vercel.accountId,vercelProjectId:vercel.vercelProjectId,environmentId:receipt.environmentId,
+      projectId:input.projectId,environment:'preview',handoffOperationId:webhookOperationId,
+      isCurrent:exactCurrent,fetcher:input.fetcher});};
   const emailRuntime=async()=>{const capturedSource=await source(),email=capturedSource.emailRuntime;
     if(!email)return;const vercel=await grant();
     for(const connection of email.connections){
@@ -173,7 +212,7 @@ export async function runWebsiteOwnedByoPublish(input:{
         environmentKey:connection.environmentKey,projectId:input.projectId,environment:'preview',
         handoffOperationId:emailOperationId,isCurrent:exactCurrent,fetcher:input.fetcher});
     }};
-  const runtime=async()=>{await environment();await stripeRuntime();await emailRuntime();};
+  const runtime=async()=>{await environment();await stripeRuntime();await stripeWebhookRuntime();await emailRuntime();};
   try{return await runByoPublishWorker({operationId:input.operationId,projectId:input.projectId,ownerId:input.ownerId,
     environment:input.environment,store,isCurrent:owner,
     validate:async()=>{const capturedSource=await source();return{sourceDigest:capturedSource.sourceDigest,requiredEnvironment:await requirements()};},

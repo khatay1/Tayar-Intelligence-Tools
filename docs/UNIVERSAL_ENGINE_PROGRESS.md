@@ -1236,3 +1236,27 @@ This does not yet deliver `STRIPE_WEBHOOK_SECRET` to Vercel, persist an
 independently revalidatable endpoint receipt, prove an actual Stripe delivery or
 enable Production order payments. Those remain blocked. No provider writes,
 customer credentials, paid service or Production activation were used.
+
+## Stripe webhook signing-secret Preview custody — 2026-10-20
+
+The endpoint observation made during the locked Stripe account-key handoff is
+now persisted as metadata-only evidence tied to the exact handoff version,
+account, environment, endpoint URL, API version and canonical event set. The
+table is private with RLS defense in depth; only `service_role` may call its
+record/state RPCs, and neither RPC returns provider credentials or signing
+material.
+
+For order-payment Preview publishing, the worker requires that durable endpoint
+proof before it independently copies the exact saved `webhookSigningSecret` to
+the customer Vercel project as a sensitive `STRIPE_WEBHOOK_SECRET`. It verifies
+the destination ID and immutable operation marker without decrypting the value,
+then erases Tayar's Vault copy using the existing CAS handoff. Lost-response
+retries reuse the durable endpoint and destination receipts; foreign, stale,
+missing, malformed or rotated evidence fails closed. Checkout-only projects do
+not enter this path.
+
+Production order payments remain blocked by the Production service verifier.
+This batch does not create a Stripe endpoint, recover its one-time secret, prove
+real event delivery, stage or promote a Production deployment, or activate paid
+processing. A later batch must add Production-scoped custody plus an actual
+signed delivery/handler receipt before removing that gate.
