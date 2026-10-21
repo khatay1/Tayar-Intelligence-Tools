@@ -1,10 +1,12 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {ByoSourceCapabilities} from '../src/modules/website-builder/core/application-byo-source-capabilities';
+import {ProductionCandidateRequiredError} from '../src/modules/website-builder/core/application-production-candidate';
 import type {OwnedSourceReader} from './website-owned-source-capture';
-import {runWebsiteOwnedByoProductionPublish,runWebsiteOwnedByoPublish} from './website-byo-publish-adapters';
+import {runWebsiteOwnedByoPublish} from './website-byo-publish-adapters';
 import {createWebsiteByoPublishStore} from './website-byo-publish-store';
 import {captureWebsiteByoPublishTargets} from './website-byo-publish-targets';
 import {prepareWebsiteOwnedBackend} from './website-owned-backend-preparation-worker';
+import {inspectWebsiteProductionActivationReadiness} from './website-production-activation-readiness';
 import {stageWebsiteProductionCandidate} from './website-production-staging-worker';
 
 type Client=Pick<SupabaseClient,'rpc'>;
@@ -34,6 +36,12 @@ export function createWebsiteByoPublishRunners(input:{client:Client;reader:Owned
         platformSupabaseOrganizationId:input.platformSupabaseOrganizationId,
         verifyRuntime:input.verifyRuntime,isCurrent:async()=>true,fetcher:input.fetcher});
     },
+    // Internal and read-only. A later approved activation worker must consume
+    // this fresh proof; the public endpoint has no activation action.
+    async inspectProductionActivation(scope:Scope){
+      return inspectWebsiteProductionActivationReadiness({client:input.client,...scope,
+        isCurrent:async()=>true,fetcher:input.fetcher});
+    },
     async runPreview(scope:Scope){
       await prepareWebsiteOwnedBackend({client:input.client,reader:input.reader,...scope,environment:'preview',
         platformOrigin:input.platformOrigin,platformSupabaseOrganizationId:input.platformSupabaseOrganizationId,
@@ -47,16 +55,8 @@ export function createWebsiteByoPublishRunners(input:{client:Client;reader:Owned
         githubClientSecret:input.githubClientSecret,ownerCurrent:selected.isCurrent,
         verifyRuntime:input.verifyRuntime,requiredEnvironment:input.requiredEnvironment,fetcher:input.fetcher});
     },
-    async runProduction(scope:Scope&{previewOperationId:string}){
-      const selected=await capture({...scope,requireProduction:true});
-      const production=selected.targets.vercelProduction;
-      if(!production)throw new Error('BYO production target unavailable.');
-      return runWebsiteOwnedByoProductionPublish({client:input.client,...scope,
-        previewVercelConnectionId:selected.targets.vercelPreview.connectionId,
-        productionVercelConnectionId:production.connectionId,
-        previewConnectionVersion:selected.targets.vercelPreview.version,
-        productionConnectionVersion:production.version,
-        reader:input.reader,ownerCurrent:selected.isCurrent,fetcher:input.fetcher});
+    async runProduction(_scope:Scope&{previewOperationId:string}){
+      throw new ProductionCandidateRequiredError();
     },
     async readStatus(scope:Scope&{environment:'preview'|'production'}){
       const store=createWebsiteByoPublishStore({client:input.client,...scope,isCurrent:()=>true});
