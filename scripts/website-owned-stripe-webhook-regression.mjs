@@ -175,8 +175,10 @@ try {
       await assert.rejects(query(`set role ${role}; select * from private.app_stripe_order_payments;`), /permission denied/);
     }
     await assert.rejects(query('set role service_role; select * from private.app_stripe_order_events;'), /permission denied/);
-    const realStore = rpcStore(dbClient), paid = normalize(event(), { projectId, livemode: true });
+    const realStore = rpcStore(dbClient,runtimeDigest), paid = normalize(event(), { projectId, livemode: true });
     assert.equal(await realStore.apply(paid), 'applied'); assert.equal(await realStore.apply(paid), 'duplicate');
+    assert.equal(await query(`select runtime_digest from private.app_stripe_order_events where event_id='${paid.eventId}';`),runtimeDigest);
+    assert.equal(await rpcStore(dbClient,'b'.repeat(64)).apply(paid),'conflict');
     assert.equal(await realStore.apply({ ...paid, amount: 2400 }), 'conflict');
     assert.equal(await query(`select status||':'||amount_paid from private.app_stripe_order_payments where order_id='${orderId}';`), 'paid:2500');
     const refundOperation='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
