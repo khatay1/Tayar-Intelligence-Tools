@@ -20,7 +20,7 @@ const translations = {
 /** A native, isolated data component. All record values use textContent/value;
  * authored HTML, shared caches and platform credentials never render rows. */
 export function mountApplicationDataView(host: HTMLElement, definition: ApplicationDefinition, binding: ApplicationDataViewBinding,
-  runtime: ReturnType<typeof createApplicationDataRuntime>, language: Language, scope: { projectRef: string; projectId: string; pageId: string; sectionId: string }) {
+  runtime: ReturnType<typeof createApplicationDataRuntime>, language: Language, scope: { projectRef: string; projectId: string; pageId: string; sectionId: string; organizationId?: string }) {
   const copy = translations[language] ?? translations.en;
   const stockCopy = ({ en: { action: 'Available stock', result: 'Available', hint: 'Informational only. A reservation must still succeed before stock is committed.' },
     ar: { action: 'المخزون المتاح', result: 'المتاح', hint: 'للاطلاع فقط. يجب نجاح الحجز قبل اعتماد الكمية.' },
@@ -59,6 +59,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const controller = createApplicationDataViewController(definition, binding, runtime, () => crypto.randomUUID(), {
     keyPrefix: `tayar-app-form:${scope.projectRef}:${scope.projectId}:${scope.pageId}:data:${scope.sectionId}`,
     storage: { getItem: key => sessionStorage.getItem(key), setItem: (key, value) => sessionStorage.setItem(key, value), removeItem: key => sessionStorage.removeItem(key) }, crypto,
+    organizationId: scope.organizationId,
   });
   const root = host.attachShadow({ mode: 'open' });
   let disposed = false, busy = false, sequence = 0, page = 0, query = '';
@@ -392,7 +393,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     stopEditor(); editor.replaceChildren(); editor.hidden = false;
     const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
     for (const field of controller.table.fields) {
-      if (controller.table.workflow?.fieldId === field.id || field.formula) continue;
+      if (controller.table.workflow?.fieldId === field.id || controller.table.organizationFieldId === field.id || field.formula) continue;
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
       if (field.type === 'reference') {
@@ -433,7 +434,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     stopEditor(); editor.replaceChildren(); editor.hidden = false;
     const form = document.createElement('form'); const inputs = new Map<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>();
     for (const field of controller.table.fields) {
-      if (controller.table.workflow?.fieldId === field.id || field.formula) continue;
+      if (controller.table.workflow?.fieldId === field.id || controller.table.organizationFieldId === field.id || field.formula) continue;
       const label = document.createElement('label'); label.textContent = field.name;
       let input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
       let reference: ReturnType<typeof createApplicationReferenceInput> | undefined;

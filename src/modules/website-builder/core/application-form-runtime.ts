@@ -5,6 +5,7 @@ import { ApplicationBookingRejected, validateApplicationBookingValues } from './
 import type { ApplicationDefinition, ApplicationField } from './application-model';
 import { readApplicationDefinition } from './application-validation';
 import type { WebsiteSection, WebsiteFormField } from './types';
+import { applicationOrganizationContext } from './application-organization-context';
 
 /** Editable references only. Values/rows/credentials never belong in a binding. */
 export interface ApplicationCreateFormBinding {
@@ -81,7 +82,8 @@ function convert(form: WebsiteFormField, field: ApplicationField, raw: string | 
  * here are configuration checks only; the dedicated database RLS decides access.
  * Conditional/file fields and side-effect automations stay unavailable until
  * their server execution contracts are implemented. Never silently drop them. */
-export function compileApplicationCreateForm(definition: ApplicationDefinition, source: WebsiteSection, input: ApplicationCreateFormBinding) {
+export function compileApplicationCreateForm(definition: ApplicationDefinition, source: WebsiteSection, input: ApplicationCreateFormBinding,
+  organizationId?: string) {
   const app = readApplicationDefinition(definition);
   const section = JSON.parse(JSON.stringify(source)) as WebsiteSection;
   const binding = JSON.parse(JSON.stringify(input)) as ApplicationCreateFormBinding;
@@ -92,14 +94,18 @@ export function compileApplicationCreateForm(definition: ApplicationDefinition, 
     || section.formAutomations?.some(item => item.enabled) || section.formSuccessAction === 'redirect') throw invalid();
   const table = app.tables.find(item => item.id === binding.tableId);
   if (!table || !table.permissions.some(item => item.operation === 'create')) throw invalid();
-  const formIds = new Set<string>(), tableIds = new Set<string>(), names = new Set<string>();
+  const organizationField = table.fields.find(field => field.id === table.organizationFieldId);
+  const organization = organizationField
+    ? (organizationId ? applicationOrganizationContext(app, table, organizationId) : { fieldKey: organizationField.key, id: undefined })
+    : undefined;
+  const formIds = new Set<string>(), tableIds = new Set<string>(), formNames = new Set<string>(), names = new Set<string>();
   const fields = binding.fields.map(mapping => {
     exact(mapping, ['formFieldId', 'tableFieldId']);
     if (typeof mapping.formFieldId !== 'string' || typeof mapping.tableFieldId !== 'string'
       || formIds.has(mapping.formFieldId) || tableIds.has(mapping.tableFieldId)) throw invalid();
     const form = section.formFields!.find(item => item.id === mapping.formFieldId);
     const field = table.fields.find(item => item.id === mapping.tableFieldId);
-    if (!form || !field || table.workflow?.fieldId === field.id || field.formula || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || names.has(form.name)
+    if (!form || !field || table.workflow?.fieldId === field.id || field.formula || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || formNames.has(form.name)
       || form.name.startsWith('_tayar_') || form.conditions?.length || form.type === 'file') throw invalid();
     if (form.validation) {
       exact(form.validation, ['minLength', 'maxLength', 'min', 'max', 'pattern']);
@@ -118,13 +124,16 @@ export function compileApplicationCreateForm(definition: ApplicationDefinition, 
       : field.type === 'enum' ? ['select', 'radio'].includes(form.type) && !!form.options?.length && form.options.every(value => field.options?.includes(value))
       : ['text', 'email', 'tel', 'url', 'textarea'].includes(form.type);
     if (!compatible) throw invalid();
-    formIds.add(form.id); tableIds.add(field.id); names.add(form.name);
-    return { form, field };
+    formIds.add(form.id); tableIds.add(field.id); formNames.add(form.name);
+    const organizationField = field.id === table.organizationFieldId;
+    if (!organizationField) names.add(form.name);
+    return { form, field, organizationField };
   });
   if (new Set(section.formFields.map(field => field.id)).size !== section.formFields.length
-    || table.fields.some(field => field.required && field.defaultValue === undefined && !field.formula && !tableIds.has(field.id))) throw invalid();
+    || table.fields.some(field => field.required && field.id !== table.organizationFieldId && field.defaultValue === undefined && !field.formula && !tableIds.has(field.id))) throw invalid();
   return {
     tableId: table.id,
+    organization: organization ? { ...organization, formName: fields.find(item => item.organizationField)?.form.name } : undefined,
     values(entries: Iterable<[string, unknown]>): Record<string, unknown> {
       const values = new Map<string, string>(); let count = 0;
       for (const [name, value] of entries) {
@@ -134,8 +143,13 @@ export function compileApplicationCreateForm(definition: ApplicationDefinition, 
         values.set(name, value);
       }
       let payload: Record<string, unknown>;
-      try { payload = Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))])); }
+      try { payload = Object.fromEntries(fields.filter(item => !item.organizationField)
+        .map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))])); }
       catch { throw invalid(); }
+      if (organization) {
+        if (!organization.id) throw invalid();
+        payload[organization.fieldKey] = organization.id;
+      }
       validateApplicationBookingValues(table, payload);
       return payload;
     },
