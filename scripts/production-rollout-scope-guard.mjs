@@ -96,9 +96,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       }
       console.log(JSON.stringify(scope, null, 2));
       // Even a completely classified inventory never authorizes execution.
-      // Exit success ONLY as a scope inventory diagnostic, not a release check.
-      // Calling workflows must not use this as an approval gate.
-      process.exitCode = scope.scopeExact ? 0 : 1;
+      // Return failure while *any* migration remains pending, even when
+      // categorization is complete. This must not green-light CI/deployment.
+      // A zero exit still never grants production activation.
+      process.exitCode = scope.scopeExact && scope.pendingCount === 0 ? 0 : 1;
     } catch (error) {
       console.error('Read-only scope guard refused:', error.message);
       process.exitCode = 1;
