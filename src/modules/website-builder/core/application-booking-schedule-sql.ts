@@ -12,23 +12,33 @@ export function applicationBookingSchedulePredicate(schedule: ApplicationBooking
   return allowed;
 }
 export function applicationBookingScheduleManifest(input: ApplicationDefinition) {
-  return readApplicationDefinition(input).tables.flatMap((table, index) => {
+  const app = readApplicationDefinition(input);
+  return app.tables.flatMap((table, index) => {
     const rule = table.booking, schedule = rule?.schedule;
-    if (!rule || !schedule) return [];
+    const organization = table.fields.find(field => field.id === table.organizationFieldId);
+    if (!rule || !schedule && !organization) return [];
     const key = (id: string) => table.fields.find(field => field.id === id)!.key;
     const start = `new."${key(rule.startFieldId)}"`, end = `new."${key(rule.endFieldId)}"`;
-    const allowed = applicationBookingSchedulePredicate(schedule);
+    // Check every resource on writes, including nonblocking states. The
+    // advisory availability probe cannot authorize a direct insert or update.
+    const resources = organization ? [rule.resourceFieldId, ...(rule.additionalResourceFieldIds ?? [])].map(id => {
+      const field = table.fields.find(field => field.id === id)!;
+      const target = app.tables.find(candidate => candidate.id === field.referenceTableId)!;
+      const targetOrganization = target.fields.find(candidate => candidate.id === target.organizationFieldId);
+      const scope = target.id === app.tenancy?.organizationTableId ? 'r.id' : `r."${targetOrganization!.key}"`;
+      return `if not exists(select 1 from public."app_${target.key}" r where r.id=new."${field.key}" and ${scope}=new."${organization.key}") then raise exception 'Application booking resource outside organization' using errcode='23514';end if;`;
+    }).join('\n ') : '';
     const source = `
 declare local_start timestamp; local_end timestamp;
 begin
- ${rule.statusFieldId ? `if new."${key(rule.statusFieldId)}" not in (${rule.blockingStatuses!.map(literal).join(',')}) then return new;end if;` : ''}
+ ${resources ? `${resources}\n ` : ''}${schedule ? `${rule.statusFieldId ? `if new."${key(rule.statusFieldId)}" not in (${rule.blockingStatuses!.map(literal).join(',')}) then return new;end if;` : ''}
  if not isfinite(${start}) or not isfinite(${end}) or ${start}>=${end} then return new;end if;
  local_start:=timezone(${literal(schedule.timeZone)},${start});local_end:=timezone(${literal(schedule.timeZone)},${end});
- if ${end}-${start}>make_interval(mins=>${schedule.maxDurationMinutes}) or local_start>=local_end or not(${allowed})
-  then raise exception 'Application booking outside schedule' using errcode='23514';end if;
+ if ${end}-${start}>make_interval(mins=>${schedule.maxDurationMinutes}) or local_start>=local_end or not(${applicationBookingSchedulePredicate(schedule)})
+  then raise exception 'Application booking outside schedule' using errcode='23514';end if;` : ''}
  return new;
 end;`;
-    return [{ name: `app_booking_schedule_${index}`, table: `app_${table.key}`, timeZone: schedule.timeZone, source }];
+    return [{ name: `app_booking_schedule_${index}`, table: `app_${table.key}`, timeZone: schedule?.timeZone ?? 'UTC', source }];
   });
 }
 export function compileApplicationBookingSchedule(input: ApplicationDefinition, index: number) {

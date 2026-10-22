@@ -49,6 +49,12 @@ try {
     ], booking, permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'organization' })) },
   ] };
   validate(organizationApp);
+  const unscopedResourceApp = structuredClone(organizationApp);
+  delete unscopedResourceApp.tables[1].organizationFieldId;
+  assert.throws(() => validate(unscopedResourceApp), /resources scoped/);
+  const rawResourceApp = structuredClone(organizationApp);
+  Object.assign(rawResourceApp.tables[2].fields[1], { type: 'uuid', referenceTableId: undefined });
+  assert.throws(() => validate(rawResourceApp), /resources scoped/);
   const organizationAvailability = availabilityManifest(organizationApp).filter(item => item.name === 'app_booking_available_2');
   assert.equal(organizationAvailability.length, 2);
   assert.equal(organizationAvailability[0].arguments, 'resources uuid[],starts_at timestamptz,ends_at timestamptz,requested_organization uuid');
@@ -236,7 +242,7 @@ select 'booking overlap, adjacency, different resources, cancellation and finite
       query = async input => {
         try {
           const results = await embeddedDatabase.exec(`reset role; ${input}`);
-          return results.flatMap(result => result.rows.map(row => Object.values(row).map(value => typeof value === 'object' ? JSON.stringify(value) : String(value)).join('|'))).join('\n');
+          return results.flatMap(result => result.rows.map(row => Object.values(row).map(value => typeof value === 'boolean' ? value ? 't' : 'f' : typeof value === 'object' ? JSON.stringify(value) : String(value)).join('|'))).join('\n');
         } catch (error) { await embeddedDatabase.exec('rollback; reset role;'); throw error; }
       };
     } else {
@@ -349,7 +355,32 @@ select 'booking overlap, adjacency, different resources, cancellation and finite
     assert.equal((await query(`${asUser(owner)} ${organizationOccupancy(resource2,organizationB)}`)).split('\n').at(-1),'t');
     assert.equal((await query(`${asUser(owner)} select (${organizationOccupancy(resource,organizationB).slice(7,-1)}) is null;`)).split('\n').at(-1),'t');
     assert.equal((await query(`${asUser(other)} select (${organizationOccupancy(resource,organizationA).slice(7,-1)}) is null;`)).split('\n').at(-1),'t');
+    const foreignBooking = status => `insert into public.app_appointments(organization_id,resource_id,starts_at,ends_at,status) values ('${organizationA}','${resource2}','2026-10-16 10:00Z','2026-10-16 11:00Z','${status}');`;
+    await assert.rejects(query(`${asUser(owner)} ${foreignBooking('confirmed')}`), /resource.*organization/i);
+    await assert.rejects(query(`${asUser(owner)} ${foreignBooking('cancelled')}`), /resource.*organization/i);
+    await assert.rejects(query(`${asUser(owner)} update public.app_appointments set resource_id='${resource2}';`), /resource.*organization/i);
+    await query(`${asUser(owner)} select public.app_set_organization_member('${organizationA}','${other}',true,false);`);
+    await assert.rejects(query(`${asUser(other)} ${foreignBooking('confirmed')}`), /resource.*organization/i);
+    await query(`${asUser(other)} insert into public.app_appointments(organization_id,resource_id,starts_at,ends_at,status) values ('${organizationA}','${resource}','2026-10-16 10:00Z','2026-10-16 11:00Z','confirmed');`);
     assert.equal(await verifyAvailability(organizationApp,actualCatalog),true);
+    assert.equal(await verifySchedule(organizationApp,actualCatalog),true);
+    await query('alter table public.app_appointments disable trigger app_booking_schedule_2;');
+    assert.equal(await verifySchedule(organizationApp,actualCatalog),false,'disabled resource guard blocks publishing');
+    const organizationMultiApp = structuredClone(organizationApp);
+    organizationMultiApp.tables.push({ ...structuredClone(organizationApp.tables[1]), id: 'rooms', key: 'rooms', name: 'Rooms', organizationFieldId: 'room-organization', fields: [
+      { ...organizationApp.tables[1].fields[0], id: 'room-organization' }, { ...organizationApp.tables[1].fields[1], id: 'room-name' },
+    ] });
+    organizationMultiApp.tables[2].fields.push({ id: 'room', key: 'room_id', name: 'Room', type: 'reference', required: true, referenceTableId: 'rooms' });
+    organizationMultiApp.tables[2].booking.additionalResourceFieldIds = ['room'];
+    await query('drop schema public cascade;drop schema private cascade;create schema public;grant usage on schema public to anon,authenticated,service_role;' + compile(organizationMultiApp).join('\n'));
+    await query(`${asUser(owner)} insert into public.app_organizations(id,name) values ('${organizationA}','A'),('${organizationB}','B');
+      insert into public.app_resources(id,organization_id,name) values ('${resource}','${organizationA}','A resource');
+      insert into public.app_rooms(id,organization_id,name) values ('${resource}','${organizationA}','A room'),('${resource2}','${organizationB}','B room');`);
+    const multiBooking = room => `insert into public.app_appointments(organization_id,resource_id,room_id,starts_at,ends_at,status) values ('${organizationA}','${resource}','${room}','2026-10-16 10:00Z','2026-10-16 11:00Z','confirmed');`;
+    await assert.rejects(query(`${asUser(owner)} ${multiBooking(resource2)}`), /resource.*organization/i);
+    await query(`${asUser(owner)} ${multiBooking(resource)}`);
+    assert.equal(await verifySchedule(organizationMultiApp,actualCatalog),true);
+    console.log('PASS organization booking writes: foreign resources, cancelled states, updates and extra resources rejected; same-tenant member writes accepted');
     console.log('PASS PostgreSQL multi-resource exclusion, atomic rollback, manual waitlist confirmation, date exceptions, hidden occupancy and permission-scoped probes');
     console.log(`PASS actual PostgreSQL: ${embedded ? 'isolated inserts/updates' : 'concurrent inserts/updates'}, invisible-row conflicts, cancellation, atomic series rollback, schedule guards, invalid intervals and removed-constraint refusal`);
   }

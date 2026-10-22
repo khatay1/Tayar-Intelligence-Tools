@@ -170,6 +170,15 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
         const find = (fieldId: unknown) => fields.find(field => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (table.organizationFieldId !== undefined) {
+          const resourceIds = [rule.resourceFieldId, ...(Array.isArray(rule.additionalResourceFieldIds) ? rule.additionalResourceFieldIds : [])];
+          if (resourceIds.some(fieldId => {
+            const field = find(fieldId);
+            const target = tables.find(candidate => object(candidate) && candidate.id === field?.referenceTableId);
+            return field?.type !== 'reference' || !object(target)
+              || target.id !== organizationRootId && target.organizationFieldId === undefined;
+          })) issue(bookingPath, 'unscoped-booking-resource', 'Organization bookings require resources scoped to the same organization.');
+        }
         if (rule.waitlistStatus !== undefined) {
           const state = find(rule.statusFieldId);
           if (typeof rule.waitlistStatus !== 'string' || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus)
