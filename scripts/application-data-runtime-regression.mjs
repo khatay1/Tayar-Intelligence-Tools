@@ -30,7 +30,8 @@ try {
   assert.throws(() => createIsolatedApplicationClient({ ...config, url: 'https://sgewokeojtzsqjaeluan.supabase.co.evil.invalid' }, platform), /HTTPS/);
 
   const requests = [];
-  let denyCreate = false, recoveredPlate = 'ABC', omitRecoveredField = false, switchUserAfterInsert = false;
+  let denyCreate = false, recoveredPlate = 'ABC', omitRecoveredField = false, switchUserAfterInsert = false,
+    switchUserAfterOrganizationRpc = false;
   const userId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
   const otherUserId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   let currentUserId = userId;
@@ -44,6 +45,10 @@ try {
       user: { id: userId, is_anonymous: false } });
     if (url.includes('/auth/v1/user')) { duringIdentity?.(); return Response.json({ id: currentUserId, is_anonymous: false }); }
     if (url.includes('/rpc/app_set_user_role')) return new Response(null, { status: 204 });
+    if (url.includes('/rpc/app_set_organization_member')) {
+      if (switchUserAfterOrganizationRpc) currentUserId = otherUserId;
+      return new Response(null, { status: 204 });
+    }
     if (init?.method === 'POST' && url.includes('/rest/v1/app_vehicles')) {
       if (switchUserAfterInsert) currentUserId = otherUserId;
       return denyCreate ? Response.json({ message: 'SECRET_DATABASE_ERROR' }, { status: 403 }) : new Response(null, { status: 201 });
@@ -91,6 +96,37 @@ try {
     await assert.rejects(() => roleRuntime.auth.setUserRole('bad-id', 'staff', true), /valid record ID/);
     await roleRuntime.auth.setUserRole('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'staff', true);
     assert.match(requests.at(-1).url, /^https:\/\/sgewokeojtzsqjaeluan\.supabase\.co\/rest\/v1\/rpc\/app_set_user_role/);
+    const organizationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    const memberId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const organizationApp = { version: 1,
+      auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [], pageAccess: [],
+      tenancy: { mode: 'organizations', organizationTableId: 'organizations' }, tables: [
+        { id: 'organizations', key: 'organizations', name: 'Organizations',
+          fields: [{ id: 'organization-name', key: 'name', name: 'Name', type: 'text', required: true }],
+          permissions: [{ operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' },
+            { operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] },
+        { id: 'projects', key: 'projects', name: 'Projects', organizationFieldId: 'project-organization',
+          fields: [{ id: 'project-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' }],
+          permissions: ['create', 'read', 'update', 'delete'].map(operation => ({ operation, access: 'organization' })) },
+      ] };
+    const organizationRuntime = createApplicationDataRuntime(organizationApp, config, platform);
+    assert.equal(organizationRuntime.organizations.rootTableId, 'organizations');
+    await organizationRuntime.auth.signIn('organization-owner@example.invalid', 'fixture-password');
+    const beforeOrganizationWrite = requests.length;
+    await assert.rejects(() => organizationRuntime.organizations.setMember('bad-id', memberId, true, false, userId), /valid record ID/);
+    await assert.rejects(() => organizationRuntime.organizations.setMember(organizationId, memberId, 'yes', false, userId), /boolean/);
+    assert.equal(requests.length, beforeOrganizationWrite, 'Invalid membership requests fail before an RPC');
+    await organizationRuntime.organizations.setMember(organizationId, memberId, true, false, userId);
+    const membershipRequest = requests.findLast(request => request.url.includes('/rpc/app_set_organization_member'));
+    assert.deepEqual(JSON.parse(membershipRequest.init.body), {
+      requested_organization: organizationId, target_user: memberId, enabled: true, administrator: false,
+    });
+    assert.equal(new Headers(membershipRequest.init.headers).get('Authorization'), `Bearer ${token}`);
+    switchUserAfterOrganizationRpc = true;
+    await assert.rejects(() => organizationRuntime.organizations.setMember(organizationId, memberId, false, false, userId), /outcome is uncertain/);
+    switchUserAfterOrganizationRpc = false; currentUserId = userId;
+    organizationRuntime.dispose();
+    assert.equal(createApplicationDataRuntime(app, config, platform).organizations, undefined);
     const requestId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
     const createApp = structuredClone(roleApp);
     createApp.tables[0].permissions.push({ operation: 'create', access: 'owner' });
