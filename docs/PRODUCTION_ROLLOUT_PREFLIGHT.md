@@ -47,3 +47,35 @@ The migration preflight imports the current source-map verifier and fails closed
 7. Request separate explicit approval for any live schema changes, production traffic promotion, accounts, paid providers or keys.
 
 **Hard stop:** No automatic Production rollout, database writes, commercial service activation, or exposure of credentials from this preflight.
+
+
+## Reviewed migration scope: not every pending file belongs in platform launch
+
+The [closed migration scope](../supabase/production-rollout-scope-20261022.json) pins the current 30 pending identities against the read-only database inventory.
+
+| Group | Count | Release status |
+| --- | ---: | --- |
+| Historical local migrations without matching remote record | 9 | BLOCKED; provenance and exact live catalog/definition review required |
+| Customer-owned Production source/staging/attestation support | 6 | HELD; different from deploying Tayar platform itself |
+| Social Hub runtime, storage and automation | 14 | DEFERRED per independent Social Hub plan |
+| Stripe customer-owned webhook secret handoff | 1 | DEFERRED; credentials/paid activation last |
+
+**Do not blindly apply all 30.** The 14 Social Hub migrations and the Stripe handoff are not a precondition for testing Tayar's AI website/application generator on the existing admin account. This grouping is not a proof that the remaining six or nine can be skipped safely; runtime dependency and live schema reviews still determine platform compatibility.
+
+The 9 historical sources are partially installed by schema, not by migration-history identity:
+
+- Present by function name: `public.website_publish_scheduler_ready`, `public.website_store_connection_handoff`, `public.website_store_supabase_oauth_custody`, `private.website_project_secret_refs_impl`, `public.reserve_ai_tool_usage`. These may differ in signature/body/privileges from source.
+- Absent by inspected table identity: `public.website_publish_redirects`, `private.website_runtime_secret_stages`. Corresponding replace-redirect, email worker-readiness and owned-secret staging functions were also absent by name.
+- **Extra security review:** `private.website_project_secret_refs_impl(uuid)` is `SECURITY DEFINER`, and `has_function_privilege('authenticated',...,'EXECUTE')` was true. That fact alone does not establish exploitability because schema USAGE and internal guards still matter. Before changing grants or deploying further SQL, audit its code, schema access and all callers.
+- The historical redirect validation fix contains deletion of invalid legacy rows. It must not be run against an existing populated table without a verified data-preservation plan.
+
+The [rollout scope guard](../scripts/production-rollout-scope-guard.mjs) checks that every remaining source belongs to exactly one reviewed group, fails closed on newly added/stale/duplicate IDs, and verifies historic source-map digests in CLI mode. The [scope regression](../scripts/production-rollout-scope-guard-regression.mjs) uses all 30 pinned names. Run:
+
+    node scripts/production-rollout-scope-guard-regression.mjs
+    node scripts/production-rollout-scope-guard.mjs /private/path/production-migrations.json
+
+Successful classification only means **the inventory is categorized**. It never authorizes Production SQL changes or promotion. Avoid triggering paid GitHub Actions or Vercel builds without explicit cost confirmation.
+
+## Latest main CI evidence
+
+GitHub's check-run API confirms [Release Gate run #39836601325](https://github.com/khatay1/Tayar-Intelligence-Tools/actions/runs/39836601325) succeeded on exact merged `main` SHA `07560f0b357847dcd13ac014bda5b9fb8b472ad3` (event `push`). A separate Supabase Preview check was skipped because no preview database branch was associated with that commit. The exact production-like candidate, backup restore and live signed-in application smoke still remain unverified.
