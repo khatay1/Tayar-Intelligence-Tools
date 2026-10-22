@@ -112,7 +112,7 @@ try {
   const organizationDefinition = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true },
     roles: [], pageAccess: [], tenancy: { mode: 'organizations', organizationTableId: 'organizations' }, tables: [
       { id: 'organizations', key: 'organizations', name: 'Organizations', fields: [{ id: 'organization-name', key: 'name', name: 'Name', type: 'text', required: true }],
-        permissions: [{ operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] },
+        permissions: [{ operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }, { operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] },
       { id: 'projects', key: 'projects', name: 'Projects', organizationFieldId: 'project-organization',
         fields: [{ id: 'project-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' }],
         permissions: ['create', 'read', 'update', 'delete'].map(operation => ({ operation, access: 'organization' })) },

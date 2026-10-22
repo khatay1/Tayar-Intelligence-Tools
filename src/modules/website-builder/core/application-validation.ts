@@ -503,8 +503,9 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     const root = tables.find(table => object(table) && table.id === organizationRootId);
     const rootPermissions = object(root) && Array.isArray(root.permissions) ? root.permissions.filter(object) : [];
     if (!rootPermissions.some(rule => rule.operation === 'create' && ['authenticated', 'owner'].includes(String(rule.access)))
-      || !rootPermissions.some(rule => rule.operation === 'read' && rule.access === 'organization')) {
-      issue('application.tenancy', 'incomplete-organization-root', 'The organization root needs authenticated creation and member read access.');
+      || !rootPermissions.some(rule => rule.operation === 'read' && rule.access === 'organization')
+      || !rootPermissions.some(rule => rule.operation === 'read' && rule.access === 'owner')) {
+      issue('application.tenancy', 'incomplete-organization-root', 'The organization root needs authenticated creation plus owner and member read access.');
     }
     tables.forEach((table, index) => {
       if (!object(table) || table.id !== organizationRootId && table.organizationFieldId === undefined) return;

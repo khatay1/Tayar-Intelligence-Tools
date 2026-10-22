@@ -815,8 +815,8 @@ function validateApplicationDefinition(value, pageIds) {
   if (organizationRootId) {
     const root = tables.find((table) => object5(table) && table.id === organizationRootId);
     const rootPermissions = object5(root) && Array.isArray(root.permissions) ? root.permissions.filter(object5) : [];
-    if (!rootPermissions.some((rule) => rule.operation === "create" && ["authenticated", "owner"].includes(String(rule.access))) || !rootPermissions.some((rule) => rule.operation === "read" && rule.access === "organization")) {
-      issue("application.tenancy", "incomplete-organization-root", "The organization root needs authenticated creation and member read access.");
+    if (!rootPermissions.some((rule) => rule.operation === "create" && ["authenticated", "owner"].includes(String(rule.access))) || !rootPermissions.some((rule) => rule.operation === "read" && rule.access === "organization") || !rootPermissions.some((rule) => rule.operation === "read" && rule.access === "owner")) {
+      issue("application.tenancy", "incomplete-organization-root", "The organization root needs authenticated creation plus owner and member read access.");
     }
     tables.forEach((table, index) => {
       if (!object5(table) || table.id !== organizationRootId && table.organizationFieldId === void 0) return;

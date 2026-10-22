@@ -76,7 +76,7 @@ try {
       { id: 'req-organization-projects', summary: 'Organization members manage their projects.', capability: 'records', evidence: ['view:projects:read'] },
     ] },
     tables: [
-      { id: 'organizations', key: 'organizations', name: 'Organizations', fields: [], permissions: [{ operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }] },
+      { id: 'organizations', key: 'organizations', name: 'Organizations', fields: [], permissions: [{ operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }, { operation: 'read', access: 'owner' }] },
       { id: 'projects', key: 'projects', name: 'Projects', organizationFieldId: 'project-organization',
         fields: [{ id: 'project-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' }],
         permissions: [{ operation: 'read', access: 'organization' }] },
