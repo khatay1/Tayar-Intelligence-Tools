@@ -251,10 +251,7 @@ try {
     }
   };
   formsPreparation = prepareForms().catch(() => { stopForms(); leadForms.forEach(form => formStatus(form, formCopy.unavailable)); });
-  const prepareDataViews = async () => { try {
-    const organization = await organizationPreparation;
-    const user = await runtime.auth.currentUser();
-    if (!user || user.is_anonymous || disposed || signingOut || (config.definition.tenancy && user.id !== organization?.userId)) throw new Error('Organization identity changed.');
+  const mountDataViews = (organizationId?: string) => { try {
     const seen = new Set<string>();
     for (const item of config.applicationDataViews ?? []) {
       if (item.pageId !== config.pageId || seen.has(item.sectionId)) throw new Error('Application data view identity is invalid.');
@@ -264,10 +261,18 @@ try {
       if (matches.length !== 1) throw new Error('Application data view markup is unavailable.');
       matches[0].replaceChildren();
       dataViewDisposers.push(mountApplicationDataView(matches[0], config.definition, item.binding, runtime, config.language,
-        { projectRef: config.backend.projectRef, projectId: config.projectId, pageId: config.pageId, sectionId: item.sectionId, organizationId: organization?.organizationId }));
+        { projectRef: config.backend.projectRef, projectId: config.projectId, pageId: config.pageId, sectionId: item.sectionId, organizationId }));
     }
   } catch { stopDataViews(); status.textContent = copy.unavailable; } };
-  void prepareDataViews();
+  if (!config.definition.tenancy) mountDataViews();
+  else void (async () => {
+    try {
+      const organization = await organizationPreparation;
+      const user = await runtime.auth.currentUser();
+      if (!user || user.is_anonymous || disposed || signingOut || user.id !== organization?.userId) throw new Error('Organization identity changed.');
+      mountDataViews(organization.organizationId);
+    } catch { stopDataViews(); status.textContent = copy.unavailable; }
+  })();
   const click = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || signingOut) return;
     const anchor = event.composedPath().find(item => item instanceof HTMLAnchorElement) as HTMLAnchorElement | undefined;
