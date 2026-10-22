@@ -74,7 +74,7 @@ The [rollout scope guard](../scripts/production-rollout-scope-guard.mjs) checks 
     node scripts/production-rollout-scope-guard-regression.mjs
     node scripts/production-rollout-scope-guard.mjs /private/path/production-migrations.json
 
-Successful classification only means **the inventory is categorized**. It never authorizes Production SQL changes or promotion. Avoid triggering paid GitHub Actions or Vercel builds without explicit cost confirmation.
+Successful in-memory classification only means **the inventory is categorized**. The CLI intentionally exits **nonzero while any migration remains pending**, even with an exact 30-file classification, so it cannot accidentally green-light CI. It never authorizes Production SQL changes or promotion. Avoid triggering paid GitHub Actions or Vercel builds without explicit cost confirmation.
 
 ## Latest main CI evidence
 
