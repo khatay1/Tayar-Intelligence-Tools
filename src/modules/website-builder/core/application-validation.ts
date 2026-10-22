@@ -170,6 +170,15 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         const fields = Array.isArray(table.fields) ? table.fields.filter(object) : [];
         const find = (fieldId: unknown) => fields.find(field => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (table.organizationFieldId !== undefined) {
+          const resourceIds = [rule.resourceFieldId, ...(Array.isArray(rule.additionalResourceFieldIds) ? rule.additionalResourceFieldIds : [])];
+          if (resourceIds.some(fieldId => {
+            const field = find(fieldId);
+            const target = tables.find(candidate => object(candidate) && candidate.id === field?.referenceTableId);
+            return field?.type !== 'reference' || !object(target)
+              || target.id !== organizationRootId && target.organizationFieldId === undefined;
+          })) issue(bookingPath, 'unscoped-booking-resource', 'Organization bookings require resources scoped to the same organization.');
+        }
         if (rule.waitlistStatus !== undefined) {
           const state = find(rule.statusFieldId);
           if (typeof rule.waitlistStatus !== 'string' || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus)
@@ -484,13 +493,13 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
       if (!['read', 'create', 'update', 'delete'].includes(String(permission.operation))) issue(permissionPath, 'invalid-operation', 'Unsupported database operation.');
       access(permission, permissionPath, true);
       if (permission.access === 'organization') {
-        const supportedOrganizationCapabilities = !table.booking && !table.counter && !table.stockReservations && !table.stockLocations
+        const supportedOrganizationCapabilities = !table.counter && !table.stockReservations && !table.stockLocations
           && !table.stockValuation && !table.transaction && !table.payment && !table.workflow
           && !table.attachments && !table.notifications;
         if (!organizationRootId || table.id !== organizationRootId && table.organizationFieldId === undefined) {
           issue(permissionPath, 'missing-organization-scope', 'Organization access requires the root table or a valid organization reference.');
         }
-        if (!supportedOrganizationCapabilities) issue(permissionPath, 'unsupported-organization-capability', 'Organization access currently supports CRUD and scoped reports only.');
+        if (!supportedOrganizationCapabilities) issue(permissionPath, 'unsupported-organization-capability', 'Organization access currently supports CRUD, scoped reports and bookings only.');
       }
       if (permission.access === 'public' && permission.operation !== 'read') issue(permissionPath, 'public-write', 'Anonymous database writes require a validated server action.');
       const key = `${permission.operation}:${permission.access}:${permission.roleId ?? ''}`;

@@ -1330,3 +1330,24 @@ This batch does not create a Stripe endpoint, recover its one-time secret, prove
 real event delivery, stage or promote a Production deployment, or activate paid
 processing. A later batch must add Production-scoped custody plus an actual
 signed delivery/handler receipt before removing that gate.
+
+
+## Organization booking isolation — 2026-10-22
+
+PR #331 restores the complete booking-availability batch from local commit
+`021bab88`; its first uploaded tree exactly matched the saved local tree.
+Availability now requires the active organization and rejects foreign resources
+and non-members without disclosing occupancy.
+
+Follow-up review reproduced a direct-write gap: foreign resource UUIDs could
+bypass the advisory probe. Organization bookings now require scoped resource
+references, and an exact-catalog-verified SECURITY INVOKER INSERT/UPDATE guard
+checks every resource against the booking organization, including cancelled and
+waiting states. No shared or unscoped resource allocation is claimed.
+
+Embedded PostgreSQL checks passed for cross-organization inserts and updates,
+nonblocking status bypasses, extra-resource allocation, valid same-organization
+member writes, and disabled-trigger publication refusal. TypeScript, focused
+ESLint, schema/organization regressions and generated bundle checks also passed.
+The final updated PR head still requires its hosted Release Gate before merge.
+No live database, production activation, credentials or paid service was used.

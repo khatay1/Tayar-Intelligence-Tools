@@ -601,6 +601,14 @@ function validateApplicationDefinition(value, pageIds) {
         const fields = Array.isArray(table.fields) ? table.fields.filter(object5) : [];
         const find = (fieldId) => fields.find((field) => field.id === fieldId);
         const resource = find(rule.resourceFieldId), start = find(rule.startFieldId), end = find(rule.endFieldId);
+        if (table.organizationFieldId !== void 0) {
+          const resourceIds = [rule.resourceFieldId, ...Array.isArray(rule.additionalResourceFieldIds) ? rule.additionalResourceFieldIds : []];
+          if (resourceIds.some((fieldId) => {
+            const field = find(fieldId);
+            const target = tables.find((candidate) => object5(candidate) && candidate.id === field?.referenceTableId);
+            return field?.type !== "reference" || !object5(target) || target.id !== organizationRootId && target.organizationFieldId === void 0;
+          })) issue(bookingPath, "unscoped-booking-resource", "Organization bookings require resources scoped to the same organization.");
+        }
         if (rule.waitlistStatus !== void 0) {
           const state = find(rule.statusFieldId);
           if (typeof rule.waitlistStatus !== "string" || !Array.isArray(state?.options) || !state.options.includes(rule.waitlistStatus) || !Array.isArray(rule.blockingStatuses) || rule.blockingStatuses.includes(rule.waitlistStatus) || object5(table.workflow) && table.workflow.fieldId === rule.statusFieldId)
@@ -842,11 +850,11 @@ function validateApplicationDefinition(value, pageIds) {
       if (!["read", "create", "update", "delete"].includes(String(permission.operation))) issue(permissionPath, "invalid-operation", "Unsupported database operation.");
       access(permission, permissionPath, true);
       if (permission.access === "organization") {
-        const supportedOrganizationCapabilities = !table.booking && !table.counter && !table.stockReservations && !table.stockLocations && !table.stockValuation && !table.transaction && !table.payment && !table.workflow && !table.attachments && !table.notifications;
+        const supportedOrganizationCapabilities = !table.counter && !table.stockReservations && !table.stockLocations && !table.stockValuation && !table.transaction && !table.payment && !table.workflow && !table.attachments && !table.notifications;
         if (!organizationRootId || table.id !== organizationRootId && table.organizationFieldId === void 0) {
           issue(permissionPath, "missing-organization-scope", "Organization access requires the root table or a valid organization reference.");
         }
-        if (!supportedOrganizationCapabilities) issue(permissionPath, "unsupported-organization-capability", "Organization access currently supports CRUD and scoped reports only.");
+        if (!supportedOrganizationCapabilities) issue(permissionPath, "unsupported-organization-capability", "Organization access currently supports CRUD, scoped reports and bookings only.");
       }
       if (permission.access === "public" && permission.operation !== "read") issue(permissionPath, "public-write", "Anonymous database writes require a validated server action.");
       const key = `${permission.operation}:${permission.access}:${permission.roleId ?? ""}`;
