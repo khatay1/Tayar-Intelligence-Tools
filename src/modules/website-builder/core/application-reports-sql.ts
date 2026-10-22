@@ -36,20 +36,25 @@ function reportExpression(table: ApplicationTable, report: ApplicationReport) {
   return `jsonb_build_object(${properties.join(',')})`;
 }
 export function applicationReportsManifest(input: ApplicationDefinition) {
-  return readApplicationDefinition(input).tables.flatMap((table, index) => {
+  const app = readApplicationDefinition(input);
+  return app.tables.flatMap((table, index) => {
     if (!table.reports?.length) return [];
+    const organization = table.fields.find(field => field.id === table.organizationFieldId);
+    const scope = organization
+      ? ` and "${organization.key}"=requested_organization and (select private.app_has_organization_access(requested_organization))`
+      : '';
     const source = table.reports.some(report => report.period || report.groupByFieldId)
-      ? `\n with readable as materialized(select * from public."app_${table.key}" where ${authenticated})
+      ? `\n with readable as materialized(select * from public."app_${table.key}" where ${authenticated}${scope})
  select jsonb_build_array(${table.reports.map(report => reportExpression(table, report)).join(',')})\n`
       : `\n select jsonb_build_array(${table.reports.map(report => `jsonb_build_object('id',${literal(report.id)},'value',${aggregate(table, report)})`).join(',')}) from public."app_${table.key}"
- where ${authenticated}\n`;
-    return [{ name: `app_reports_${index}`, source }];
+ where ${authenticated}${scope}\n`;
+    return [{ name: `app_reports_${index}`, source, arguments: organization ? 'requested_organization uuid' : '' }];
   });
 }
 export function compileApplicationReports(input: ApplicationDefinition, index: number, replace = false) {
   const report = applicationReportsManifest(input).find(report => report.name === `app_reports_${index}`);
   if (!report) return [];
-  return [`create ${replace ? 'or replace ' : ''}function public.${report.name}() returns jsonb language sql stable security invoker set search_path='' as $report$${report.source}$report$;`,
-    `revoke all on function public.${report.name}() from public,anon,authenticated,service_role;`,
-    `grant execute on function public.${report.name}() to authenticated;`];
+  return [`create ${replace ? 'or replace ' : ''}function public.${report.name}(${report.arguments}) returns jsonb language sql stable security invoker set search_path='' as $report$${report.source}$report$;`,
+    `revoke all on function public.${report.name}(${report.arguments ? 'uuid' : ''}) from public,anon,authenticated,service_role;`,
+    `grant execute on function public.${report.name}(${report.arguments ? 'uuid' : ''}) to authenticated;`];
 }

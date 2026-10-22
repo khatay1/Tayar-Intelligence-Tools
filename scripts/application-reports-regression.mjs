@@ -8,6 +8,7 @@ import { spawn } from 'node:child_process';
 
 const dir = await mkdtemp(join(tmpdir(), 'tayar-reports-')), require = createRequire(import.meta.url), originalFetch = globalThis.fetch;
 const owner = '11111111-1111-4111-8111-111111111111', other = '22222222-2222-4222-8222-222222222222';
+const organizationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 let embeddedDatabase;
 try {
   const entry = join(dir, 'entry.ts');
@@ -73,7 +74,7 @@ try {
     const invalid = structuredClone(groupedResponse); Object.assign(invalid[1], patch); assert.throws(() => parse(advanced.tables[0], invalid));
   }
   const expected = manifest(app)[0];
-  const goodCatalog = [{ name: expected.name, source: expected.source, security_definer: false, configuration: ['search_path='], volatility: 's', kind: 'f', result: 'jsonb', arguments: '', language: 'sql', owner: 'postgres', anon_execute: false, authenticated_execute: true, service_execute: false }];
+  const goodCatalog = [{ name: expected.name, source: expected.source, security_definer: false, configuration: ['search_path='], volatility: 's', kind: 'f', result: 'jsonb', arguments: expected.arguments, language: 'sql', owner: 'postgres', anon_execute: false, authenticated_execute: true, service_execute: false }];
   assert.equal(await verify(app, async () => goodCatalog), true);
   assert.equal(await verify(app, async () => [{ ...goodCatalog[0], security_definer: true }]), false);
   assert.equal(await verify(app, async () => [{ ...goodCatalog[0], source: `${expected.source} select 1` }]), false);
@@ -81,13 +82,14 @@ try {
 
   const backend = { url: 'https://sgewokeojtzsqjaeluan.supabase.co', projectRef: 'sgewokeojtzsqjaeluan', publishableKey: 'sb_publishable_reports_fixture' };
   const token = `a.${Buffer.from(JSON.stringify({ sub: owner, role: 'authenticated', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.signature`;
-  let identity = owner, switchAfterReport = false, calls = 0;
+  let identity = owner, switchAfterReport = false, calls = 0, scopedMode = false;
   globalThis.fetch = async (resource, init) => {
     const url = new URL(String(resource)); assert.equal(url.origin, backend.url);
     if (url.pathname === '/auth/v1/token') return Response.json({ access_token: token, refresh_token: 'fixture', token_type: 'bearer', expires_in: 3600, user: { id: identity, is_anonymous: false } });
     if (url.pathname === '/auth/v1/user') return Response.json({ id: identity, is_anonymous: false });
-    assert.equal(url.pathname, '/rest/v1/rpc/app_reports_0'); calls++;
+    assert.equal(url.pathname, scopedMode ? '/rest/v1/rpc/app_reports_1' : '/rest/v1/rpc/app_reports_0'); calls++;
     assert.equal(new Headers(init.headers).get('authorization'), `Bearer ${token}`);
+    if (scopedMode) assert.deepEqual(JSON.parse(init.body), { requested_organization: organizationId });
     if (switchAfterReport) identity = other;
     return Response.json(exact);
   };
@@ -101,6 +103,20 @@ try {
     await assert.rejects(controller.reports(), /identity changed/); assert.equal(controller.closed(), true);
     const before = calls; await assert.rejects(runtime.reports(table.id, owner), /identity changed/); assert.equal(calls, before);
   } finally { runtime.dispose(); }
+  const scopedTable = { ...structuredClone(table), organizationFieldId: 'order-organization', fields: [
+    { id: 'order-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' },
+    ...structuredClone(table.fields)], permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'organization' })) };
+  const scopedApp = { ...structuredClone(app), tenancy: { mode: 'organizations', organizationTableId: 'organizations' }, tables: [
+    { id: 'organizations', key: 'organizations', name: 'Organizations', fields: [{ id: 'organization-name', key: 'name', name: 'Name', type: 'text', required: true }], permissions: [
+      { operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }, { operation: 'read', access: 'owner' },
+      { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] }, scopedTable] };
+  validate(scopedApp); scopedMode = true; switchAfterReport = false; identity = owner;
+  const scopedRuntime = runtimeFor(scopedApp, backend, backend.projectRef);
+  try {
+    await scopedRuntime.auth.signIn('owner@example.com', 'fixture');
+    await assert.rejects(scopedRuntime.reports(scopedTable.id, owner));
+    assert.equal((await scopedRuntime.reports(scopedTable.id, owner, organizationId))[0].value, '2');
+  } finally { scopedRuntime.dispose(); scopedMode = false; }
   if (process.argv.includes('--postgres') || process.argv.includes('--pglite')) {
     let query;
     if (process.argv.includes('--pglite')) {

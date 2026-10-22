@@ -253,11 +253,15 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
       if (typeof result !== 'boolean') throw new Error('Booking availability is unavailable.');
       return result;
     },
-    async reports(tableId: string, expectedUserId: string) {
+    async reports(tableId: string, expectedUserId: string, organizationId?: string) {
       const target = table(tableId);
       if (!target.reports?.length) throw new Error('Reports are not configured.');
+      const organization = target.fields.find(field => field.id === target.organizationFieldId);
+      const requestedOrganization = organization ? rowId(String(organizationId)) : undefined;
+      if (!organization && organizationId !== undefined) throw new Error('Report organization scope is unavailable.');
       const token = await captureWriteToken(expectedUserId);
-      const query = client.rpc(`app_reports_${app.tables.indexOf(target)}`);
+      const query = client.rpc(`app_reports_${app.tables.indexOf(target)}`,
+        requestedOrganization ? { requested_organization: requestedOrganization } : undefined);
       query.setHeader('Authorization', `Bearer ${token}`);
       const response = await query;
       await captureWriteToken(expectedUserId);
