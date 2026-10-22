@@ -69,6 +69,30 @@ try {
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[2], principal: { authenticated: true, roleIds: ['unknown'] } }] }), /Unknown or duplicate reference/);
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[2], principal: { authenticated: false, roleIds: ['operator'] } }] }), /Anonymous test principals cannot carry application roles/);
   assert.match(issues({ ...specification, acceptanceTests: [{ ...specification.acceptanceTests[2], expected: { accessible: 'yes' } }] }), /Expected page access must be a boolean/);
+  const organizationApplication = {
+    version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true }, roles: [], pageAccess: [],
+    tenancy: { mode: 'organizations', organizationTableId: 'organizations' },
+    requirements: { version: 1, request: 'Keep project data isolated by organization.', items: [
+      { id: 'req-organization-projects', summary: 'Organization members manage their projects.', capability: 'records', evidence: ['view:projects:read'] },
+    ] },
+    tables: [
+      { id: 'organizations', key: 'organizations', name: 'Organizations', fields: [], permissions: [{ operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }] },
+      { id: 'projects', key: 'projects', name: 'Projects', organizationFieldId: 'project-organization',
+        fields: [{ id: 'project-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' }],
+        permissions: [{ operation: 'read', access: 'organization' }] },
+    ],
+  };
+  const organizationSpecification = {
+    version: 1, intent: 'An organization-isolated project register.', actors: [{ id: 'member', name: 'Member' }],
+    entities: [{ id: 'organizations', scope: 'organization', classification: 'internal' }, { id: 'projects', scope: 'organization', classification: 'internal' }],
+    requirements: [{ id: 'req-organization-projects', origin: 'explicit', acceptanceCriteria: ['A member can read projects only in their organizations.'] }],
+    operations: [{ id: 'read-projects', summary: 'Read authorized organization projects.', actorIds: ['member'], entityIds: ['organizations', 'projects'], requirementIds: ['req-organization-projects'], dependsOn: [], execution: 'native', transactional: false }],
+    rules: [{ id: 'organization-isolation', summary: 'Membership bounds every project read.', operationIds: ['read-projects'] }],
+    tenancy: { mode: 'organizations', organizationEntityId: 'organizations' }, integrations: [], privacy: [], decisions: [],
+  };
+  assert.deepEqual(readProjectSpecification(organizationSpecification, organizationApplication), organizationSpecification);
+  assert.match(projectSpecificationIssues({ ...organizationSpecification, tenancy: { mode: 'organizations', organizationEntityId: 'projects' } }, organizationApplication).join('\n'), /must match the executable/);
+  assert.match(projectSpecificationIssues({ ...organizationSpecification, entities: organizationSpecification.entities.map((entity, index) => index ? { ...entity, scope: 'owner' } : entity) }, organizationApplication).join('\n'), /scope must match/);
   console.log('Project specification regression passed.');
 } finally {
   await rm(dir, { recursive: true, force: true });

@@ -10,6 +10,7 @@ import { verifyOwnedFormulaCatalog } from './website-owned-formula-catalog';
 import type { ApplicationDefinition } from '../src/modules/website-builder/core/application-model';
 import { readApplicationDefinition } from '../src/modules/website-builder/core/application-validation';
 import { applicationBookingConstraintManifest, applicationRoleFunctionManifest, applicationSecurityPolicies } from '../src/modules/website-builder/core/application-schema-sql';
+import { applicationOrganizationFunctionManifest } from '../src/modules/website-builder/core/application-organization-sql';
 
 type Row = Record<string, unknown>;
 type Query = (sql: string) => Promise<unknown>;
@@ -92,6 +93,47 @@ order by n.nspname, p.proname`;
 const ROLE_SCHEMA_SQL = `select pg_catalog.has_schema_privilege('anon', n.oid, 'USAGE') as anon_usage,
   pg_catalog.has_schema_privilege('authenticated', n.oid, 'USAGE') as authenticated_usage
 from pg_catalog.pg_namespace n where n.nspname = 'private'`;
+
+const ORGANIZATION_TABLE_SQL = `select c.relname as table_name, c.relkind as relation_kind, c.relrowsecurity as rls,
+  pg_catalog.has_table_privilege('anon', c.oid, 'SELECT,INSERT,UPDATE,DELETE') as anon_all,
+  pg_catalog.has_table_privilege('authenticated', c.oid, 'SELECT,INSERT,UPDATE,DELETE') as authenticated_all,
+  pg_catalog.has_any_column_privilege('anon', c.oid, 'SELECT,INSERT,UPDATE') as anon_columns,
+  pg_catalog.has_any_column_privilege('authenticated', c.oid, 'SELECT,INSERT,UPDATE') as authenticated_columns,
+  (select jsonb_object_agg(a.attname, jsonb_build_object('required', a.attnotnull, 'type', a.atttypid::regtype::text))
+    from pg_catalog.pg_attribute a where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped) as fields,
+  (select count(*)::integer from pg_catalog.pg_constraint k where k.conrelid = c.oid and k.contype = 'p') as primary_keys,
+  (select count(*)::integer from pg_catalog.pg_constraint k where k.conrelid = c.oid and k.contype = 'f') as foreign_keys
+from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'private' and c.relname = 'app_organization_members'`;
+
+const ORGANIZATION_FUNCTION_SQL = `select n.nspname as schema_name, p.proname as function_name,
+  pg_catalog.pg_get_function_identity_arguments(p.oid) as arguments,
+  pg_catalog.pg_get_function_result(p.oid) as result,
+  l.lanname as language, p.prokind as kind, p.prosecdef as security_definer,
+  p.provolatile as volatility, p.prosrc as source, p.proconfig as configuration,
+  r.rolname as owner_name,
+  pg_catalog.has_function_privilege('anon', p.oid, 'EXECUTE') as anon_execute,
+  pg_catalog.has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_execute
+from pg_catalog.pg_proc p
+join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+join pg_catalog.pg_language l on l.oid = p.prolang
+join pg_catalog.pg_roles r on r.oid = p.proowner
+where n.nspname in ('private', 'public') and p.proname in
+  ('app_guard_organization_scope', 'app_has_organization_access', 'app_add_organization_owner',
+   'app_set_organization_member_impl', 'app_set_organization_member',
+   'app_my_organizations_impl', 'app_my_organizations')
+order by n.nspname, p.proname`;
+
+const ORGANIZATION_TRIGGER_SQL = `select c.relname as table_name, t.tgname as trigger_name,
+  fn.proname as function_name, ns.nspname as function_schema, t.tgenabled as enabled,
+  pg_catalog.encode(t.tgargs, 'hex') as argument_hex
+from pg_catalog.pg_trigger t join pg_catalog.pg_class c on c.oid = t.tgrelid
+join pg_catalog.pg_namespace cn on cn.oid = c.relnamespace
+join pg_catalog.pg_proc fn on fn.oid = t.tgfoid
+join pg_catalog.pg_namespace ns on ns.oid = fn.pronamespace
+where not t.tgisinternal and cn.nspname = 'public'
+  and t.tgname in ('app_add_organization_owner', 'app_guard_organization_scope')
+order by c.relname, t.tgname`;
 
 const BOOKING_SQL = `select t.relname as table_name, c.conname as name, c.contype as type,
   c.convalidated as validated, c.condeferrable as deferrable,
@@ -194,6 +236,68 @@ async function verifyRoleInfrastructure(query: Query): Promise<boolean> {
   return seen.size === expectedFunctions.length;
 }
 
+async function verifyOrganizationInfrastructure(app: ApplicationDefinition, query: Query): Promise<boolean> {
+  if (!app.tenancy) return true;
+  const [schemaRows, tableRows, functionRows, triggerRows] = await Promise.all([
+    query(ROLE_SCHEMA_SQL), query(ORGANIZATION_TABLE_SQL), query(ORGANIZATION_FUNCTION_SQL),
+    query(ORGANIZATION_TRIGGER_SQL),
+  ]);
+  if (!Array.isArray(schemaRows) || schemaRows.length !== 1 || schemaRows[0]?.anon_usage !== false
+    || schemaRows[0]?.authenticated_usage !== true || !Array.isArray(tableRows) || tableRows.length !== 1
+    || !Array.isArray(functionRows) || !Array.isArray(triggerRows)) return false;
+  const membership = tableRows[0] as Row;
+  if (membership.table_name !== 'app_organization_members' || membership.relation_kind !== 'r'
+    || membership.rls !== true || membership.anon_all !== false || membership.authenticated_all !== false
+    || membership.anon_columns !== false || membership.authenticated_columns !== false
+    || membership.primary_keys !== 1 || membership.foreign_keys !== 2
+    || !membership.fields || typeof membership.fields !== 'object') return false;
+  const fields = membership.fields as Record<string, { required?: unknown; type?: unknown }>;
+  const expectedFields: Record<string, [boolean, string]> = {
+    organization_id: [true, 'uuid'], user_id: [true, 'uuid'], administrator: [true, 'boolean'],
+    created_at: [true, 'timestamp with time zone'],
+  };
+  if (Object.keys(fields).length !== Object.keys(expectedFields).length) return false;
+  for (const [name, [required, type]] of Object.entries(expectedFields)) {
+    if (fields[name]?.required !== required || fields[name]?.type !== type) return false;
+  }
+  const expectedFunctions = applicationOrganizationFunctionManifest(app);
+  if (functionRows.length !== expectedFunctions.length) return false;
+  const seenFunctions = new Set<string>();
+  for (const row of functionRows as Row[]) {
+    const key = `${row?.schema_name}.${row?.function_name}`;
+    const expected = expectedFunctions.find(item => `${item.schema}.${item.name}` === key);
+    if (!expected || seenFunctions.has(key) || row.arguments !== expected.arguments
+      || String(row.result).toLowerCase() !== expected.result || row.language !== expected.language
+      || row.kind !== 'f' || row.security_definer !== expected.securityDefiner
+      || row.volatility !== (expected.stable ? 's' : 'v') || row.source !== expected.source
+      || row.owner_name !== 'postgres' || !Array.isArray(row.configuration)
+      || row.configuration.length !== 1 || row.configuration[0] !== 'search_path='
+      || row.anon_execute !== false || row.authenticated_execute !== expected.authenticatedExecute) return false;
+    seenFunctions.add(key);
+  }
+  const root = app.tables.find(table => table.id === app.tenancy!.organizationTableId);
+  if (!root) return false;
+  const expectedTriggers = new Map<string, { name: string; schema: string; argument: string }>();
+  expectedTriggers.set(`app_${root.key}:app_add_organization_owner`, {
+    name: 'app_add_organization_owner', schema: 'private', argument: '',
+  });
+  for (const table of app.tables) {
+    const field = table.fields.find(item => item.id === table.organizationFieldId);
+    if (field) expectedTriggers.set(`app_${table.key}:app_guard_organization_scope`, {
+      name: 'app_guard_organization_scope', schema: 'public',
+      argument: Buffer.from(`${field.key}\0`, 'utf8').toString('hex'),
+    });
+  }
+  if (triggerRows.length !== expectedTriggers.size) return false;
+  for (const row of triggerRows as Row[]) {
+    const expected = expectedTriggers.get(`${row?.table_name}:${row?.trigger_name}`);
+    if (!expected || row.function_name !== expected.name || row.function_schema !== expected.schema
+      || row.enabled !== 'O' || row.argument_hex !== expected.argument) return false;
+    expectedTriggers.delete(`${row.table_name}:${row.trigger_name}`);
+  }
+  return seenFunctions.size === expectedFunctions.length && expectedTriggers.size === 0;
+}
+
 /** Fail closed if any generated table, privilege or policy differs. This
  * conservative text equality can require review after PostgreSQL rewrites a
  * valid expression; it never treats names alone as proof of policy semantics. */
@@ -240,6 +344,7 @@ export async function verifyOwnedSupabaseCatalogSecurity(definition: Application
       && !await verifyOwnedStockReservationCatalog(app, table.id, query)) return false;
     return seenTables.size === tables.size && seenPolicies.size === expectedPolicies.length
       && (!app.roles.length || await verifyRoleInfrastructure(query))
+      && await verifyOrganizationInfrastructure(app, query)
       && await verifyOwnedSupabaseBookingConstraints(app, query)
       && await verifyOwnedBookingScheduleCatalog(app, query)
       && await verifyOwnedBookingAvailabilityCatalog(app, query)

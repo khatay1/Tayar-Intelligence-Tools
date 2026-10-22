@@ -17,7 +17,7 @@ export interface ApplicationField {
   formula?: ApplicationFormula;
 }
 export type ApplicationDataOperation = 'read' | 'create' | 'update' | 'delete';
-export type ApplicationAccess = 'public' | 'authenticated' | 'owner' | 'role';
+export type ApplicationAccess = 'public' | 'authenticated' | 'owner' | 'organization' | 'role';
 export interface ApplicationPermission {
   operation: ApplicationDataOperation;
   access: ApplicationAccess;
@@ -67,7 +67,7 @@ export interface ApplicationWorkflowTransition {
   label: string;
   from: string[];
   to: string;
-  access: Exclude<ApplicationAccess, 'public'>;
+  access: Exclude<ApplicationAccess, 'public' | 'organization'>;
   roleId?: string;
   /** Optional predicate group checked on the locked record before any effect. */
   conditionMode?: 'all' | 'any';
@@ -109,6 +109,10 @@ export interface ApplicationTable {
   name: string;
   fields: ApplicationField[];
   permissions: ApplicationPermission[];
+  /** Required reference field used by organization-scoped RLS. The root
+   * organization table is selected by ApplicationDefinition.tenancy and does
+   * not declare this field. */
+  organizationFieldId?: string;
   booking?: ApplicationBookingRule;
   counter?: ApplicationCounterRule;
   /** Initial-install opt-in for owner-only stock holds. Locations are labels unless stockLocations declares
@@ -158,6 +162,7 @@ export interface ApplicationDefinition {
   roles: ApplicationRole[];
   auth: { enabled: boolean; signUpEnabled: boolean; emailVerificationRequired: boolean };
   pageAccess: ApplicationPageAccess[];
+  tenancy?: { mode: 'organizations'; organizationTableId: string };
   requirements?: ApplicationRequirementManifest;
 }
 
