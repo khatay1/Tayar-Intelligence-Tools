@@ -35,6 +35,27 @@ try {
   assert.match(sql, /exclude using gist.*gist_uuid_ops with =.*tstzrange.*with &&/);
   assert.match(sql, /where \("status" in \(''pending'', ''confirmed''\)\)/);
   assert.match(sql, /isfinite\("starts_at"\).*isfinite\("ends_at"\)/);
+  const organizationApp = { ...app, tenancy: { mode: 'organizations', organizationTableId: 'organizations' }, tables: [
+    { id: 'organizations', key: 'organizations', name: 'Organizations', fields: [{ id: 'organization-name', key: 'name', name: 'Name', type: 'text', required: true }], permissions: [
+      { operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }, { operation: 'read', access: 'owner' },
+    ] },
+    { id: 'resources', key: 'resources', name: 'Resources', organizationFieldId: 'resource-organization', fields: [
+      { id: 'resource-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' },
+      { id: 'resource-name', key: 'name', name: 'Name', type: 'text', required: true },
+    ], permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'organization' })) },
+    { id: 'appointments', key: 'appointments', name: 'Appointments', organizationFieldId: 'appointment-organization', fields: [
+      { id: 'appointment-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' },
+      { ...fields[0], type: 'reference', referenceTableId: 'resources' }, ...fields.slice(1),
+    ], booking, permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'organization' })) },
+  ] };
+  validate(organizationApp);
+  const organizationAvailability = availabilityManifest(organizationApp).filter(item => item.name === 'app_booking_available_2');
+  assert.equal(organizationAvailability.length, 2);
+  assert.equal(organizationAvailability[0].arguments, 'resources uuid[],starts_at timestamptz,ends_at timestamptz,requested_organization uuid');
+  assert.match(organizationAvailability[0].source, /app_has_organization_access\(requested_organization\)/);
+  assert.match(organizationAvailability[0].source, /r\."organization_id"=requested_organization/);
+  assert.match(organizationAvailability[0].source, /b\."organization_id"=requested_organization/);
+  assert.match(compile(organizationApp).join('\n'), /app_booking_available_2\(resources uuid\[\],starts_at timestamptz,ends_at timestamptz,requested_organization uuid\)/);
   for (const rule of [{ ...booking, startFieldId: 'missing' }, { ...booking, endFieldId: 'start' }, { ...booking, resourceFieldId: 'status' },
     { ...booking, blockingStatuses: ['unknown'] }, { ...booking, blockingStatuses: [] }, { ...booking, statusFieldId: undefined }, { ...booking, secrets: 'no' }]) {
     assert.throws(() => validate({ ...app, tables: [{ ...table, booking: rule }] }));
@@ -137,9 +158,11 @@ try {
     const url = new URL(String(resourceUrl)); assert.equal(url.origin, backend.url);
     if (url.pathname === '/auth/v1/token') return Response.json({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, user: { id: owner, is_anonymous: false } });
     if (url.pathname === '/auth/v1/user') return Response.json({ id: owner, is_anonymous: false });
-    if(url.pathname==='/rest/v1/rpc/app_booking_available_0') {
+    if(['/rest/v1/rpc/app_booking_available_0','/rest/v1/rpc/app_booking_available_2'].includes(url.pathname)) {
       assert.equal(new Headers(init.headers).get('Authorization'),`Bearer ${token}`);
       const body=JSON.parse(init.body);assert.deepEqual(body.resources,[resource]);assert.equal(body.starts_at,'2026-10-09T08:00:00.000Z');
+      if(url.pathname.endsWith('_2')) assert.equal(body.requested_organization,'cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+      else assert.equal('requested_organization' in body,false);
       availabilityReads++;return Response.json(availabilityResult);
     }
     assert.equal(url.pathname, '/rest/v1/app_appointments');
@@ -164,6 +187,20 @@ try {
     responseCode = '23P01'; savedRow = { id: resource2, ...values };
     assert.equal(await sdk.createOnce(table.id, values, resource2, owner), 'already-created');
   } finally { sdk.dispose(); globalThis.fetch = originalFetch; }
+  globalThis.fetch = async (resourceUrl, init) => {
+    const url = new URL(String(resourceUrl));
+    if (url.pathname === '/auth/v1/token') return Response.json({ access_token: token, refresh_token: 'test-refresh', token_type: 'bearer', expires_in: 3600, user: { id: owner, is_anonymous: false } });
+    if (url.pathname === '/auth/v1/user') return Response.json({ id: owner, is_anonymous: false });
+    assert.equal(url.pathname, '/rest/v1/rpc/app_booking_available_2');
+    const body = JSON.parse(init.body); assert.equal(body.requested_organization, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+    return Response.json(true);
+  };
+  const organizationSdk = runtimeFor(organizationApp, backend, backend.projectRef);
+  try {
+    await organizationSdk.auth.signIn('test@example.com', 'test-password');
+    assert.equal(await organizationSdk.bookingAvailable('appointments', { ...values, organization_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }, owner), true);
+    await assert.rejects(organizationSdk.bookingAvailable('appointments', { ...values, organization_id: 'invalid' }, owner), /record ID/);
+  } finally { organizationSdk.dispose(); globalThis.fetch = originalFetch; }
   console.log('PASS booking configuration, safe additive migrations, typed times, mandatory catalog constraints and retry identity');
 
   const authSetup = `create role anon; create role authenticated; create role service_role;
@@ -300,6 +337,19 @@ select 'booking overlap, adjacency, different resources, cancellation and finite
     assert.equal((await query(`${asUser(other)} select (${occupancy(resource2,resource2).slice(7,-1)}) is null;`)).split('\n').at(-1),'t','inaccessible resources disclose no occupancy');
     await query('alter table public.app_appointments drop constraint app_booking_overlap_2_0;');
     assert.equal(await verify(privateResources,actualCatalog),false);
+    // Organization probes require the explicit active tenant and reject both
+    // foreign resources and non-members without disclosing occupancy.
+    const organizationA='cccccccc-cccc-4ccc-8ccc-cccccccccccc', organizationB='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    await query('drop schema public cascade;drop schema private cascade;create schema public;grant usage on schema public to anon,authenticated,service_role;'+compile(organizationApp).join('\n'));
+    await query(`${asUser(owner)} insert into public.app_organizations(id,name) values ('${organizationA}','A'),('${organizationB}','B');
+      insert into public.app_resources(id,organization_id,name) values ('${resource}','${organizationA}','A room'),('${resource2}','${organizationB}','B room');
+      insert into public.app_appointments(organization_id,resource_id,starts_at,ends_at,status) values ('${organizationA}','${resource}','2026-10-15 10:00Z','2026-10-15 11:00Z','confirmed');`);
+    const organizationOccupancy=(requestedResource,requestedOrganization)=>`select public.app_booking_available_2(array['${requestedResource}'::uuid],'2026-10-15 10:00Z','2026-10-15 11:00Z','${requestedOrganization}'::uuid);`;
+    assert.equal((await query(`${asUser(owner)} ${organizationOccupancy(resource,organizationA)}`)).split('\n').at(-1),'f');
+    assert.equal((await query(`${asUser(owner)} ${organizationOccupancy(resource2,organizationB)}`)).split('\n').at(-1),'t');
+    assert.equal((await query(`${asUser(owner)} select (${organizationOccupancy(resource,organizationB).slice(7,-1)}) is null;`)).split('\n').at(-1),'t');
+    assert.equal((await query(`${asUser(other)} select (${organizationOccupancy(resource,organizationA).slice(7,-1)}) is null;`)).split('\n').at(-1),'t');
+    assert.equal(await verifyAvailability(organizationApp,actualCatalog),true);
     console.log('PASS PostgreSQL multi-resource exclusion, atomic rollback, manual waitlist confirmation, date exceptions, hidden occupancy and permission-scoped probes');
     console.log(`PASS actual PostgreSQL: ${embedded ? 'isolated inserts/updates' : 'concurrent inserts/updates'}, invisible-row conflicts, cancellation, atomic series rollback, schedule guards, invalid intervals and removed-constraint refusal`);
   }

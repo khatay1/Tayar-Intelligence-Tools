@@ -799,11 +799,11 @@ function validateApplicationDefinition(value, pageIds) {
       if (!["read", "create", "update", "delete"].includes(String(permission.operation))) issue(permissionPath, "invalid-operation", "Unsupported database operation.");
       access(permission, permissionPath, true);
       if (permission.access === "organization") {
-        const supportedOrganizationCapabilities = !table.booking && !table.counter && !table.stockReservations && !table.stockLocations && !table.stockValuation && !table.transaction && !table.payment && !table.workflow && !table.attachments && !table.notifications;
+        const supportedOrganizationCapabilities = !table.counter && !table.stockReservations && !table.stockLocations && !table.stockValuation && !table.transaction && !table.payment && !table.workflow && !table.attachments && !table.notifications;
         if (!organizationRootId || table.id !== organizationRootId && table.organizationFieldId === void 0) {
           issue(permissionPath, "missing-organization-scope", "Organization access requires the root table or a valid organization reference.");
         }
-        if (!supportedOrganizationCapabilities) issue(permissionPath, "unsupported-organization-capability", "Organization access currently supports CRUD and scoped reports only.");
+        if (!supportedOrganizationCapabilities) issue(permissionPath, "unsupported-organization-capability", "Organization access currently supports CRUD, scoped reports and bookings only.");
       }
       if (permission.access === "public" && permission.operation !== "read") issue(permissionPath, "public-write", "Anonymous database writes require a validated server action.");
       const key = `${permission.operation}:${permission.access}:${permission.roleId ?? ""}`;
