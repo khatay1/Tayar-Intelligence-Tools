@@ -17,7 +17,8 @@ export async function verifyOwnedBookingAvailabilityCatalog(app: ApplicationDefi
       const expected = manifest.find(item => item.name === row?.name && item.schema === row.schema);
       const identity = `${row?.schema}.${row?.name}`;
       if (!expected || seen.has(identity) || row.source !== expected.source || row.security_definer !== expected.definer
-        || row.volatility !== 's' || row.kind !== 'f' || row.result !== 'boolean' || row.arguments !== 'resources uuid[], starts_at timestamp with time zone, ends_at timestamp with time zone'
+        || row.volatility !== 's' || row.kind !== 'f' || row.result !== 'boolean'
+        || row.arguments !== expected.arguments.replace(/,/g, ', ').replace(/timestamptz/g, 'timestamp with time zone')
         || row.language !== expected.language || row.owner !== 'postgres' || row.anon_execute !== false || row.authenticated_execute !== true || row.service_execute !== false
         || !Array.isArray(row.configuration) || row.configuration.length !== 1 || !['search_path=', 'search_path=""'].includes(row.configuration[0])) return false;
       seen.add(identity);
