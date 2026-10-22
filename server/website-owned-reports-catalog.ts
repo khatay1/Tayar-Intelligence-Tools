@@ -19,7 +19,7 @@ export async function verifyOwnedReportsCatalog(app: ApplicationDefinition, quer
     for (const row of rows) {
       const expected = manifest.find(item => item.name === row?.name);
       if (!expected || seen.has(row.name) || row.source !== expected.source || row.security_definer !== false
-        || row.volatility !== 's' || row.kind !== 'f' || row.result !== 'jsonb' || row.arguments !== '' || row.language !== 'sql'
+        || row.volatility !== 's' || row.kind !== 'f' || row.result !== 'jsonb' || row.arguments !== expected.arguments || row.language !== 'sql'
         || row.owner !== 'postgres' || row.anon_execute !== false || row.authenticated_execute !== true || row.service_execute !== false
         || !Array.isArray(row.configuration) || row.configuration.length !== 1 || !['search_path=', 'search_path=""'].includes(row.configuration[0])) return false;
       seen.add(row.name);

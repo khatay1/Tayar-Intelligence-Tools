@@ -204,7 +204,7 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       await permissions();
       if (!runtime.reports || !compiled.table.reports?.length) throw new Error('Reports are unavailable.');
       try {
-        const result = await runtime.reports(compiled.table.id, owner!);
+      const result = await runtime.reports(compiled.table.id, owner!, organization?.id);
         await identity(); return result;
       } catch (error) {
         // Also close the view when the runtime detects a post-response account

@@ -20,8 +20,9 @@ try{
       {id:'organizations',key:'organizations',name:'Organizations',fields:[{id:'organization-name',key:'name',name:'Name',type:'text',required:true}],permissions:[
         {operation:'create',access:'authenticated'},{operation:'read',access:'organization'},{operation:'read',access:'owner'},
         {operation:'update',access:'owner'},{operation:'delete',access:'owner'}]},
-      {id:'projects',key:'projects',name:'Projects',organizationFieldId:'project-organization',fields:[orgField,{id:'project-name',key:'name',name:'Name',type:'text',required:true}],permissions:[
-        {operation:'create',access:'organization'},{operation:'read',access:'organization'},{operation:'update',access:'organization'},{operation:'delete',access:'organization'}]},
+      {id:'projects',key:'projects',name:'Projects',organizationFieldId:'project-organization',fields:[orgField,{id:'project-name',key:'name',name:'Name',type:'text',required:true},{id:'project-budget',key:'budget',name:'Budget',type:'number',required:true,defaultValue:0}],permissions:[
+        {operation:'create',access:'organization'},{operation:'read',access:'organization'},{operation:'update',access:'organization'},{operation:'delete',access:'organization'}],reports:[
+        {id:'project-count',name:'Projects',operation:'count'},{id:'budget-total',name:'Budget',operation:'sum',fieldId:'project-budget'}]},
     ]};
   assert.doesNotThrow(()=>compiled.readApplicationDefinition(app));
   const sql=compiled.compileInitialApplicationSchema(app).join('\n');
@@ -29,6 +30,8 @@ try{
   assert.match(sql,/private\.app_has_organization_access\(id\)/);
   assert.match(sql,/private\.app_has_organization_access\("organization_id"\)/);
   assert.match(sql,/create trigger app_guard_organization_scope before update on public\."app_projects"/);
+  assert.match(sql,/function public\.app_reports_1\(requested_organization uuid\)/);
+  assert.match(sql,/"organization_id"=requested_organization and \(select private\.app_has_organization_access\(requested_organization\)\)/);
   assert.match(sql,/revoke all on private\.app_organization_members from public, anon, authenticated/);
   assert.doesNotMatch(sql,/user_metadata/);
   assert.throws(()=>compiled.readApplicationDefinition({...app,tables:app.tables.map((table,index)=>index?{...table,organizationFieldId:undefined}:table)}),/Organization|organization/);
@@ -67,6 +70,14 @@ try{
     const project=await as(member,`select id from public.app_projects where name='Member project'`);
     await assert.rejects(as(member,`update public.app_projects set organization_id='${other}' where id='${project}' returning id`));
     assert.equal(await as(stranger,'select count(*) from public.app_projects'),'0');
+    await as(stranger,`select public.app_set_organization_member('${other}','${owner}',true,false)`);
+    await as(owner,`insert into public.app_projects(organization_id,name,budget) values('${other}','Other project',99) returning id`);
+    const orgReport=JSON.parse(await as(owner,`select public.app_reports_1('${org}')`));
+    const otherReport=JSON.parse(await as(owner,`select public.app_reports_1('${other}')`));
+    assert.equal(orgReport[0].value,'2');assert.equal(orgReport[1].value,'0');
+    assert.equal(otherReport[0].value,'1');assert.equal(otherReport[1].value,'99');
+    const deniedReport=JSON.parse(await as(member,`select public.app_reports_1('${other}')`));
+    assert.equal(deniedReport[0].value,'0');assert.equal(deniedReport[1].value,'0');
     console.log('PASS organization tenancy: private membership, member CRUD, admin-only grants, immutable scope and cross-tenant RLS denial');
   }else console.log('PASS organization tenancy static contract (use --postgres for native isolation proof)');
 }finally{await rm(dir,{recursive:true,force:true});}

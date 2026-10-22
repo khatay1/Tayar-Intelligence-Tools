@@ -513,7 +513,7 @@ end $form_ledger$;`);
     )) statements.push(...compileApplicationWorkflowSchema(after, index, true));
     if (JSON.stringify(old?.reports) !== JSON.stringify(table.reports)) {
       if (table.reports?.length) statements.push(...compileApplicationReports(after, index, !!old?.reports?.length));
-      else if (old?.reports?.length) statements.push(`drop function public.app_reports_${index}();`);
+      else if (old?.reports?.length) statements.push(`drop function public.app_reports_${index}(${table.organizationFieldId ? 'uuid' : ''});`);
     }
     if (old && JSON.stringify(old.permissions) === JSON.stringify(table.permissions)) continue;
     if (old) {
