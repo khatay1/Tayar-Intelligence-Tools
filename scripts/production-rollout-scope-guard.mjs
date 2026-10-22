@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluateProductionMigrationInventory } from './production-migration-preflight.mjs';
+import { verifyMigrationSourceMap } from './verify-migration-source-map.mjs';
 
 const GROUPS = [
   'historical-needs-provenance',
@@ -88,6 +89,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         map,
       });
       const scope = evaluateProductionRolloutScope(report, manifest);
+      const provenance = await verifyMigrationSourceMap(map, root);
+      if (provenance.issues.length) {
+        scope.errors.push('Historical source digest verification failed.');
+        scope.scopeExact = false;
+      }
       console.log(JSON.stringify(scope, null, 2));
       // Even a completely classified inventory never authorizes execution.
       // Exit success ONLY as a scope inventory diagnostic, not a release check.
