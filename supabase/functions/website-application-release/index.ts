@@ -318,7 +318,20 @@ function projectSpecificationIssues(value, application) {
     if (tenancy.mode !== "single" && !entityIds.has(tenancy.organizationEntityId)) fail("tenancy", "Organization projects need an organization entity.");
     if (tenancy.mode === "branches" && !entityIds.has(tenancy.branchEntityId)) fail("tenancy", "Branch projects need a branch entity.");
     if (tenancy.mode === "single" && (tenancy.organizationEntityId !== void 0 || tenancy.branchEntityId !== void 0)) fail("tenancy", "Contradictory tenancy references.");
-    if (tenancy.mode !== "single" || entities.some((entity) => ["organization", "branch"].includes(String(entity.scope)))) fail("tenancy", "Organization/branch isolation needs executable membership policies before delivery.");
+    if (tenancy.mode === "organizations") {
+      if (application.tenancy?.mode !== "organizations" || tenancy.organizationEntityId !== application.tenancy.organizationTableId) {
+        fail("tenancy", "Organization tenancy must match the executable application membership contract.");
+      }
+      for (const entity of entities) {
+        const table = application.tables.find((table2) => table2.id === entity.id);
+        const scoped = table?.id === application.tenancy?.organizationTableId || table?.organizationFieldId !== void 0;
+        if (scoped !== (entity.scope === "organization")) fail(`entities.${entity.id}`, "Entity organization scope must match its executable table policy.");
+      }
+    } else if (tenancy.mode === "branches" || entities.some((entity) => entity.scope === "branch")) {
+      fail("tenancy", "Branch isolation needs executable membership policies before delivery.");
+    } else if (entities.some((entity) => entity.scope === "organization")) {
+      fail("tenancy", "Organization entities require organization tenancy.");
+    }
   }
   for (const integration of catalog(value.integrations, "integrations", ["id", "purpose", "operationIds", "scopes", "activation"])) {
     if (!text(integration.purpose) || integration.activation !== "deferred") fail(`integrations.${integration.id}`, "Only deferred, credential-free integration plans belong in a specification.");
@@ -453,7 +466,7 @@ function validateApplicationDefinition(value, pageIds) {
     }
     return input;
   }
-  if (!shape(value, ["version", "tables", "roles", "auth", "pageAccess", "requirements"], "application")) return issues;
+  if (!shape(value, ["version", "tables", "roles", "auth", "pageAccess", "tenancy", "requirements"], "application")) return issues;
   if (value.version !== 1) issue("application.version", "unsupported-version", "Unsupported application schema version. Keep the source project and use a compatible editor.");
   const tables = list(value.tables, APPLICATION_LIMITS.tables, "application.tables");
   const roles = list(value.roles, APPLICATION_LIMITS.roles, "application.roles");
@@ -483,14 +496,23 @@ function validateApplicationDefinition(value, pageIds) {
   const authEnabled = object5(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ["id", "key", "name", "fields", "permissions", "booking", "counter", "stockReservations", "stockLocations", "stockValuation", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
+    if (!shape(table, ["id", "key", "name", "fields", "permissions", "organizationFieldId", "booking", "counter", "stockReservations", "stockLocations", "stockValuation", "transaction", "payment", "workflow", "attachments", "notifications", "reports"], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier3(table.key) || tableKeys.has(table.key) || table.key.startsWith("tayar_") || table.key === "user_roles") issue(`${path}.key`, "invalid-key", "Table keys must be unique lower-case identifiers outside reserved namespaces.");
     else tableKeys.add(table.key);
     if (!name(table.name)) issue(`${path}.name`, "invalid-name", "A table requires a display name.");
   });
+  let organizationRootId;
+  if (value.tenancy !== void 0) {
+    const tenancy = value.tenancy;
+    if (shape(tenancy, ["mode", "organizationTableId"], "application.tenancy")) {
+      if (tenancy.mode !== "organizations" || !authEnabled || !tableIds.has(String(tenancy.organizationTableId))) {
+        issue("application.tenancy", "invalid-tenancy", "Organization tenancy requires Auth and an existing organization table.");
+      } else organizationRootId = tenancy.organizationTableId;
+    }
+  }
   function access(rule, path, allowOwner) {
-    const allowed = allowOwner ? ["public", "authenticated", "owner", "role"] : ["public", "authenticated", "role"];
+    const allowed = allowOwner ? ["public", "authenticated", "owner", "organization", "role"] : ["public", "authenticated", "role"];
     if (!allowed.includes(String(rule.access))) issue(`${path}.access`, "invalid-access", "Unsupported access rule.");
     if (rule.access !== "public" && !authEnabled) issue(path, "auth-disabled", "Authentication is required for this permission.");
     if (rule.access === "role" && !roleIds.has(String(rule.roleId))) issue(`${path}.roleId`, "missing-role", "Select an existing application role.");
@@ -526,6 +548,14 @@ function validateApplicationDefinition(value, pageIds) {
         if (!validDefault) issue(`${fieldPath}.defaultValue`, "invalid-default", "The default must match the field type. Computed, relationship and structured defaults are not accepted.");
       }
     });
+    if (table.id === organizationRootId && table.organizationFieldId !== void 0) {
+      issue(`${path}.organizationFieldId`, "invalid-organization-scope", "The organization root cannot reference itself as its tenant scope.");
+    } else if (table.organizationFieldId !== void 0) {
+      const organizationField = Array.isArray(table.fields) ? table.fields.find((field) => object5(field) && field.id === table.organizationFieldId) : void 0;
+      if (!organizationRootId || !id(table.organizationFieldId) || !object5(organizationField) || organizationField.type !== "reference" || organizationField.required !== true || organizationField.referenceTableId !== organizationRootId) {
+        issue(`${path}.organizationFieldId`, "invalid-organization-scope", "Organization scope requires a required reference to the configured organization root.");
+      }
+    }
     if (table.reports !== void 0) {
       if (!authEnabled || !Array.isArray(table.reports) || !table.reports.length || table.reports.length > 8 || !Array.isArray(table.permissions) || !table.permissions.some((rule) => object5(rule) && rule.operation === "read")) issue(`${path}.reports`, "invalid-reports", "Reports require Auth, read permission and 1\u20138 declarations.");
       else {
@@ -811,6 +841,13 @@ function validateApplicationDefinition(value, pageIds) {
       if (!shape(permission, ["operation", "access", "roleId"], permissionPath)) return;
       if (!["read", "create", "update", "delete"].includes(String(permission.operation))) issue(permissionPath, "invalid-operation", "Unsupported database operation.");
       access(permission, permissionPath, true);
+      if (permission.access === "organization") {
+        const basicCrudOnly = !table.booking && !table.counter && !table.stockReservations && !table.stockLocations && !table.stockValuation && !table.transaction && !table.payment && !table.workflow && !table.attachments && !table.notifications && !table.reports;
+        if (!organizationRootId || table.id !== organizationRootId && table.organizationFieldId === void 0) {
+          issue(permissionPath, "missing-organization-scope", "Organization access requires the root table or a valid organization reference.");
+        }
+        if (!basicCrudOnly) issue(permissionPath, "unsupported-organization-capability", "Organization access currently supports ordinary CRUD tables only.");
+      }
       if (permission.access === "public" && permission.operation !== "read") issue(permissionPath, "public-write", "Anonymous database writes require a validated server action.");
       const key = `${permission.operation}:${permission.access}:${permission.roleId ?? ""}`;
       if (permissionKeys.has(key)) issue(permissionPath, "duplicate-permission", "Duplicate permission rule.");
@@ -818,6 +855,19 @@ function validateApplicationDefinition(value, pageIds) {
     });
     if (Array.isArray(table.permissions) && table.permissions.some((p) => object5(p) && ["update", "delete"].includes(String(p.operation))) && !table.permissions.some((p) => object5(p) && p.operation === "read")) issue(`${path}.permissions`, "read-required", "Update and delete require a read policy.");
   });
+  if (organizationRootId) {
+    const root = tables.find((table) => object5(table) && table.id === organizationRootId);
+    const rootPermissions = object5(root) && Array.isArray(root.permissions) ? root.permissions.filter(object5) : [];
+    if (!rootPermissions.some((rule) => rule.operation === "create" && ["authenticated", "owner"].includes(String(rule.access))) || !rootPermissions.some((rule) => rule.operation === "read" && rule.access === "organization") || !rootPermissions.some((rule) => rule.operation === "read" && rule.access === "owner")) {
+      issue("application.tenancy", "incomplete-organization-root", "The organization root needs authenticated creation plus owner and member read access.");
+    }
+    tables.forEach((table, index) => {
+      if (!object5(table) || table.id !== organizationRootId && table.organizationFieldId === void 0) return;
+      const path = `application.tables[${index}].permissions`;
+      const unsafe = Array.isArray(table.permissions) && table.permissions.some((rule) => object5(rule) && (table.id === organizationRootId ? rule.operation !== "create" && ["public", "authenticated", "role"].includes(String(rule.access)) : rule.access !== "organization"));
+      if (unsafe) issue(path, "cross-organization-access", "Organization-scoped records require membership access; root records may additionally use owner administration.");
+    });
+  }
   let notificationCount = 0;
   tables.forEach((table, index) => {
     if (!object5(table) || table.notifications === void 0) return;

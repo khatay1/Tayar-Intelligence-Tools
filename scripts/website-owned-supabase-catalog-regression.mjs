@@ -15,7 +15,11 @@ try {
   const manifestFile = join(dir, 'manifest.cjs');
   await build({ entryPoints: ['src/modules/website-builder/core/application-schema-sql.ts'], bundle: true,
     platform: 'node', format: 'cjs', outfile: manifestFile });
-  const { applicationRoleFunctionManifest } = (await import(pathToFileURL(manifestFile))).default;
+  const { applicationRoleFunctionManifest, applicationSecurityPolicies } = (await import(pathToFileURL(manifestFile))).default;
+  const organizationManifestFile = join(dir, 'organization-manifest.cjs');
+  await build({ entryPoints: ['src/modules/website-builder/core/application-organization-sql.ts'], bundle: true,
+    platform: 'node', format: 'cjs', outfile: organizationManifestFile });
+  const { applicationOrganizationFunctionManifest } = (await import(pathToFileURL(organizationManifestFile))).default;
   const stockTransportFile = join(dir, 'stock-transport.cjs');
   await build({ entryPoints: ['server/website-owned-stock-reservation-catalog-transport.ts'],
     bundle: true, platform: 'node', format: 'cjs', outfile: stockTransportFile });
@@ -105,6 +109,60 @@ try {
     ? [{ ...roleTables[0], authenticated_all: true }, roleTables[1]] : roleQuery(sql)), false);
   assert.equal(await verify(roleDefinition, async sql => sql.includes('has_schema_privilege')
     ? [{ anon_usage: true, authenticated_usage: true }] : roleQuery(sql)), false);
+  const organizationDefinition = { version: 1, auth: { enabled: true, signUpEnabled: true, emailVerificationRequired: true },
+    roles: [], pageAccess: [], tenancy: { mode: 'organizations', organizationTableId: 'organizations' }, tables: [
+      { id: 'organizations', key: 'organizations', name: 'Organizations', fields: [{ id: 'organization-name', key: 'name', name: 'Name', type: 'text', required: true }],
+        permissions: [{ operation: 'create', access: 'authenticated' }, { operation: 'read', access: 'organization' }, { operation: 'read', access: 'owner' }, { operation: 'update', access: 'owner' }, { operation: 'delete', access: 'owner' }] },
+      { id: 'projects', key: 'projects', name: 'Projects', organizationFieldId: 'project-organization',
+        fields: [{ id: 'project-organization', key: 'organization_id', name: 'Organization', type: 'reference', required: true, referenceTableId: 'organizations' }],
+        permissions: ['create', 'read', 'update', 'delete'].map(operation => ({ operation, access: 'organization' })) },
+    ] };
+  const organizationRows = applicationSecurityPolicies(organizationDefinition).map(policy => {
+    const table = organizationDefinition.tables.find(item => `app_${item.key}` === policy.table);
+    const operation = policy.name.split('_').at(-1);
+    return { table_name: policy.table, relation_kind: 'r', rls: true,
+      anon_read: false, anon_create: false, anon_update: false, anon_delete: false,
+      anon_column_read: false, anon_column_create: false, anon_column_update: false,
+      authenticated_read: table.permissions.some(item => item.operation === 'read'),
+      authenticated_create: table.permissions.some(item => item.operation === 'create'),
+      authenticated_update: table.permissions.some(item => item.operation === 'update'),
+      authenticated_delete: table.permissions.some(item => item.operation === 'delete'),
+      authenticated_column_read: table.permissions.some(item => item.operation === 'read'),
+      authenticated_column_create: table.permissions.some(item => item.operation === 'create'),
+      authenticated_column_update: table.permissions.some(item => item.operation === 'update'),
+      policy_name: policy.name, command: policy.command, permissive: true, roles: policy.roles,
+      using_expression: policy.using, check_expression: policy.check, operation };
+  });
+  const organizationFunctions = applicationOrganizationFunctionManifest(organizationDefinition).map(item => ({
+    schema_name: item.schema, function_name: item.name, arguments: item.arguments, result: item.result,
+    language: item.language, kind: 'f', security_definer: item.securityDefiner,
+    volatility: item.stable ? 's' : 'v', source: item.source, owner_name: 'postgres',
+    configuration: ['search_path='], anon_execute: false, authenticated_execute: item.authenticatedExecute,
+  }));
+  const organizationTable = [{ table_name: 'app_organization_members', relation_kind: 'r', rls: true,
+    anon_all: false, authenticated_all: false, anon_columns: false, authenticated_columns: false,
+    fields: { organization_id: { required: true, type: 'uuid' }, user_id: { required: true, type: 'uuid' },
+      administrator: { required: true, type: 'boolean' }, created_at: { required: true, type: 'timestamp with time zone' } },
+    primary_keys: 1, foreign_keys: 2 }];
+  const organizationTriggers = [
+    { table_name: 'app_organizations', trigger_name: 'app_add_organization_owner', function_name: 'app_add_organization_owner', function_schema: 'private', enabled: 'O', argument_hex: '' },
+    { table_name: 'app_projects', trigger_name: 'app_guard_organization_scope', function_name: 'app_guard_organization_scope', function_schema: 'public', enabled: 'O', argument_hex: Buffer.from('organization_id\0').toString('hex') },
+  ];
+  const organizationQuery = async sql => sql.includes('a.attgenerated') ? []
+    : sql.includes("c.relname = 'app_organization_members'") ? organizationTable
+    : sql.includes("t.tgname in ('app_add_organization_owner'") ? organizationTriggers
+    : sql.includes("'app_guard_organization_scope'") ? organizationFunctions
+    : sql.includes('has_schema_privilege') ? [{ anon_usage: false, authenticated_usage: true }]
+    : organizationRows;
+  assert.equal(await verify(organizationDefinition, organizationQuery), true);
+  for (const mutation of [{ rls: false }, { authenticated_all: true }, { foreign_keys: 1 }]) {
+    assert.equal(await verify(organizationDefinition, async sql => sql.includes("c.relname = 'app_organization_members'")
+      ? [{ ...organizationTable[0], ...mutation }] : organizationQuery(sql)), false, JSON.stringify(mutation));
+  }
+  assert.equal(await verify(organizationDefinition, async sql => sql.includes("'app_guard_organization_scope'")
+    ? [{ ...organizationFunctions[0], source: 'begin return new; end' }, ...organizationFunctions.slice(1)] : organizationQuery(sql)), false);
+  assert.equal(await verify(organizationDefinition, async sql => sql.includes("t.tgname in ('app_add_organization_owner'")
+    ? [{ ...organizationTriggers[0], function_schema: 'public' }, organizationTriggers[1]] : organizationQuery(sql)), false);
   assert.equal(await verify(definition, async () => ({ rows: [row] })), false);
   await assert.rejects(createOwnedSupabaseReadOnlyQuery({ projectRef: 'abcdefghijklmnopqrst', accessToken: 'token',
     fetcher: async () => Response.json({ message: 'secret remote detail' }, { status: 403 }) })('select 1'),

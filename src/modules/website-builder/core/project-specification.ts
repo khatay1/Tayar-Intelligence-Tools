@@ -261,8 +261,21 @@ export function projectSpecificationIssues(value: unknown, application: Applicat
     if (tenancy.mode !== 'single' && !entityIds.has(tenancy.organizationEntityId)) fail('tenancy', 'Organization projects need an organization entity.');
     if (tenancy.mode === 'branches' && !entityIds.has(tenancy.branchEntityId)) fail('tenancy', 'Branch projects need a branch entity.');
     if (tenancy.mode === 'single' && (tenancy.organizationEntityId !== undefined || tenancy.branchEntityId !== undefined)) fail('tenancy', 'Contradictory tenancy references.');
-    // Existing owner/RLS rules do not prove organization/branch membership.
-    if (tenancy.mode !== 'single' || entities.some(entity => ['organization', 'branch'].includes(String(entity.scope)))) fail('tenancy', 'Organization/branch isolation needs executable membership policies before delivery.');
+    if (tenancy.mode === 'organizations') {
+      if (application.tenancy?.mode !== 'organizations'
+        || tenancy.organizationEntityId !== application.tenancy.organizationTableId) {
+        fail('tenancy', 'Organization tenancy must match the executable application membership contract.');
+      }
+      for (const entity of entities) {
+        const table = application.tables.find(table => table.id === entity.id);
+        const scoped = table?.id === application.tenancy?.organizationTableId || table?.organizationFieldId !== undefined;
+        if (scoped !== (entity.scope === 'organization')) fail(`entities.${entity.id}`, 'Entity organization scope must match its executable table policy.');
+      }
+    } else if (tenancy.mode === 'branches' || entities.some(entity => entity.scope === 'branch')) {
+      fail('tenancy', 'Branch isolation needs executable membership policies before delivery.');
+    } else if (entities.some(entity => entity.scope === 'organization')) {
+      fail('tenancy', 'Organization entities require organization tenancy.');
+    }
   }
   for (const integration of catalog(value.integrations, 'integrations', ['id', 'purpose', 'operationIds', 'scopes', 'activation'])) {
     if (!text(integration.purpose) || integration.activation !== 'deferred') fail(`integrations.${integration.id}`, 'Only deferred, credential-free integration plans belong in a specification.');

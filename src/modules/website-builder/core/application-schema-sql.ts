@@ -6,6 +6,7 @@ import { compileApplicationReports } from './application-reports-sql';
 import { applicationCounterInfrastructure, compileApplicationCounterSchema } from './application-counter-sql';
 import { applicationTransactionInfrastructure, compileApplicationTransactionSchema } from './application-transaction-sql';
 import { applicationWorkflowInfrastructure, compileApplicationWorkflowSchema } from './application-workflow-sql';
+import { compileApplicationOrganizationInfrastructure } from './application-organization-sql';
 import type { ApplicationDefinition, ApplicationField, ApplicationPermission, ApplicationTable } from './application-model';
 import { readApplicationDefinition } from './application-validation';
 
@@ -19,11 +20,17 @@ const fieldType = (field: ApplicationField) => ({
 const operationSql = { read: 'SELECT', create: 'INSERT', update: 'UPDATE', delete: 'DELETE' } as const;
 const permanentUser = "((select auth.uid()) is not null and (((select auth.jwt())->>'is_anonymous')::boolean) is not true)";
 
-function condition(rule: ApplicationPermission): string {
+function condition(rule: ApplicationPermission, table: ApplicationTable, app: ApplicationDefinition): string {
   switch (rule.access) {
     case 'public': return 'true';
     case 'authenticated': return permanentUser;
     case 'owner': return `(${permanentUser} and (select auth.uid()) = owner_id)`;
+    case 'organization': {
+      const root = app.tenancy?.organizationTableId === table.id;
+      const field = table.fields.find(field => field.id === table.organizationFieldId)?.key;
+      if (!root && !field) throw new Error('Organization access is unavailable.');
+      return `(${permanentUser} and (select private.app_has_organization_access(${root ? 'id' : sqlName(field!)})))`;
+    }
     case 'role': return `(${permanentUser} and (select private.app_has_role(${literal(rule.roleId!)})))`;
   }
 }
@@ -56,7 +63,7 @@ function referenceConstraint(app: ApplicationDefinition, tableIndex: number, fie
   return `alter table public.${sqlName(tableName(table))} add constraint ${sqlName(`app_fk_${tableIndex}_${fieldIndex}`)} foreign key (${sqlName(field.key)}) references public.${sqlName(tableName(target))}(id) on delete restrict;`;
 }
 
-function policies(table: ApplicationTable, tableIndex: number): string[] {
+function policies(app: ApplicationDefinition, table: ApplicationTable, tableIndex: number): string[] {
   const name = `public.${sqlName(tableName(table))}`;
   const statements: string[] = [];
   for (const operation of ['read', 'create', 'update', 'delete'] as const) {
@@ -64,7 +71,7 @@ function policies(table: ApplicationTable, tableIndex: number): string[] {
     if (!rules.length) continue;
     const verb = operationSql[operation];
     const audience = rules.some(rule => rule.access === 'public') ? 'anon, authenticated' : 'authenticated';
-    const check = rules.map(condition).join(' or ');
+    const check = rules.map(rule => condition(rule, table, app)).join(' or ');
     statements.push(`grant ${verb} on ${name} to ${audience};`);
     const policy = sqlName(`app_p_${tableIndex}_${operation}`);
     const options = operation === 'create' ? `with check ((${check}) and owner_id = (select auth.uid()))`
@@ -84,7 +91,7 @@ export function applicationSecurityPolicies(input: ApplicationDefinition) {
     (['read', 'create', 'update', 'delete'] as const).flatMap(operation => {
       const rules = table.permissions.filter(rule => rule.operation === operation);
       if (!rules.length) return [];
-      const expression = rules.map(condition).join(' or ');
+      const expression = rules.map(rule => condition(rule, table, app)).join(' or ');
       return [{ table: `app_${table.key}`, name: `app_p_${tableIndex}_${operation}`,
         command: ({ read: 'r', create: 'a', update: 'w', delete: 'd' } as const)[operation],
         roles: rules.some(rule => rule.access === 'public') ? ['anon', 'authenticated'] : ['authenticated'],
@@ -356,13 +363,14 @@ end $$;`);
     if (field.type !== 'reference') continue;
     statements.push(referenceConstraint(app, tableIndex, fieldIndex, field));
   }
+  statements.push(...compileApplicationOrganizationInfrastructure(app));
   for (const [tableIndex, table] of app.tables.entries()) {
     statements.push(...bookingConstraints(app, tableIndex));
     statements.push(...compileApplicationBookingAvailability(app, tableIndex));
     statements.push(...compileApplicationCounterSchema(app, tableIndex));
     statements.push(...compileApplicationTransactionSchema(app, tableIndex));
     statements.push(...compileApplicationWorkflowSchema(app, tableIndex));
-    statements.push(...policies(table, tableIndex));
+    statements.push(...policies(app, table, tableIndex));
     statements.push(...compileApplicationFilesSchema(app, tableIndex));
     statements.push(...compileApplicationReports(app, tableIndex));
   }
@@ -376,6 +384,10 @@ end $$;`);
 export function compileAdditiveApplicationMigration(previous: ApplicationDefinition, next: ApplicationDefinition): string[] {
   const before = readApplicationDefinition(previous);
   const after = readApplicationDefinition(next);
+  if (before.tenancy || after.tenancy) {
+    if (JSON.stringify(before) === JSON.stringify(after)) return [];
+    throw new Error('Organization tenancy applications require a separately reviewed database migration.');
+  }
   if (before.tables.some(table => table.stockReservations) || after.tables.some(table => table.stockReservations)) {
     const canonical = (value: unknown) => JSON.stringify(value, (_key, entry: unknown) =>
       entry && typeof entry === 'object' && !Array.isArray(entry)
@@ -513,7 +525,7 @@ end $form_ledger$;`);
         }
       }
     }
-    statements.push(...policies(table, index));
+    statements.push(...policies(after, table, index));
   }
   statements.push(`update private.app_schema_revisions set definition = ${literal(JSON.stringify(after))}::jsonb where id = true;`);
   return statements;

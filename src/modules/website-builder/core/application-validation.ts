@@ -26,7 +26,7 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     if (!Array.isArray(input) || input.length > limit) { issue(path, 'invalid-list', `Expected a list with at most ${limit} items.`); return []; }
     return input;
   }
-  if (!shape(value, ['version', 'tables', 'roles', 'auth', 'pageAccess', 'requirements'], 'application')) return issues;
+  if (!shape(value, ['version', 'tables', 'roles', 'auth', 'pageAccess', 'tenancy', 'requirements'], 'application')) return issues;
   if (value.version !== 1) issue('application.version', 'unsupported-version', 'Unsupported application schema version. Keep the source project and use a compatible editor.');
   const tables = list(value.tables, APPLICATION_LIMITS.tables, 'application.tables');
   const roles = list(value.roles, APPLICATION_LIMITS.roles, 'application.roles');
@@ -52,14 +52,23 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
   const authEnabled = object(auth) && auth.enabled === true;
   tables.forEach((table, index) => {
     const path = `application.tables[${index}]`;
-    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'booking', 'counter', 'stockReservations', 'stockLocations', 'stockValuation', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'], path)) return;
+    if (!shape(table, ['id', 'key', 'name', 'fields', 'permissions', 'organizationFieldId', 'booking', 'counter', 'stockReservations', 'stockLocations', 'stockValuation', 'transaction', 'payment', 'workflow', 'attachments', 'notifications', 'reports'], path)) return;
     identity(table.id, `${path}.id`, tableIds);
     if (!identifier(table.key) || tableKeys.has(table.key) || table.key.startsWith('tayar_') || table.key === 'user_roles') issue(`${path}.key`, 'invalid-key', 'Table keys must be unique lower-case identifiers outside reserved namespaces.');
     else tableKeys.add(table.key);
     if (!name(table.name)) issue(`${path}.name`, 'invalid-name', 'A table requires a display name.');
   });
+  let organizationRootId: string | undefined;
+  if (value.tenancy !== undefined) {
+    const tenancy = value.tenancy;
+    if (shape(tenancy, ['mode', 'organizationTableId'], 'application.tenancy')) {
+      if (tenancy.mode !== 'organizations' || !authEnabled || !tableIds.has(String(tenancy.organizationTableId))) {
+        issue('application.tenancy', 'invalid-tenancy', 'Organization tenancy requires Auth and an existing organization table.');
+      } else organizationRootId = tenancy.organizationTableId as string;
+    }
+  }
   function access(rule: RecordValue, path: string, allowOwner: boolean) {
-    const allowed = allowOwner ? ['public', 'authenticated', 'owner', 'role'] : ['public', 'authenticated', 'role'];
+    const allowed = allowOwner ? ['public', 'authenticated', 'owner', 'organization', 'role'] : ['public', 'authenticated', 'role'];
     if (!allowed.includes(String(rule.access))) issue(`${path}.access`, 'invalid-access', 'Unsupported access rule.');
     if (rule.access !== 'public' && !authEnabled) issue(path, 'auth-disabled', 'Authentication is required for this permission.');
     if (rule.access === 'role' && !roleIds.has(String(rule.roleId))) issue(`${path}.roleId`, 'missing-role', 'Select an existing application role.');
@@ -105,6 +114,17 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
         if (!validDefault) issue(`${fieldPath}.defaultValue`, 'invalid-default', 'The default must match the field type. Computed, relationship and structured defaults are not accepted.');
       }
     });
+    if (table.id === organizationRootId && table.organizationFieldId !== undefined) {
+      issue(`${path}.organizationFieldId`, 'invalid-organization-scope', 'The organization root cannot reference itself as its tenant scope.');
+    } else if (table.organizationFieldId !== undefined) {
+      const organizationField = Array.isArray(table.fields)
+        ? table.fields.find(field => object(field) && field.id === table.organizationFieldId) : undefined;
+      if (!organizationRootId || !id(table.organizationFieldId) || !object(organizationField)
+        || organizationField.type !== 'reference' || organizationField.required !== true
+        || organizationField.referenceTableId !== organizationRootId) {
+        issue(`${path}.organizationFieldId`, 'invalid-organization-scope', 'Organization scope requires a required reference to the configured organization root.');
+      }
+    }
     if (table.reports !== undefined) {
       if (!authEnabled || !Array.isArray(table.reports) || !table.reports.length || table.reports.length > 8
         || !Array.isArray(table.permissions) || !table.permissions.some(rule => object(rule) && rule.operation === 'read')) issue(`${path}.reports`, 'invalid-reports', 'Reports require Auth, read permission and 1–8 declarations.');
@@ -463,6 +483,15 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
       if (!shape(permission, ['operation', 'access', 'roleId'], permissionPath)) return;
       if (!['read', 'create', 'update', 'delete'].includes(String(permission.operation))) issue(permissionPath, 'invalid-operation', 'Unsupported database operation.');
       access(permission, permissionPath, true);
+      if (permission.access === 'organization') {
+        const basicCrudOnly = !table.booking && !table.counter && !table.stockReservations && !table.stockLocations
+          && !table.stockValuation && !table.transaction && !table.payment && !table.workflow
+          && !table.attachments && !table.notifications && !table.reports;
+        if (!organizationRootId || table.id !== organizationRootId && table.organizationFieldId === undefined) {
+          issue(permissionPath, 'missing-organization-scope', 'Organization access requires the root table or a valid organization reference.');
+        }
+        if (!basicCrudOnly) issue(permissionPath, 'unsupported-organization-capability', 'Organization access currently supports ordinary CRUD tables only.');
+      }
       if (permission.access === 'public' && permission.operation !== 'read') issue(permissionPath, 'public-write', 'Anonymous database writes require a validated server action.');
       const key = `${permission.operation}:${permission.access}:${permission.roleId ?? ''}`;
       if (permissionKeys.has(key)) issue(permissionPath, 'duplicate-permission', 'Duplicate permission rule.');
@@ -470,6 +499,25 @@ export function validateApplicationDefinition(value: unknown, pageIds?: Readonly
     });
     if (Array.isArray(table.permissions) && table.permissions.some(p => object(p) && ['update', 'delete'].includes(String(p.operation))) && !table.permissions.some(p => object(p) && p.operation === 'read')) issue(`${path}.permissions`, 'read-required', 'Update and delete require a read policy.');
   });
+  if (organizationRootId) {
+    const root = tables.find(table => object(table) && table.id === organizationRootId);
+    const rootPermissions = object(root) && Array.isArray(root.permissions) ? root.permissions.filter(object) : [];
+    if (!rootPermissions.some(rule => rule.operation === 'create' && ['authenticated', 'owner'].includes(String(rule.access)))
+      || !rootPermissions.some(rule => rule.operation === 'read' && rule.access === 'organization')
+      || !rootPermissions.some(rule => rule.operation === 'read' && rule.access === 'owner')) {
+      issue('application.tenancy', 'incomplete-organization-root', 'The organization root needs authenticated creation plus owner and member read access.');
+    }
+    tables.forEach((table, index) => {
+      if (!object(table) || table.id !== organizationRootId && table.organizationFieldId === undefined) return;
+      const path = `application.tables[${index}].permissions`;
+      const unsafe = Array.isArray(table.permissions) && table.permissions.some(rule => object(rule) && (
+        table.id === organizationRootId
+          ? rule.operation !== 'create' && ['public', 'authenticated', 'role'].includes(String(rule.access))
+          : rule.access !== 'organization'
+      ));
+      if (unsafe) issue(path, 'cross-organization-access', 'Organization-scoped records require membership access; root records may additionally use owner administration.');
+    });
+  }
   let notificationCount = 0;
   tables.forEach((table, index) => {
     if (!object(table) || table.notifications === undefined) return;
