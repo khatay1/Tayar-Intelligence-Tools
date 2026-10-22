@@ -202,6 +202,33 @@ function buildApplicationDataRuntime(definition: ApplicationDefinition, config: 
     });
   } : undefined;
   return {
+    organizations: app.tenancy ? {
+      rootTableId: app.tenancy.organizationTableId,
+      /** Membership writes are privileged database RPCs. Pin the initiating
+       * permanent user's token before and after the request so a sign-out or
+       * account switch cannot be mistaken for a confirmed administration. */
+      async setMember(organizationId: string, targetUserId: string, enabled: boolean,
+        administrator: boolean, expectedUserId: string) {
+        if (typeof enabled !== 'boolean' || typeof administrator !== 'boolean') {
+          throw new Error('Organization membership state must be boolean.');
+        }
+        const requestedOrganization = rowId(organizationId), targetUser = rowId(targetUserId);
+        const expectedUser = rowId(expectedUserId);
+        const token = await captureWriteToken(expectedUser);
+        if (!token || disposed) throw new Error('Organization membership identity is unavailable.');
+        const query = client.rpc('app_set_organization_member', {
+          requested_organization: requestedOrganization, target_user: targetUser,
+          enabled, administrator,
+        });
+        query.setHeader('Authorization', `Bearer ${token}`);
+        const response = await query;
+        let currentToken: string | undefined;
+        try { currentToken = await captureWriteToken(expectedUser); }
+        catch { throw new Error('Organization membership outcome is uncertain.'); }
+        if (disposed || currentToken !== token) throw new Error('Organization membership outcome is uncertain.');
+        checked(response);
+      },
+    } : undefined,
     stockReservations,
     customOperations: customOperationClient,
     payments: createApplicationPaymentRuntime(paymentOrigin, captureWriteToken, async owner => {
