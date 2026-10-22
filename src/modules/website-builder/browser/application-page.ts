@@ -24,10 +24,10 @@ const config = JSON.parse(script.dataset.application!) as (ApplicationAuthScreen
   { definition: ApplicationDefinition; paths: string[]; pageId: string; applicationForms: PublishedApplicationForm[]; applicationDataViews?: PublishedApplicationDataView[] };
 const copy = applicationAuthCopy[config.language] ?? applicationAuthCopy.en;
 const formCopy = {
-  en: { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.', operationSuccess: 'Operation completed.', operationRequiresSignIn: 'Sign in to run this operation.' },
-  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', schedule: 'اختر وقتًا ضمن ساعات العمل والمدة القصوى للحجز.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.', operationSuccess: 'اكتملت العملية.', operationRequiresSignIn: 'سجّل الدخول لتنفيذ هذه العملية.' },
-  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', schedule: 'Välj en tid inom öppettiderna och bokningens längdgräns.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.', operationSuccess: 'Åtgärden är klar.', operationRequiresSignIn: 'Logga in för att köra åtgärden.' },
-}[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.', operationSuccess: 'Operation completed.', operationRequiresSignIn: 'Sign in to run this operation.' };
+  en: { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.', operationSuccess: 'Operation completed.', operationRequiresSignIn: 'Sign in to run this operation.', organization: 'Active organization', noOrganization: 'No accessible organization' },
+  ar: { conflict: 'هذا المورد محجوز في الوقت المحدد. اختر وقتًا آخر.', schedule: 'اختر وقتًا ضمن ساعات العمل والمدة القصوى للحجز.', interval: 'يجب أن يكون انتهاء الحجز بعد بدايته.', unavailable: 'النموذج غير متاح. سجّل الدخول ثم أعد تحميل الصفحة.', uncertain: 'نتيجة الإرسال غير مؤكدة. احتفظ بالقيم وحاول مجدداً للتحقق من الطلب نفسه.', operationSuccess: 'اكتملت العملية.', operationRequiresSignIn: 'سجّل الدخول لتنفيذ هذه العملية.', organization: 'المؤسسة النشطة', noOrganization: 'لا توجد مؤسسة متاحة' },
+  sv: { conflict: 'Resursen är redan bokad den tiden. Välj en annan tid.', schedule: 'Välj en tid inom öppettiderna och bokningens längdgräns.', interval: 'Bokningens slut måste vara efter starten.', unavailable: 'Formuläret är inte tillgängligt. Logga in och ladda om sidan.', uncertain: 'Resultatet är osäkert. Behåll uppgifterna och försök igen med samma begäran.', operationSuccess: 'Åtgärden är klar.', operationRequiresSignIn: 'Logga in för att köra åtgärden.', organization: 'Aktiv organisation', noOrganization: 'Ingen tillgänglig organisation' },
+}[config.language] ?? { conflict: 'This resource is already booked for that time. Choose another time.', schedule: 'Choose a time within working hours and the maximum booking duration.', interval: 'Booking end must be after start.', unavailable: 'This form is unavailable. Sign in and reload the page.', uncertain: 'The result is uncertain. Keep these values and try again to check the same request.', operationSuccess: 'Operation completed.', operationRequiresSignIn: 'Sign in to run this operation.', organization: 'Active organization', noOrganization: 'No accessible organization' };
 let customOperationApi: Window['tayarApplication'];
 const account = new URL(config.returnPath, config.applicationOrigin);
 account.searchParams.set('applicationAuth', '1');
@@ -38,7 +38,7 @@ host.setAttribute('aria-label', copy.title);
 host.style.cssText = 'position:fixed;bottom:16px;inset-inline-end:16px;z-index:2147483647';
 const root = host.attachShadow({ mode: 'open' });
 const style = document.createElement('style');
-style.textContent = ':host{font:14px/1.5 system-ui,sans-serif}nav{padding:10px;background:#101827;color:#fff;border:1px solid #64748b;border-radius:12px;max-width:300px}a,button{font:inherit;color:#fff;background:transparent;border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;text-decoration:none;cursor:pointer;margin:2px}button:disabled{opacity:.5}a:focus-visible,button:focus-visible{outline:3px solid #67e8f9;outline-offset:2px}p{margin:6px;overflow-wrap:anywhere}p:empty{display:none}';
+style.textContent = ':host{font:14px/1.5 system-ui,sans-serif}nav{padding:10px;background:#101827;color:#fff;border:1px solid #64748b;border-radius:12px;max-width:300px}a,button,select{font:inherit;color:#fff;background:#101827;border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;text-decoration:none;cursor:pointer;margin:2px}button:disabled,select:disabled{opacity:.5}a:focus-visible,button:focus-visible,select:focus-visible{outline:3px solid #67e8f9;outline-offset:2px}label{display:grid;margin:6px}p{margin:6px;overflow-wrap:anywhere}p:empty{display:none}';
 const nav = document.createElement('nav');
 nav.dir = config.language === 'ar' ? 'rtl' : 'ltr';
 nav.setAttribute('aria-label', copy.title);
@@ -69,6 +69,35 @@ try {
   const stopDataViews = () => { dataViewDisposers.splice(0).forEach(dispose => dispose()); };
   const customOperationDisposers: Array<() => void> = [];
   let formsPreparation: Promise<void> = Promise.resolve();
+  const prepareOrganization = async () => {
+    if (!runtime.organizations || !config.definition.tenancy) return undefined;
+    const user = await runtime.auth.currentUser();
+    if (!user || user.is_anonymous || disposed || signingOut) return undefined;
+    const table = config.definition.tables.find(item => item.id === runtime.organizations!.rootTableId);
+    if (!table) throw new Error('Organization table is unavailable.');
+    const response = await runtime.list(table.id, { limit: 51, sort: { field: 'id', direction: 'asc' }, filters: [] });
+    const current = await runtime.auth.currentUser();
+    if (!current || current.is_anonymous || current.id !== user.id || disposed || signingOut) throw new Error('Organization identity changed.');
+    if (!Array.isArray(response)) throw new Error('Organization selection is unavailable.');
+    const rows = (response as Record<string, unknown>[]).filter((row): row is Record<string, unknown> & { id: string } => typeof row.id === 'string'
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.id));
+    if (rows.length !== response.length || rows.length > 50) throw new Error('Organization selection is unavailable.');
+    const labelField = table.fields.find(field => field.type === 'text');
+    const key = ['tayar-app-organization', config.backend.projectRef, config.projectId, user.id].join(':');
+    const stored = sessionStorage.getItem(key)?.toLowerCase();
+    const selected = rows.find(row => row.id.toLowerCase() === stored) ?? (rows.length === 1 ? rows[0] : undefined);
+    if (stored && !selected) sessionStorage.removeItem(key);
+    if (selected && stored !== selected.id.toLowerCase()) sessionStorage.setItem(key, selected.id.toLowerCase());
+    const label = document.createElement('label'); label.textContent = formCopy.organization;
+    const select = document.createElement('select'); select.setAttribute('aria-label', formCopy.organization);
+    const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = formCopy.noOrganization; select.append(placeholder);
+    for (const row of rows) { const option = document.createElement('option'); option.value = row.id.toLowerCase(); option.textContent = labelField && typeof row[labelField.key] === 'string' ? String(row[labelField.key]).slice(0, 160) : row.id; select.append(option); }
+    select.value = selected?.id.toLowerCase() ?? ''; select.disabled = rows.length === 0;
+    select.addEventListener('change', () => { if (!select.value || !rows.some(row => row.id.toLowerCase() === select.value)) sessionStorage.removeItem(key); else sessionStorage.setItem(key, select.value); window.location.reload(); });
+    label.append(select); nav.insertBefore(label, status);
+    return { organizationId: selected?.id.toLowerCase(), userId: user.id };
+  };
+  const organizationPreparation = prepareOrganization();
   const customOperationButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-tayar-custom-operation]'));
   const stopCustomOperationActions = () => {
     customOperationDisposers.splice(0).forEach(dispose => dispose());
@@ -191,8 +220,9 @@ try {
   document.addEventListener('submit', submitForm, true);
   const prepareForms = async () => {
     if (!Array.isArray(config.applicationForms) || !config.applicationForms.length) return;
+    const organization = await organizationPreparation;
     const user = await runtime.auth.currentUser();
-    if (!user || user.is_anonymous || disposed || signingOut) return;
+    if (!user || user.is_anonymous || disposed || signingOut || (config.definition.tenancy && user.id !== organization?.userId)) return;
     const seen = new Set<string>();
     for (const item of config.applicationForms) {
       const sectionId = item.section.id;
@@ -201,7 +231,12 @@ try {
       const form = leadForms.find(candidate => candidate.dataset.formId === sectionId
         && candidate.closest('[data-tayar-section-id]')?.getAttribute('data-tayar-section-id') === sectionId);
       if (!form || leadForms.filter(candidate => candidate.dataset.formId === sectionId).length !== 1) throw new Error('Application form markup is unavailable.');
-      const compiled = compileApplicationCreateForm(config.definition, item.section, item.binding);
+      const compiled = compileApplicationCreateForm(config.definition, item.section, item.binding, organization?.organizationId);
+      if (compiled.organization && !compiled.organization.id) throw new Error('An active organization is required.');
+      if (compiled.organization?.formName) {
+        const control = form.elements.namedItem(compiled.organization.formName);
+        if (control instanceof HTMLElement) { if ('disabled' in control) (control as HTMLInputElement).disabled = true; control.closest('label,fieldset')?.setAttribute('hidden', ''); }
+      }
       const schedule = config.definition.tables.find(table => table.id === item.binding.tableId)?.booking?.schedule;
       if (schedule && !form.querySelector('[data-booking-schedule]')) {
         const info = document.createElement('p'); info.dataset.bookingSchedule = '';
@@ -216,7 +251,10 @@ try {
     }
   };
   formsPreparation = prepareForms().catch(() => { stopForms(); leadForms.forEach(form => formStatus(form, formCopy.unavailable)); });
-  try {
+  const prepareDataViews = async () => { try {
+    const organization = await organizationPreparation;
+    const user = await runtime.auth.currentUser();
+    if (!user || user.is_anonymous || disposed || signingOut || (config.definition.tenancy && user.id !== organization?.userId)) throw new Error('Organization identity changed.');
     const seen = new Set<string>();
     for (const item of config.applicationDataViews ?? []) {
       if (item.pageId !== config.pageId || seen.has(item.sectionId)) throw new Error('Application data view identity is invalid.');
@@ -226,9 +264,10 @@ try {
       if (matches.length !== 1) throw new Error('Application data view markup is unavailable.');
       matches[0].replaceChildren();
       dataViewDisposers.push(mountApplicationDataView(matches[0], config.definition, item.binding, runtime, config.language,
-        { projectRef: config.backend.projectRef, projectId: config.projectId, pageId: config.pageId, sectionId: item.sectionId }));
+        { projectRef: config.backend.projectRef, projectId: config.projectId, pageId: config.pageId, sectionId: item.sectionId, organizationId: organization?.organizationId }));
     }
-  } catch { stopDataViews(); status.textContent = copy.unavailable; }
+  } catch { stopDataViews(); status.textContent = copy.unavailable; } };
+  void prepareDataViews();
   const click = (event: MouseEvent) => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || signingOut) return;
     const anchor = event.composedPath().find(item => item instanceof HTMLAnchorElement) as HTMLAnchorElement | undefined;

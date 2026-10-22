@@ -11166,9 +11166,20 @@ function assertValidPublishedWebsiteFileNames(names) {
   }
 }
 
+// src/modules/website-builder/core/application-organization-context.ts
+var uuid4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function applicationOrganizationContext(definition, table, organizationId) {
+  if (!table.organizationFieldId) return void 0;
+  const field = table.fields.find((item) => item.id === table.organizationFieldId);
+  if (!definition.tenancy || !field || field.type !== "reference" || field.referenceTableId !== definition.tenancy.organizationTableId || !organizationId || !uuid4.test(organizationId)) {
+    throw new Error("An active organization is required.");
+  }
+  return { id: organizationId.toLowerCase(), fieldKey: field.key };
+}
+
 // src/modules/website-builder/core/application-form-runtime.ts
 var invalid = () => new Error("The form does not match the application fields.");
-var uuid4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid5 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var record2 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function exact(value, keys) {
   if (!record2(value) || Object.keys(value).some((key) => !keys.includes(key))) throw invalid();
@@ -11228,7 +11239,7 @@ function convert(form, field, raw) {
     }
     case "uuid":
     case "reference":
-      if (!uuid4.test(raw)) throw invalid();
+      if (!uuid5.test(raw)) throw invalid();
       return raw.toLowerCase();
     case "enum":
       if (!field.options?.includes(raw)) throw invalid();
@@ -11240,7 +11251,7 @@ function convert(form, field, raw) {
     }
   }
 }
-function compileApplicationCreateForm(definition, source, input) {
+function compileApplicationCreateForm(definition, source, input, organizationId) {
   const app = readApplicationDefinition(definition);
   const section = JSON.parse(JSON.stringify(source));
   const binding = JSON.parse(JSON.stringify(input));
@@ -11248,13 +11259,15 @@ function compileApplicationCreateForm(definition, source, input) {
   if (section.type !== "contact" || binding.operation !== "create" || typeof binding.tableId !== "string" || !Array.isArray(binding.fields) || binding.fields.length < 1 || binding.fields.length > 45 || !Array.isArray(section.formFields) || section.formFields.length !== binding.fields.length || section.formAutomations?.some((item) => item.enabled) || section.formSuccessAction === "redirect") throw invalid();
   const table = app.tables.find((item) => item.id === binding.tableId);
   if (!table || !table.permissions.some((item) => item.operation === "create")) throw invalid();
-  const formIds = /* @__PURE__ */ new Set(), tableIds = /* @__PURE__ */ new Set(), names = /* @__PURE__ */ new Set();
+  const organizationField = table.fields.find((field) => field.id === table.organizationFieldId);
+  const organization = organizationField ? organizationId ? applicationOrganizationContext(app, table, organizationId) : { fieldKey: organizationField.key, id: void 0 } : void 0;
+  const formIds = /* @__PURE__ */ new Set(), tableIds = /* @__PURE__ */ new Set(), formNames = /* @__PURE__ */ new Set(), names = /* @__PURE__ */ new Set();
   const fields = binding.fields.map((mapping) => {
     exact(mapping, ["formFieldId", "tableFieldId"]);
     if (typeof mapping.formFieldId !== "string" || typeof mapping.tableFieldId !== "string" || formIds.has(mapping.formFieldId) || tableIds.has(mapping.tableFieldId)) throw invalid();
     const form = section.formFields.find((item) => item.id === mapping.formFieldId);
     const field = table.fields.find((item) => item.id === mapping.tableFieldId);
-    if (!form || !field || table.workflow?.fieldId === field.id || field.formula || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || names.has(form.name) || form.name.startsWith("_tayar_") || form.conditions?.length || form.type === "file") throw invalid();
+    if (!form || !field || table.workflow?.fieldId === field.id || field.formula || !/^[a-z][a-z0-9_]{0,79}$/.test(form.name) || formNames.has(form.name) || form.name.startsWith("_tayar_") || form.conditions?.length || form.type === "file") throw invalid();
     if (form.validation) {
       exact(form.validation, ["minLength", "maxLength", "min", "max", "pattern"]);
       if (form.validation.pattern) throw invalid();
@@ -11268,12 +11281,15 @@ function compileApplicationCreateForm(definition, source, input) {
     if (!compatible) throw invalid();
     formIds.add(form.id);
     tableIds.add(field.id);
-    names.add(form.name);
-    return { form, field };
+    formNames.add(form.name);
+    const organizationField2 = field.id === table.organizationFieldId;
+    if (!organizationField2) names.add(form.name);
+    return { form, field, organizationField: organizationField2 };
   });
-  if (new Set(section.formFields.map((field) => field.id)).size !== section.formFields.length || table.fields.some((field) => field.required && field.defaultValue === void 0 && !field.formula && !tableIds.has(field.id))) throw invalid();
+  if (new Set(section.formFields.map((field) => field.id)).size !== section.formFields.length || table.fields.some((field) => field.required && field.id !== table.organizationFieldId && field.defaultValue === void 0 && !field.formula && !tableIds.has(field.id))) throw invalid();
   return {
     tableId: table.id,
+    organization: organization ? { ...organization, formName: fields.find((item) => item.organizationField)?.form.name } : void 0,
     values(entries) {
       const values = /* @__PURE__ */ new Map();
       let count = 0;
@@ -11289,9 +11305,13 @@ function compileApplicationCreateForm(definition, source, input) {
       }
       let payload;
       try {
-        payload = Object.fromEntries(fields.map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))]));
+        payload = Object.fromEntries(fields.filter((item) => !item.organizationField).map(({ form, field }) => [field.key, convert(form, field, values.get(form.name))]));
       } catch {
         throw invalid();
+      }
+      if (organization) {
+        if (!organization.id) throw invalid();
+        payload[organization.fieldKey] = organization.id;
       }
       validateApplicationBookingValues(table, payload);
       return payload;
@@ -11437,10 +11457,10 @@ function assertValidPublishVersionArchive(reference) {
 import { createClient as createClient5 } from "npm:@supabase/supabase-js@2.57.4";
 
 // src/modules/website-builder/services/websiteApplicationPublishedService.ts
-var uuid5 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid6 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var record4 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateWebsiteApplicationRelease(release, projectId, ownerId, platformUrl) {
-  if (!record4(release) || typeof release.id !== "string" || !uuid5.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId || release.storage_bucket !== "website-application-releases" || typeof release.storage_prefix !== "string" || !record4(release.snapshot) || !record4(release.backend)) throw new Error("Invalid private release.");
+  if (!record4(release) || typeof release.id !== "string" || !uuid6.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId || release.storage_bucket !== "website-application-releases" || typeof release.storage_prefix !== "string" || !record4(release.snapshot) || !record4(release.backend)) throw new Error("Invalid private release.");
   const snapshot = release.snapshot;
   if (!snapshot.application || !Array.isArray(snapshot.pages) || !snapshot.pages.length || snapshot.pages.length > 100 || typeof snapshot.homePageId !== "string") throw new Error("Invalid private release.");
   const pages = snapshot.pages;
@@ -11469,7 +11489,7 @@ function validateWebsiteApplicationRelease(release, projectId, ownerId, platform
 }
 
 // src/modules/website-builder/services/websiteApplicationReleaseService.ts
-var uuid6 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid7 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var bucket = "website-application-releases";
 async function publishWebsiteApplicationRelease(input) {
   if (typeof window !== "undefined") throw new Error("Private releases require a server runtime.");
@@ -11481,10 +11501,10 @@ async function publishWebsiteApplicationRelease(input) {
   let attemptedPaths = [];
   let commitStarted = false;
   try {
-    if (!uuid6.test(projectId) || !accessToken || accessToken.length > 16384 || releaseNote.length > 500 || publishedUrl.length > 2e3 || new URL(publishedUrl).protocol !== "https:") throw new Error();
+    if (!uuid7.test(projectId) || !accessToken || accessToken.length > 16384 || releaseNote.length > 500 || publishedUrl.length > 2e3 || new URL(publishedUrl).protocol !== "https:") throw new Error();
     const identity = await platform.auth.getUser(accessToken);
     const ownerId = identity.data.user?.id;
-    if (identity.error || !ownerId || !uuid6.test(ownerId) || identity.data.user?.is_anonymous) throw new Error();
+    if (identity.error || !ownerId || !uuid7.test(ownerId) || identity.data.user?.is_anonymous) throw new Error();
     const saved = await platform.from("projects").select("content").eq("id", projectId).eq("user_id", ownerId).eq("type", "website-builder").is("deleted_at", null).maybeSingle();
     if (saved.error || !saved.data?.content || typeof saved.data.content !== "object" || Array.isArray(saved.data.content)) throw new Error();
     const serialized = JSON.stringify(saved.data.content);
@@ -11578,10 +11598,10 @@ async function inspectWebsiteApplicationReleaseOutcome(input) {
   if (typeof window !== "undefined") throw new Error("Private releases require a server runtime.");
   const { platform, accessToken, projectId, versionId } = input;
   try {
-    if (!uuid6.test(projectId) || !uuid6.test(versionId) || !accessToken || accessToken.length > 16384) return "unavailable";
+    if (!uuid7.test(projectId) || !uuid7.test(versionId) || !accessToken || accessToken.length > 16384) return "unavailable";
     const identity = await platform.auth.getUser(accessToken);
     const ownerId = identity.data.user?.id;
-    if (identity.error || !ownerId || !uuid6.test(ownerId) || identity.data.user?.is_anonymous) return "unavailable";
+    if (identity.error || !ownerId || !uuid7.test(ownerId) || identity.data.user?.is_anonymous) return "unavailable";
     const result = await platform.rpc("website_application_release_outcome", { p_project_id: projectId, p_owner_id: ownerId, p_version_id: versionId });
     if (result.error || !["selected", "recorded", "unresolved"].includes(result.data)) return "unavailable";
     return result.data;
@@ -11591,7 +11611,7 @@ async function inspectWebsiteApplicationReleaseOutcome(input) {
 }
 
 // src/modules/website-builder/services/websiteApplicationReleaseEndpoint.ts
-var uuid7 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var uuid8 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var record5 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 var reply = (status, body) => new Response(JSON.stringify(body), {
   status,
@@ -11606,10 +11626,10 @@ async function handleWebsiteApplicationRelease(request, context) {
   let body;
   try {
     const input = await readBoundedJson(request, 4096);
-    if (!record5(input) || typeof input.projectId !== "string" || !uuid7.test(input.projectId) || !["status", "outcome", "publish"].includes(String(input.operation))) throw new Error();
+    if (!record5(input) || typeof input.projectId !== "string" || !uuid8.test(input.projectId) || !["status", "outcome", "publish"].includes(String(input.operation))) throw new Error();
     const allowed = input.operation === "publish" ? ["operation", "projectId", "expectedSnapshotDigest", "releaseNote"] : input.operation === "outcome" ? ["operation", "projectId", "versionId"] : ["operation", "projectId"];
     if (Object.keys(input).some((key) => !allowed.includes(key))) throw new Error();
-    if (input.operation === "outcome" && (typeof input.versionId !== "string" || !uuid7.test(input.versionId))) throw new Error();
+    if (input.operation === "outcome" && (typeof input.versionId !== "string" || !uuid8.test(input.versionId))) throw new Error();
     if (input.operation === "publish" && (typeof input.expectedSnapshotDigest !== "string" || !/^[a-f0-9]{64}$/.test(input.expectedSnapshotDigest) || input.releaseNote !== void 0 && (typeof input.releaseNote !== "string" || input.releaseNote.length > 500))) throw new Error();
     body = input;
   } catch {
@@ -11628,7 +11648,7 @@ async function handleWebsiteApplicationRelease(request, context) {
   try {
     const identity = await platform.auth.getUser(accessToken);
     const ownerId = identity.data.user?.id;
-    if (identity.error || !ownerId || !uuid7.test(ownerId) || identity.data.user?.is_anonymous) return reply(401, { error: "Sign in required." });
+    if (identity.error || !ownerId || !uuid8.test(ownerId) || identity.data.user?.is_anonymous) return reply(401, { error: "Sign in required." });
     const project = await platform.from("projects").select("id").eq("id", projectId).eq("user_id", ownerId).eq("type", "website-builder").is("deleted_at", null).maybeSingle();
     if (project.error) return reply(503, { error: "Project is unavailable." });
     if (!project.data) return reply(404, { error: "Project not found." });
@@ -11640,7 +11660,7 @@ async function handleWebsiteApplicationRelease(request, context) {
         if (!record5(result2.data) || result2.data.enabled !== true) throw new Error();
         if (result2.data.release !== null) {
           const release = result2.data.release;
-          if (!record5(release) || typeof release.id !== "string" || !uuid7.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId) throw new Error();
+          if (!record5(release) || typeof release.id !== "string" || !uuid8.test(release.id) || release.project_id !== projectId || release.user_id !== ownerId) throw new Error();
           versionId = release.id;
         }
       }

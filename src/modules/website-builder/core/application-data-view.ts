@@ -65,6 +65,7 @@ export function compileApplicationDataView(definition: ApplicationDefinition, in
 export function dataViewAllows(table: ApplicationTable, operation: ApplicationDataOperation, user: { is_anonymous?: boolean } | null, roles: readonly string[]) {
   return table.permissions.some(rule => rule.operation === operation && (rule.access === 'public'
     || (!!user && !user.is_anonymous && (rule.access === 'authenticated' || rule.access === 'owner'
+      || rule.access === 'organization'
       || (rule.access === 'role' && !!rule.roleId && roles.includes(rule.roleId))))));
 }
 

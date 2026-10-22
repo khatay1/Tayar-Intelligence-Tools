@@ -7,6 +7,7 @@ import { compileApplicationDataView, dataViewAllows, parseApplicationDataViewVal
 import type { createApplicationDataRuntime } from './application-data-runtime';
 import { createDurableApplicationFormSubmission } from './application-form-runtime';
 import { expandApplicationBookingRecurrence } from './application-booking-recurrence';
+import { applicationOrganizationContext, bindApplicationOrganizationInput } from './application-organization-context';
 
 type Runtime = Pick<ReturnType<typeof createApplicationDataRuntime>, 'auth' | 'list' | 'createOnce' | 'update' | 'remove' | 'adjustCounter' | 'createTransaction' | 'transitionWorkflow'> & { stockReservations?: ReturnType<typeof createApplicationDataRuntime>['stockReservations']; bookingAvailable?: ReturnType<typeof createApplicationDataRuntime>['bookingAvailable']; reports?: ReturnType<typeof createApplicationDataRuntime>['reports']; createBookingSeries?: ReturnType<typeof createApplicationDataRuntime>['createBookingSeries']; files?: ReturnType<typeof createApplicationDataRuntime>['files']; payments?: ReturnType<typeof createApplicationDataRuntime>['payments'] };
 const rowId = (id: string) => {
@@ -42,9 +43,12 @@ function validStockTransfer(value: unknown, sourceId: string): value is StockTra
 export function createApplicationDataViewController(definition: ApplicationDefinition, binding: ApplicationDataViewBinding,
   runtime: Runtime, randomUUID: () => string, durableScope?: {
     keyPrefix: string; storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>; crypto: Pick<Crypto, 'randomUUID' | 'subtle'>;
+    organizationId?: string;
   }) {
   const app = readApplicationDefinition(definition);
   const compiled = compileApplicationDataView(app, binding);
+  const organization = applicationOrganizationContext(app, compiled.table, durableScope?.organizationId);
+  const organizationFilter = organization ? [{ field: organization.fieldKey, operator: 'eq' as const, value: organization.id }] : [];
   let owner: string | undefined, disposed = false, writing = false;
   let pending: { fingerprint: string; requestId: string } | undefined;
   let submission: ReturnType<typeof createDurableApplicationFormSubmission> | undefined;
@@ -118,7 +122,7 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       const location = compiled.table.fields.find(field => field.id === rule.locationFieldId)!;
       const text = compiled.table.fields.find(field => field.type === 'text');
       const rows = await runtime.list(compiled.table.id, { limit: 21, offset: page * 20, sort: {field:'id',direction:'asc'}, filters: [
-        {field:item.key,operator:'eq',value:rowId(productId)}, {field:location.key,operator:'neq',value:rowId(locationId)},
+        ...organizationFilter, {field:item.key,operator:'eq',value:rowId(productId)}, {field:location.key,operator:'neq',value:rowId(locationId)},
       ] });
       await identity();
       if (!Array.isArray(rows)) throw new Error('Stock destinations are unavailable.');
@@ -189,7 +193,7 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     async bookingAvailable(values: Record<string, unknown>) {
       if (!(await permissions()).includes('create') || !runtime.bookingAvailable) throw new Error('Booking availability is unavailable.');
       try {
-        const result = await runtime.bookingAvailable(compiled.table.id, values, owner!);
+        const result = await runtime.bookingAvailable(compiled.table.id, bindApplicationOrganizationInput(values, organization), owner!);
         await identity(); return result;
       } catch (error) {
         try { await identity(); } catch { /* Close on account changes. */ }
@@ -249,7 +253,7 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       const rows = await runtime.list(compiled.table.id, {
         limit: compiled.binding.pageSize + 1, offset: page * compiled.binding.pageSize,
         // Treat SQL wildcard characters as literal search text.
-        filters: query && compiled.search ? [{ field: compiled.search.key, operator: 'ilike', value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [],
+        filters: [...organizationFilter, ...(query && compiled.search ? [{ field: compiled.search.key, operator: 'ilike' as const, value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [])],
       }) as unknown;
       await identity();
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid data view response.');
@@ -263,11 +267,13 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       const user = await identity(), roles = await runtime.auth.currentRoles();
       await identity();
       if (!dataViewAllows(target, 'read', user, roles)) throw new Error('Related records are not accessible.');
+      const targetOrganization = applicationOrganizationContext(app, target, durableScope?.organizationId);
       const label = target.fields.find(field => field.type === 'text');
       if (query && !label) throw new Error('This relationship has no searchable label.');
       const rows = await runtime.list(target.id, { limit: 21, offset: page * 20,
         sort: label ? { field: label.key, direction: 'asc' } : { field: 'id', direction: 'asc' },
-        filters: query && label ? [{ field: label.key, operator: 'ilike', value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [],
+        filters: [...(targetOrganization ? [{ field: targetOrganization.fieldKey, operator: 'eq' as const, value: targetOrganization.id }] : []),
+          ...(query && label ? [{ field: label.key, operator: 'ilike' as const, value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [])],
       }) as unknown;
       await identity();
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid relationship response.');
@@ -281,13 +287,15 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       const rule = compiled.table.transaction;
       if (!rule || !Number.isSafeInteger(page) || page < 0 || page > 100_000 || typeof query !== 'string' || query.length > 200) throw new Error('Invalid transaction item query.');
       const target = app.tables.find(table => table.id === rule.itemTableId)!;
+      const targetOrganization = applicationOrganizationContext(app, target, durableScope?.organizationId);
       const user = await identity(), roles = await runtime.auth.currentRoles(); await identity();
       if (!dataViewAllows(target, 'read', user, roles)) throw new Error('Transaction items are not accessible.');
       const label = target.fields.find(field => field.type === 'text');
       if (query && !label) throw new Error('Transaction items have no searchable label.');
       const rows = await runtime.list(target.id, { limit: 21, offset: page * 20,
         sort: label ? { field: label.key, direction: 'asc' } : { field: 'id', direction: 'asc' },
-        filters: query && label ? [{ field: label.key, operator: 'ilike', value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [],
+        filters: [...(targetOrganization ? [{ field: targetOrganization.fieldKey, operator: 'eq' as const, value: targetOrganization.id }] : []),
+          ...(query && label ? [{ field: label.key, operator: 'ilike' as const, value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [])],
       }) as unknown;
       await identity();
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid transaction item response.');
@@ -295,7 +303,7 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     },
     async create(input: Record<string, unknown>) {
       if (writing || disposed) throw new Error('A record operation is unavailable.');
-      const values = parseApplicationDataViewValues(compiled.table, input, true);
+      const values = parseApplicationDataViewValues(compiled.table, bindApplicationOrganizationInput(input, organization), true);
       const fingerprint = JSON.stringify(values);
       if (!pending || pending.fingerprint !== fingerprint) pending = { fingerprint, requestId: rowId(randomUUID()) };
       const requestId = pending.requestId;
@@ -310,7 +318,7 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       pending = undefined;
     },
     async recur(input: Record<string, unknown>, repeat: unknown) {
-      const values = parseApplicationDataViewValues(compiled.table, input, true);
+      const values = parseApplicationDataViewValues(compiled.table, bindApplicationOrganizationInput(input, organization), true);
       expandApplicationBookingRecurrence(compiled.table, values, repeat);
       await write('create', async () => {
         if (!durableScope || !runtime.createBookingSeries) throw new Error('Durable booking series is unavailable.');
@@ -321,7 +329,9 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       });
     },
     async update(id: string, input: Record<string, unknown>) {
-      const values = parseApplicationDataViewValues(compiled.table, input, false);
+      if (organization && Object.prototype.hasOwnProperty.call(input, organization.fieldKey)) throw new Error('The organization scope cannot be changed.');
+      const values = parseApplicationDataViewValues(compiled.table, bindApplicationOrganizationInput(input, organization), false);
+      if (organization) delete values[organization.fieldKey];
       await write('update', () => runtime.update(compiled.table.id, rowId(id), values, owner));
     },
     async adjust(id: string, input: unknown) {
@@ -349,7 +359,7 @@ export function createApplicationDataViewController(definition: ApplicationDefin
       const rule = compiled.table.transaction;
       if (!rule || !durableScope || !runtime.createTransaction) throw new Error('Durable transaction is unavailable.');
       const item = app.tables.find(table => table.id === rule.itemTableId)!;
-      const values = parseApplicationDataViewValues(compiled.table, input, true);
+      const values = parseApplicationDataViewValues(compiled.table, bindApplicationOrganizationInput(input, organization), true);
       const parsed = parseApplicationTransactionLines(compiled.table, item, lines);
       await write('transact', async () => {
         submission = createDurableApplicationFormSubmission({ tableId: compiled.table.id, values: () => ({ attributes: values, lines: parsed }) }, {
