@@ -266,6 +266,21 @@ try {
         await query(asOwner + "select public.app_transition_workflow_0('" + ownerId + "', 'approve', gen_random_uuid()); reset role;");
         assert.equal(await query("select state from public.app_permit_cases where id = '" + ownerId + "';"), 'approved',
           'government reviewer approval executes on its generated case');
+      } else if (reference.domain === 'real-estate') {
+        await query(asOwner + "select public.app_transition_workflow_0('" + ownerId + "', 'publish', gen_random_uuid()); reset role;");
+        assert.equal(await query("select listing_status from public.app_properties where id = '" + ownerId + "';"), 'listed',
+          'real-estate owner publishes a generated property listing');
+        const inquiryId = '66666666-6666-4666-8666-666666666666';
+        await query(asOwner + "insert into public.app_buyer_inquiries (id, owner_id, property, buyer_email, message) values ('"
+          + inquiryId + "', '" + ownerId + "', '" + ownerId
+          + "', 'buyer@example.invalid', 'Synthetic property inquiry'); reset role;");
+        assert.equal(await query("select count(*) from public.app_buyer_inquiries where owner_id = '" + ownerId + "';"), '1',
+          'real-estate inquiry persists with its generated owner-scoped property reference');
+        const dealId = '77777777-7777-4777-8777-777777777777';
+        await query(asOwner + "insert into public.app_brokerage_deals (id, owner_id, property, sale_price, commission_rate) values ('"
+          + dealId + "', '" + ownerId + "', '" + ownerId + "', 200000, 0.025); reset role;");
+        assert.equal(Number(await query("select commission_amount from public.app_brokerage_deals where id = '"
+          + dealId + "';")), 5000, 'real-estate commission is calculated by PostgreSQL, not the UI');
       } else if (reference.domain === 'custom-research') {
         await query(asOwner + "select public.app_transition_workflow_0('" + ownerId + "', 'analyse', gen_random_uuid()); reset role;");
         assert.equal(await query("select condition from public.app_research_samples where id = '" + ownerId + "';"), 'analysed',
@@ -275,10 +290,10 @@ try {
       }
     }
     await query('drop schema if exists private cascade; drop schema if exists public cascade; create schema public;');
-    console.log('PASS PostgreSQL reference-project runtime isolation: generated schemas apply and owner RLS denies cross-tenant reads/transfers for all seven projects');
+    console.log('PASS PostgreSQL reference-project runtime isolation: generated schemas apply and owner RLS denies cross-tenant reads/transfers for all eight projects');
   }
 
-  console.log(`PASS ${references.length} synthetic reference application contracts and runtime fixtures: retail, restaurant, school, clinic, government, factory, custom research`);
+  console.log(`PASS ${references.length} synthetic reference application contracts and runtime fixtures: retail, restaurant, school, clinic, government, factory, custom research, real estate`);
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
