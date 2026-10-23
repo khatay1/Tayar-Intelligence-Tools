@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 31;
+const fixtureCount = 45;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -36,7 +36,17 @@ const statsSql = [
   " 'storage_buckets',(select count(*) from storage.buckets),",
   " 'storage_policies',(select count(*) from pg_policies where schemaname='storage'),",
   " 'storage_rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='storage' and c.relname='objects' and c.relrowsecurity),",
-  " 'has_website_versions',to_regclass('public.website_publish_versions') is not null",
+  " 'has_website_versions',to_regclass('public.website_publish_versions') is not null,",
+  " 'has_billing_entitlements',to_regprocedure('public.website_builder_plan_entitlements(text)') is not null,",
+  " 'has_team_workspaces',to_regclass('public.team_workspaces') is not null,",
+  " 'team_workspaces_rls',(select relrowsecurity from pg_class where oid='public.team_workspaces'::regclass),",
+  " 'has_website_rate_limits',to_regclass('public.website_public_rate_limits') is not null,",
+  " 'has_ai_rate_limits',to_regclass('public.ai_rate_limits') is not null,",
+  " 'has_template_sources',to_regclass('public.template_sources') is not null,",
+  " 'has_account_blocks',to_regclass('public.account_blocks') is not null,",
+  " 'has_access_overrides',to_regclass('public.admin_access_overrides') is not null,",
+  " 'has_tool_access_rules',to_regclass('public.tool_access_rules') is not null,",
+  " 'has_tool_plan_limits',to_regclass('public.tool_plan_limits') is not null" ,
   ')::text;',
 ].join('\n');
 const bootstrap = [
@@ -65,8 +75,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20260828152500_create_website_publish_versions.sql');
-    // These 31 reviewed migrations include the website publish version table and isolated Storage stubs.
+    assert.equal(selected.at(-1).target, '20260903211500_tool_plan_access_and_usage_limits.sql');
+    // These 45 reviewed migrations cover billing, teams, rate limits, templates and account controls.
+    // Synthetic Supabase auth/storage objects are *only* disposable test dependencies.
     // Do NOT extend this count without independent fixture review.
     const name = 'tayar-history-' + randomUUID().replaceAll('-', '').slice(0, 15);
     let started = false;
@@ -108,6 +119,14 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       assert.equal(Number(values.storage_policies), 8, 'Storage object RLS policy definitions must exist.');
       assert.equal(Number(values.storage_rls), 1, 'Storage objects must have RLS enabled.');
       assert.equal(values.has_website_versions, true, 'Reviewed publish-version table must exist and survive restore.');
+      for (const key of [
+        'has_billing_entitlements', 'has_team_workspaces', 'has_website_rate_limits',
+        'has_ai_rate_limits', 'has_template_sources', 'has_account_blocks',
+        'has_access_overrides', 'has_tool_access_rules', 'has_tool_plan_limits',
+      ]) {
+        assert.equal(values[key], true, 'Reviewed historical object missing: ' + key);
+      }
+      assert.equal(values.team_workspaces_rls, true, 'Reviewed team workspaces must enforce RLS.');
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
       inside(name, 'pg_dump', '-U', 'postgres', '-d', database, '-Fc',
