@@ -10,6 +10,10 @@ const result = await build({
   platform: 'node',
   format: 'cjs',
   target: 'node22',
+  // Keep bundled module paths relative to this checkout. Without this, a
+  // symlinked node_modules directory leaks its real workspace path into the
+  // generated bundle and makes the committed artifact differ in CI.
+  preserveSymlinks: true,
   footer: { js: 'module.exports = module.exports.default;' },
 });
 const runtime = result.outputFiles[0].text;

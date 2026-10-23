@@ -31,9 +31,9 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const transferCopy = ({ en: {action:'Transfer stock',destination:'Destination stock',pending:'Previously selected destination',quantity:'Quantity',submit:'Confirm transfer',uncertain:'Result uncertain. Retry this same transfer to confirm it.',done:'Stock transfer confirmed.',empty:'Create a stock record for this item at the destination warehouse first.'},
     ar: {action:'نقل المخزون',destination:'رصيد الوجهة',pending:'الوجهة المحددة سابقًا',quantity:'الكمية',submit:'تأكيد النقل',uncertain:'النتيجة غير مؤكدة. أعد التحويل نفسه لتأكيده.',done:'تم تأكيد نقل المخزون.',empty:'أنشئ سجل رصيد لهذا الصنف في مستودع الوجهة أولًا.'},
     sv: {action:'Flytta lager',destination:'Destinationslager',pending:'Tidigare vald destination',quantity:'Antal',submit:'Bekräfta flytt',uncertain:'Resultatet är osäkert. Försök igen med samma flytt.',done:'Lagerflytten bekräftades.',empty:'Skapa först en lagerpost för varan på destinationslagret.'} })[language];
-  const reportCopy = ({ en: { title: 'Aggregate reports', scope: 'All records you can read. Search and page selection do not change totals.', error: 'Could not load totals. Refresh and try again.' },
-    ar: { title: 'التقارير المجمّعة', scope: 'جميع السجلات المسموح لك بقراءتها. البحث واختيار الصفحة لا يغيّران الإجماليات.', error: 'تعذّر تحميل الإجماليات. حدّث وحاول مجددًا.' },
-    sv: { title: 'Sammanställda rapporter', scope: 'Alla poster du får läsa. Sökning och sidval ändrar inte totalsummorna.', error: 'Kunde inte läsa totalsummorna. Uppdatera och försök igen.' } })[language];
+  const reportCopy = ({ en: { title: 'Aggregate reports', scope: 'All records you can read. Search, filters and page selection do not change totals.', error: 'Could not load totals. Refresh and try again.' },
+    ar: { title: 'التقارير المجمّعة', scope: 'جميع السجلات المسموح لك بقراءتها. البحث والتصفية واختيار الصفحة لا تغيّر الإجماليات.', error: 'تعذّر تحميل الإجماليات. حدّث وحاول مجددًا.' },
+    sv: { title: 'Sammanställda rapporter', scope: 'Alla poster du får läsa. Sökning, filter och sidval ändrar inte totalsummorna.', error: 'Kunde inte läsa totalsummorna. Uppdatera och försök igen.' } })[language];
   const analyticsCopy = ({ en: { previous: 'Previous period', difference: 'Change', group: 'Group', empty: 'No value', limit: 'Only the first 100 groups are shown. Totals include all groups.', download: 'Download report (JSON)', period: 'Calendar period', partial: 'Current periods may be incomplete; the preceding period is complete.' },
     ar: { previous: 'الفترة السابقة', difference: 'التغيير', group: 'المجموعة', empty: 'بدون قيمة', limit: 'تظهر أول 100 مجموعة فقط. الإجماليات تشمل جميع المجموعات.', download: 'تنزيل التقرير (JSON)', period: 'الفترة الزمنية', partial: 'قد تكون الفترة الحالية غير مكتملة؛ الفترة السابقة كاملة.' },
     sv: { previous: 'Föregående period', difference: 'Förändring', group: 'Grupp', empty: 'Inget värde', limit: 'Endast de första 100 grupperna visas. Totalsummorna omfattar alla grupper.', download: 'Ladda ner rapport (JSON)', period: 'Kalenderperiod', partial: 'Aktuella perioder kan vara ofullständiga; föregående period är komplett.' } })[language];
@@ -62,7 +62,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     organizationId: scope.organizationId,
   });
   const root = host.attachShadow({ mode: 'open' });
-  let disposed = false, busy = false, sequence = 0, page = 0, query = '';
+  let disposed = false, busy = false, sequence = 0, page = 0, query = '', filterValue = '';
   let references: Array<ReturnType<typeof createApplicationReferenceInput>> = [];
   let editorSequence = 0;
   const downloadUrls = new Set<string>();
@@ -80,6 +80,22 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
   const transact = button(copy.transact, () => openTransaction()); transact.hidden = true;
   const refresh = button(copy.refresh, () => { void load(); });
   toolbar.append(add, transact, refresh);
+  if (controller.filter) {
+    const label = document.createElement('label'), select = document.createElement('select');
+    label.textContent = controller.filter.name;
+    select.dataset.applicationFilter = controller.filter.id;
+    const all = document.createElement('option'); all.value = '';
+    all.textContent = ({ en: 'All values', ar: 'كل القيم', sv: 'Alla värden' })[language] ?? 'All values';
+    select.append(all);
+    for (const value of controller.filter.options ?? []) {
+      const option = document.createElement('option'); option.value = value; option.textContent = value; select.append(option);
+    }
+    select.addEventListener('change', () => {
+      if (busy) { select.value = filterValue; return; }
+      filterValue = select.value; page = 0; void load();
+    });
+    label.append(select); toolbar.append(label);
+  }
   if (controller.search) {
     const searchForm = document.createElement('form');
     const search = document.createElement('input'); search.type = 'search'; search.maxLength = 200; search.placeholder = copy.search; search.setAttribute('aria-label', `${copy.search}: ${controller.search.name}`);
@@ -116,7 +132,7 @@ export function mountApplicationDataView(host: HTMLElement, definition: Applicat
     summaries.replaceChildren(); summaries.hidden = true;
     try {
       const actions = await controller.permissions();
-      const result = await controller.load(page, query);
+      const result = await controller.load(page, query, filterValue);
       if (disposed || current !== sequence) return;
       clear(); add.hidden = !actions.includes('create') || actions.includes('transact'); transact.hidden = !actions.includes('transact'); actionsHeader.hidden = !actions.some(action => ['update', 'delete', 'adjust', 'transition', 'attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation', 'stock-transfer'].includes(action));
       if (controller.table.reports?.length) {

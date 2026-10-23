@@ -14,10 +14,12 @@ export function BuilderApplicationDataViewMapping({ section, application, disabl
   const [actions, setActions] = useState<ApplicationDataViewBinding['actions']>(saved?.actions ?? []);
   const [pageSize, setPageSize] = useState(saved?.pageSize ?? 10);
   const [searchFieldId, setSearchFieldId] = useState(saved?.searchFieldId ?? '');
+  const [filterFieldId, setFilterFieldId] = useState(saved?.filterFieldId ?? '');
   const [error, setError] = useState('');
   const tables = application.tables.filter(table => table.permissions.some(rule => rule.operation === 'read'));
   const table = tables.find(table => table.id === tableId);
-  const binding: ApplicationDataViewBinding = { tableId, columns, actions, pageSize, ...(searchFieldId ? { searchFieldId } : {}) };
+  const binding: ApplicationDataViewBinding = { tableId, columns, actions, pageSize,
+    ...(searchFieldId ? { searchFieldId } : {}), ...(filterFieldId ? { filterFieldId } : {}) };
   let valid = false;
   try { compileApplicationDataView(application, binding); valid = true; } catch { /* Validate before Save. */ }
   return <details className="builder-v2-card builder-v2-card--nested" data-testid="application-data-view-mapping">
@@ -25,13 +27,14 @@ export function BuilderApplicationDataViewMapping({ section, application, disabl
     <p>{l('Records load after secure application publishing and sign-in. Database permissions control every action.')}</p>
     <label>{l('Target table')}<select value={tableId} disabled={disabled} onChange={event => {
       const next = tables.find(table => table.id === event.target.value); setTableId(next?.id ?? '');
-      setColumns(next?.fields.map(field => field.id) ?? []); setActions([]); setSearchFieldId(''); setError('');
+      setColumns(next?.fields.map(field => field.id) ?? []); setActions([]); setSearchFieldId(''); setFilterFieldId(''); setError('');
     }}><option value="">{l('Select a table')}</option>{tables.map(table => <option key={table.id} value={table.id}>{table.name}</option>)}</select></label>
     {table && <>
       <fieldset disabled={disabled}><legend>{l('Visible columns')}</legend>{table.fields.map(field => <label key={field.id}>
         <input type="checkbox" checked={columns.includes(field.id)} onChange={event => {
           setColumns(current => event.target.checked ? [...current, field.id] : current.filter(id => id !== field.id));
           if (!event.target.checked && searchFieldId === field.id) setSearchFieldId('');
+          if (!event.target.checked && filterFieldId === field.id) setFilterFieldId('');
         }} />{field.name}
       </label>)}</fieldset>
       <fieldset disabled={disabled}><legend>{l('Allowed actions')}</legend>{(['create', 'update', 'delete', 'adjust', 'transact', 'transition', 'attachments', 'pay', 'refund'] as const).map(action => <label key={action}>
@@ -40,6 +43,9 @@ export function BuilderApplicationDataViewMapping({ section, application, disabl
       </label>)}</fieldset>
       <label>{l('Search column')}<select value={searchFieldId} disabled={disabled} onChange={event => setSearchFieldId(event.target.value)}>
         <option value="">{l('None')}</option>{table.fields.filter(field => field.type === 'text' && columns.includes(field.id)).map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
+      </select></label>
+      <label>{l('Filter column')}<select value={filterFieldId} disabled={disabled} onChange={event => setFilterFieldId(event.target.value)}>
+        <option value="">{l('None')}</option>{table.fields.filter(field => field.type === 'enum' && columns.includes(field.id)).map(field => <option key={field.id} value={field.id}>{field.name}</option>)}
       </select></label>
       <label>{l('Records per page')}<input type="number" min={1} max={50} value={pageSize} disabled={disabled} onChange={event => setPageSize(Number(event.target.value))} /></label>
     </>}

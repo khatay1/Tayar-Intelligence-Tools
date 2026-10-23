@@ -40,7 +40,9 @@ try {
       id: `${reference.domain}-${item.id}-records`, type: 'features', title: item.name,
       applicationDataView: { tableId: item.id, columns: item.fields.map(field => field.id),
         actions: item.transaction ? ['transact'] : item.workflow ? ['transition'] : item.attachments ? ['attachments']
-          : item.booking ? ['create'] : [], pageSize: 10 },
+          : item.booking ? ['create'] : [], pageSize: 10,
+        ...(reference.domain === 'real-estate' && item.id === 'properties'
+          ? { searchFieldId: 'headline', filterFieldId: 'listing-status' } : {}) },
     })) };
     const featureAction = reference.feature.action;
     const coveragePage = structuredClone(page);
@@ -126,6 +128,10 @@ try {
       .replaceAll('&gt;', '>').replaceAll('&amp;', '&'));
     const primaryView = runtimeConfig.applicationDataViews.find(view => view.sectionId === `${reference.domain}-${featureTable.id}-records`);
     assert.equal(primaryView?.binding.tableId, featureTable.id, `${reference.domain} runtime binds its primary feature table`);
+    if (reference.domain === 'real-estate') {
+      assert.equal(primaryView.binding.filterFieldId, 'listing-status', 'Real-estate status filter survives generation and runtime bootstrap');
+      assert.equal(primaryView.binding.searchFieldId, 'headline');
+    }
     if (featureAction) assert.ok(primaryView.binding.actions.includes(featureAction),
       `${reference.domain} generated page exposes its declared ${featureAction} operation`);
     else assert.ok(primaryView.binding.columns.includes(featureTable.fields.find(item => item.formula).id),
