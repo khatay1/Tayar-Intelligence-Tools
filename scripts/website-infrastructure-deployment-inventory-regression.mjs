@@ -6,12 +6,28 @@ const ref = 'abcdefghijklmnopqrst';
 const input = { projectRef: ref, target: 'production',
   migrations: infrastructureMigrationFiles.map(file => ({ version: file.split('_')[0] })),
   functions: ['github', 'supabase', 'vercel'].map(provider => ({ name: `website-${provider}-connection`, status: 'ACTIVE', verify_jwt: false }))
-    .concat({ name: 'website-byo-publish', status: 'ACTIVE', verify_jwt: true }),
+    .concat(['website-byo-publish', 'website-application-backend-link', 'website-application-release']
+      .map(name => ({ name, status: 'ACTIVE', verify_jwt: true }))),
   environmentKeys: ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'WEBSITE_GITHUB_CONNECTION_URL',
     'WEBSITE_SUPABASE_CONNECTION_URL', 'WEBSITE_VERCEL_CONNECTION_URL'].map(key => ({ key: `VITE_${key}`, target: ['production'] })),
 };
 assert.equal(inspect(input, ref).inventoryReady, true);
 assert.equal(inspect(input, ref).requiresConfigurationAndCustomerFlowVerification, true);
+assert.equal(inspect(input, ref).requiresSourceAndDeploymentVerification, true);
+assert.equal(inspect(input, ref).releaseAuthorized, false);
+assert.equal(inspect(input, ref).productionPublishAuthorized, false);
+for (const name of ['website-application-backend-link', 'website-application-release']) {
+  const missing = inspect({ ...input, functions: input.functions.filter(item => item.name !== name) }, ref);
+  assert.equal(missing.inventoryReady, false, `Missing core app endpoint ${name} must block readiness`);
+  assert.deepEqual(missing.checks.find(check => check.id === 'active-functions').missing, [name]);
+  for (const invalid of [{ status: 'REMOVED' }, { verify_jwt: false }]) {
+    assert.equal(inspect({ ...input, functions: input.functions.map(item => item.name === name
+      ? { ...item, ...invalid } : item) }, ref).inventoryReady, false);
+  }
+}
+const duplicate = input.functions.find(item => item.name === 'website-application-release');
+assert.equal(inspect({ ...input, functions: [...input.functions, duplicate] }, ref).inventoryReady, false);
+assert.equal(inspect({ ...input, functions: [...input.functions, { ...duplicate, verify_jwt: false }] }, ref).inventoryReady, false);
 assert.equal(inspect(input, 'zzzzzzzzzzzzzzzzzzzz').inventoryReady, false);
 assert.equal(inspect({}, ref).inventoryReady, false);
 assert.equal(inspect({ ...input, target: 'unknown' }, ref).inventoryReady, false);
