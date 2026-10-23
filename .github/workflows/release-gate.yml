@@ -60,6 +60,10 @@ jobs:
           node scripts/production-migration-snapshot-regression.mjs
           node scripts/prepare-production-history-rehearsal-regression.mjs
 
+      - name: Disposable PostgreSQL 17 historical base migration replay and restore
+        timeout-minutes: 2
+        run: timeout 95s node scripts/production-historical-pg-replay-regression.mjs
+
       - name: Customer publishing Edge source boundary (offline, no deployment)
         run: node scripts/release-edge-source-gate-regression.mjs
 
