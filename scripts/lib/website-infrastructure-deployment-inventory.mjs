@@ -5,6 +5,9 @@ const functions = Object.freeze([
   { name: 'website-supabase-connection', verify_jwt: false },
   { name: 'website-vercel-connection', verify_jwt: false },
   { name: 'website-byo-publish', verify_jwt: true },
+  // The core generated-app UI invokes these even without BYO OAuth setup.
+  { name: 'website-application-backend-link', verify_jwt: true },
+  { name: 'website-application-release', verify_jwt: true },
 ]);
 const keys = Object.freeze([
   'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
@@ -33,13 +36,17 @@ export function inspectWebsiteInfrastructureDeploymentInventory(input = {}, expe
       && !migrationNames.has(identity.slice(separator + 1));
   }));
   const deployed = Array.isArray(input.functions) ? input.functions : [];
-  check('active-functions', functions.filter(expected => !deployed.some(actual =>
-    actual?.name === expected.name && actual.status === 'ACTIVE'
-      && actual.verify_jwt === expected.verify_jwt)).map(item => item.name));
+  check('active-functions', functions.filter(expected => {
+    const matches = deployed.filter(actual => actual?.name === expected.name);
+    return matches.length !== 1 || matches[0].status !== 'ACTIVE'
+      || matches[0].verify_jwt !== expected.verify_jwt;
+  }).map(item => item.name));
   const environment = Array.isArray(input.environmentKeys) ? input.environmentKeys : [];
   check('target-browser-configuration', keys.filter(key => !environment.some(item =>
     item?.key === key && Array.isArray(item.target) && item.target.includes(input.target)
       && !item.gitBranch && !item.customEnvironmentIds?.length)));
   return { schemaVersion: 1, inventoryReady: checks.every(item => item.ok),
+    releaseAuthorized: false, productionPublishAuthorized: false,
+    requiresSourceAndDeploymentVerification: true,
     requiresConfigurationAndCustomerFlowVerification: true, checks };
 }
