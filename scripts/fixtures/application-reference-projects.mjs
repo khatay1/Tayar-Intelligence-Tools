@@ -71,13 +71,13 @@ export const createApplicationReferenceProjects = () => {
     ] },
   });
   const buyerInquiries = table('buyer-inquiries', [
-    field('property', 'reference', true, { referenceTableId: 'properties' }),
-    field('buyer-email', 'email'),
+    field('inquiry-property', 'reference', true, { key: 'property', referenceTableId: 'properties' }),
+    field('buyer-email', 'text'),
     field('message', 'text', false),
     field('inquiry-status', 'enum', true, { defaultValue: 'new', options: ['new', 'contacted', 'closed'] }),
   ]);
   const brokerageDeals = table('brokerage-deals', [
-    field('property', 'reference', true, { referenceTableId: 'properties' }),
+    field('deal-property', 'reference', true, { key: 'property', referenceTableId: 'properties' }),
     field('sale-price', 'number'),
     field('commission-rate', 'number'),
     field('commission-amount', 'number', true, { formula: { operation: 'multiply', fieldIds: ['sale-price', 'commission-rate'] } }),
