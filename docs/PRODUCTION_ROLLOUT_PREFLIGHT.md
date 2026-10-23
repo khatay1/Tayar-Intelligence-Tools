@@ -79,3 +79,19 @@ Successful in-memory classification only means **the inventory is categorized**.
 ## Latest main CI evidence
 
 GitHub's check-run API confirms [Release Gate run #39836601325](https://github.com/khatay1/Tayar-Intelligence-Tools/actions/runs/39836601325) succeeded on exact merged `main` SHA `07560f0b357847dcd13ac014bda5b9fb8b472ad3` (event `push`). A separate Supabase Preview check was skipped because no preview database branch was associated with that commit. The exact production-like candidate, backup restore and live signed-in application smoke still remain unverified.
+
+
+## Confirmed replay hazards in historical SQL (read-only live comparison, 2026-10-23)
+
+Two source-to-live discrepancies make automatic replay of the 9 historical migrations unsafe:
+
+1. `20260925092000_website_publish_scheduler_readiness.sql` contains `CREATE OR REPLACE FUNCTION public.website_publish_scheduler_ready()` with a PL/pgSQL `SECURITY DEFINER` body capable of consulting cron/Vault readiness. The live Production catalog instead defines this function as `LANGUAGE sql STABLE` with the body **`select false`** and without SECURITY DEFINER. Replaying the historical SQL would overwrite a deliberate disabled scheduler guard. **Preserve the live disabled definition** until a separately approved scheduler project.
+2. `20261003224500_website_publish_redirects_validation_fix.sql` contains a `DELETE FROM public.website_publish_redirects` statement before replacing constraints (plus DELETE inside a function). The named public redirects table is currently absent in Production, but the operation is data-destructive on a database where it exists. **Do not blindly replay** without inspecting data and preserving it on an isolated rehearsal.
+
+Additional read-only evidence: the historical `20261013233709_website_custom_execution_quota.sql` seeds `website-custom-execution` access-rule/plan-limit rows, but both were absent by exact key in Production. This is an unapplied capability, not a reason to enable the paid/Pro operation. SQL-function names for older OAuth/usage routines exist; their identity alone is NOT byte-level migration parity.
+
+The [historical SQL risk scanner](../scripts/production-historical-migration-risk.mjs) and [targeted regression](../scripts/production-historical-migration-risk-regression.mjs) are committed on this preparation branch. Their purpose is to classify potentially overwriting, deleting, grant-modifying and DDL source statements for operator review, **not** to execute them. The scanner intentionally exits nonzero after printing results, even if all files are readable. Unit fixtures passed local Node checks, including comments, duplicate files and missing inputs. It is a conservative regex scanner, not a SQL parser: SQL inside strings or advanced syntax may need manual inspection.
+
+No isolated Supabase branch ready for safe rehearsal was located in the connected account. The production Supabase branch listing returned only its default `main` branch (reported `MIGRATIONS_FAILED` in branch metadata); the separate Activation project has no branches. Treat that branch status as a signal to investigate, **not** proof that the running Production database is unhealthy. Do not create a possibly billable new branch or attempt a repair automatically.
+
+**Rehearsal prerequisite:** arrange a cost-approved disposable database or free locally controlled PostgreSQL 17 instance, use a sanitized schema/data fixture, apply only reviewed migration deltas in dependency order, run integration/RLS/browser tests and verify rollback with a real restore before authorizing Production changes. A Vercel rollback alone cannot revert migrated database objects.
