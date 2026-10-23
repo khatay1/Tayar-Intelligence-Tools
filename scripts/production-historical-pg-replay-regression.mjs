@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 12;
+const fixtureCount = 24;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -30,7 +30,9 @@ const statsSql = [
   " 'rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p') and c.relrowsecurity),",
   " 'policies',(select count(*) from pg_policies where schemaname='public'),",
   " 'indexes',(select count(*) from pg_indexes where schemaname='public'),",
-  " 'functions',(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public')",
+  " 'functions',(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'),",
+  " 'auth_rows',(select count(*) from auth.users),",
+  " 'profile_rows',(select count(*) from public.profiles)"
   ')::text;',
 ].join('\n');
 const bootstrap = [
@@ -38,7 +40,7 @@ const bootstrap = [
   'CREATE ROLE authenticated NOLOGIN;',
   'CREATE ROLE service_role NOLOGIN;',
   'CREATE SCHEMA auth;',
-  'CREATE TABLE auth.users (id uuid PRIMARY KEY, email text);',
+  "CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb);",
   "CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;",
   "CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.role', true), '') $$;",
 ].join('\n');
@@ -54,8 +56,8 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20260804121306_add_cost_tracking_and_ai_settings.sql');
-    // These twelve reviewed migrations only use a tiny Supabase auth/RLS stub.
+    assert.equal(selected.at(-1).target, '20260828102000_create_website_leads.sql');
+    // These first 24 reviewed migrations use a minimal synthetic auth/RLS fixture.
     // Do NOT extend this count without independent fixture review.
     const name = 'tayar-history-' + randomUUID().replaceAll('-', '').slice(0, 15);
     let started = false;
@@ -85,11 +87,15 @@ if (process.env.GITHUB_ACTIONS !== 'true'
           throw new Error('Failed isolated migration ' + item.target + ': ' + error.message);
         }
       }
+      // Prove historical user-created trigger and data restoration without real user records.
+      sql(name, database, "INSERT INTO auth.users (id,email,raw_user_meta_data) VALUES ('00000000-0000-4000-8000-000000000001','synthetic@example.invalid','{\"full_name\":\"Fixture\"}'::jsonb);");
       const before = sql(name, database, statsSql).split('\n').at(-1);
       const values = JSON.parse(before);
-      assert.ok(Number(values.tables) >= 9, 'Historical base tables must be present.');
-      assert.ok(Number(values.rls) >= 7, 'Historical RLS must be present.');
-      assert.ok(Number(values.policies) >= 16, 'Historical policies must be present.');
+      assert.ok(Number(values.tables) >= 18, 'Historical base tables must be present.');
+      assert.ok(Number(values.rls) >= 14, 'Historical RLS must be present.');
+      assert.ok(Number(values.policies) >= 30, 'Historical policies must be present.');
+      assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
+      assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
       inside(name, 'pg_dump', '-U', 'postgres', '-d', database, '-Fc',
         '--no-owner', '--no-acl', '-f', archive);
       inside(name, 'createdb', '-U', 'postgres', restore);
