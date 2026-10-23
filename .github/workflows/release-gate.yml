@@ -245,6 +245,12 @@ jobs:
       - name: Application notification editor browser regression
         run: timeout 40s node scripts/application-notifications-browser-regression.mjs
 
+      - name: Disposable PostgreSQL 17 backup/restore regression (synthetic only)
+        timeout-minutes: 1
+        env:
+          TAYAR_PG_SERVICE_CONTAINER_ID: ${{ job.services['booking-postgres'].id }}
+        run: bash scripts/disposable-postgres-restore-regression.sh
+
       - name: Production build
         run: npm run build
 
