@@ -178,11 +178,13 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       }
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
+      // Preserve ACLs: stripping grants silently reopens SECDEF RPCs to PUBLIC on restore.
+      // All referenced roles exist only in this disposable PostgreSQL container.
       inside(name, 'pg_dump', '-U', 'postgres', '-d', database, '-Fc',
-        '--no-owner', '--no-acl', '-f', archive);
+        '--no-owner', '-f', archive);
       inside(name, 'createdb', '-U', 'postgres', restore);
       inside(name, 'pg_restore', '-U', 'postgres', '-d', restore,
-        '--no-owner', '--no-acl', '--exit-on-error', archive);
+        '--no-owner', '--exit-on-error', archive);
       const after = sql(name, restore, statsSql).split('\n').at(-1);
       assert.deepEqual(JSON.parse(after), values, 'Restored PostgreSQL schema must match.');
       console.log('PASS disposable PG17: applied ' + selected.length +
