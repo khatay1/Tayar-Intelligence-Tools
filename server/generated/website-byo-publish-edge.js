@@ -14,6 +14,35 @@ var uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var stages = /* @__PURE__ */ new Set(["created", "validated", "exporting", "exported", "observing", "blocked", "promoting", "verifying-production", "ready"]);
 var responseHeaders = { "cache-control": "no-store", "referrer-policy": "no-referrer", "content-security-policy": "default-src 'none'", "x-content-type-options": "nosniff" };
 var json = (status, body) => new Response(JSON.stringify(body), { status, headers: { ...responseHeaders, "content-type": "application/json" } });
+async function readPublishBody(request) {
+  const length = request.headers.get("content-length");
+  if (length !== null && (!/^\d{1,8}$/.test(length) || Number(length) > 2048)) throw new Error();
+  if (request.headers.has("content-encoding") && request.headers.get("content-encoding") !== "identity") throw new Error();
+  if (!request.body) throw new Error();
+  const reader = request.body.getReader(), bytes = new Uint8Array(2048);
+  let size = 0, timer, complete = false;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error()), 5e3);
+  });
+  try {
+    while (true) {
+      const { done, value } = await Promise.race([reader.read(), deadline]);
+      if (done) {
+        complete = true;
+        break;
+      }
+      if (size + value.byteLength > bytes.length) throw new Error();
+      bytes.set(value, size);
+      size += value.byteLength;
+    }
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, size));
+  } finally {
+    clearTimeout(timer);
+    if (!complete) void reader.cancel().catch(() => {
+    });
+    reader.releaseLock();
+  }
+}
 function safeLiveUrl(value) {
   if (value === null) return true;
   try {
@@ -49,9 +78,7 @@ async function handleWebsiteByoPublish(request, context) {
     return json(401, { error: "Sign in required." });
   }
   try {
-    if (Number(request.headers.get("content-length") ?? 0) > 2048) throw new Error();
-    const raw = await request.text();
-    if (raw.length > 2048) throw new Error();
+    const raw = await readPublishBody(request);
     input = JSON.parse(raw);
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error();
     action = String(input.action);
