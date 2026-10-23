@@ -1,0 +1,484 @@
+{
+  "schemaVersion": 1,
+  "productionProjectRef": "pnbllxdlskljcakyaylt",
+  "observedAt": "2026-10-23",
+  "evidenceType": "read-only-supabase-list-migrations-no-sql-or-user-data",
+  "migrations": [
+    {
+      "version": "20260802152522",
+      "name": "create_profiles_table"
+    },
+    {
+      "version": "20260802162038",
+      "name": "create_cvs_table"
+    },
+    {
+      "version": "20260803102020",
+      "name": "create_workspace_tables_schema"
+    },
+    {
+      "version": "20260803102035",
+      "name": "add_activity_log_policies"
+    },
+    {
+      "version": "20260803102048",
+      "name": "add_all_workspace_policies"
+    },
+    {
+      "version": "20260803104147",
+      "name": "add_projects_subscriptions_tables"
+    },
+    {
+      "version": "20260803104157",
+      "name": "add_projects_subscriptions_policies"
+    },
+    {
+      "version": "20260803111636",
+      "name": "create_ai_engine_tables"
+    },
+    {
+      "version": "20260803111647",
+      "name": "add_ai_engine_policies"
+    },
+    {
+      "version": "20260803114037",
+      "name": "create_tool_preferences_table"
+    },
+    {
+      "version": "20260804115114",
+      "name": "create_cv_versions_table"
+    },
+    {
+      "version": "20260804121306",
+      "name": "add_cost_tracking_and_ai_settings"
+    },
+    {
+      "version": "20260805090837",
+      "name": "add_workspace_upgrade_tables"
+    },
+    {
+      "version": "20260805162921",
+      "name": "add_admin_panel_tables"
+    },
+    {
+      "version": "20260805165801",
+      "name": "create_user_onboarding_table.sql"
+    },
+    {
+      "version": "20260805190000",
+      "name": "create_user_preferences_table"
+    },
+    {
+      "version": "20260805195021",
+      "name": "restrict_is_admin_function"
+    },
+    {
+      "version": "20260818124759",
+      "name": "create_notifications_table"
+    },
+    {
+      "version": "20260818130000",
+      "name": "add_missing_fk_indexes"
+    },
+    {
+      "version": "20260818130001",
+      "name": "optimize_rls_initplan"
+    },
+    {
+      "version": "20260818130002",
+      "name": "fix_remaining_rls_initplan"
+    },
+    {
+      "version": "20260818130003",
+      "name": "fix_remaining_delete_rls"
+    },
+    {
+      "version": "20260818150000",
+      "name": "create_profile_trigger"
+    },
+    {
+      "version": "20260828102000",
+      "name": "create_website_leads"
+    },
+    {
+      "version": "20260828104000",
+      "name": "create_website_media_storage"
+    },
+    {
+      "version": "20260828110000",
+      "name": "create_published_sites_storage"
+    },
+    {
+      "version": "20260828113000",
+      "name": "create_website_analytics"
+    },
+    {
+      "version": "20260828120500",
+      "name": "add_custom_form_data"
+    },
+    {
+      "version": "20260828145500",
+      "name": "add_multilingual_conversion_tracking"
+    },
+    {
+      "version": "20260828151000",
+      "name": "add_lead_crm_fields"
+    },
+    {
+      "version": "20260828152500",
+      "name": "create_website_publish_versions"
+    },
+    {
+      "version": "20260828154000",
+      "name": "add_secure_billing_entitlements"
+    },
+    {
+      "version": "20260828155500",
+      "name": "add_team_workspaces"
+    },
+    {
+      "version": "20260828161000",
+      "name": "quality_security_hardening"
+    },
+    {
+      "version": "20260828223000",
+      "name": "admin_business_entitlements"
+    },
+    {
+      "version": "20260829110000",
+      "name": "ai_engine_security_hardening"
+    },
+    {
+      "version": "20260829144000",
+      "name": "harden_admin_role_and_admin_access"
+    },
+    {
+      "version": "20260830110500",
+      "name": "fix_admin_business_access"
+    },
+    {
+      "version": "20260831210500",
+      "name": "harden_website_public_runtime"
+    },
+    {
+      "version": "20260831222000",
+      "name": "align_shared_website_runtime"
+    },
+    {
+      "version": "20260831234500",
+      "name": "create_template_library_mirror"
+    },
+    {
+      "version": "20260901000500",
+      "name": "allow_template_asset_storage_dedup"
+    },
+    {
+      "version": "20260902154500",
+      "name": "recover_account_access_controls"
+    },
+    {
+      "version": "20260902181000",
+      "name": "recover_complimentary_access"
+    },
+    {
+      "version": "20260903211500",
+      "name": "tool_plan_access_and_usage_limits"
+    },
+    {
+      "version": "20260903225500",
+      "name": "add_admin_tool_plan_access"
+    },
+    {
+      "version": "20260903230500",
+      "name": "lock_down_billing_sync_rpc"
+    },
+    {
+      "version": "20260903233000",
+      "name": "finalize_real_action_tool_usage"
+    },
+    {
+      "version": "20260903234500",
+      "name": "normalize_tool_usage_rpcs_and_ai_chat"
+    },
+    {
+      "version": "20260903234800",
+      "name": "sync_stripe_renewal_date"
+    },
+    {
+      "version": "20260904120000",
+      "name": "harden_admin_tool_controls"
+    },
+    {
+      "version": "20260904121500",
+      "name": "stabilize_past_due_grace"
+    },
+    {
+      "version": "20260904144651",
+      "name": "allow_service_role_managed_profile_plan"
+    },
+    {
+      "version": "20260904151526",
+      "name": "harden_tool_control_table_grants"
+    },
+    {
+      "version": "20260904160000",
+      "name": "restore_tool_usage_helpers"
+    },
+    {
+      "version": "20260904192000",
+      "name": "add_dynamic_ai_providers"
+    },
+    {
+      "version": "20260904202000",
+      "name": "admin_audit_history_v2"
+    },
+    {
+      "version": "20260906100643",
+      "name": "launch_auth_and_billing_hardening"
+    },
+    {
+      "version": "20260907101257",
+      "name": "harden_legacy_website_lead_ingestion"
+    },
+    {
+      "version": "20260907101742",
+      "name": "restrict_signup_policy_helper_rpcs"
+    },
+    {
+      "version": "20260907102114",
+      "name": "restrict_effective_plan_helper_rpcs"
+    },
+    {
+      "version": "20260907102914",
+      "name": "move_citext_to_extensions"
+    },
+    {
+      "version": "20260907104430",
+      "name": "cleanup_duplicate_and_missing_fk_indexes"
+    },
+    {
+      "version": "20260907104946",
+      "name": "consolidate_permissive_select_policies"
+    },
+    {
+      "version": "20260907125359",
+      "name": "fix_local_background_usage_and_auth_prechecks"
+    },
+    {
+      "version": "20260907131534",
+      "name": "align_business_ai_and_local_tool_metering"
+    },
+    {
+      "version": "20260907222919",
+      "name": "account_deletion_fk_cleanup"
+    },
+    {
+      "version": "20260920090000",
+      "name": "website_custom_domains"
+    },
+    {
+      "version": "20260920143000",
+      "name": "restrict_website_custom_domain_writes"
+    },
+    {
+      "version": "20260920160000",
+      "name": "website_collaboration_pro"
+    },
+    {
+      "version": "20260921191410",
+      "name": "website_forms_automations_max"
+    },
+    {
+      "version": "20260922190000",
+      "name": "website_publishing_max"
+    },
+    {
+      "version": "20260922192101",
+      "name": "final_max_db_hardening"
+    },
+    {
+      "version": "20260923124500",
+      "name": "website_publish_scheduler_cron"
+    },
+    {
+      "version": "20260925072841",
+      "name": "disable_unsafe_website_publish_scheduler"
+    },
+    {
+      "version": "20261005150631",
+      "name": "team_workspace_authorization_null_guards"
+    },
+    {
+      "version": "20261005150649",
+      "name": "local_tool_consumption_receipt"
+    },
+    {
+      "version": "20261005150706",
+      "name": "website_legacy_form_rate_limit_identity"
+    },
+    {
+      "version": "20261005150724",
+      "name": "atomic_ai_quota_reservations"
+    },
+    {
+      "version": "20261006105659",
+      "name": "private_draft_media"
+    },
+    {
+      "version": "20261006163656",
+      "name": "close_public_draft_storage"
+    },
+    {
+      "version": "20261006193404",
+      "name": "harden_custom_domain_control"
+    },
+    {
+      "version": "20261007160506",
+      "name": "website_byo_infrastructure_connections"
+    },
+    {
+      "version": "20261007160513",
+      "name": "website_byo_oauth_state"
+    },
+    {
+      "version": "20261007160520",
+      "name": "website_byo_connection_handoff"
+    },
+    {
+      "version": "20261007160527",
+      "name": "website_byo_github_export_cursor"
+    },
+    {
+      "version": "20261007160536",
+      "name": "website_byo_supabase_oauth_custody"
+    },
+    {
+      "version": "20261007160543",
+      "name": "website_byo_supabase_disconnect"
+    },
+    {
+      "version": "20261007160550",
+      "name": "website_byo_custody_cleanup_schedule"
+    },
+    {
+      "version": "20261007160601",
+      "name": "website_byo_supabase_project_binding"
+    },
+    {
+      "version": "20261007160608",
+      "name": "website_byo_vercel_project_binding"
+    },
+    {
+      "version": "20261007160616",
+      "name": "website_byo_vercel_disconnect"
+    },
+    {
+      "version": "20261007160623",
+      "name": "website_byo_vercel_deployment_attempt"
+    },
+    {
+      "version": "20261007160706",
+      "name": "website_project_secrets"
+    },
+    {
+      "version": "20261007160713",
+      "name": "website_application_backend_bindings"
+    },
+    {
+      "version": "20261007160733",
+      "name": "website_byo_vercel_secret_handoff"
+    },
+    {
+      "version": "20261007160743",
+      "name": "website_byo_vercel_secret_removal"
+    },
+    {
+      "version": "20261007160752",
+      "name": "website_byo_publish_checkpoint"
+    },
+    {
+      "version": "20261007160800",
+      "name": "website_byo_publish_adapters"
+    },
+    {
+      "version": "20261007160809",
+      "name": "website_byo_vercel_promotion"
+    },
+    {
+      "version": "20261007160817",
+      "name": "website_byo_production_publish_checkpoint"
+    },
+    {
+      "version": "20261007160826",
+      "name": "website_byo_publish_targets"
+    },
+    {
+      "version": "20261007160834",
+      "name": "website_byo_runtime_binding"
+    },
+    {
+      "version": "20261007160846",
+      "name": "website_byo_runtime_binding_reconciliation"
+    },
+    {
+      "version": "20261007160900",
+      "name": "website_byo_supabase_migration_attempts"
+    },
+    {
+      "version": "20261007160907",
+      "name": "website_byo_supabase_migration_target"
+    },
+    {
+      "version": "20261007160916",
+      "name": "website_byo_backend_preparation_target"
+    },
+    {
+      "version": "20261007160924",
+      "name": "website_byo_runtime_binding_identity"
+    },
+    {
+      "version": "20261007160932",
+      "name": "website_byo_runtime_environment_receipts"
+    },
+    {
+      "version": "20261007160939",
+      "name": "website_byo_runtime_environment_rotation"
+    },
+    {
+      "version": "20261007160947",
+      "name": "website_byo_deployment_runtime_receipt"
+    },
+    {
+      "version": "20261007160959",
+      "name": "website_byo_production_runtime_environment"
+    },
+    {
+      "version": "20261007161009",
+      "name": "website_byo_vercel_runtime_disconnect_cleanup"
+    },
+    {
+      "version": "20261007161017",
+      "name": "website_byo_github_oauth_custody"
+    },
+    {
+      "version": "20261007161024",
+      "name": "website_byo_github_custody_cleanup_schedule"
+    },
+    {
+      "version": "20261007161032",
+      "name": "website_byo_vercel_secret_handoff_recovery"
+    },
+    {
+      "version": "20261007161039",
+      "name": "website_byo_stripe_runtime_binding"
+    },
+    {
+      "version": "20261007161047",
+      "name": "website_byo_stripe_publish_runtime"
+    },
+    {
+      "version": "20261011184736",
+      "name": "phase_zero_advisor_hardening"
+    }
+  ]
+}

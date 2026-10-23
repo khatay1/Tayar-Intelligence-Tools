@@ -6,6 +6,10 @@ import { verifyMigrationSourceMap } from './verify-migration-source-map.mjs';
 const validVersion = value => typeof value === 'string' && /^\d{14}$/.test(value);
 const validName = value => typeof value === 'string' && /^[a-z][a-z0-9_]{0,120}$/.test(value);
 const filePattern = /^(\d{14})_([a-z][a-z0-9_]{0,120})\.sql$/;
+// Only one historical migration uses a .sql name, whitelist its exact identity.
+const legacyVersion = '20260805165801';
+const legacyName = 'create_user_onboarding_table.sql';
+const legacyFile = `${legacyVersion}_${legacyName}.sql`;
 
 /** Read-only inventory comparison, NOT proof of live database parity or permission to migrate. */
 export function evaluateProductionMigrationInventory({ local, remote, map }) {
@@ -16,7 +20,8 @@ export function evaluateProductionMigrationInventory({ local, remote, map }) {
   const remoteVersions = new Set(), remoteNames = new Set(), mappedVersions = new Map();
   const localHistorical = new Set();
   for (const filename of local) {
-    const match = typeof filename === 'string' && filePattern.exec(filename);
+    const match = typeof filename === 'string' && (filePattern.exec(filename)
+      || (filename === legacyFile ? [filename, legacyVersion, legacyName] : null));
     if (!match) { errors.push('Invalid local migration filename.'); continue; }
     const [, version, name] = match;
     if (localVersions.has(version) || localNames.has(name)) errors.push(`Duplicate local migration identity: ${filename}`);
@@ -37,7 +42,8 @@ export function evaluateProductionMigrationInventory({ local, remote, map }) {
   }
   const appliedLocal = new Set(), unknownRemote = [], matchedByVersion = [], matchedByHistoricalMap = [];
   for (const row of remote) {
-    if (!validVersion(row?.version) || !validName(row?.name)) {
+    if (!validVersion(row?.version) || (!validName(row?.name)
+      && !(row.version === legacyVersion && row.name === legacyName))) {
       errors.push('Malformed remote history record.'); continue;
     }
     if (remoteVersions.has(row.version) || remoteNames.has(row.name)) errors.push(`Duplicate remote history identity: ${row.name}`);
