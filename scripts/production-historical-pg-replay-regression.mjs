@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 79;
+const fixtureCount = 82;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -92,7 +92,16 @@ const statsSql = [
   " 'ai_reserve_service_exec',has_function_privilege('service_role','public.reserve_ai_tool_usage(uuid,text,integer,timestamptz)','EXECUTE'),",
   " 'ai_reserve_anon_exec',has_function_privilege('anon','public.reserve_ai_tool_usage(uuid,text,integer,timestamptz)','EXECUTE'),",
   " 'ai_complete_service_exec',has_function_privilege('service_role','public.complete_ai_tool_usage(uuid,uuid,text,text,text,integer,integer,integer,text)','EXECUTE'),",
-  " 'ai_complete_anon_exec',has_function_privilege('anon','public.complete_ai_tool_usage(uuid,uuid,text,text,text,integer,integer,integer,text)','EXECUTE')" ,
+  " 'ai_complete_anon_exec',has_function_privilege('anon','public.complete_ai_tool_usage(uuid,uuid,text,text,text,integer,integer,integer,text)','EXECUTE'),",
+  " 'published_media_bucket',(select count(*)=1 from storage.buckets where id='website-published-media' and public),",
+  " 'draft_media_private',(select count(*)=2 from storage.buckets where id in ('website-media','published-sites') and public=false),",
+  " 'has_private_domain_secret',to_regprocedure('private.tayar_domain_control_secret_valid(text)') is not null,",
+  " 'domain_secret_anon_exec',has_function_privilege('anon','private.tayar_domain_control_secret_valid(text)','EXECUTE'),",
+  " 'domain_secret_service_exec',has_function_privilege('service_role','private.tayar_domain_control_secret_valid(text)','EXECUTE'),",
+  " 'has_domain_save',to_regprocedure('public.website_custom_domain_server_save(uuid,text,text,jsonb,text,timestamptz,text)') is not null,",
+  " 'has_domain_delete',to_regprocedure('public.website_custom_domain_server_delete(uuid,text,timestamptz,text)') is not null,",
+  " 'domain_save_anon_exec',has_function_privilege('anon','public.website_custom_domain_server_save(uuid,text,text,jsonb,text,timestamptz,text)','EXECUTE'),",
+  " 'pgcrypto_schema',(select extnamespace::regnamespace::text = 'extensions' from pg_extension where extname='pgcrypto')" ,
   '))::text;',
 ].join('\n');
 const bootstrap = [
@@ -128,8 +137,10 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20261005150724_atomic_ai_quota_reservations.sql');
-    // These 79 reviewed migrations include historical disabled scheduler and atomic AI quota receipts.
+    assert.equal(selected.at(-1).target, '20261006193404_harden_custom_domain_control.sql');
+    // These 82 reviewed migrations include private draft media and protected custom domains.
+    // Move the existing synthetic PG crypto extension to the reviewed Supabase schema.
+    // This is a disposable fixture compatibility step, not a Production migration.
     // No cron or net schema is installed: historical schedule SQL must skip side effects.
     // Synthetic Realtime publication has no subscribers, network, replication or credentials.
     // Synthetic Auth/Storage/Vault dependencies are ONLY disposable structural fixtures.
@@ -155,6 +166,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       if (!ready) throw new Error('Fresh PostgreSQL fixture was not ready.');
       sql(name, database, bootstrap);
       for (const item of selected) {
+        if (item.target === '20261006193404_harden_custom_domain_control.sql') {
+          sql(name, database, 'ALTER EXTENSION pgcrypto SET SCHEMA extensions;');
+        }
         const bytes = await readFile(join(evidence.migrationDirectory, item.target));
         if (!bytes.length) throw new Error('Empty reviewed migration source.');
         try {
@@ -171,9 +185,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       assert.ok(Number(values.tables) >= 18, 'Historical base tables must be present.');
       assert.ok(Number(values.rls) >= 14, 'Historical RLS must be present.');
       assert.ok(Number(values.policies) >= 30, 'Historical policies must be present.');
-      assert.equal(Number(values.storage_buckets), 4, 'All four reviewed Storage buckets must exist.');
+      assert.equal(Number(values.storage_buckets), 5, 'All five reviewed Storage buckets must exist.');
       assert.equal(Number(values.template_library_bucket), 1, 'Historical template-library bucket must exist.');
-      assert.equal(Number(values.storage_policies), 13, 'Thirteen reviewed Storage object RLS policies must exist.');
+      assert.equal(Number(values.storage_policies), 18, 'Eighteen reviewed Storage object RLS policies must exist.');
       assert.equal(Number(values.storage_rls), 1, 'Storage objects must have RLS enabled.');
       assert.equal(values.has_website_versions, true, 'Reviewed publish-version table must exist and survive restore.');
       for (const key of [
@@ -222,6 +236,16 @@ if (process.env.GITHUB_ACTIONS !== 'true'
         'ai_reserve_anon_exec', 'ai_complete_anon_exec',
       ]) {
         assert.equal(values[key], false, 'Historical scheduler/quota boundary unexpectedly enabled: ' + key);
+      }
+      for (const key of [
+        'published_media_bucket', 'draft_media_private', 'has_private_domain_secret',
+        'domain_secret_service_exec', 'has_domain_save', 'has_domain_delete',
+        'pgcrypto_schema',
+      ]) {
+        assert.equal(values[key], true, 'Historical private-media/domain guard missing: ' + key);
+      }
+      for (const key of ['domain_secret_anon_exec', 'domain_save_anon_exec']) {
+        assert.equal(values[key], false, 'Historical domain-control permission unexpectedly open: ' + key);
       }
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
