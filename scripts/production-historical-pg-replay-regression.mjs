@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 73;
+const fixtureCount = 79;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -80,7 +80,19 @@ const statsSql = [
   " 'collaboration_rls',(select count(*)=2 from pg_class where oid in ('public.website_project_comments'::regclass,'public.website_project_presence'::regclass) and relrowsecurity),",
   " 'form_rls',(select count(*)=2 from pg_class where oid in ('public.website_forms'::regclass,'public.website_form_deliveries'::regclass) and relrowsecurity),",
   " 'publishing_rls',(select count(*)=2 from pg_class where oid in ('public.website_publish_schedules'::regclass,'public.website_redirects'::regclass) and relrowsecurity),",
-  " 'realtime_collaboration',(select count(*)=2 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename in ('website_project_comments','website_project_presence'))" ,
+  " 'realtime_collaboration',(select count(*)=2 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename in ('website_project_comments','website_project_presence')),",
+  " 'scheduler_ready',public.website_publish_scheduler_ready(),",
+  " 'scheduler_guard',(select count(*)=1 from pg_trigger where tgname='website_publish_scheduler_safety_guard' and not tgisinternal),",
+  " 'cron_absent',to_regnamespace('cron') is null,",
+  " 'net_absent',to_regnamespace('net') is null,",
+  " 'has_ai_reservations',to_regclass('public.ai_usage_reservations') is not null,",
+  " 'ai_reservations_rls',(select relrowsecurity from pg_class where oid='public.ai_usage_reservations'::regclass),",
+  " 'ai_reservations_anon_insert',has_table_privilege('anon','public.ai_usage_reservations','INSERT'),",
+  " 'ai_reservations_user_insert',has_table_privilege('authenticated','public.ai_usage_reservations','INSERT'),",
+  " 'ai_reserve_service_exec',has_function_privilege('service_role','public.reserve_ai_tool_usage(uuid,text,integer,timestamptz)','EXECUTE'),",
+  " 'ai_reserve_anon_exec',has_function_privilege('anon','public.reserve_ai_tool_usage(uuid,text,integer,timestamptz)','EXECUTE'),",
+  " 'ai_complete_service_exec',has_function_privilege('service_role','public.complete_ai_tool_usage(uuid,uuid,text,text,text,integer,integer,integer,text)','EXECUTE'),",
+  " 'ai_complete_anon_exec',has_function_privilege('anon','public.complete_ai_tool_usage(uuid,uuid,text,text,text,integer,integer,integer,text)','EXECUTE')" ,
   '))::text;',
 ].join('\n');
 const bootstrap = [
@@ -116,8 +128,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20260922192101_final_max_db_hardening.sql');
-    // These 73 reviewed migrations add project collaboration, private form uploads, publish schedules.
+    assert.equal(selected.at(-1).target, '20261005150724_atomic_ai_quota_reservations.sql');
+    // These 79 reviewed migrations include historical disabled scheduler and atomic AI quota receipts.
+    // No cron or net schema is installed: historical schedule SQL must skip side effects.
     // Synthetic Realtime publication has no subscribers, network, replication or credentials.
     // Synthetic Auth/Storage/Vault dependencies are ONLY disposable structural fixtures.
     // Empty Vault view is NOT a substitute for real Supabase encrypted Vault behavior.
@@ -197,6 +210,18 @@ if (process.env.GITHUB_ACTIONS !== 'true'
         'publishing_rls', 'realtime_collaboration',
       ]) {
         assert.equal(values[key], true, 'Historical collaboration/forms/publish object missing: ' + key);
+      }
+      for (const key of [
+        'scheduler_guard', 'cron_absent', 'net_absent', 'has_ai_reservations',
+        'ai_reservations_rls', 'ai_reserve_service_exec', 'ai_complete_service_exec',
+      ]) {
+        assert.equal(values[key], true, 'Historical scheduler/quota guard missing: ' + key);
+      }
+      for (const key of [
+        'scheduler_ready', 'ai_reservations_anon_insert', 'ai_reservations_user_insert',
+        'ai_reserve_anon_exec', 'ai_complete_anon_exec',
+      ]) {
+        assert.equal(values[key], false, 'Historical scheduler/quota boundary unexpectedly enabled: ' + key);
       }
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
