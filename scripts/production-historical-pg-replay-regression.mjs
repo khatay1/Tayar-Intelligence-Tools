@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 45;
+const fixtureCount = 55;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -47,7 +47,11 @@ const statsSql = [
   " 'has_account_blocks',to_regclass('public.account_blocks') is not null,",
   " 'has_access_overrides',to_regclass('public.admin_access_overrides') is not null,",
   " 'has_tool_access_rules',to_regclass('public.tool_access_rules') is not null,",
-  " 'has_tool_plan_limits',to_regclass('public.tool_plan_limits') is not null" ,
+  " 'has_tool_plan_limits',to_regclass('public.tool_plan_limits') is not null,",
+  " 'has_tool_access_state',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='tool_access_state'),",
+  " 'has_check_tool_usage',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='check_tool_usage'),",
+  " 'has_tool_plan_rank',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='tool_plan_rank'),",
+  " 'has_subscription_grace',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='subscription_effective_paid_plan')" ,
   ')::text;',
 ].join('\n');
 const bootstrap = [
@@ -76,8 +80,8 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20260903211500_tool_plan_access_and_usage_limits.sql');
-    // These 45 reviewed migrations cover billing, teams, rate limits, templates and account controls.
+    assert.equal(selected.at(-1).target, '20260904160000_restore_tool_usage_helpers.sql');
+    // These 55 reviewed migrations also cover tool-access RPC contracts and billing renewal/grace hardening.
     // Synthetic Supabase auth/storage objects are *only* disposable test dependencies.
     // Do NOT extend this count without independent fixture review.
     const name = 'tayar-history-' + randomUUID().replaceAll('-', '').slice(0, 15);
@@ -129,6 +133,12 @@ if (process.env.GITHUB_ACTIONS !== 'true'
         assert.equal(values[key], true, 'Reviewed historical object missing: ' + key);
       }
       assert.equal(values.team_workspaces_rls, true, 'Reviewed team workspaces must enforce RLS.');
+      for (const key of [
+        'has_tool_access_state', 'has_check_tool_usage', 'has_tool_plan_rank',
+        'has_subscription_grace',
+      ]) {
+        assert.equal(values[key], true, 'Reviewed historical tool/billing RPC missing: ' + key);
+      }
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
       inside(name, 'pg_dump', '-U', 'postgres', '-d', database, '-Fc',
