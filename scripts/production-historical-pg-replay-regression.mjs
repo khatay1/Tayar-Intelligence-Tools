@@ -34,6 +34,7 @@ const statsSql = [
   " 'auth_rows',(select count(*) from auth.users),",
   " 'profile_rows',(select count(*) from public.profiles),",
   " 'storage_buckets',(select count(*) from storage.buckets),",
+  " 'template_library_bucket',(select count(*) from storage.buckets where id='template-library'),", 
   " 'storage_policies',(select count(*) from pg_policies where schemaname='storage'),",
   " 'storage_rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='storage' and c.relname='objects' and c.relrowsecurity),",
   " 'has_website_versions',to_regclass('public.website_publish_versions') is not null,",
@@ -115,8 +116,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       assert.ok(Number(values.tables) >= 18, 'Historical base tables must be present.');
       assert.ok(Number(values.rls) >= 14, 'Historical RLS must be present.');
       assert.ok(Number(values.policies) >= 30, 'Historical policies must be present.');
-      assert.equal(Number(values.storage_buckets), 2, 'Both reviewed Storage bucket records must exist.');
-      assert.equal(Number(values.storage_policies), 8, 'Storage object RLS policy definitions must exist.');
+      assert.equal(Number(values.storage_buckets), 3, 'All three reviewed Storage buckets must exist.');
+      assert.equal(Number(values.template_library_bucket), 1, 'Historical template-library bucket must exist.');
+      assert.equal(Number(values.storage_policies), 11, 'Eleven reviewed Storage object RLS policies must exist.');
       assert.equal(Number(values.storage_rls), 1, 'Storage objects must have RLS enabled.');
       assert.equal(values.has_website_versions, true, 'Reviewed publish-version table must exist and survive restore.');
       for (const key of [
