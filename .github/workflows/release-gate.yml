@@ -271,8 +271,8 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+      - name: Production and build-tool dependency audit
+        run: npm audit --audit-level=high
 
       - name: Whitespace check
         run: git diff --check
