@@ -81,15 +81,15 @@ const bootstrap = [
   'CREATE SCHEMA vault;',
   'CREATE SCHEMA extensions;',
   // Empty structural stand-in ONLY. No actual Vault decryption or secret handling is modeled.
-  "CREATE VIEW vault.decrypted_secrets AS SELECT NULL::uuid AS id, NULL::text AS decrypted_secret WHERE false;"
+  "CREATE VIEW vault.decrypted_secrets AS SELECT NULL::uuid AS id, NULL::text AS decrypted_secret WHERE false;",
   'CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean NOT NULL DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);',
   'CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text NOT NULL REFERENCES storage.buckets(id), name text NOT NULL);',
   'ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;',
   "CREATE OR REPLACE FUNCTION storage.foldername(object_name text) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$ SELECT string_to_array(object_name, '/') $$;",
   "CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb);",
   "CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;",
-  "CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $ SELECT nullif(current_setting('request.jwt.claim.role', true), '') $;",
-  "CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $;",
+  "CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.role', true), '') $$;",
+  "CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;",
 ].join('\n');
 if (process.env.GITHUB_ACTIONS !== 'true'
  || process.env.GITHUB_REPOSITORY !== 'khatay1/Tayar-Intelligence-Tools') {
