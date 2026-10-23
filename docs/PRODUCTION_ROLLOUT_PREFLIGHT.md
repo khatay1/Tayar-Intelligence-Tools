@@ -95,3 +95,22 @@ The [historical SQL risk scanner](../scripts/production-historical-migration-ris
 No isolated Supabase branch ready for safe rehearsal was located in the connected account. The production Supabase branch listing returned only its default `main` branch (reported `MIGRATIONS_FAILED` in branch metadata); the separate Activation project has no branches. Treat that branch status as a signal to investigate, **not** proof that the running Production database is unhealthy. Do not create a possibly billable new branch or attempt a repair automatically.
 
 **Rehearsal prerequisite:** arrange a cost-approved disposable database or free locally controlled PostgreSQL 17 instance, use a sanitized schema/data fixture, apply only reviewed migration deltas in dependency order, run integration/RLS/browser tests and verify rollback with a real restore before authorizing Production changes. A Vercel rollback alone cannot revert migrated database objects.
+
+
+## Reproducible Production catalog audit (2026-10-23)
+
+The [read-only catalog audit SQL](../scripts/production-catalog-readiness.sql) was executed against the current Production project. It selects only existence booleans and catalog definitions; no secrets or user records were read. Its verified observations:
+
+| Check | Observed |
+| --- | --- |
+| Scheduler exists | true |
+| Scheduler remains literal `select false` with `SECURITY INVOKER` | true |
+| Saved Website Builder projects exist | true |
+| Public redirect storage table exists | false |
+| Private owned-secret staging table exists | false |
+| Custom execution access-rule row exists | false |
+| Custom execution plan-limit row exists | false |
+
+These mixed booleans are *facts*, not success/fail statuses; a missing optional capability may be expected while historical migration replay is blocked. The audit is deliberately not a release authority.
+
+An isolated static scan of the actual **nine** historical SQL sources identified a protected scheduler replacement in one file, a table-creating source for redirects, and `DELETE FROM` patterns in the OAuth, redirects and quota-function sources. Some of these patterns occur **inside function bodies** and are not necessarily immediate migration-time deletes. Only manual statement-level review can distinguish top-level statements and side effects; do not treat regex risk flags as execution traces.
