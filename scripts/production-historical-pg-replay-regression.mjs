@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 82;
+const fixtureCount = 119;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -102,6 +102,15 @@ const statsSql = [
   " 'has_domain_delete',to_regprocedure('public.website_custom_domain_server_delete(uuid,text,timestamptz,text)') is not null,",
   " 'domain_save_anon_exec',has_function_privilege('anon','public.website_custom_domain_server_save(uuid,text,text,jsonb,text,timestamptz,text)','EXECUTE'),",
   " 'pgcrypto_schema',(select extnamespace::regnamespace::text = 'extensions' from pg_extension where extname='pgcrypto')" ,
+  ') || jsonb_build_object(',
+  " 'private_tables',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and c.relkind in ('r','p')),",
+  " 'private_tables_rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and c.relkind in ('r','p') and c.relrowsecurity),",
+  " 'infra_connections',to_regclass('private.website_infrastructure_connections') is not null,",
+  " 'secret_custody',to_regclass('private.website_project_secrets') is not null,",
+  " 'byo_publish_operations',to_regclass('private.website_byo_publish_operations') is not null,",
+  " 'vercel_promotions',to_regclass('private.website_vercel_promotions') is not null,",
+  " 'vault_secrets_empty',(select count(*) = 0 from vault.secrets)",
+  " 'private_anon_usage',has_schema_privilege('anon','private','USAGE')",
   '))::text;',
 ].join('\n');
 const bootstrap = [
@@ -115,6 +124,7 @@ const bootstrap = [
   'CREATE SCHEMA extensions;',
   'CREATE PUBLICATION supabase_realtime;',
   // Empty structural stand-in ONLY. No actual Vault decryption or secret handling is modeled.
+  'CREATE TABLE vault.secrets(id uuid PRIMARY KEY DEFAULT gen_random_uuid());',
   "CREATE VIEW vault.decrypted_secrets AS SELECT NULL::uuid AS id, NULL::text AS decrypted_secret WHERE false;",
   'CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean NOT NULL DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);',
   'CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text NOT NULL REFERENCES storage.buckets(id), name text NOT NULL);',
@@ -137,8 +147,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20261006193404_harden_custom_domain_control.sql');
-    // These 82 reviewed migrations include private draft media and protected custom domains.
+    assert.equal(selected.at(-1).target, '20261011184736_phase_zero_advisor_hardening.sql');
+    // All 119 *reviewed applied-history* migrations replay in chronological Production identity order.
+    // 30 pending/possibly destructive sources remain explicitly quarantined.
     // Move the existing synthetic PG crypto extension to the reviewed Supabase schema.
     // This is a disposable fixture compatibility step, not a Production migration.
     // No cron or net schema is installed: historical schedule SQL must skip side effects.
@@ -247,6 +258,14 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       for (const key of ['domain_secret_anon_exec', 'domain_save_anon_exec']) {
         assert.equal(values[key], false, 'Historical domain-control permission unexpectedly open: ' + key);
       }
+      assert.ok(Number(values.private_tables) >= 12, 'Historical BYO private custody tables must exist.');
+      assert.equal(Number(values.private_tables), Number(values.private_tables_rls),
+        'Every reviewed BYO private custody table must have RLS enabled.');
+      for (const key of ['infra_connections', 'secret_custody', 'byo_publish_operations',
+        'vercel_promotions', 'vault_secrets_empty']) {
+        assert.equal(values[key], true, 'Reviewed BYO historical safety fixture missing: ' + key);
+      }
+      assert.equal(values.private_anon_usage, false, 'Anonymous user must not access private BYO schema.');
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
       // Preserve ACLs: stripping grants silently reopens SECDEF RPCs to PUBLIC on restore.
