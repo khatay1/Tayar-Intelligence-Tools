@@ -6,6 +6,7 @@ import { readProjectSpecification } from './project-specification';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { compileApplicationDataView } from './application-data-view';
 import { websiteProjectLinkIssues } from './website-project-links';
+import { explicitlyRequestsApplication, isExplicitPresentationOnlyRequest } from './application-intent';
 
 const stockReservationPattern = /\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/giu;
 const stockReservationRequest = (prompt: string) => new RegExp(stockReservationPattern.source, 'iu').test(prompt);
@@ -74,9 +75,10 @@ export function prepareGeneratedApplication(
   const requestedCapabilities = requestedApplicationCapabilities(prompt);
   const counterRequested = requestedCapabilities.has('counter');
   const transactionRequested = requestedCapabilities.has('transaction');
-  const requested = /\b(?:patient portal|staff portal|admin portal|sign[ -]?in|log[ -]?in|authentication|database|book(?:ing)? appointments?|appointment booking|data dashboard|record management|crud|data editor)\b|(?:حجز المواعيد|حجز موعد|تسجيل الدخول|قاعدة بيانات|بوابة المرضى|بوابة الموظفين|إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt);
+  const informationalOnly = isExplicitPresentationOnlyRequest(prompt);
+  const requested = explicitlyRequestsApplication(prompt) || (!informationalOnly && /\b(?:patient portal|staff portal|admin portal|sign[ -]?in|log[ -]?in|authentication|database|book(?:ing)? appointments?|appointment booking|data dashboard|record management|crud|data editor)\b|(?:حجز المواعيد|حجز موعد|تسجيل الدخول|قاعدة بيانات|بوابة المرضى|بوابة الموظفين|إدارة السجلات|عرض السجلات|لوحة بيانات)/iu.test(prompt));
   if (generated.application === undefined) {
-    if (generated.projectKind === 'application' || requested || requestedCapabilities.size || pages.some(page => page.sections.some(section => section.applicationFormBinding || section.applicationDataView))) {
+    if (generated.projectKind === 'application' || requested || (requestedCapabilities.size > 0 && !informationalOnly) || pages.some(page => page.sections.some(section => section.applicationFormBinding || section.applicationDataView))) {
       throw new Error('This request needs a real application definition and bound forms. AI returned only pages; no incomplete application was applied.');
     }
     return undefined;
