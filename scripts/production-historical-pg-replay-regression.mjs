@@ -35,7 +35,7 @@ const statsSql = [
   " 'profile_rows',(select count(*) from public.profiles),",
   " 'storage_buckets',(select count(*) from storage.buckets),",
   " 'storage_policies',(select count(*) from pg_policies where schemaname='storage'),",
-  " 'storage_rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='storage' and c.relname='objects' and c.relrowsecurity)"
+  " 'storage_rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='storage' and c.relname='objects' and c.relrowsecurity)",
   ')::text;',
 ].join('\n');
 const bootstrap = [
