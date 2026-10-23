@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 55;
+const fixtureCount = 68;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -51,22 +51,45 @@ const statsSql = [
   " 'has_tool_access_state',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='tool_access_state'),",
   " 'has_check_tool_usage',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='check_tool_usage'),",
   " 'has_tool_plan_rank',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='tool_plan_rank'),",
-  " 'has_subscription_grace',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='subscription_effective_paid_plan')" ,
+  " 'has_subscription_grace',(select count(*) > 0 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='subscription_effective_paid_plan'),",
+  " 'has_ai_providers',to_regclass('public.ai_provider_configs') is not null,",
+  " 'ai_provider_rls',(select relrowsecurity from pg_class where oid='public.ai_provider_configs'::regclass),",
+  " 'has_ai_provider_runtime',to_regprocedure('public.ai_provider_runtime(text)') is not null,",
+  " 'ai_provider_anon_exec',has_function_privilege('anon','public.ai_provider_runtime(text)','EXECUTE'),",
+  " 'ai_provider_service_exec',has_function_privilege('service_role','public.ai_provider_runtime(text)','EXECUTE'),",
+  " 'has_admin_audit_trigger',(select count(*) = 3 from pg_trigger where tgname in ('admin_audit_admin_settings','admin_audit_tool_access_rules','admin_audit_tool_plan_limits') and not tgisinternal),",
+  " 'has_signup_auth_hook',to_regprocedure('public.hook_enforce_tayar_signup_policy(jsonb)') is not null,",
+  " 'auth_hook_anon_exec',has_function_privilege('anon','public.hook_enforce_tayar_signup_policy(jsonb)','EXECUTE'),",
+  " 'auth_hook_admin_exec',has_function_privilege('supabase_auth_admin','public.hook_enforce_tayar_signup_policy(jsonb)','EXECUTE'),",
+  " 'has_stripe_event_claim',to_regprocedure('public.claim_stripe_webhook_event(text,text,text,bigint)') is not null,",
+  " 'has_webhook_events',to_regclass('public.stripe_webhook_events') is not null,",
+  " 'has_custom_domains',to_regclass('public.website_custom_domains') is not null,",
+  " 'custom_domains_rls',(select relrowsecurity from pg_class where oid='public.website_custom_domains'::regclass),",
+  " 'custom_domains_anon_insert',has_table_privilege('anon','public.website_custom_domains','INSERT'),",
+  " 'custom_domains_user_insert',has_table_privilege('authenticated','public.website_custom_domains','INSERT'),",
+  " 'has_citext_in_extensions',(select extnamespace::regnamespace::text = 'extensions' from pg_extension where extname='citext'),",
+  " 'vault_fixture_empty',(select count(*)=0 from vault.decrypted_secrets)" ,
   ')::text;',
 ].join('\n');
 const bootstrap = [
   'CREATE ROLE anon NOLOGIN;',
   'CREATE ROLE authenticated NOLOGIN;',
   'CREATE ROLE service_role NOLOGIN;',
+  'CREATE ROLE supabase_auth_admin NOLOGIN;',
   'CREATE SCHEMA auth;',
   'CREATE SCHEMA storage;',
+  'CREATE SCHEMA vault;',
+  'CREATE SCHEMA extensions;',
+  // Empty structural stand-in ONLY. No actual Vault decryption or secret handling is modeled.
+  "CREATE VIEW vault.decrypted_secrets AS SELECT NULL::uuid AS id, NULL::text AS decrypted_secret WHERE false;"
   'CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean NOT NULL DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);',
   'CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text NOT NULL REFERENCES storage.buckets(id), name text NOT NULL);',
   'ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;',
   "CREATE OR REPLACE FUNCTION storage.foldername(object_name text) RETURNS text[] LANGUAGE sql IMMUTABLE AS $$ SELECT string_to_array(object_name, '/') $$;",
   "CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb);",
   "CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;",
-  "CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.role', true), '') $$;",
+  "CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $ SELECT nullif(current_setting('request.jwt.claim.role', true), '') $;",
+  "CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $;",
 ].join('\n');
 if (process.env.GITHUB_ACTIONS !== 'true'
  || process.env.GITHUB_REPOSITORY !== 'khatay1/Tayar-Intelligence-Tools') {
@@ -80,9 +103,10 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20260904160000_restore_tool_usage_helpers.sql');
-    // These 55 reviewed migrations also cover tool-access RPC contracts and billing renewal/grace hardening.
-    // Synthetic Supabase auth/storage objects are *only* disposable test dependencies.
+    assert.equal(selected.at(-1).target, '20260920090000_website_custom_domains.sql');
+    // These 68 reviewed migrations also cover AI provider metadata, Auth hooks and domain RLS.
+    // Synthetic Auth/Storage/Vault dependencies are ONLY disposable structural fixtures.
+    // Empty Vault view is NOT a substitute for real Supabase encrypted Vault behavior.
     // Do NOT extend this count without independent fixture review.
     const name = 'tayar-history-' + randomUUID().replaceAll('-', '').slice(0, 15);
     let started = false;
@@ -138,6 +162,19 @@ if (process.env.GITHUB_ACTIONS !== 'true'
         'has_subscription_grace',
       ]) {
         assert.equal(values[key], true, 'Reviewed historical tool/billing RPC missing: ' + key);
+      }
+      for (const key of [
+        'has_ai_providers', 'ai_provider_rls', 'has_ai_provider_runtime',
+        'ai_provider_service_exec', 'has_admin_audit_trigger', 'has_signup_auth_hook',
+        'auth_hook_admin_exec', 'has_stripe_event_claim', 'has_webhook_events',
+        'has_custom_domains', 'custom_domains_rls', 'has_citext_in_extensions',
+        'vault_fixture_empty',
+      ]) {
+        assert.equal(values[key], true, 'Historical AI/Auth/domain requirement missing: ' + key);
+      }
+      for (const key of ['ai_provider_anon_exec', 'auth_hook_anon_exec',
+        'custom_domains_anon_insert', 'custom_domains_user_insert']) {
+        assert.equal(values[key], false, 'Historical API permission unexpectedly open: ' + key);
       }
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
