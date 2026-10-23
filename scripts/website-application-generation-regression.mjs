@@ -178,6 +178,47 @@ try {
   assert.equal(dashboard.state.AiStage, 'ready');
   assert.deepEqual(dashboard.state.Pages[2].sections[0].applicationDataView, dataView);
   assert.deepEqual(dashboard.checkpoints.at(-1)[1].pages[2].sections[0].applicationDataView, dataView);
+  const controlTable = { ...table, fields: [...table.fields,
+    { id: 'record_name', key: 'name', name: 'Name', type: 'text', required: false },
+    { id: 'record_state', key: 'state', name: 'State', type: 'enum', required: false, options: ['open', 'closed'] }] };
+  const controlResponse = { ...dashboardResponse,
+    application: { ...dashboardResponse.application, tables: [controlTable] },
+    requirements: [
+      { id: 'record-search', summary: 'Users can search records.', capability: 'records', evidence: ['view:appointments:search'] },
+      { id: 'record-filter', summary: 'Users can filter records.', capability: 'records', evidence: ['view:appointments:filter'] },
+    ],
+    pages: [...response.pages, { name: 'Records', slug: 'records', sections: [{ type: 'features', title: 'My records',
+      applicationDataView: { tableId: 'appointments', columns: ['visit_date', 'record_name', 'record_state'], actions: [], pageSize: 10,
+        searchFieldId: 'record_name', filterFieldId: 'record_state' } }] }],
+  };
+  let controlledApplication, controlledPages;
+  for (const prompt of [
+    'Build a record management app with search and filtering',
+    'بدي تطبيق لإدارة السجلات مع البحث والتصفية',
+    'Bygg en app för posthantering med sökning och filtrering',
+  ]) {
+    const controlled = await run(controlResponse, 6, prompt);
+    assert.equal(controlled.state.AiStage, 'ready', `${prompt}: ${controlled.state.AiError ?? ''}`);
+    assert.equal(controlled.state.Pages[2].sections[0].applicationDataView.searchFieldId, 'record_name');
+    assert.equal(controlled.state.Pages[2].sections[0].applicationDataView.filterFieldId, 'record_state');
+    controlledApplication = controlled.state.Application;
+    controlledPages = controlled.state.Pages;
+  }
+  for (const [prompt, missing] of [
+    ['Build a record management app with search', 'searchFieldId'],
+    ['بدي تطبيق لإدارة السجلات مع التصفية', 'filterFieldId'],
+    ['Bygg en app för posthantering med sökning', 'searchFieldId'],
+  ]) {
+    const incompleteControl = structuredClone(controlResponse);
+    delete incompleteControl.pages[2].sections[0].applicationDataView[missing];
+    incompleteControl.requirements = incompleteControl.requirements.filter(item => !item.evidence[0].endsWith(missing === 'searchFieldId' ? ':search' : ':filter'));
+    const rejected = await run(incompleteControl, 6, prompt);
+    assert.equal(rejected.state.AiStage, 'error', `Missing ${missing} must reject: ${prompt}`);
+    assert.equal(rejected.state.Pages, undefined);
+    assert.equal(rejected.checkpoints.length, 0);
+  }
+  const seoOnly = await run(dashboardResponse, 6, 'Build a record management app with search engine optimization copy');
+  assert.equal(seoOnly.state.AiStage, 'ready', 'SEO copy must not require a record search control');
   const recordTest = { id: 'valid-record', requirementId: 'record-editor', criterionIndex: 0, kind: 'record-values',
     pageId: 'records', sectionId: 'record-editor', operation: 'update', input: [{ name: 'visit_date', value: '2026-10-19' }],
     expected: { outcome: 'accepted', values: { visit_date: '2026-10-19' } } };
@@ -197,6 +238,9 @@ try {
   await build({ entryPoints: ['src/modules/website-builder/core/application-requirements.ts'], bundle: true, platform: 'node', format: 'cjs', outfile: coverageOut });
   const { buildApplicationRequirementCoverage } = require(coverageOut);
   assert.equal(buildApplicationRequirementCoverage(recordBuild.state.Application, recordBuild.state.Pages)[0].deliveryStatus, 'contract-verified');
+  assert.ok(buildApplicationRequirementCoverage(controlledApplication, controlledPages)
+    .every(row => row.tests.filter(test => test.kind === 'contract').every(test => test.result === 'passed')),
+  'search/filter contract evidence must be recomputed from bound controls');
   for (const override of [{ operation: 'delete' }, { pageId: 'missing' }, { sectionId: 'missing' }, { operation: 'create' }]) {
     const invalidRecord = structuredClone(recordResponse);
     Object.assign(invalidRecord.projectSpecification.acceptanceTests[0], override);
@@ -262,7 +306,6 @@ try {
   assert.equal(readOnlyPortal.state.AiStage, 'ready', 'Read-only property portal must remain supported');
   for (const prompt of [
     'Create a real estate app to display property listings',
-    'Create a property management app with listings and a search page',
     'Build a property management app with users, roles and reporting',
     'Create a real estate site where visitors upload property photos',
   ]) {
@@ -270,6 +313,12 @@ try {
     assert.equal(display.state.AiStage, 'ready', 'Creating an app is not requesting property-record creation: '+prompt);
     assert.equal(display.state.Application.tables[0].id, 'properties');
   }
+  const searchableProperties = structuredClone(readOnlyProperties);
+  searchableProperties.pages[0].sections[0].applicationDataView.searchFieldId = 'property_title';
+  searchableProperties.requirements[0].evidence = ['view:properties:search'];
+  const propertySearch = await run(searchableProperties, 6, 'Create a property management app with listings and a search page');
+  assert.equal(propertySearch.state.AiStage, 'ready');
+  assert.equal(propertySearch.state.Pages[0].sections[0].applicationDataView.searchFieldId, 'property_title');
 
 
   const readOnlyResponse = { ...response,
