@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 24;
+const fixtureCount = 30;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -32,7 +32,10 @@ const statsSql = [
   " 'indexes',(select count(*) from pg_indexes where schemaname='public'),",
   " 'functions',(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'),",
   " 'auth_rows',(select count(*) from auth.users),",
-  " 'profile_rows',(select count(*) from public.profiles)",
+  " 'profile_rows',(select count(*) from public.profiles),",
+  " 'storage_buckets',(select count(*) from storage.buckets),",
+  " 'storage_policies',(select count(*) from pg_policies where schemaname='storage'),",
+  " 'storage_rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='storage' and c.relname='objects' and c.relrowsecurity)"
   ')::text;',
 ].join('\n');
 const bootstrap = [
@@ -40,6 +43,11 @@ const bootstrap = [
   'CREATE ROLE authenticated NOLOGIN;',
   'CREATE ROLE service_role NOLOGIN;',
   'CREATE SCHEMA auth;',
+  'CREATE SCHEMA storage;',
+  'CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean NOT NULL DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);',
+  'CREATE TABLE storage.objects (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), bucket_id text NOT NULL REFERENCES storage.buckets(id), name text NOT NULL);',
+  'ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;',
+  "CREATE OR REPLACE FUNCTION storage.foldername(object_name text) RETURNS text[] LANGUAGE sql IMMUTABLE AS $ SELECT string_to_array(object_name, '/') $;"
   "CREATE TABLE auth.users (id uuid PRIMARY KEY, email text, raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb);",
   "CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;",
   "CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.role', true), '') $$;",
@@ -56,8 +64,8 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20260828102000_create_website_leads.sql');
-    // These first 24 reviewed migrations use a minimal synthetic auth/RLS fixture.
+    assert.equal(selected.at(-1).target, '20260828151000_add_lead_crm_fields.sql');
+    // These 30 reviewed migrations additionally require isolated Storage bucket/object stubs.
     // Do NOT extend this count without independent fixture review.
     const name = 'tayar-history-' + randomUUID().replaceAll('-', '').slice(0, 15);
     let started = false;
@@ -94,6 +102,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       assert.ok(Number(values.tables) >= 18, 'Historical base tables must be present.');
       assert.ok(Number(values.rls) >= 14, 'Historical RLS must be present.');
       assert.ok(Number(values.policies) >= 30, 'Historical policies must be present.');
+      assert.equal(Number(values.storage_buckets), 2, 'Both reviewed Storage bucket records must exist.');
+      assert.equal(Number(values.storage_policies), 8, 'Storage object RLS policy definitions must exist.');
+      assert.equal(Number(values.storage_rls), 1, 'Storage objects must have RLS enabled.');
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
       inside(name, 'pg_dump', '-U', 'postgres', '-d', database, '-Fc',
