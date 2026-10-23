@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 const owner = '11111111-1111-4111-8111-111111111111';
 const intruder = '22222222-2222-4222-8222-222222222222';
 const projectId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
-let principal = owner, clock = 1;
+let principal = owner, clock = 1, writes = 0;
 const rows = [];
 const decode = value => decodeURIComponent(String(value).replace(/^eq[.]/, ''));
 
@@ -33,9 +33,13 @@ globalThis.__projectAcceptanceClient = createClient('https://acceptance.supabase
       return Response.json(rows.filter(row => row.user_id === principal && row.deleted_at === null));
     }
     if (method === 'PATCH') {
+      writes++;
       const body = JSON.parse(options.body), id = decode(url.searchParams.get('id'));
       const expected = url.searchParams.has('updated_at') ? decode(url.searchParams.get('updated_at')) : null;
-      const row = rows.find(item => item.id === id && item.user_id === principal && item.deleted_at === null
+      // Model RLS separately; all other predicates must actually be sent by the client.
+      const row = rows.find(item => item.id === id && item.user_id === principal
+        && [...url.searchParams].filter(([key]) => key !== 'select').every(([key, filter]) =>
+          filter === 'is.null' ? item[key] === null : String(item[key]) === filter.slice(3))
         && (!expected || item.updated_at === expected));
       if (!row) return Response.json(null);
       Object.assign(row, body);
@@ -105,6 +109,23 @@ try {
     published: false, expectedUpdatedAt: 'v2', updatedAt: 'v3' });
   assert.match(foreign.error.message, /newer version/);
   assert.equal(rows[0].title, 'Synthetic real estate');
+
+  principal = owner;
+  const beforeMissingRevision = writes;
+  for (const expectedUpdatedAt of [undefined, null, '']) {
+    const missingRevision = await subject.updateWebsiteProjectInCloud({ projectId, title: 'Unversioned',
+      content: initial, published: false, expectedUpdatedAt, updatedAt: 'v3' });
+    assert.ok(missingRevision.error, 'Unversioned writes must fail before transport');
+  }
+  assert.equal(writes, beforeMissingRevision, 'Missing revision must not issue any PATCH');
+  for (const unsafe of [{ deleted_at: '2026-10-23T00:00:00Z' }, { type: 'coding-assistant' }]) {
+    Object.assign(rows[0], { deleted_at: null, type: 'website-builder' }, unsafe);
+    const before = structuredClone(rows[0]);
+    const refused = await subject.updateWebsiteProjectInCloud({ projectId, title: 'Wrong target',
+      content: initial, published: false, expectedUpdatedAt: 'v2', updatedAt: 'v3' });
+    assert.ok(refused.error, 'Deleted/non-website projects must not be updated');
+    assert.deepEqual(rows[0], before);
+  }
 
   console.log('PASS synthetic signed-in save/reopen/update flow: application payload round-trip, optimistic concurrency and tenant isolation (actual Supabase SDK; isolated mocked transport)');
 } finally {
