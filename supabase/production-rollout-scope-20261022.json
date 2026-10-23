@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "observedAt": "2026-10-22",
+  "baselineCommit": "07560f0b357847dcd13ac014bda5b9fb8b472ad3",
+  "productionProjectRef": "pnbllxdlskljcakyaylt",
+  "policy": "Inventory classification only. All groups blocked from automatic application, Production release, or external activation.",
+  "groups": {
+    "historical-needs-provenance": [
+      "20260925092000_website_publish_scheduler_readiness.sql",
+      "20261003220000_website_byo_supabase_oauth_capacity.sql",
+      "20261003223000_website_publish_redirects.sql",
+      "20261003224500_website_publish_redirects_validation_fix.sql",
+      "20261003230000_website_publish_redirects_explicit_grants.sql",
+      "20261009210000_website_byo_email_publish_runtime.sql",
+      "20261009220000_website_owned_runtime_secret_staging.sql",
+      "20261013233709_website_custom_execution_quota.sql",
+      "20261014195000_count_custom_execution_errors.sql"
+    ],
+    "customer-production-release-hold": [
+      "20261016100000_website_production_source_candidates.sql",
+      "20261016103000_website_production_backend_receipt_isolation.sql",
+      "20261016110000_website_production_source_targets.sql",
+      "20261017212657_website_production_staging_claims.sql",
+      "20261017213501_website_production_staging_target.sql",
+      "20261017215601_website_production_runtime_attestations.sql"
+    ],
+    "social-hub-deferred": [
+      "20261018113420_social_hub_storage.sql",
+      "20261018164617_social_hub_assistant_runtime.sql",
+      "20261019030534_social_hub_dispatch_runtime.sql",
+      "20261019031612_social_hub_meta_challenge.sql",
+      "20261019044713_social_hub_automation_runtime.sql",
+      "20261019053200_social_hub_crm_followups.sql",
+      "20261019060000_social_hub_crm_project_access.sql",
+      "20261019070200_social_hub_message_history.sql",
+      "20261019074200_social_hub_conversation_events.sql",
+      "20261019083000_social_hub_unread_state.sql",
+      "20261019153500_social_hub_safe_attachments.sql",
+      "20261019163000_social_hub_team_assignment.sql",
+      "20261020032038_social_hub_outside_hours.sql",
+      "20261020095000_social_hub_project_events.sql"
+    ],
+    "stripe-handoff-deferred": [
+      "20261020133000_website_stripe_webhook_secret_handoff.sql"
+    ]
+  }
+}
