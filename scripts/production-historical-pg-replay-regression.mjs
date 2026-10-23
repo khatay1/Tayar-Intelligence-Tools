@@ -109,7 +109,7 @@ const statsSql = [
   " 'secret_custody',to_regclass('private.website_project_secrets') is not null,",
   " 'byo_publish_operations',to_regclass('private.website_byo_publish_operations') is not null,",
   " 'vercel_promotions',to_regclass('private.website_vercel_promotions') is not null,",
-  " 'vault_secrets_empty',(select count(*) = 0 from vault.secrets)",
+  " 'vault_secrets_empty',(select count(*) = 0 from vault.secrets),",
   " 'private_anon_usage',has_schema_privilege('anon','private','USAGE')",
   '))::text;',
 ].join('\n');
