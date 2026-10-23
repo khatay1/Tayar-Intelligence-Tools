@@ -25,7 +25,7 @@ const inside = (name, ...command) => run(['exec', name, ...command]);
 const sql = (name, db, query) => run(['exec', '-i', name, 'psql', '-X',
   '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', db, '-A', '-t', '-f', '-'], { input: query });
 const statsSql = [
-  'select jsonb_build_object(',
+  'select (jsonb_build_object(',
   " 'tables',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','auth') and c.relkind in ('r','p')),",
   " 'rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p') and c.relrowsecurity),",
   " 'policies',(select count(*) from pg_policies where schemaname='public'),",
@@ -68,7 +68,8 @@ const statsSql = [
   " 'custom_domains_anon_insert',has_table_privilege('anon','public.website_custom_domains','INSERT'),",
   " 'custom_domains_user_insert',has_table_privilege('authenticated','public.website_custom_domains','INSERT'),",
   " 'has_citext_in_extensions',(select extnamespace::regnamespace::text = 'extensions' from pg_extension where extname='citext'),",
-  " 'vault_fixture_empty',(select count(*)=0 from vault.decrypted_secrets),",
+  " 'vault_fixture_empty',(select count(*)=0 from vault.decrypted_secrets)",
+  ') || jsonb_build_object(',
   " 'form_upload_bucket',(select count(*) from storage.buckets where id='website-form-uploads'),",
   " 'has_project_comments',to_regclass('public.website_project_comments') is not null,",
   " 'has_project_presence',to_regclass('public.website_project_presence') is not null,",
@@ -80,7 +81,7 @@ const statsSql = [
   " 'form_rls',(select count(*)=2 from pg_class where oid in ('public.website_forms'::regclass,'public.website_form_deliveries'::regclass) and relrowsecurity),",
   " 'publishing_rls',(select count(*)=2 from pg_class where oid in ('public.website_publish_schedules'::regclass,'public.website_redirects'::regclass) and relrowsecurity),",
   " 'realtime_collaboration',(select count(*)=2 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename in ('website_project_comments','website_project_presence'))" ,
-  ')::text;',
+  '))::text;',
 ].join('\n');
 const bootstrap = [
   'CREATE ROLE anon NOLOGIN;',
