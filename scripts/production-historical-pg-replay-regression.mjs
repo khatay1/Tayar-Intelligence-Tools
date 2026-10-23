@@ -32,7 +32,7 @@ const statsSql = [
   " 'indexes',(select count(*) from pg_indexes where schemaname='public'),",
   " 'functions',(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public'),",
   " 'auth_rows',(select count(*) from auth.users),",
-  " 'profile_rows',(select count(*) from public.profiles)"
+  " 'profile_rows',(select count(*) from public.profiles)",
   ')::text;',
 ].join('\n');
 const bootstrap = [
