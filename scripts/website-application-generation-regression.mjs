@@ -260,6 +260,17 @@ try {
   readOnlyProperties.pages[0].sections[0].applicationDataView.actions = [];
   const readOnlyPortal = await run(readOnlyProperties, 6, 'Build a real estate portal to view property listings');
   assert.equal(readOnlyPortal.state.AiStage, 'ready', 'Read-only property portal must remain supported');
+  for (const prompt of [
+    'Create a real estate app to display property listings',
+    'Create a property management app with listings and a search page',
+    'Build a property management app with users, roles and reporting',
+    'Create a real estate site where visitors upload property photos',
+  ]) {
+    const display = await run(readOnlyProperties, 6, prompt);
+    assert.equal(display.state.AiStage, 'ready', 'Creating an app is not requesting property-record creation: '+prompt);
+    assert.equal(display.state.Application.tables[0].id, 'properties');
+  }
+
 
   const readOnlyResponse = { ...response,
     requirements: [{ id: 'record-reader', summary: 'Users can read their saved records.', capability: 'records', evidence: ['view:appointments:read'] }],

@@ -75,11 +75,41 @@ export function requestedRealEstateRecordMutations(prompt: string): Array<'creat
   if (!explicitlyRequestsApplication(prompt) || isExplicitPresentationOnlyRequest(prompt)) return [];
   const text = normalizeIntentText(prompt);
   if (!/\b(?:real[ -]?estate|propert(?:y|ies)|listings?|apartments?|housing)\b|(?:عقار|عقارات|العقار|العقارات|عقاري|عقارية)/iu.test(text)) return [];
-  const requested: Array<'create' | 'update' | 'delete'> = [];
-  if (/\b(?:add|create|post|publish|upload)\b|(?:إضافة|اضافة|إدخال|ادخال|إنشاء|انشاء|نشر|رفع)/iu.test(text)) requested.push('create');
-  if (/\b(?:edit|update|modify)\b|(?:تعديل|تحديث|تحرير)/iu.test(text)) requested.push('update');
-  if (/\b(?:delete|remove)\b|(?:حذف|إزالة|ازالة)/iu.test(text)) requested.push('delete');
-  return requested;
+
+  // Detect actions directed at property records, not the verb "create" in
+  // "create a real-estate application", or edits to unrelated user accounts.
+  const property = /\b(?:propert(?:y|ies)|listings?|apartments?|homes?)\b|(?:العقارات|عقارات|العقار|عقار|الإعلانات|الاعلانات|إعلانات|اعلانات)/giu;
+  const verb = /\b(?:add|create|post|publish|upload|edit|update|modify|delete|remove)\b|(?:إضافة|اضافة|إدخال|ادخال|إنشاء|انشاء|نشر|رفع|تعديل|تحديث|تحرير|حذف|إزالة|ازالة)/giu;
+  const unrelated = /\b(?:app|application|website|site|platform|system|account|accounts|users?|payments?|orders?|products?|photos?|pictures?|images?|blog|team)\b|(?:الحساب|حساب|حسابات|المستخدم|المستخدمين|المدفوعات|الطلبات)/iu;
+  const requested = new Set<'create' | 'update' | 'delete'>();
+  const addAction = (word: string) => {
+    if (/^(?:add|create|post|publish|upload|إضافة|اضافة|إدخال|ادخال|إنشاء|انشاء|نشر|رفع)$/iu.test(word)) requested.add('create');
+    else if (/^(?:edit|update|modify|تعديل|تحديث|تحرير)$/iu.test(word)) requested.add('update');
+    else if (/^(?:delete|remove|حذف|إزالة|ازالة)$/iu.test(word)) requested.add('delete');
+  };
+  for (const match of text.matchAll(property)) {
+    const position = match.index ?? 0;
+    const following = text.slice(position + match[0].length);
+    // "property management app" and "property photos" are not property rows.
+    if (/^\s+(?:(?:(?:listing|management)\s+)?(?:app|application|website|site|platform|system)|(?:photos?|images?|pictures?|gallery))\b/iu.test(following)) continue;
+    const before = text.slice(Math.max(0, position - 65), position);
+    for (const operation of before.matchAll(verb)) {
+      const offset = operation.index ?? 0;
+      const between = before.slice(offset + operation[0].length);
+      const prior = before.slice(Math.max(0, offset - 20), offset);
+      if (unrelated.test(between) || /\b(?:without|not|no)\s+(?:the\s+ability\s+to\s+)?$|(?:بدون|من\s+دون)\s*$/iu.test(prior)) continue;
+      addAction(operation[0]);
+    }
+    // Arabic shorthand "إضافة العقارات وتعديلها وحذفها" still names all three.
+    const after = following.slice(0, 56);
+    for (const operation of after.matchAll(/(?:و|ب)?(?:إضافتها|اضافتها|تعديلها|تحديثها|حذفها|إزالتها|ازالتها)|\b(?:can|must|should)\s+(?:be\s+)?(?:added|created|edited|updated|deleted|removed)\b/giu)) {
+      const value = operation[0];
+      if (/اضاف|إضاف|added|created/iu.test(value)) requested.add('create');
+      else if (/تعديل|تحديث|edited|updated/iu.test(value)) requested.add('update');
+      else requested.add('delete');
+    }
+  }
+  return (['create', 'update', 'delete'] as const).filter(action => requested.has(action));
 }
 
 /** Require the bound CRUD controls to target a real-estate record table, not an
