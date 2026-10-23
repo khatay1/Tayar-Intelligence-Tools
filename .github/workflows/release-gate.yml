@@ -55,6 +55,9 @@ jobs:
           node scripts/migration-source-map-regression.mjs
           node scripts/verify-migration-source-map.mjs
 
+      - name: Customer publishing Edge source boundary (offline, no deployment)
+        run: node scripts/release-edge-source-gate-regression.mjs
+
       - name: Disabled Social Hub boundary and inbox regression
         run: |
           npm run smoke:social-hub
