@@ -6,7 +6,7 @@ import { readProjectSpecification } from './project-specification';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { compileApplicationDataView } from './application-data-view';
 import { websiteProjectLinkIssues } from './website-project-links';
-import { explicitlyRequestsApplication, isExplicitPresentationOnlyRequest } from './application-intent';
+import { explicitlyRequestsApplication, isExplicitPresentationOnlyRequest, requestedRealEstateRecordMutations, isRealEstateRecordTable } from './application-intent';
 
 const stockReservationPattern = /\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/giu;
 const stockReservationRequest = (prompt: string) => new RegExp(stockReservationPattern.source, 'iu').test(prompt);
@@ -104,6 +104,13 @@ export function prepareGeneratedApplication(
   let stockReservationViews = 0;
   let stockValuationViews = 0;
   const evidence = new Set<string>();
+  const requestedPropertyMutations = requestedRealEstateRecordMutations(prompt);
+  const propertyMutationEvidence = new Map<string, Set<string>>();
+  const recordMutation = (tableId: string, action: string) => {
+    const actions = propertyMutationEvidence.get(tableId) ?? new Set<string>();
+    actions.add(action);
+    propertyMutationEvidence.set(tableId, actions);
+  };
   if (definition.auth.enabled) evidence.add('auth');
   for (const page of pages) evidence.add(`page:${page.slug}`);
   for (const page of pages) for (const section of page.sections) {
@@ -120,7 +127,10 @@ export function prepareGeneratedApplication(
       if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       if (view.table.transaction && view.binding.actions.includes('transact')) transactionViews++;
       evidence.add(`view:${view.table.id}:read`);
-      for (const action of view.binding.actions) evidence.add(`view:${view.table.id}:${action}`);
+      for (const action of view.binding.actions) {
+        evidence.add(`view:${view.table.id}:${action}`);
+        if (action === 'create' || action === 'update' || action === 'delete') recordMutation(view.table.id, action);
+      }
       if (view.table.booking && view.binding.actions.includes('create')) evidence.add(`booking:${view.table.id}`);
       if (view.table.counter && view.binding.actions.includes('adjust')) evidence.add(`counter:${view.table.id}`);
       if (view.table.transaction && view.binding.actions.includes('transact')) evidence.add(`transaction:${view.table.id}`);
@@ -142,6 +152,7 @@ export function prepareGeneratedApplication(
       }
       compileApplicationCreateForm(definition, section, section.applicationFormBinding);
       evidence.add(`form:${section.applicationFormBinding.tableId}`);
+      recordMutation(section.applicationFormBinding.tableId, 'create');
       if (definition.tables.find(table => table.id === section.applicationFormBinding!.tableId)?.booking) bookingCreates++;
       if (definition.tables.find(table => table.id === section.applicationFormBinding!.tableId)?.booking) evidence.add(`booking:${section.applicationFormBinding.tableId}`);
     }
@@ -151,6 +162,11 @@ export function prepareGeneratedApplication(
       throw new Error('Email notifications must reference a real saved email connection. Configure the connection first; no incomplete application was applied.');
     }
     evidence.add(`email:${table.id}`);
+  }
+  if (requestedPropertyMutations.length
+    && !definition.tables.some(table => isRealEstateRecordTable(table)
+      && requestedPropertyMutations.every(action => propertyMutationEvidence.get(table.id)?.has(action)))) {
+    throw new Error('Property record creation, editing or deletion requires matching saved data and bound controls for every requested operation. No incomplete application was applied.');
   }
   if (stockTransferRequest(prompt) && !stockTransferViews) throw new Error('Atomic warehouse transfers require saved physical stock locations and a bound stock-transfer view. Ordinary counter adjustments cannot fulfill this requirement. No incomplete application was applied.');
   if (physicalStockLocationRequest(prompt) && !physicalStockViews) throw new Error('Physical stock balances by location require saved stockLocations and a bound stock-availability view with item, location and quantity. A label alone cannot fulfill this requirement. No incomplete application was applied.');

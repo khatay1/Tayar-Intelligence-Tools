@@ -67,3 +67,24 @@ export function isExplicitPresentationOnlyRequest(prompt: string): boolean {
   const text = normalizeIntentText(prompt);
   return hasPresentationDeliverable(text) && !explicitlyRequestsApplication(text);
 }
+
+/** Scope a deliberately narrow record-mutation contract to requested real-estate
+ * operations. Domain labels alone do not imply CRUD, and a marketing page that
+ * describes another app must not request any database mutation. */
+export function requestedRealEstateRecordMutations(prompt: string): Array<'create' | 'update' | 'delete'> {
+  if (!explicitlyRequestsApplication(prompt) || isExplicitPresentationOnlyRequest(prompt)) return [];
+  const text = normalizeIntentText(prompt);
+  if (!/\b(?:real[ -]?estate|propert(?:y|ies)|listings?|apartments?|housing)\b|(?:عقار|عقارات|العقار|العقارات|عقاري|عقارية)/iu.test(text)) return [];
+  const requested: Array<'create' | 'update' | 'delete'> = [];
+  if (/\b(?:add|create|post|publish|upload)\b|(?:إضافة|اضافة|إدخال|ادخال|إنشاء|انشاء|نشر|رفع)/iu.test(text)) requested.push('create');
+  if (/\b(?:edit|update|modify)\b|(?:تعديل|تحديث|تحرير)/iu.test(text)) requested.push('update');
+  if (/\b(?:delete|remove)\b|(?:حذف|إزالة|ازالة)/iu.test(text)) requested.push('delete');
+  return requested;
+}
+
+/** Require the bound CRUD controls to target a real-estate record table, not an
+ * unrelated users, orders or generic settings table. */
+export function isRealEstateRecordTable(table: { id: string; key: string; name: string }): boolean {
+  return /\b(?:real[ -]?estate|propert(?:y|ies)|listings?|apartments?|homes?)\b|(?:عقار|عقارات|العقار|العقارات|عقاري|عقارية)/iu
+    .test([table.id, table.key, table.name].join(' '));
+}

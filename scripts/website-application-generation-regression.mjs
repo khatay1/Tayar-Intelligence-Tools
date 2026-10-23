@@ -218,6 +218,49 @@ try {
   const rejectedAmbiguous = await run(ambiguous, 6, 'Build record management', true);
   assert.equal(rejectedAmbiguous.state.AiStage, 'error');
   assert.equal(rejectedAmbiguous.checkpoints.length, 0);
+  // Explicit real-estate CRUD must exist on the property table itself.
+  // Valid authentication or a read-only property view is NOT enough.
+  const propertyTable = { id: 'properties', key: 'properties', name: 'Properties',
+    fields: [{ id: 'property_title', key: 'title', name: 'Title', type: 'text', required: true }],
+    permissions: ['read', 'create', 'update', 'delete'].map(operation => ({ operation, access: 'owner' })) };
+  const propertyPrompt = 'Build a real estate app where agents can add, edit and delete property listings';
+  const arPropertyPrompt = 'بدي تطبيق عقارات لإضافة العقارات وتعديلها وحذفها';
+  const propertyView = { tableId: 'properties', columns: ['property_title'],
+    actions: ['create', 'update', 'delete'], pageSize: 10 };
+  const propertyGenerated = {
+    projectKind: 'application',
+    application: { ...application, pageAccess: [], tables: [propertyTable] },
+    requirements: [{ id: 'property-records', summary: 'Manage property listings.', capability: 'records',
+      evidence: ['view:properties:read'] }],
+    pages: [{ name: 'Properties', slug: 'properties', sections: [{
+      type: 'features', title: 'Property records', applicationDataView: propertyView }] }],
+  };
+  for (const prompt of [propertyPrompt, arPropertyPrompt]) {
+    const complete = await run(propertyGenerated, 6, prompt);
+    assert.equal(complete.state.AiStage, 'ready', 'Complete property CRUD should build: ' + prompt);
+    assert.equal(complete.state.Application.tables[0].id, 'properties');
+  }
+  for (const missing of ['create', 'update', 'delete']) {
+    const partial = structuredClone(propertyGenerated);
+    partial.pages[0].sections[0].applicationDataView.actions = propertyView.actions.filter(x => x !== missing);
+    const incomplete = await run(partial, 6, propertyPrompt);
+    assert.equal(incomplete.state.AiStage, 'error', 'Missing '+missing+' property operation must fail');
+    assert.equal(incomplete.state.Pages, undefined);
+    assert.equal(incomplete.checkpoints.length, 0);
+  }
+  const wrongTable = structuredClone(propertyGenerated);
+  wrongTable.application.tables.push({ ...propertyTable, id: 'orders', key: 'orders', name: 'Orders' });
+  wrongTable.pages[0].sections[0].applicationDataView = { ...propertyView, actions: [],
+    columns: ['property_title'] };
+  wrongTable.pages.push({ name: 'Orders', slug: 'orders', sections: [{
+    type: 'features', applicationDataView: { ...propertyView, tableId: 'orders' } }] });
+  const unrelated = await run(wrongTable, 6, propertyPrompt);
+  assert.equal(unrelated.state.AiStage, 'error', 'CRUD on unrelated records cannot substitute property CRUD');
+  const readOnlyProperties = structuredClone(propertyGenerated);
+  readOnlyProperties.pages[0].sections[0].applicationDataView.actions = [];
+  const readOnlyPortal = await run(readOnlyProperties, 6, 'Build a real estate portal to view property listings');
+  assert.equal(readOnlyPortal.state.AiStage, 'ready', 'Read-only property portal must remain supported');
+
   const readOnlyResponse = { ...response,
     requirements: [{ id: 'record-reader', summary: 'Users can read their saved records.', capability: 'records', evidence: ['view:appointments:read'] }],
     application: { ...application, pageAccess: [], tables: [{ ...table, permissions: [{ operation: 'read', access: 'owner' }] }] },
