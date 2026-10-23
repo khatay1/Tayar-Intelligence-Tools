@@ -10,7 +10,7 @@ const image = 'postgres:17.11';
 const database = 'tayar_history_rehearsal';
 const restore = 'tayar_history_rehearsal_restore';
 const archive = '/tmp/tayar-history-fixture.dump';
-const fixtureCount = 68;
+const fixtureCount = 73;
 
 function run(args, { input, timeout = 12000 } = {}) {
   const r = spawnSync('docker', args, { input, encoding: 'utf8', timeout, maxBuffer: 2_000_000 });
@@ -25,7 +25,7 @@ const inside = (name, ...command) => run(['exec', name, ...command]);
 const sql = (name, db, query) => run(['exec', '-i', name, 'psql', '-X',
   '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', db, '-A', '-t', '-f', '-'], { input: query });
 const statsSql = [
-  'select jsonb_build_object(',
+  'select (jsonb_build_object(',
   " 'tables',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','auth') and c.relkind in ('r','p')),",
   " 'rls',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p') and c.relrowsecurity),",
   " 'policies',(select count(*) from pg_policies where schemaname='public'),",
@@ -68,8 +68,20 @@ const statsSql = [
   " 'custom_domains_anon_insert',has_table_privilege('anon','public.website_custom_domains','INSERT'),",
   " 'custom_domains_user_insert',has_table_privilege('authenticated','public.website_custom_domains','INSERT'),",
   " 'has_citext_in_extensions',(select extnamespace::regnamespace::text = 'extensions' from pg_extension where extname='citext'),",
-  " 'vault_fixture_empty',(select count(*)=0 from vault.decrypted_secrets)" ,
-  ')::text;',
+  " 'vault_fixture_empty',(select count(*)=0 from vault.decrypted_secrets)",
+  ') || jsonb_build_object(',
+  " 'form_upload_bucket',(select count(*) from storage.buckets where id='website-form-uploads'),",
+  " 'has_project_comments',to_regclass('public.website_project_comments') is not null,",
+  " 'has_project_presence',to_regclass('public.website_project_presence') is not null,",
+  " 'has_forms',to_regclass('public.website_forms') is not null,",
+  " 'has_form_deliveries',to_regclass('public.website_form_deliveries') is not null,",
+  " 'has_publish_schedules',to_regclass('public.website_publish_schedules') is not null,",
+  " 'has_redirects',to_regclass('public.website_redirects') is not null,",
+  " 'collaboration_rls',(select count(*)=2 from pg_class where oid in ('public.website_project_comments'::regclass,'public.website_project_presence'::regclass) and relrowsecurity),",
+  " 'form_rls',(select count(*)=2 from pg_class where oid in ('public.website_forms'::regclass,'public.website_form_deliveries'::regclass) and relrowsecurity),",
+  " 'publishing_rls',(select count(*)=2 from pg_class where oid in ('public.website_publish_schedules'::regclass,'public.website_redirects'::regclass) and relrowsecurity),",
+  " 'realtime_collaboration',(select count(*)=2 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename in ('website_project_comments','website_project_presence'))" ,
+  '))::text;',
 ].join('\n');
 const bootstrap = [
   'CREATE ROLE anon NOLOGIN;',
@@ -80,6 +92,7 @@ const bootstrap = [
   'CREATE SCHEMA storage;',
   'CREATE SCHEMA vault;',
   'CREATE SCHEMA extensions;',
+  'CREATE PUBLICATION supabase_realtime;',
   // Empty structural stand-in ONLY. No actual Vault decryption or secret handling is modeled.
   "CREATE VIEW vault.decrypted_secrets AS SELECT NULL::uuid AS id, NULL::text AS decrypted_secret WHERE false;",
   'CREATE TABLE storage.buckets (id text PRIMARY KEY, name text NOT NULL, public boolean NOT NULL DEFAULT false, file_size_limit bigint, allowed_mime_types text[]);',
@@ -103,8 +116,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
     assert.equal(evidence.quarantinedCount, 30);
     const selected = evidence.sources.slice(0, fixtureCount);
     assert.equal(selected[0].target, '20260802152522_create_profiles_table.sql');
-    assert.equal(selected.at(-1).target, '20260920090000_website_custom_domains.sql');
-    // These 68 reviewed migrations also cover AI provider metadata, Auth hooks and domain RLS.
+    assert.equal(selected.at(-1).target, '20260922192101_final_max_db_hardening.sql');
+    // These 73 reviewed migrations add project collaboration, private form uploads, publish schedules.
+    // Synthetic Realtime publication has no subscribers, network, replication or credentials.
     // Synthetic Auth/Storage/Vault dependencies are ONLY disposable structural fixtures.
     // Empty Vault view is NOT a substitute for real Supabase encrypted Vault behavior.
     // Do NOT extend this count without independent fixture review.
@@ -144,9 +158,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       assert.ok(Number(values.tables) >= 18, 'Historical base tables must be present.');
       assert.ok(Number(values.rls) >= 14, 'Historical RLS must be present.');
       assert.ok(Number(values.policies) >= 30, 'Historical policies must be present.');
-      assert.equal(Number(values.storage_buckets), 3, 'All three reviewed Storage buckets must exist.');
+      assert.equal(Number(values.storage_buckets), 4, 'All four reviewed Storage buckets must exist.');
       assert.equal(Number(values.template_library_bucket), 1, 'Historical template-library bucket must exist.');
-      assert.equal(Number(values.storage_policies), 11, 'Eleven reviewed Storage object RLS policies must exist.');
+      assert.equal(Number(values.storage_policies), 13, 'Thirteen reviewed Storage object RLS policies must exist.');
       assert.equal(Number(values.storage_rls), 1, 'Storage objects must have RLS enabled.');
       assert.equal(values.has_website_versions, true, 'Reviewed publish-version table must exist and survive restore.');
       for (const key of [
@@ -175,6 +189,14 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       for (const key of ['ai_provider_anon_exec', 'auth_hook_anon_exec',
         'custom_domains_anon_insert', 'custom_domains_user_insert']) {
         assert.equal(values[key], false, 'Historical API permission unexpectedly open: ' + key);
+      }
+      assert.equal(Number(values.form_upload_bucket), 1, 'Private website-form-uploads bucket must be present.');
+      for (const key of [
+        'has_project_comments', 'has_project_presence', 'has_forms', 'has_form_deliveries',
+        'has_publish_schedules', 'has_redirects', 'collaboration_rls', 'form_rls',
+        'publishing_rls', 'realtime_collaboration',
+      ]) {
+        assert.equal(values[key], true, 'Historical collaboration/forms/publish object missing: ' + key);
       }
       assert.equal(Number(values.auth_rows), 1, 'Synthetic auth account must exist.');
       assert.equal(Number(values.profile_rows), 1, 'Historical profile trigger must insert owner profile.');
