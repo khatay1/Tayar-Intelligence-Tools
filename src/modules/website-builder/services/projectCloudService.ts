@@ -44,6 +44,7 @@ export async function updateWebsiteProjectInCloud({
   expectedUpdatedAt,
   updatedAt,
 }: UpdateWebsiteProjectCloudInput): Promise<WebsiteProjectCloudMutationResult<{ id: string; updated_at?: string | null }>> {
+  if (!expectedUpdatedAt) return missingMutationResult('Reopen the cloud project before saving so its current version can be verified.');
   return retryCloudOperation(async () => {
     let query = supabase
       .from('projects')
@@ -53,9 +54,11 @@ export async function updateWebsiteProjectInCloud({
         status: published ? 'completed' : 'draft',
         updated_at: updatedAt || new Date().toISOString(),
       })
-      .eq('id', projectId);
+      .eq('id', projectId)
+      .eq('type', 'website-builder')
+      .is('deleted_at', null);
 
-    if (expectedUpdatedAt) query = query.eq('updated_at', expectedUpdatedAt);
+    query = query.eq('updated_at', expectedUpdatedAt);
 
     const selectQuery = query.select('id, updated_at').maybeSingle();
 
