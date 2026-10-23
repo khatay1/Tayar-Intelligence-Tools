@@ -11330,7 +11330,7 @@ function compileApplicationCreateForm(definition, source, input, organizationId)
 // src/modules/website-builder/core/application-data-view.ts
 var object6 = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 function validateApplicationDataViewShape(value) {
-  if (!object6(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition", "attachments", "pay", "refund", "stock-availability", "stock-reservation", "stock-transfer"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId))) return false;
+  if (!object6(value) || Object.keys(value).some((key) => !["tableId", "columns", "actions", "pageSize", "searchFieldId", "filterFieldId"].includes(key)) || typeof value.tableId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId) || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80 || value.columns.some((id2) => typeof id2 !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id2)) || new Set(value.columns).size !== value.columns.length || !Array.isArray(value.actions) || value.actions.some((action) => !["create", "update", "delete", "adjust", "transact", "transition", "attachments", "pay", "refund", "stock-availability", "stock-reservation", "stock-transfer"].includes(String(action))) || new Set(value.actions).size !== value.actions.length || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50 || value.searchFieldId !== void 0 && (typeof value.searchFieldId !== "string" || !value.columns.includes(value.searchFieldId)) || value.filterFieldId !== void 0 && (typeof value.filterFieldId !== "string" || !value.columns.includes(value.filterFieldId))) return false;
   return true;
 }
 function compileApplicationDataView(definition, input) {
@@ -11362,7 +11362,9 @@ function compileApplicationDataView(definition, input) {
   }
   const search = columns.find((field) => field.id === binding.searchFieldId);
   if (binding.searchFieldId && (!search || search.type !== "text")) throw new Error("Data view search requires a text column.");
-  return { binding, table, columns, search };
+  const filter = columns.find((field) => field.id === binding.filterFieldId);
+  if (binding.filterFieldId && (!filter || filter.type !== "enum")) throw new Error("Data view filter requires an enum column.");
+  return { binding, table, columns, search, filter };
 }
 
 // src/modules/website-builder/core/application-published-data-views.ts

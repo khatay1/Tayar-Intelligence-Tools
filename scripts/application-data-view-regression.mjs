@@ -37,8 +37,11 @@ try {
     tables: [{ id: 'records', key: 'records', name: 'Records', fields, permissions: [
       ...['read', 'create', 'update'].map(operation => ({ operation, access: 'owner' })), { operation: 'delete', access: 'role', roleId: 'admin' },
     ] }] };
-  const binding = { tableId: 'records', columns: fields.map(field => field.id), actions: ['create', 'update', 'delete'], pageSize: 2, searchFieldId: 'record_name' };
+  const binding = { tableId: 'records', columns: fields.map(field => field.id), actions: ['create', 'update', 'delete'], pageSize: 2, searchFieldId: 'record_name', filterFieldId: 'record_state' };
   assert.equal(compileApplicationDataView(app, binding).table.key, 'records');
+  assert.equal(compileApplicationDataView(app, binding).filter.key, 'state');
+  for (const invalid of [{ ...binding, filterFieldId: 'missing' }, { ...binding, filterFieldId: 'record_name' },
+    { ...binding, filterFieldId: 42 }, { ...binding, columns: ['record_name'] }]) assert.throws(() => compileApplicationDataView(app, invalid));
   for (const invalid of [{ ...binding, credentials: 'forbidden' }, { ...binding, columns: ['owner_id'] }, { ...binding, columns: ['record_name', 'record_name'] },
     { ...binding, pageSize: 51 }, { ...binding, searchFieldId: 'record_amount' }, { ...binding, actions: ['execute'] }, { ...binding, tableId: 'missing' }]) assert.throws(() => compileApplicationDataView(app, invalid));
   assert.throws(() => compileApplicationDataView({ ...app, auth: { ...app.auth, enabled: false, signUpEnabled: false } }, binding));
@@ -115,6 +118,18 @@ try {
     await controller.load(1, '%_');
     const search = calls.findLast(call => call.url.searchParams.has('name')).url;
     assert.equal(search.searchParams.get('name'), 'ilike.%\\%\\_%'); assert.equal(search.searchParams.get('offset'), '2'); assert.equal(search.searchParams.get('limit'), '3');
+    await controller.load(0, '%_', 'closed');
+    const filtered = calls.findLast(call => call.url.searchParams.has('state')).url;
+    assert.equal(filtered.searchParams.get('state'), 'eq.closed');
+    assert.equal(filtered.searchParams.get('name'), 'ilike.%\\%\\_%', 'Search and status filter compose in the real SDK query');
+    const beforeInvalidFilter = calls.length;
+    for (const value of ['missing', 'closed,owner_id.eq.other', 1, null]) await assert.rejects(controller.load(0, '', value), /Invalid data view query/);
+    assert.equal(calls.length, beforeInvalidFilter, 'Unknown enum values fail before any backend request');
+    const unfilteredController = createApplicationDataViewController(app, { ...binding, filterFieldId: undefined }, runtime, webcrypto.randomUUID);
+    await assert.rejects(unfilteredController.load(0, '', 'open'), /Invalid data view query/);
+    await controller.load(0, '', '');
+    assert.equal(calls.findLast(call => call.url.pathname === '/rest/v1/app_records').url.searchParams.has('state'), false,
+      'Clearing the control removes only the optional status predicate');
     uncertain = true; revealUncertain = false;
     await assert.rejects(controller.create(input), /uncertain/); assert.equal(rows.length, 1);
     uncertain = false; revealUncertain = true; await controller.create(input);

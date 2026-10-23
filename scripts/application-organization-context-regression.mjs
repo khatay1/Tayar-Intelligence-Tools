@@ -55,6 +55,23 @@ try {
   await assert.rejects(controller.create({ name: 'Forged', organization_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' }), /scope cannot be changed/);
   await controller.update('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', { name: 'Updated' }); assert.deepEqual(updated, { name: 'Updated' });
   await assert.rejects(controller.update('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', { name: 'Forged', organization_id: organizationId }), /scope cannot be changed/);
+  const filteredApp = structuredClone(app);
+  filteredApp.tables[1].fields.push({ id: 'project-state', key: 'state', name: 'State', type: 'enum',
+    required: true, options: ['active', 'closed'], defaultValue: 'active' });
+  const filteredController = createApplicationDataViewController(filteredApp, { ...binding,
+    columns: ['project-name', 'project-state'], searchFieldId: 'project-name', filterFieldId: 'project-state' }, runtime,
+  () => 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', { organizationId, keyPrefix: 'filtered-view',
+    storage: { getItem: () => null, setItem() {}, removeItem() {} }, crypto: globalThis.crypto });
+  await filteredController.load(0, 'Roadmap', 'active');
+  assert.deepEqual(listed.filters, [
+    { field: 'organization_id', operator: 'eq', value: organizationId },
+    { field: 'state', operator: 'eq', value: 'active' },
+    { field: 'name', operator: 'ilike', value: '%Roadmap%' },
+  ], 'Selected status and search must retain the pinned organization predicate');
+  await filteredController.load(0, '', '');
+  assert.deepEqual(listed.filters, [{ field: 'organization_id', operator: 'eq', value: organizationId }],
+    'Clearing optional filters must never clear tenant scope');
+  filteredController.dispose();
   controller.dispose();
   console.log('PASS organization context: active selection injection, scoped reads, hidden form field compatibility and forged-scope denial');
 } finally { await rm(dir, { recursive: true, force: true }); }

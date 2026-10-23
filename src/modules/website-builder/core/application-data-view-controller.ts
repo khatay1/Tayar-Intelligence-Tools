@@ -246,14 +246,17 @@ export function createApplicationDataViewController(definition: ApplicationDefin
     },
     closed() { return disposed; },
     dispose() { disposed = true; pending = undefined; submission?.dispose(); },
-    async load(page = 0, query = '') {
+    async load(page = 0, query = '', filterValue = '') {
       if (!Number.isSafeInteger(page) || page < 0 || page > 100_000 || typeof query !== 'string' || query.length > 200
-        || (query && !compiled.search)) throw new Error('Invalid data view query.');
+        || (query && !compiled.search) || typeof filterValue !== 'string'
+        || (filterValue && (!compiled.filter || !compiled.filter.options?.includes(filterValue)))) throw new Error('Invalid data view query.');
       await permissions();
       const rows = await runtime.list(compiled.table.id, {
         limit: compiled.binding.pageSize + 1, offset: page * compiled.binding.pageSize,
         // Treat SQL wildcard characters as literal search text.
-        filters: [...organizationFilter, ...(query && compiled.search ? [{ field: compiled.search.key, operator: 'ilike' as const, value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [])],
+        filters: [...organizationFilter,
+          ...(filterValue && compiled.filter ? [{ field: compiled.filter.key, operator: 'eq' as const, value: filterValue }] : []),
+          ...(query && compiled.search ? [{ field: compiled.search.key, operator: 'ilike' as const, value: `%${query.replace(/[\\%_]/g, '\\$&')}%` }] : [])],
       }) as unknown;
       await identity();
       if (!Array.isArray(rows) || rows.some(row => !row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string')) throw new Error('Invalid data view response.');

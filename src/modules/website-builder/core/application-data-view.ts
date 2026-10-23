@@ -8,6 +8,7 @@ export interface ApplicationDataViewBinding {
   actions: Array<'create' | 'update' | 'delete' | 'adjust' | 'transact' | 'transition' | 'attachments' | 'pay' | 'refund' | 'stock-availability' | 'stock-reservation' | 'stock-transfer'>;
   pageSize: number;
   searchFieldId?: string;
+  filterFieldId?: string;
 }
 
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -15,7 +16,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** References only. Runtime rows and credentials never enter an editor snapshot. */
 export function validateApplicationDataViewShape(value: unknown): value is ApplicationDataViewBinding {
-  if (!object(value) || Object.keys(value).some(key => !['tableId', 'columns', 'actions', 'pageSize', 'searchFieldId'].includes(key))
+  if (!object(value) || Object.keys(value).some(key => !['tableId', 'columns', 'actions', 'pageSize', 'searchFieldId', 'filterFieldId'].includes(key))
     || typeof value.tableId !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(value.tableId)
     || !Array.isArray(value.columns) || !value.columns.length || value.columns.length > 80
     || value.columns.some(id => typeof id !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/.test(id))
@@ -23,7 +24,8 @@ export function validateApplicationDataViewShape(value: unknown): value is Appli
     || !Array.isArray(value.actions) || value.actions.some(action => !['create', 'update', 'delete', 'adjust', 'transact', 'transition', 'attachments', 'pay', 'refund', 'stock-availability', 'stock-reservation', 'stock-transfer'].includes(String(action)))
     || new Set(value.actions).size !== value.actions.length
     || !Number.isInteger(value.pageSize) || Number(value.pageSize) < 1 || Number(value.pageSize) > 50
-    || (value.searchFieldId !== undefined && (typeof value.searchFieldId !== 'string' || !value.columns.includes(value.searchFieldId)))) return false;
+    || (value.searchFieldId !== undefined && (typeof value.searchFieldId !== 'string' || !value.columns.includes(value.searchFieldId)))
+    || (value.filterFieldId !== undefined && (typeof value.filterFieldId !== 'string' || !value.columns.includes(value.filterFieldId)))) return false;
   return true;
 }
 
@@ -58,7 +60,9 @@ export function compileApplicationDataView(definition: ApplicationDefinition, in
   }
   const search = columns.find(field => field.id === binding.searchFieldId);
   if (binding.searchFieldId && (!search || search.type !== 'text')) throw new Error('Data view search requires a text column.');
-  return { binding, table, columns, search };
+  const filter = columns.find(field => field.id === binding.filterFieldId);
+  if (binding.filterFieldId && (!filter || filter.type !== 'enum')) throw new Error('Data view filter requires an enum column.');
+  return { binding, table, columns, search, filter };
 }
 
 /** This controls available UI actions. Dedicated database RLS remains authoritative. */
