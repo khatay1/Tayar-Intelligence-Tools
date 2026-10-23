@@ -9,6 +9,30 @@ const json=(status:number,body:Record<string,unknown>)=>new Response(JSON.string
 type Result={status:'pending'|'blocked'|'ready';checkpoint:ByoPublishCheckpoint};
 type Scope={ownerId:string;projectId:string;operationId:string};
 
+/** Bound actual streamed bytes, including requests without a trusted length. */
+async function readPublishBody(request:Request){
+  const length=request.headers.get('content-length');
+  if(length!==null&&(!/^\d{1,8}$/.test(length)||Number(length)>2048))throw new Error();
+  if(request.headers.has('content-encoding')&&request.headers.get('content-encoding')!=='identity')throw new Error();
+  if(!request.body)throw new Error();
+  const reader=request.body.getReader(),bytes=new Uint8Array(2048);
+  let size=0,timer:ReturnType<typeof setTimeout>|undefined,complete=false;
+  const deadline=new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error()),5000);});
+  try{
+    while(true){
+      const {done,value}=await Promise.race([reader.read(),deadline]);
+      if(done){complete=true;break;}
+      if(size+value.byteLength>bytes.length)throw new Error();
+      bytes.set(value,size);size+=value.byteLength;
+    }
+    return new TextDecoder('utf-8',{fatal:true}).decode(bytes.subarray(0,size));
+  }finally{
+    clearTimeout(timer);
+    if(!complete)void reader.cancel().catch(()=>{});
+    reader.releaseLock();
+  }
+}
+
 function safeLiveUrl(value:string|null){
   if(value===null)return true;try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password&&!url.port
     &&url.pathname==='/'&&!url.search&&!url.hash&&/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?[.])+(?:[a-z]{2,63}|vercel[.]app)$/.test(url.hostname);
@@ -41,7 +65,7 @@ export async function handleWebsiteByoPublish(request:Request,context:{
   try{const identity=await context.platform.auth.getUser(bearer);if(identity.error||!identity.data.user||identity.data.user.is_anonymous
       ||!uuid.test(identity.data.user.id))throw new Error();ownerId=identity.data.user.id;
   }catch{return json(401,{error:'Sign in required.'});}
-  try{if(Number(request.headers.get('content-length')??0)>2048)throw new Error();const raw=await request.text();if(raw.length>2048)throw new Error();
+  try{const raw=await readPublishBody(request);
     input=JSON.parse(raw);if(!input||typeof input!=='object'||Array.isArray(input))throw new Error();action=String(input.action) as typeof action;
     const keys=action==='production'?['action','projectId','operationId','previewOperationId']
       :action==='status'?['action','projectId','operationId','environment']:['action','projectId','operationId'];
