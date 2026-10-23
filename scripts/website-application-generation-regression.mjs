@@ -362,6 +362,41 @@ try {
   assert.equal(fakeDashboard.state.AiStage, 'error'); assert.equal(fakeDashboard.state.Pages, undefined);
   const fakeRecordBrochure = await run({ projectKind: 'website', pages: [response.pages[0]] }, 6, 'بدي إدارة السجلات');
   assert.equal(fakeRecordBrochure.state.AiStage, 'error'); assert.equal(fakeRecordBrochure.state.Pages, undefined);
+
+  // Real applications must never be accepted as brochure-only pages.
+  const informationalRealEstate = { projectKind: 'website', pages: [{ name: 'Home', slug: 'home',
+    sections: [{ type: 'hero', title: 'Properties', buttonText: 'Explore', buttonUrl: '#hero' }] }] };
+  for (const prompt of [
+    'بدي تطبيق عقارات متكامل لإضافة العقارات وتعديلها وحذفها',
+    'اعمل نظام إدارة العقارات للموظفين',
+    'موقع عقارات فيه لوحة تحكم لإدارة الإعلانات',
+    'Build a property management application with saved listings',
+    'Build a custom app for my rental business',
+    'Build a property management application with a landing page',
+    'Landing page plus a working CRM for my team',
+    'Build a brochure site and a custom real estate app',
+    'صفحة تعريفية مع نظام إدارة العقارات',
+    'I need an online marketplace with sellers, buyers and orders',
+    'Build a real estate website where agents can add, edit and delete property listings',
+    'Build an interactive portal with user login and saved properties',
+    'Please create a booking and payment platform',
+    'أريد موقع عقاري فيه بحث وتصفية وإدارة حجوزات',
+    'Build a landing page plus a booking platform',
+  ]) {
+    const downgraded = await run(informationalRealEstate, 6, prompt);
+    assert.equal(downgraded.state.AiStage, 'error', 'Brochure downgrade: ' + prompt);
+    assert.equal(downgraded.state.Application, undefined);
+    assert.equal(downgraded.state.Pages, undefined);
+    assert.equal(downgraded.checkpoints.length, 0);
+  }
+  for (const prompt of ['بدي موقع عقارات تعريفي يعرض الصور', 'Create a landing page for my property management app', 'صفحة هبوط لنظام إدارة العقارات',
+    'Landing page for my booking platform, with screenshots of login and orders',
+    'Build an informational website about property management systems and database design',
+    'موقع تسويقي لمنصة الحجوزات يعرض ميزات تسجيل الدخول وإضافة الطلبات']) {
+    const brochureOnly = await run(informationalRealEstate, 6, prompt);
+    assert.equal(brochureOnly.state.AiStage, 'ready', 'Informational site should remain allowed: ' + prompt);
+    assert.equal(brochureOnly.state.Application, undefined);
+  }
   for (const [json, limit] of [
     [{ ...response, application: undefined }, 6],
     [{ ...response, application: { ...application, secrets: { token: 'forbidden' } } }, 6],
