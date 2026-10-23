@@ -56,6 +56,33 @@ export const createApplicationReferenceProjects = () => {
       { id: 'archive', label: 'Archive', from: ['analysed'], to: 'archived', access: 'role', roleId: 'reviewer' }] },
   });
 
+  // Broker-owned property catalog, buyer inquiries and computed commission receipts.
+  const properties = table('properties', [
+    field('listing-reference', 'text', true, { unique: true }),
+    field('headline', 'text'),
+    field('city', 'text'),
+    field('asking-price', 'number'),
+    field('listing-status', 'enum', true, { defaultValue: 'draft', options: ['draft', 'listed', 'under-offer', 'sold'] }),
+  ], {
+    workflow: { fieldId: 'listing-status', transitions: [
+      { id: 'publish', label: 'Publish listing', from: ['draft'], to: 'listed', access: 'owner' },
+      { id: 'accept-offer', label: 'Accept offer', from: ['listed'], to: 'under-offer', access: 'owner' },
+      { id: 'mark-sold', label: 'Mark sold', from: ['under-offer'], to: 'sold', access: 'owner' },
+    ] },
+  });
+  const buyerInquiries = table('buyer-inquiries', [
+    field('inquiry-property', 'reference', true, { key: 'property', referenceTableId: 'properties' }),
+    field('buyer-email', 'text'),
+    field('message', 'text', false),
+    field('inquiry-status', 'enum', true, { defaultValue: 'new', options: ['new', 'contacted', 'closed'] }),
+  ]);
+  const brokerageDeals = table('brokerage-deals', [
+    field('deal-property', 'reference', true, { key: 'property', referenceTableId: 'properties' }),
+    field('sale-price', 'number'),
+    field('commission-rate', 'number'),
+    field('commission-amount', 'number', true, { formula: { operation: 'multiply', fieldIds: ['sale-price', 'commission-rate'] } }),
+  ]);
+
   const references = [
     { domain: 'retail', definition: app(products, retailOrders, retailLines), expected: /app_create_transaction_1/, feature: { capability: 'transaction', tableId: 'orders', action: 'transact' } },
     { domain: 'restaurant', definition: app(menu, restaurantOrders), expected: /app_transition_workflow_1/, feature: { capability: 'workflow', tableId: 'kitchen-tickets', action: 'transition' } },
@@ -64,6 +91,8 @@ export const createApplicationReferenceProjects = () => {
     { domain: 'government', definition: app(cases), expected: /app_workflow_guard/, feature: { capability: 'workflow', tableId: 'permit-cases', action: 'transition' } },
     { domain: 'factory', definition: app(materials, workOrders, issues), expected: /app_create_transaction_1/, feature: { capability: 'transaction', tableId: 'work-orders', action: 'transact' } },
     { domain: 'custom-research', definition: app(samples), expected: /"metadata" jsonb/, feature: { capability: 'workflow', tableId: 'research-samples', action: 'transition' } },
+    { domain: 'real-estate', definition: app(properties, buyerInquiries, brokerageDeals), expected: /app_workflow_guard/,
+      feature: { capability: 'workflow', tableId: 'properties', action: 'transition' } },
   ];
   return references;
 };
