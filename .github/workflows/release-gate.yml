@@ -54,6 +54,10 @@ jobs:
         run: |
           node scripts/migration-source-map-regression.mjs
           node scripts/verify-migration-source-map.mjs
+          node scripts/production-migration-preflight-regression.mjs
+          node scripts/production-rollout-scope-guard-regression.mjs
+          node scripts/production-historical-migration-risk-regression.mjs
+          node scripts/production-migration-snapshot-regression.mjs
 
       - name: Customer publishing Edge source boundary (offline, no deployment)
         run: node scripts/release-edge-source-gate-regression.mjs

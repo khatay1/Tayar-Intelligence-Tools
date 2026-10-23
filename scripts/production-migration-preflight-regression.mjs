@@ -45,4 +45,21 @@ const matchedAll = evaluateProductionMigrationInventory({ local: [same, oldName]
 assert.equal(matchedAll.historyIdentityMatched, true);
 assert.deepEqual(matchedAll.pendingCandidates, []);
 assert.equal(matchedAll.releaseAuthorized, false, 'Even full inventory alignment never permits production mutation');
+// Production has one old remote name ending in .sql and an exact local
+// double-extension file. Both version and name must match precisely.
+const legacyVersion = '20260805165801';
+const legacyName = 'create_user_onboarding_table.sql';
+const legacyFile = `${legacyVersion}_${legacyName}.sql`;
+const legacyInput = { local: [...local, legacyFile], remote: [...remote, { version: legacyVersion, name: legacyName }], map };
+const legacy = evaluateProductionMigrationInventory(legacyInput);
+assert.equal(legacy.historyIdentityMatched, true);
+assert.equal(legacy.matchedDirectCount, 2);
+assert.equal(legacy.pendingCandidates.includes(legacyFile), false);
+assert.equal(legacy.releaseAuthorized, false);
+const unknownLegacy = evaluateProductionMigrationInventory({ ...legacyInput, local: [...legacyInput.local, '20260805165802_bad.sql.sql'] });
+assert.ok(unknownLegacy.errors.some(x => x.includes('Invalid local')));
+const wrongLegacyName = evaluateProductionMigrationInventory({ ...legacyInput, remote: [...remote, { version: legacyVersion, name: 'unknown.sql' }] });
+assert.ok(wrongLegacyName.errors.some(x => x.includes('Malformed remote')));
+const wrongLegacyVersion = evaluateProductionMigrationInventory({ ...legacyInput, remote: [...remote, { version: '20260805165802', name: legacyName }] });
+assert.ok(wrongLegacyVersion.errors.some(x => x.includes('Malformed remote')));
 console.log('PASS read-only production migration preflight: 1:1 and historical matches, quarantined old sources, new candidates, malformed/foreign/duplicate refusal, no activation');
