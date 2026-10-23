@@ -110,6 +110,7 @@ const statsSql = [
   " 'byo_publish_operations',to_regclass('private.website_byo_publish_operations') is not null,",
   " 'vercel_promotions',to_regclass('private.website_vercel_promotions') is not null,",
   " 'vault_secrets_empty',(select count(*) = 0 from vault.secrets),",
+  " 'private_app_release_bucket',(select count(*) = 1 from storage.buckets where id='website-application-releases' and public=false),",
   " 'private_anon_usage',has_schema_privilege('anon','private','USAGE')",
   '))::text;',
 ].join('\n');
@@ -196,9 +197,9 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       assert.ok(Number(values.tables) >= 18, 'Historical base tables must be present.');
       assert.ok(Number(values.rls) >= 14, 'Historical RLS must be present.');
       assert.ok(Number(values.policies) >= 30, 'Historical policies must be present.');
-      assert.equal(Number(values.storage_buckets), 5, 'All five reviewed Storage buckets must exist.');
+      assert.equal(Number(values.storage_buckets), 6, 'All six reviewed Storage buckets must exist.');
       assert.equal(Number(values.template_library_bucket), 1, 'Historical template-library bucket must exist.');
-      assert.equal(Number(values.storage_policies), 18, 'Eighteen reviewed Storage object RLS policies must exist.');
+      assert.equal(Number(values.storage_policies), 23, 'All 23 reviewed Storage object RLS policies must exist.');
       assert.equal(Number(values.storage_rls), 1, 'Storage objects must have RLS enabled.');
       assert.equal(values.has_website_versions, true, 'Reviewed publish-version table must exist and survive restore.');
       for (const key of [
@@ -262,7 +263,7 @@ if (process.env.GITHUB_ACTIONS !== 'true'
       assert.equal(Number(values.private_tables), Number(values.private_tables_rls),
         'Every reviewed BYO private custody table must have RLS enabled.');
       for (const key of ['infra_connections', 'secret_custody', 'byo_publish_operations',
-        'vercel_promotions', 'vault_secrets_empty']) {
+        'vercel_promotions', 'vault_secrets_empty', 'private_app_release_bucket']) {
         assert.equal(values[key], true, 'Reviewed BYO historical safety fixture missing: ' + key);
       }
       assert.equal(values.private_anon_usage, false, 'Anonymous user must not access private BYO schema.');
