@@ -147,7 +147,7 @@ export interface ApplicationRequirement {
   id: string;
   summary: string;
   capability: ApplicationRequirementCapability;
-  /** Verified references such as auth, page:<id>, form:<table>, view:<table>:<action>. */
+  /** Verified references such as auth, page:<id>, form:<table>, view:<table>:<control-or-action>. */
   evidence: string[];
 }
 export interface ApplicationRequirementManifest {

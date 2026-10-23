@@ -6,7 +6,7 @@ import { readProjectSpecification } from './project-specification';
 import { compileApplicationCreateForm } from './application-form-runtime';
 import { compileApplicationDataView } from './application-data-view';
 import { websiteProjectLinkIssues } from './website-project-links';
-import { explicitlyRequestsApplication, isExplicitPresentationOnlyRequest, requestedRealEstateRecordMutations, isRealEstateRecordTable } from './application-intent';
+import { explicitlyRequestsApplication, isExplicitPresentationOnlyRequest, requestedApplicationDataViewControls, requestedRealEstateRecordMutations, isRealEstateRecordTable } from './application-intent';
 
 const stockReservationPattern = /\b(?:(?:stock|inventory) reservations?|reserve (?:stock|inventory)|lagerreservation(?:er)?)\b|(?:حجز المخزون)/giu;
 const stockReservationRequest = (prompt: string) => new RegExp(stockReservationPattern.source, 'iu').test(prompt);
@@ -103,7 +103,10 @@ export function prepareGeneratedApplication(
   let stockAvailabilityViews = 0;
   let stockReservationViews = 0;
   let stockValuationViews = 0;
+  let searchViews = 0;
+  let filterViews = 0;
   const evidence = new Set<string>();
+  const requestedViewControls = requestedApplicationDataViewControls(prompt);
   const requestedPropertyMutations = requestedRealEstateRecordMutations(prompt);
   const propertyMutationEvidence = new Map<string, Set<string>>();
   const recordMutation = (tableId: string, action: string) => {
@@ -127,6 +130,14 @@ export function prepareGeneratedApplication(
       if (view.table.counter && view.binding.actions.includes('adjust')) counterViews++;
       if (view.table.transaction && view.binding.actions.includes('transact')) transactionViews++;
       evidence.add(`view:${view.table.id}:read`);
+      if (view.binding.searchFieldId) {
+        searchViews++;
+        evidence.add(`view:${view.table.id}:search`);
+      }
+      if (view.binding.filterFieldId) {
+        filterViews++;
+        evidence.add(`view:${view.table.id}:filter`);
+      }
       for (const action of view.binding.actions) {
         evidence.add(`view:${view.table.id}:${action}`);
         if (action === 'create' || action === 'update' || action === 'delete') recordMutation(view.table.id, action);
@@ -168,6 +179,8 @@ export function prepareGeneratedApplication(
       && requestedPropertyMutations.every(action => propertyMutationEvidence.get(table.id)?.has(action)))) {
     throw new Error('Property record creation, editing or deletion requires matching saved data and bound controls for every requested operation. No incomplete application was applied.');
   }
+  if (requestedViewControls.search && !searchViews) throw new Error('Requested record search requires a bound data view with a real text search predicate. No incomplete application was applied.');
+  if (requestedViewControls.filter && !filterViews) throw new Error('Requested record filtering requires a bound data view with a real enum filter predicate. No incomplete application was applied.');
   if (stockTransferRequest(prompt) && !stockTransferViews) throw new Error('Atomic warehouse transfers require saved physical stock locations and a bound stock-transfer view. Ordinary counter adjustments cannot fulfill this requirement. No incomplete application was applied.');
   if (physicalStockLocationRequest(prompt) && !physicalStockViews) throw new Error('Physical stock balances by location require saved stockLocations and a bound stock-availability view with item, location and quantity. A label alone cannot fulfill this requirement. No incomplete application was applied.');
   if (bookingRequest(prompt) && !bookingCreates) throw new Error('Appointment booking requires a bound create form or data view with a database booking rule; ordinary records cannot replace conflict-safe booking.');

@@ -68,6 +68,19 @@ export function isExplicitPresentationOnlyRequest(prompt: string): boolean {
   return hasPresentationDeliverable(text) && !explicitlyRequestsApplication(text);
 }
 
+/** Detect explicit data-view controls without treating SEO copy as an
+ * application search requirement. The result is domain-neutral and is used to
+ * reject generated applications that replace requested controls with text. */
+export function requestedApplicationDataViewControls(prompt: string): { search: boolean; filter: boolean } {
+  if (isExplicitPresentationOnlyRequest(prompt)) return { search: false, filter: false };
+  const text = normalizeIntentText(prompt)
+    .replace(/\b(?:search[ -]?engine optimization|SEO|sökmotoroptimering)\b|(?:تحسين محركات البحث)/giu, '');
+  return {
+    search: /\b(?:search|searching|find records?|find listings?|sök|sökning|söka)\b|(?:بحث|البحث|إمكانية البحث|امكانية البحث)/iu.test(text),
+    filter: /\b(?:filter|filters|filtering|filtrera|filtrering)\b|(?:تصفية|التصفية|فلترة|الفلترة)/iu.test(text),
+  };
+}
+
 /** Scope a deliberately narrow record-mutation contract to requested real-estate
  * operations. Domain labels alone do not imply CRUD, and a marketing page that
  * describes another app must not request any database mutation. */

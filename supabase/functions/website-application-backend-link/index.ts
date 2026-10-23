@@ -891,7 +891,7 @@ function validateApplicationDefinition(value, pageIds) {
           if (!authEnabled) issue(evidencePath, "missing-auth", "Auth evidence requires enabled authentication.");
           return;
         }
-        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|create|update|delete|adjust|transact|transition|attachments|pay|refund|stock-availability|stock-reservation|stock-transfer))?$/.exec(entry);
+        const match = /^(page|form|view|booking|counter|transaction|workflow|formula|files|payment|email|reports):([a-zA-Z0-9_-]{1,120})(?::(read|search|filter|create|update|delete|adjust|transact|transition|attachments|pay|refund|stock-availability|stock-reservation|stock-transfer))?$/.exec(entry);
         if (!match) {
           issue(evidencePath, "invalid-evidence", "Evidence must reference a supported page, table or action.");
           return;
